@@ -36,7 +36,7 @@ class NumericRule implements DataAwareRule, ValidationRule, ValidatorAwareRule
             $r .= ',' . $max;
         }
 
-return $this->addRule($r);
+        return $this->addRule($r);
     }
 
     public function different(string $field): static

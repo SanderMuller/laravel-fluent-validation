@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Carbon\CarbonImmutable;
 use Illuminate\Contracts\Validation\ValidationRule;
 use SanderMuller\FluentValidation\Rule;
 use SanderMuller\FluentValidation\Rules\ArrayRule;
@@ -1222,7 +1223,7 @@ it('validates date with different', function (): void {
 // =========================================================================
 
 it('validates date with DateTimeInterface argument', function (): void {
-    $cutoff = \Carbon\CarbonImmutable::parse('2025-06-01');
+    $cutoff = CarbonImmutable::parse('2025-06-01');
 
     $v = makeValidator(['d' => '2025-01-01'], ['d' => Rule::date()->before($cutoff)]);
     expect($v->passes())->toBeTrue();
@@ -1232,7 +1233,7 @@ it('validates date with DateTimeInterface argument', function (): void {
 });
 
 it('validates date with DateTimeInterface and custom format', function (): void {
-    $cutoff = \Carbon\CarbonImmutable::parse('2025-06-01');
+    $cutoff = CarbonImmutable::parse('2025-06-01');
 
     $validator = makeValidator(['d' => '01/01/2025'], ['d' => Rule::date()->format('m/d/Y')->before($cutoff)]);
     expect($validator->passes())->toBeTrue();
@@ -1688,7 +1689,7 @@ it('withoutEachRules returns clone without each rules', function (): void {
 // =========================================================================
 
 it('supports macros on StringRule', function (): void {
-    StringRule::macro('slug', fn() => $this->alpha(true)->lowercase());
+    StringRule::macro('slug', fn () => $this->alpha(true)->lowercase());
 
     $v = makeValidator(
         ['slug' => 'hello'],
