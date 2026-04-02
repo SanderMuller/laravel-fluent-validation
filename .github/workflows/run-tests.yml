@@ -63,5 +63,12 @@ jobs:
       - name: List Installed Dependencies
         run: composer show -D
 
+      - name: Cache PHPUnit results
+        uses: actions/cache@v4
+        with:
+          path: .cache/phpunit/
+          key: phpunit-cache-${{ matrix.php }}-${{ matrix.laravel }}-${{ matrix.stability }}-${{ matrix.os }}-${{ hashFiles('tests/**') }}
+          restore-keys: phpunit-cache-${{ matrix.php }}-${{ matrix.laravel }}-${{ matrix.stability }}-${{ matrix.os }}-
+
       - name: Execute tests
         run: vendor/bin/pest --ci

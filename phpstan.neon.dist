@@ -1,10 +1,42 @@
 includes:
     - phpstan-baseline.neon
+    - phar://phpstan.phar/conf/bleedingEdge.neon
+    - vendor/spaze/phpstan-disallowed-calls/disallowed-dangerous-calls.neon
+    - vendor/spaze/phpstan-disallowed-calls/disallowed-execution-calls.neon
+    - vendor/spaze/phpstan-disallowed-calls/disallowed-insecure-calls.neon
 
 parameters:
-    level: 5
+    tmpDir: .cache/phpstan
+
     paths:
         - src
-        - config
-        - database
-    tmpDir: build/phpstan
+
+    level: max
+
+    type_coverage:
+        return: 100
+        param: 100
+        property: 100
+        constant: 100
+        declare: 100
+
+    type_perfect:
+        null_over_false: true
+        no_mixed: false
+        narrow_param: false
+        narrow_return: true
+
+    cognitive_complexity:
+        class: 16
+        function: 9
+
+    strictRules:
+        allRules: true
+
+    editorUrl: 'phpstorm://open?file=%%file%%&line=%%line%%'
+
+    treatPhpDocTypesAsCertain: false
+
+    ignoreErrors:
+        - identifier: trait.unused
+        - identifier: ternary.condNotBoolean

@@ -1,17 +1,15 @@
-# Composer Related
+# Dependencies
 composer.lock
 /vendor
-
-# Frontend Assets
 /node_modules
+auth.json
 
 # Logs
 npm-debug.log
 yarn-error.log
 
 # Caches
-.phpunit.cache
-.phpunit.result.cache
+.cache
 /build
 
 # IDE Helper
@@ -30,3 +28,4 @@ phpstan.neon
 testbench.yaml
 /docs
 /coverage
+/autoresearch

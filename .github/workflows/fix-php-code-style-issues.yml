@@ -4,6 +4,11 @@ on:
   push:
     paths:
       - '**.php'
+      - 'pint.json'
+  pull_request:
+    paths:
+      - '**.php'
+      - 'pint.json'
 
 permissions:
   contents: write
@@ -21,8 +26,11 @@ jobs:
 
       - name: Fix PHP code style issues
         uses: aglipanci/laravel-pint-action@2.6
+        with:
+          configPath: pint.json
+          verboseMode: true
 
       - name: Commit changes
         uses: stefanzweifel/git-auto-commit-action@v7
         with:
-          commit_message: Fix styling
+          commit_message: 'chore: pint'

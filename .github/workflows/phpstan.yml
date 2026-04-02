@@ -5,6 +5,13 @@ on:
     paths:
       - '**.php'
       - 'phpstan.neon.dist'
+      - 'phpstan-baseline.neon'
+      - '.github/workflows/phpstan.yml'
+  pull_request:
+    paths:
+      - '**.php'
+      - 'phpstan.neon.dist'
+      - 'phpstan-baseline.neon'
       - '.github/workflows/phpstan.yml'
 
 jobs:
@@ -24,5 +31,12 @@ jobs:
       - name: Install composer dependencies
         uses: ramsey/composer-install@v4
 
+      - name: Cache PHPStan results
+        uses: actions/cache@v4
+        with:
+          path: .cache/phpstan/
+          key: phpstan-result-cache-${{ hashFiles('composer.lock', 'phpstan.neon.dist') }}
+          restore-keys: phpstan-result-cache-
+
       - name: Run PHPStan
-        run: ./vendor/bin/phpstan --error-format=github
+        run: ./vendor/bin/phpstan --error-format=github --no-interaction

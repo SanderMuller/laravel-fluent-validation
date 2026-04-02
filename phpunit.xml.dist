@@ -12,17 +12,19 @@
     failOnRisky="true"
     failOnEmptyTestSuite="true"
     beStrictAboutOutputDuringTests="true"
-    cacheDirectory=".phpunit.cache"
+    cacheDirectory=".cache/phpunit"
     backupStaticProperties="false"
 >
     <testsuites>
-        <testsuite name="VendorName Test Suite">
+        <testsuite name="SanderMuller Test Suite">
             <directory>tests</directory>
         </testsuite>
     </testsuites>
-    <logging>
-        <junit outputFile="build/report.junit.xml"/>
-    </logging>
+    <groups>
+        <exclude>
+            <group>benchmark</group>
+        </exclude>
+    </groups>
     <source>
         <include>
             <directory suffix=".php">./src</directory>

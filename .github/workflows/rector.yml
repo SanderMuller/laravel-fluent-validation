@@ -1,0 +1,51 @@
+name: Rector
+
+on:
+  push:
+    paths:
+      - '**.php'
+      - 'rector.php'
+      - '.github/workflows/rector.yml'
+  pull_request:
+    paths:
+      - '**.php'
+      - 'rector.php'
+      - '.github/workflows/rector.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  rector:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.head_ref }}
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          coverage: none
+
+      - name: Install composer dependencies
+        uses: ramsey/composer-install@v4
+
+      - name: Cache Rector results
+        uses: actions/cache@v4
+        with:
+          path: .cache/rector/
+          key: rector-cache-${{ hashFiles('rector.php') }}
+          restore-keys: rector-cache-
+
+      - name: Run Rector
+        run: vendor/bin/rector process --no-diffs
+
+      - name: Commit changes
+        uses: stefanzweifel/git-auto-commit-action@v7
+        with:
+          commit_message: 'chore: rector'

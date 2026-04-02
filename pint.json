@@ -1,0 +1,57 @@
+{
+    "preset": "laravel",
+    "cache-file": ".cache/pint/pint.json",
+    "rules": {
+        "backtick_to_shell_exec": true,
+        "blank_line_after_opening_tag": false,
+        "class_attributes_separation": {
+            "elements": {
+                "const": "one",
+                "method": "one"
+            }
+        },
+        "class_definition": {
+            "inline_constructor_arguments": false,
+            "multi_line_extends_each_single_line": false,
+            "single_item_single_line": false,
+            "single_line": false,
+            "space_before_parenthesis": true
+        },
+        "concat_space": {
+            "spacing": "one"
+        },
+        "constant_case": false,
+        "curly_braces_position": {
+            "control_structures_opening_brace": "same_line",
+            "functions_opening_brace": "next_line_unless_newline_at_signature_end",
+            "anonymous_functions_opening_brace": "same_line",
+            "classes_opening_brace": "next_line_unless_newline_at_signature_end",
+            "anonymous_classes_opening_brace": "same_line",
+            "allow_single_line_empty_anonymous_classes": false,
+            "allow_single_line_anonymous_functions": false
+        },
+        "declare_strict_types": true,
+        "function_typehint_space": false,
+        "linebreak_after_opening_tag": false,
+        "new_with_parentheses": {
+            "anonymous_class": false,
+            "named_class": true
+        },
+        "nullable_type_declaration": false,
+        "nullable_type_declaration_for_default_null_value": false,
+        "phpdoc_separation": false,
+        "phpdoc_align": false,
+        "single_class_element_per_statement": {
+            "elements": {}
+        },
+        "single_space_around_construct": false,
+        "type_declaration_spaces": false,
+        "unary_operator_spaces": false,
+        "whitespace_after_comma_in_array": false
+    },
+    "exclude": [
+        ".cache",
+        ".github",
+        "vendor"
+    ]
+}
