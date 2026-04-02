@@ -1,2 +1,37 @@
 parameters:
 	ignoreErrors:
+		-
+			rawMessage: 'Argument of an invalid type mixed supplied for foreach, only iterables are supported.'
+			identifier: foreach.nonIterable
+			count: 1
+			path: src/RuleSet.php
+
+		-
+			rawMessage: 'Cognitive complexity for "SanderMuller\FluentValidation\RuleSet::requiresFullExpansion()" is 10, keep it under 9'
+			identifier: complexity.functionLike
+			count: 1
+			path: src/RuleSet.php
+
+		-
+			rawMessage: 'Cognitive complexity for "SanderMuller\FluentValidation\RuleSet::validate()" is 40, keep it under 9'
+			identifier: complexity.functionLike
+			count: 1
+			path: src/RuleSet.php
+
+		-
+			rawMessage: 'Method SanderMuller\FluentValidation\RuleSet::validate() should return array<string, mixed> but returns array.'
+			identifier: return.type
+			count: 2
+			path: src/RuleSet.php
+
+		-
+			rawMessage: 'Method SanderMuller\FluentValidation\RuleSet::validateStandard() should return array<string, mixed> but returns array.'
+			identifier: return.type
+			count: 1
+			path: src/RuleSet.php
+
+		-
+			rawMessage: 'Parameter #2 $message of method Illuminate\Support\MessageBag::add() expects string, mixed given.'
+			identifier: argument.type
+			count: 1
+			path: src/RuleSet.php

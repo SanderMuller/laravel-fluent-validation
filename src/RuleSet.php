@@ -95,6 +95,7 @@ final class RuleSet implements Arrayable
             throw new ValidationException($topValidator);
         }
 
+        /** @var array<string, list<string>> $allErrors */
         $allErrors = [];
 
         foreach ($wildcardGroups as $parent => $groupRules) {
@@ -140,8 +141,8 @@ final class RuleSet implements Arrayable
         if ($allErrors !== []) {
             $errorValidator = Validator::make([], []);
             foreach ($allErrors as $field => $fieldErrors) {
-                foreach ((array) $fieldErrors as $fieldError) {
-                    $errorValidator->errors()->add($field, (string) $fieldError);
+                foreach ($fieldErrors as $fieldError) {
+                    $errorValidator->errors()->add($field, $fieldError);
                 }
             }
 
