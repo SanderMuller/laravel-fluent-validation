@@ -291,6 +291,35 @@ $validated = RuleSet::make()
 | `->expandWildcards($data)` | `array` | Pre-expand wildcards without validating |
 | `RuleSet::compile($rules)` | `array` | Compile fluent rules to native Laravel format |
 
+### Using with custom Validators
+
+If you extend `Illuminate\Validation\Validator` directly (e.g., for import jobs), you may use `RuleSet::compile()` to convert FluentRules to native format:
+
+```php
+class JsonImportValidator extends Validator
+{
+    public function __construct($translator, $data, $user)
+    {
+        parent::__construct(
+            $translator, $data,
+            rules: RuleSet::compile($this->buildRules()),
+        );
+    }
+
+    private function buildRules(): array
+    {
+        return [
+            '*.type' => FluentRule::string()->required()->in(InteractionType::cases()),
+            '*.end_time' => FluentRule::numeric()
+                ->requiredUnless('*.type', ...InteractionType::withoutDuration())
+                ->greaterThanOrEqualTo('*.start_time'),
+        ];
+    }
+}
+```
+
+> **Note:** When rules reference other fields using wildcards (e.g., `requiredUnless('*.type', ...)`), use `RuleSet::compile()` so the outer validator handles wildcard expansion. FluentRules used as standalone `ValidationRule` objects self-validate in isolation and can't resolve cross-field wildcard references.
+
 ---
 
 ## Rule reference

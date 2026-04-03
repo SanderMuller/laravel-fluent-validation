@@ -108,6 +108,12 @@ $validated = RuleSet::from([
 ])->validate($request->all());
 ```
 
+**Custom Validator subclasses:** Use `RuleSet::compile()` to convert FluentRules to native format for raw validators. This is required when rules reference other fields using wildcards (`requiredUnless('*.type', ...)`) — the outer validator needs to handle wildcard expansion, not SelfValidates.
+
+```php
+parent::__construct($translator, $data, rules: RuleSet::compile($this->buildRules()));
+```
+
 ## Labels and Messages
 
 ### Labels — factory argument
