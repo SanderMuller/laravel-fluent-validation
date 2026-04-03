@@ -282,6 +282,7 @@ All date comparison methods accept `DateTimeInterface|string`:
 - Structure: `list()`, `requiredArrayKeys(...$keys)`
 - Wildcard children: `each($rule)` for scalar items, `each([...])` for object items → produces `items.*.name`
 - Fixed-key children: `children([...])` for known-key objects → produces `search.value` (no wildcard). Also available on `FluentRule::field()`
+- Polymorphic fields: `FluentRule::field()->rule(FluentRule::anyOf([...]))->children([...])` for fields that can be different types with optional child keys
 - Constructor: `FluentRule::array(['name', 'email'])` — restrict allowed keys; accepts `BackedEnum` values
 
 ## File-Specific Methods

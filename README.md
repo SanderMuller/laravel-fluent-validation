@@ -191,6 +191,22 @@ For objects with known keys (not wildcard arrays), you may use `children()` to c
 ]),
 ```
 
+You may combine `FluentRule::field()` with `rule()` and `children()` to handle polymorphic fields — for example a field that can be either a string or an object with child keys:
+
+```php
+'data' => FluentRule::field()->nullable()->rule(FluentRule::anyOf([
+    FluentRule::string(),
+    FluentRule::array(),
+]))->children([
+    '_'      => FluentRule::string()->nullable(),
+    'sort'   => FluentRule::string()->nullable(),
+    'render' => FluentRule::array()->nullable()->children([
+        'display' => FluentRule::string()->nullable(),
+        'filter'  => FluentRule::string()->nullable(),
+    ]),
+]),
+```
+
 ## Performance
 
 Laravel's wildcard validation (`items.*.name`) has [known O(n²) performance issues](https://github.com/laravel/framework/issues/49375) for large arrays. This package solves them.
