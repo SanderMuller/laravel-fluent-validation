@@ -320,6 +320,8 @@ trait HasFieldModifiers
         $branch = clone $this;
         $branch->constraints = [];
         $branch->rules = [];
+        $branch->customMessages = [];
+        $branch->lastConstraint = null;
         $branch->compiledCache = null;
         $rules($branch);
 
