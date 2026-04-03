@@ -283,4 +283,44 @@ trait HasFieldModifiers
 
         return $this->addRule($rule);
     }
+
+    /**
+     * Conditionally apply rules based on the input data at validation time.
+     *
+     * Unlike when() (which evaluates at build time), this defers the condition
+     * to validation time — the closure receives the full input as a Fluent object.
+     *
+     *     FluentRule::string()->whenInput(
+     *         fn ($input) => $input->role === 'admin',
+     *         fn ($r) => $r->required()->min(12),
+     *         fn ($r) => $r->sometimes()->max(100),
+     *     )
+     *
+     * @param  Closure(\Illuminate\Support\Fluent): bool  $condition
+     * @param  Closure(static): static|string|array<int, string>  $rules
+     * @param  Closure(static): static|string|array<int, string>  $defaultRules
+     */
+    public function whenInput(Closure $condition, Closure|string|array $rules, Closure|string|array $defaultRules = []): static
+    {
+        return $this->addRule(\Illuminate\Validation\Rule::when(
+            $condition,
+            $this->compileConditionalBranch($rules),
+            $this->compileConditionalBranch($defaultRules),
+        ));
+    }
+
+    private function compileConditionalBranch(Closure|string|array $rules): string|array
+    {
+        if (! $rules instanceof Closure) {
+            return $rules;
+        }
+
+        $branch = clone $this;
+        $branch->constraints = [];
+        $branch->rules = [];
+        $branch->compiledCache = null;
+        $rules($branch);
+
+        return $branch->compiledRules();
+    }
 }

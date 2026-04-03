@@ -499,14 +499,39 @@ All rule types use Laravel's `Conditionable` trait, so you may conditionally app
 FluentRule::string()->required()->when($isAdmin, fn ($r) => $r->min(12))->max(255)
 ```
 
-### Escape hatch & macros
-
-You may add any Laravel validation rule via `rule()`, and extend rule types with macros:
+For data-dependent conditions that need to inspect the input at validation time, you may use `whenInput()`:
 
 ```php
-FluentRule::string()->rule('email:rfc,dns')->rule(new MyCustomRule())
+FluentRule::string()->whenInput(
+    fn ($input) => $input->role === 'admin',
+    fn ($r) => $r->required()->min(12),
+    fn ($r) => $r->sometimes()->max(100),
+)
+```
 
+The condition closure receives the full input as a `Fluent` object and is evaluated during validation, not at build time. You may also pass string rules instead of closures: `->whenInput($condition, 'required|min:12')`.
+
+### Escape hatch
+
+You may add any Laravel validation rule via `rule()` — strings, objects, or array tuples:
+
+```php
+FluentRule::string()->rule('email:rfc,dns')
+FluentRule::string()->rule(new MyCustomRule())
+FluentRule::file()->rule(['mimetypes', ...$acceptedTypes])
+```
+
+### Macros
+
+Macros let you create reusable rule chains that can be shared across fields and files:
+
+```php
+// In a service provider
+NumericRule::macro('percentage', fn () => $this->integer()->min(0)->max(100));
 StringRule::macro('slug', fn () => $this->alpha(true)->lowercase());
+
+// Then use anywhere
+FluentRule::numeric()->percentage()
 FluentRule::string()->slug()
 ```
 

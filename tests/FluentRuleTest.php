@@ -363,6 +363,56 @@ it('requiredIf with false value serializes correctly', function (): void {
 });
 
 // =========================================================================
+// =========================================================================
+// whenInput() — data-dependent conditional rules
+// =========================================================================
+
+it('whenInput applies rules when condition is true', function (): void {
+    $rule = FluentRule::string()->whenInput(
+        fn ($input) => $input->role === 'admin',
+        fn ($r) => $r->required()->min(12),
+    );
+
+    $compiled = RuleSet::compile(['password' => $rule]);
+    $v = makeValidator(['role' => 'admin', 'password' => 'short'], $compiled);
+    expect($v->passes())->toBeFalse();
+});
+
+it('whenInput skips rules when condition is false', function (): void {
+    $rule = FluentRule::string()->whenInput(
+        fn ($input) => $input->role === 'admin',
+        fn ($r) => $r->required()->min(12),
+    );
+
+    $compiled = RuleSet::compile(['password' => $rule]);
+    $v = makeValidator(['role' => 'user', 'password' => 'short'], $compiled);
+    expect($v->passes())->toBeTrue();
+});
+
+it('whenInput applies default rules when condition is false', function (): void {
+    $rule = FluentRule::string()->whenInput(
+        fn ($input) => $input->role === 'admin',
+        fn ($r) => $r->required()->min(12),
+        fn ($r) => $r->sometimes()->max(5),
+    );
+
+    $compiled = RuleSet::compile(['password' => $rule]);
+    $v = makeValidator(['role' => 'user', 'password' => 'toolong'], $compiled);
+    expect($v->passes())->toBeFalse();
+});
+
+it('whenInput accepts string rules instead of closures', function (): void {
+    $rule = FluentRule::string()->whenInput(
+        fn ($input) => $input->type === 'premium',
+        'required|min:12',
+    );
+
+    $compiled = RuleSet::compile(['code' => $rule]);
+    $v = makeValidator(['type' => 'premium', 'code' => 'short'], $compiled);
+    expect($v->passes())->toBeFalse();
+});
+
+// =========================================================================
 // notIn validation
 // =========================================================================
 

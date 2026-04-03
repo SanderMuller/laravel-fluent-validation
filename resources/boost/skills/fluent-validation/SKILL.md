@@ -186,14 +186,17 @@ Other:
 
 ## Conditional Rule Building
 
-All rule types use Laravel's `Conditionable` trait:
+Build-time conditions using Laravel's `Conditionable` trait — evaluated when the rules array is built:
 
 ```php
 FluentRule::string()->required()->when($isAdmin, fn ($r) => $r->min(12))->max(255)
+```
 
-// With else branch (replaces Rule::when($cond, $rules, $default))
-FluentRule::string()->when(
-    $isAdmin,
+Data-dependent conditions using `whenInput()` — evaluated at validation time with access to the full input:
+
+```php
+FluentRule::string()->whenInput(
+    fn ($input) => $input->role === 'admin',
     fn ($r) => $r->required()->min(12),
     fn ($r) => $r->sometimes()->max(100),
 )
