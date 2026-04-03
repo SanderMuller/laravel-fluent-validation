@@ -7,6 +7,8 @@ namespace SanderMuller\FluentValidation\Rules\Concerns;
 use Closure;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Support\Arr;
+use Illuminate\Support\Fluent;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\ExcludeIf;
 use Illuminate\Validation\Rules\ExcludeUnless;
 use Illuminate\Validation\Rules\Exists;
@@ -296,13 +298,13 @@ trait HasFieldModifiers
      *         fn ($r) => $r->sometimes()->max(100),
      *     )
      *
-     * @param  Closure(\Illuminate\Support\Fluent): bool  $condition
+     * @param  Closure(Fluent): bool  $condition
      * @param  Closure(static): static|string|array<int, string>  $rules
      * @param  Closure(static): static|string|array<int, string>  $defaultRules
      */
     public function whenInput(Closure $condition, Closure|string|array $rules, Closure|string|array $defaultRules = []): static
     {
-        return $this->addRule(\Illuminate\Validation\Rule::when(
+        return $this->addRule(Rule::when(
             $condition,
             $this->compileConditionalBranch($rules),
             $this->compileConditionalBranch($defaultRules),
