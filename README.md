@@ -354,6 +354,16 @@ FluentRule::image()->minWidth(100)->maxWidth(1920)->minHeight(100)->maxHeight(10
 FluentRule::image()->width(800)->height(600)->ratio(16 / 9)
 ```
 
+### Field (untyped)
+
+When a field needs modifiers but no type constraint, you may use `FluentRule::field()`:
+
+```php
+FluentRule::field()->present()
+FluentRule::field()->requiredIf('type', 'special')
+FluentRule::field('Answer')->nullable()->in(['yes', 'no'])
+```
+
 ### AnyOf
 
 Validate that a value passes at least one of the given rule sets (Laravel's `Rule::anyOf` equivalent):

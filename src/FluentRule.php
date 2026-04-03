@@ -10,6 +10,7 @@ use SanderMuller\FluentValidation\Rules\ArrayRule;
 use SanderMuller\FluentValidation\Rules\BooleanRule;
 use SanderMuller\FluentValidation\Rules\DateRule;
 use SanderMuller\FluentValidation\Rules\EmailRule;
+use SanderMuller\FluentValidation\Rules\FieldRule;
 use SanderMuller\FluentValidation\Rules\FileRule;
 use SanderMuller\FluentValidation\Rules\ImageRule;
 use SanderMuller\FluentValidation\Rules\NumericRule;
@@ -85,6 +86,13 @@ class FluentRule
         $passwordRule = new PasswordRule($min);
 
         return $label !== null ? $passwordRule->label($label) : $passwordRule;
+    }
+
+    public static function field(?string $label = null): FieldRule
+    {
+        $fieldRule = new FieldRule();
+
+        return $label !== null ? $fieldRule->label($label) : $fieldRule;
     }
 
     /** @param  array<int, mixed>  $rules */

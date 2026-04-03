@@ -28,6 +28,7 @@ use SanderMuller\FluentValidation\RuleSet;
 | `FluentRule::password()` | `PasswordRule` | `'string'` + `Password` |
 | `FluentRule::file()`     | `FileRule`     | `'file'`          |
 | `FluentRule::image()`    | `ImageRule`    | `'image'`         |
+| `FluentRule::field()`    | `FieldRule`    | (no type constraint) |
 | `FluentRule::anyOf([...])` | `AnyOf`      | OR combinator     |
 
 ## Usage Tiers
