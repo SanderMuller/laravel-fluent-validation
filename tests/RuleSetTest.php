@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Illuminate\Contracts\Validation\Factory;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
@@ -1266,14 +1267,14 @@ it('FluentValidator handles cross-field wildcard references', function (): void 
         ]],
         [
             'items' => 'required|array',
-            'items.*.type' => ['required', 'string', \Illuminate\Validation\Rule::in(['chapter', 'menu', 'button'])],
+            'items.*.type' => ['required', 'string', Rule::in(['chapter', 'menu', 'button'])],
             'items.*.title' => ['nullable', 'string'],
             'items.*.end_time' => [
                 ['required_unless', 'items.*.type', 'menu'],
                 'numeric',
             ],
         ]
-    ) extends \SanderMuller\FluentValidation\FluentValidator {};
+    ) extends FluentValidator {};
 
     expect($validator->passes())->toBeTrue();
 });
@@ -1291,7 +1292,7 @@ it('FluentValidator fails cross-field wildcard references correctly', function (
                 'numeric',
             ],
         ]
-    ) extends \SanderMuller\FluentValidation\FluentValidator {};
+    ) extends FluentValidator {};
 
     expect($validator->passes())->toBeFalse();
     expect($validator->errors()->keys())->toContain('items.0.end_time');
@@ -1313,7 +1314,7 @@ it('HasFluentRules handles cross-field wildcard references', function (): void {
         ],
     );
 
-    $factory = app(\Illuminate\Contracts\Validation\Factory::class);
+    $factory = app(Factory::class);
     $validator = (fn () => $this->createDefaultValidator($factory))->call($formRequest);
 
     expect($validator->passes())->toBeTrue();
