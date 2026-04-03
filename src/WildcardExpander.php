@@ -30,7 +30,11 @@ class WildcardExpander
      * @param  list<string>  $path
      * @return list<string>
      */
-    private static function resolve(array $segments, mixed $current, array $path): array
+    /**
+     * @param  bool  $afterWildcard  Whether we've passed through a * segment. After a wildcard,
+     *                               missing keys still produce paths (so `required` rules work).
+     */
+    private static function resolve(array $segments, mixed $current, array $path, bool $afterWildcard = false): array
     {
         if ($segments === []) {
             return [implode('.', $path)];
@@ -47,16 +51,23 @@ class WildcardExpander
             $paths = [];
 
             foreach (array_keys($current) as $key) {
-                array_push($paths, ...self::resolve($remaining, $current[$key], [...$path, (string) $key]));
+                array_push($paths, ...self::resolve($remaining, $current[$key], [...$path, (string) $key], true));
             }
 
             return $paths;
         }
 
         if (! is_array($current) || ! array_key_exists($segment, $current)) {
-            return [];
+            // Before any wildcard: the path doesn't exist in the data at all.
+            // After a wildcard: the key is missing from this item — still emit
+            // the path so rules like `required` can validate against it.
+            if (! $afterWildcard) {
+                return [];
+            }
+
+            return [implode('.', [...$path, $segment, ...$remaining])];
         }
 
-        return self::resolve($remaining, $current[$segment], [...$path, $segment]);
+        return self::resolve($remaining, $current[$segment], [...$path, $segment], $afterWildcard);
     }
 }
