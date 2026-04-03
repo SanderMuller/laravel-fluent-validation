@@ -7,11 +7,11 @@ namespace SanderMuller\FluentValidation\Rules\Concerns;
 use Closure;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Support\Arr;
+use Illuminate\Validation\Rules\ExcludeIf;
+use Illuminate\Validation\Rules\ExcludeUnless;
 use Illuminate\Validation\Rules\Exists;
 use Illuminate\Validation\Rules\In;
 use Illuminate\Validation\Rules\NotIn;
-use Illuminate\Validation\Rules\ExcludeIf;
-use Illuminate\Validation\Rules\ExcludeUnless;
 use Illuminate\Validation\Rules\ProhibitedIf;
 use Illuminate\Validation\Rules\ProhibitedUnless;
 use Illuminate\Validation\Rules\RequiredIf;
@@ -165,7 +165,6 @@ trait HasFieldModifiers
     {
         return $this->addRule('missing_with_all:' . implode(',', $fields));
     }
-
 
     public function requiredIf(Closure|bool|string $field, string|int ...$values): static
     {
