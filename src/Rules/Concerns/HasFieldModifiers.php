@@ -256,10 +256,22 @@ trait HasFieldModifiers
     }
 
     /**
-     * @param  ValidationRule|Closure(string, mixed, Closure): void|string  $rule
+     * Add any Laravel validation rule — string, object, or array tuple.
+     *
+     * Array tuples like ['mimetypes', 'image/jpeg', 'application/pdf'] are
+     * converted to string format ('mimetypes:image/jpeg,application/pdf').
+     * This is useful when rule parameters are dynamic.
+     *
+     * @param  ValidationRule|Closure(string, mixed, Closure): void|string|array<int, string>  $rule
      */
-    public function rule(object|string $rule): static
+    public function rule(object|string|array $rule): static
     {
+        if (is_array($rule)) {
+            $params = array_slice($rule, 1);
+
+            return $this->addRule($params === [] ? $rule[0] : $rule[0] . ':' . implode(',', $params));
+        }
+
         return $this->addRule($rule);
     }
 }
