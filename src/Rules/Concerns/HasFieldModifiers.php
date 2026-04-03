@@ -10,6 +10,8 @@ use Illuminate\Support\Arr;
 use Illuminate\Validation\Rules\Exists;
 use Illuminate\Validation\Rules\In;
 use Illuminate\Validation\Rules\NotIn;
+use Illuminate\Validation\Rules\ExcludeIf;
+use Illuminate\Validation\Rules\ExcludeUnless;
 use Illuminate\Validation\Rules\ProhibitedIf;
 use Illuminate\Validation\Rules\ProhibitedUnless;
 use Illuminate\Validation\Rules\RequiredIf;
@@ -81,6 +83,8 @@ trait HasFieldModifiers
                 $rules instanceof RequiredUnless => 'required',
                 $rules instanceof ProhibitedIf => 'prohibited',
                 $rules instanceof ProhibitedUnless => 'prohibited',
+                $rules instanceof ExcludeIf => 'exclude',
+                $rules instanceof ExcludeUnless => 'exclude',
                 $rules instanceof In => 'in',
                 $rules instanceof NotIn => 'not_in',
                 $rules instanceof Unique => 'unique',
@@ -142,6 +146,27 @@ trait HasFieldModifiers
         return $this->addRule('missing');
     }
 
+    public function missingIf(string $field, string|int ...$values): static
+    {
+        return $this->addRule('missing_if:' . $field . ',' . implode(',', $values));
+    }
+
+    public function missingUnless(string $field, string|int ...$values): static
+    {
+        return $this->addRule('missing_unless:' . $field . ',' . implode(',', $values));
+    }
+
+    public function missingWith(string ...$fields): static
+    {
+        return $this->addRule('missing_with:' . implode(',', $fields));
+    }
+
+    public function missingWithAll(string ...$fields): static
+    {
+        return $this->addRule('missing_with_all:' . implode(',', $fields));
+    }
+
+
     public function requiredIf(Closure|bool|string $field, string|int ...$values): static
     {
         if ($field instanceof Closure || is_bool($field)) {
@@ -180,13 +205,21 @@ trait HasFieldModifiers
         return $this->addRule('required_without_all:' . implode(',', $fields));
     }
 
-    public function excludeIf(string $field, string|int ...$values): static
+    public function excludeIf(Closure|bool|string $field, string|int ...$values): static
     {
+        if ($field instanceof Closure || is_bool($field)) {
+            return $this->addRule(new ExcludeIf($field));
+        }
+
         return $this->addRule('exclude_if:' . $field . ',' . implode(',', $values));
     }
 
-    public function excludeUnless(string $field, string|int ...$values): static
+    public function excludeUnless(Closure|bool|string $field, string|int ...$values): static
     {
+        if ($field instanceof Closure || is_bool($field)) {
+            return $this->addRule(new ExcludeUnless($field));
+        }
+
         return $this->addRule('exclude_unless:' . $field . ',' . implode(',', $values));
     }
 
