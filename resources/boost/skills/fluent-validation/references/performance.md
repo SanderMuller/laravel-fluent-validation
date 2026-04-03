@@ -17,11 +17,11 @@ Laravel's wildcard validation (`items.*.name`) has O(n²) performance for large 
 ### FormRequest (recommended)
 
 ```php
-use SanderMuller\FluentValidation\ExpandsWildcards;
+use SanderMuller\FluentValidation\HasFluentRules;
 
 class ImportRequest extends FormRequest
 {
-    use ExpandsWildcards;
+    use HasFluentRules;
 
     public function rules(): array
     {
@@ -40,20 +40,21 @@ $validated = RuleSet::from([...])->validate($request->all());
 
 ### Custom Validator subclasses
 
-Use `->prepare($data)` for a single-call pipeline that handles expand, extract metadata, and compile in the correct order:
+Extend `FluentValidator` instead of `Illuminate\Validation\Validator`. It handles the full pipeline automatically:
 
 ```php
-$prepared = RuleSet::from($this->buildRules())->prepare($data);
+use SanderMuller\FluentValidation\FluentValidator;
 
-parent::__construct($translator, $data, $prepared->rules, $prepared->messages, $prepared->attributes);
-
-// Apply wildcard mapping (needed for distinct, cross-field comparisons)
-if ($prepared->implicitAttributes !== []) {
-    (new ReflectionProperty($this, 'implicitAttributes'))->setValue($this, $prepared->implicitAttributes);
+class JsonImportValidator extends FluentValidator
+{
+    public function __construct(array $data, protected ?User $user = null)
+    {
+        parent::__construct($data, $this->buildRules());
+    }
 }
 ```
 
-`PreparedRules` contains: `rules`, `messages`, `attributes`, `implicitAttributes`.
+Resolves translator, presence verifier, calls `prepare()`, sets implicit attributes. For manual control, use `RuleSet::prepare($data)` which returns a `PreparedRules` DTO.
 
 ## RuleSet API
 

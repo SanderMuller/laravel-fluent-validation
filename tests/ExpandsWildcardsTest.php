@@ -7,7 +7,7 @@ use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Validation\ValidationException;
-use SanderMuller\FluentValidation\ExpandsWildcards;
+use SanderMuller\FluentValidation\HasFluentRules;
 use SanderMuller\FluentValidation\FluentRule;
 
 // =========================================================================
@@ -174,7 +174,7 @@ it('works with nested each() rules', function (): void {
 function createFormRequest(array $rules, array $data): FormRequest
 {
     $formRequest = new class extends FormRequest {
-        use ExpandsWildcards;
+        use HasFluentRules;
 
         public static array $testRules = [];
 

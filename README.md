@@ -45,9 +45,12 @@ You may use FluentRule in Form Requests exactly as you would string rules:
 ```php
 use Illuminate\Foundation\Http\FormRequest;
 use SanderMuller\FluentValidation\FluentRule;
+use SanderMuller\FluentValidation\HasFluentRules;
 
 class StorePostRequest extends FormRequest
 {
+    use HasFluentRules;
+
     public function rules(): array
     {
         return [
@@ -222,14 +225,14 @@ $validated = RuleSet::from([
 ])->validate($request->all());
 ```
 
-**Option 2: `ExpandsWildcards` trait for Form Requests:**
+**Option 2: `HasFluentRules` trait for Form Requests:**
 
 ```php
-use SanderMuller\FluentValidation\ExpandsWildcards;
+use SanderMuller\FluentValidation\HasFluentRules;
 
 class ImportRequest extends FormRequest
 {
-    use ExpandsWildcards;
+    use HasFluentRules;
 
     public function rules(): array
     {
@@ -243,7 +246,7 @@ class ImportRequest extends FormRequest
 }
 ```
 
-> **Note:** Without `RuleSet` or the `ExpandsWildcards` trait, rules work normally through Laravel's built-in validation. You just won't get the performance optimization for wildcards.
+> **Note:** Without `RuleSet` or `HasFluentRules`, rules work normally through Laravel's built-in validation. You just won't get the performance optimization for wildcards.
 
 Benchmarks run automatically on PRs via GitHub Actions.
 
@@ -292,27 +295,16 @@ $validated = RuleSet::make()
 
 ### Using with custom Validators
 
-If you extend `Illuminate\Validation\Validator` directly (e.g., for import jobs), you may use `RuleSet::compile()` to convert FluentRules to native format:
+If you extend `Illuminate\Validation\Validator` directly (e.g., for import jobs), extend `FluentValidator` instead. It handles the full pipeline automatically:
 
 ```php
-class JsonImportValidator extends Validator
+use SanderMuller\FluentValidation\FluentValidator;
+
+class JsonImportValidator extends FluentValidator
 {
-    public function __construct($translator, $data, $user)
+    public function __construct(array $data, protected ?User $user = null)
     {
-        $prepared = RuleSet::from($this->buildRules())->prepare($data);
-
-        parent::__construct(
-            $translator, $data,
-            rules: $prepared->rules,
-            messages: $prepared->messages,
-            attributes: $prepared->attributes,
-        );
-
-        // Apply wildcard mapping for rules like distinct, cross-field comparisons
-        if ($prepared->implicitAttributes !== []) {
-            (new \ReflectionProperty($this, 'implicitAttributes'))
-                ->setValue($this, $prepared->implicitAttributes);
-        }
+        parent::__construct($data, $this->buildRules());
     }
 
     private function buildRules(): array
@@ -327,7 +319,9 @@ class JsonImportValidator extends Validator
 }
 ```
 
-> **Note:** When rules reference other fields using wildcards (e.g., `requiredUnless('*.type', ...)`), use `RuleSet::compile()` so the outer validator handles wildcard expansion. FluentRules used as standalone `ValidationRule` objects self-validate in isolation and can't resolve cross-field wildcard references.
+`FluentValidator` resolves the translator and presence verifier from the container, calls `prepare()` on the rules, and sets implicit attributes. No manual wiring needed.
+
+> **Note:** When rules reference other fields using wildcards (e.g., `requiredUnless('*.type', ...)`), `FluentValidator` and `HasFluentRules` handle this automatically. Standalone FluentRule objects self-validate in isolation and can't resolve cross-field wildcard references.
 
 > **Tip:** For validators with many cross-field references using a dynamic prefix, a simple helper reduces repetition:
 >

@@ -1,6 +1,6 @@
 ---
 name: optimize-validation
-description: "Scan existing validation code for performance and DX improvements using laravel-fluent-validation. Finds missing ExpandsWildcards traits, convertible string rules, and opportunities for labels and each(). Activates when: optimizing validation, converting to fluent rules, migrating validation, or improving validation performance."
+description: "Scan existing validation code for performance and DX improvements using laravel-fluent-validation. Finds missing HasFluentRules traits, convertible string rules, and opportunities for labels and each(). Activates when: optimizing validation, converting to fluent rules, migrating validation, or improving validation performance."
 ---
 
 # Optimize Validation
@@ -37,7 +37,7 @@ rg "'\*\." --type php -l
 Read each file. Look for these specific patterns:
 
 **Detection patterns:**
-- `items.*.name` with no `ExpandsWildcards` → suggest the trait
+- `items.*.name` with no `HasFluentRules` → suggest the trait
 - `required_unless:items.*.type` or `gte:items.*.field` (cross-field wildcard refs) → MUST use `RuleSet::compile()`, flag as risk
 - `field.child1`, `field.child2` sharing a parent → suggest `children()`
 - `field.*` + `field.*.child1` + `field.*.child2` → suggest `each()`
@@ -53,7 +53,7 @@ Format the summary as:
 ## Validation Optimization Report
 
 ### High impact (performance)
-- `app/Http/Requests/ImportRequest.php` — 12 wildcard rules, no ExpandsWildcards trait
+- `app/Http/Requests/ImportRequest.php` — 12 wildcard rules, no HasFluentRules trait
 - `app/Validators/JsonImportValidator.php` — custom Validator with cross-field wildcards, needs RuleSet::compile()
 
 ### Medium impact (DX)
@@ -69,7 +69,7 @@ Ask the user which files/categories to proceed with.
 ### Priority categories
 
 **High impact (performance):**
-1. FormRequests with wildcard rules that don't use `ExpandsWildcards`
+1. FormRequests with wildcard rules that don't use `HasFluentRules`
 2. Custom Validator subclasses with wildcard rules that don't use `RuleSet::compile()`
 
 **Medium impact (DX):**
@@ -86,16 +86,16 @@ Ask the user which files/categories to proceed with.
 
 Apply one file at a time. Run tests after each file.
 
-### 4a: Add ExpandsWildcards trait
+### 4a: Add HasFluentRules trait
 
 The minimal performance change. Works with existing wildcard rules without converting to fluent:
 
 ```php
-use SanderMuller\FluentValidation\ExpandsWildcards;
+use SanderMuller\FluentValidation\HasFluentRules;
 
 class ImportRequest extends FormRequest
 {
-    use ExpandsWildcards;
+    use HasFluentRules;
 
     // existing rules() method unchanged — wildcards are optimized automatically
 }
@@ -114,22 +114,27 @@ For even better performance, also convert wildcards to `each()`:
 ]),
 ```
 
-### 4b: Add prepare() to custom Validators
+### 4b: Extend FluentValidator for custom Validators
 
-`prepare()` handles expand, extract metadata, and compile in one call:
+Replace `extends Validator` with `extends FluentValidator`:
 
 ```php
 // Before
-parent::__construct($translator, $data, $this->buildRules());
+class MyValidator extends Validator
+{
+    public function __construct($translator, $data, $rules) {
+        parent::__construct($translator, $data, $rules);
+    }
+}
 
 // After
-use SanderMuller\FluentValidation\RuleSet;
+use SanderMuller\FluentValidation\FluentValidator;
 
-$prepared = RuleSet::from($this->buildRules())->prepare($data);
-parent::__construct($translator, $data, $prepared->rules, $prepared->messages, $prepared->attributes);
-
-if ($prepared->implicitAttributes !== []) {
-    (new ReflectionProperty($this, 'implicitAttributes'))->setValue($this, $prepared->implicitAttributes);
+class MyValidator extends FluentValidator
+{
+    public function __construct(array $data) {
+        parent::__construct($data, $this->buildRules());
+    }
 }
 ```
 
@@ -224,12 +229,12 @@ Only for simple rule-specific messages. Keep `messages()` for complex/conditiona
 
 1. Run the file's specific tests immediately (not the full suite until the end)
 2. Check error messages (labels change `:attribute` text)
-3. Verify `validated()` output structure if using `ExpandsWildcards`
+3. Verify `validated()` output structure if using `HasFluentRules`
 
 ## Recommended file order
 
 1. Simple FormRequests with few rules and no cross-field references
-2. FormRequests with wildcards (add `ExpandsWildcards`)
+2. FormRequests with wildcards (add `HasFluentRules`)
 3. FormRequests with `attributes()`/`messages()` (replace with labels)
 4. Complex custom Validator subclasses (need `RuleSet::compile()` understanding)
 
@@ -237,7 +242,7 @@ Only for simple rule-specific messages. Keep `messages()` for complex/conditiona
 
 Flag these to the user before applying changes:
 
-- **Cross-field wildcard references** (`requiredUnless('items.*.type', ...)`) MUST use `RuleSet::compile()` or `ExpandsWildcards`. They don't work through standalone FluentRule self-validation. Flag any file that has these.
+- **Cross-field wildcard references** (`requiredUnless('items.*.type', ...)`) MUST use `RuleSet::compile()` or `HasFluentRules`. They don't work through standalone FluentRule self-validation. Flag any file that has these.
 - **`exclude` rules** only affect `validated()` at the outer validator level. When converting, keep `['exclude', FluentRule::string()]` not `FluentRule::string()->exclude()`.
 - **`anyOf()`** requires Laravel 13+. Skip on older versions.
 - **`anyOf()`** requires Laravel 13+.

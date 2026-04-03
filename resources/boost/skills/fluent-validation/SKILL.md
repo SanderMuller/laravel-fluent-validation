@@ -117,11 +117,18 @@ FluentRule::string()->rule(new MyCustomRule())
 
 ## Performance (large arrays)
 
-Use `ExpandsWildcards` in FormRequests or `RuleSet::validate()` inline for up to **77x faster** wildcard validation. See `references/performance.md` for details.
+Use `HasFluentRules` in FormRequests or `RuleSet::validate()` inline for up to **77x faster** wildcard validation. See `references/performance.md` for details.
 
 ## Custom Validator Subclasses
 
-Use `RuleSet::compile()` when rules reference other fields via wildcards:
+Extend `FluentValidator` instead of `Validator`. Handles the full pipeline automatically:
 ```php
-parent::__construct($translator, $data, rules: RuleSet::compile($this->buildRules()));
+use SanderMuller\FluentValidation\FluentValidator;
+
+class MyValidator extends FluentValidator
+{
+    public function __construct(array $data) {
+        parent::__construct($data, $this->buildRules());
+    }
+}
 ```
