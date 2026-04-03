@@ -920,7 +920,7 @@ it('combines each() and children() on the same parent', function (): void {
 it('adds fields conditionally with when()', function (): void {
     $rules = RuleSet::make()
         ->field('name', FluentRule::string()->required())
-        ->when(true, fn (RuleSet $set) => $set
+        ->when(true, fn (RuleSet $ruleSet) => $ruleSet
             ->field('role', FluentRule::string()->required())
         )
         ->toArray();
@@ -931,7 +931,7 @@ it('adds fields conditionally with when()', function (): void {
 it('skips fields when condition is false', function (): void {
     $rules = RuleSet::make()
         ->field('name', FluentRule::string()->required())
-        ->when(false, fn (RuleSet $set) => $set
+        ->when(false, fn (RuleSet $ruleSet) => $ruleSet
             ->field('role', FluentRule::string()->required())
         )
         ->toArray();
@@ -943,7 +943,7 @@ it('skips fields when condition is false', function (): void {
 it('supports unless()', function (): void {
     $rules = RuleSet::make()
         ->field('name', FluentRule::string()->required())
-        ->unless(true, fn (RuleSet $set) => $set
+        ->unless(true, fn (RuleSet $ruleSet) => $ruleSet
             ->field('role', FluentRule::string()->required())
         )
         ->toArray();
@@ -956,10 +956,10 @@ it('supports unless()', function (): void {
 // =========================================================================
 
 it('merges another RuleSet', function (): void {
-    $base = RuleSet::from(['name' => FluentRule::string()->required()]);
+    $ruleSet = RuleSet::from(['name' => FluentRule::string()->required()]);
     $extra = RuleSet::from(['email' => FluentRule::email()->required()]);
 
-    $rules = $base->merge($extra)->toArray();
+    $rules = $ruleSet->merge($extra)->toArray();
 
     expect($rules)->toHaveKeys(['name', 'email']);
 });
