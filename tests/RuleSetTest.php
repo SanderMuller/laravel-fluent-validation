@@ -1023,6 +1023,42 @@ it('field rule with in() and no type constraint', function (): void {
 });
 
 // =========================================================================
+// FluentRule::field() with children()
+// =========================================================================
+
+it('field rule supports children() for fixed-key child rules', function (): void {
+    $rules = RuleSet::from([
+        'answer' => FluentRule::field()->present()->children([
+            'email' => FluentRule::email()->required(),
+        ]),
+    ])->toArray();
+
+    expect($rules)->toHaveKeys(['answer', 'answer.email']);
+});
+
+it('validates field rule children() via RuleSet', function (): void {
+    $validated = RuleSet::from([
+        'answer' => FluentRule::field()->present()->children([
+            'email' => FluentRule::string()->required()->rule('email'),
+        ]),
+    ])->validate([
+        'answer' => ['email' => 'test@example.com'],
+    ]);
+
+    expect($validated)->toHaveKey('answer');
+});
+
+it('fails validation for invalid field rule children()', function (): void {
+    RuleSet::from([
+        'answer' => FluentRule::field()->present()->children([
+            'email' => FluentRule::string()->required()->min(100),
+        ]),
+    ])->validate([
+        'answer' => ['email' => 'short'],
+    ]);
+})->throws(ValidationException::class);
+
+// =========================================================================
 // ->rule() with array tuples
 // =========================================================================
 

@@ -183,6 +183,14 @@ For objects with known keys (not wildcard arrays), you may use `children()` to c
 
 `children()` produces fixed paths (`search.value`), while `each()` produces wildcard paths (`items.*.name`). Both may be used together on the same array when needed.
 
+`children()` is also available on `FluentRule::field()` for untyped fields with known sub-keys:
+
+```php
+'answer' => FluentRule::field()->present()->children([
+    'email_address' => FluentRule::email()->when($isVacancy, fn ($r) => $r->required()),
+]),
+```
+
 ## Performance
 
 Laravel's wildcard validation (`items.*.name`) has [known O(n²) performance issues](https://github.com/laravel/framework/issues/49375) for large arrays. This package solves them.

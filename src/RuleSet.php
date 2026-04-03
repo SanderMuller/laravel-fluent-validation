@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace SanderMuller\FluentValidation;
 
+use Carbon\Carbon;
 use Illuminate\Contracts\Support\Arrayable;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Support\Facades\Validator;
@@ -304,7 +305,7 @@ final class RuleSet implements Arrayable
                 return false;
             }
 
-            if ($isDate && is_string($value) && \Carbon\Carbon::parse($value)->getTimestamp() === false) {
+            if ($isDate && is_string($value) && Carbon::parse($value)->getTimestamp() === false) {
                 return false;
             }
 
@@ -532,17 +533,11 @@ final class RuleSet implements Arrayable
         return $rules;
     }
 
-    /** @param  array<string, mixed>  $rules */
     private static function flattenRule(string $prefix, mixed $rule, array &$rules): void
     {
-        if (! $rule instanceof ArrayRule) {
-            $rules[$prefix] = $rule;
-
-            return;
-        }
-
-        $eachRules = $rule->getEachRules();
-        $childRules = $rule->getChildRules();
+        // Get nested rule definitions if the rule supports them.
+        $eachRules = $rule instanceof ArrayRule ? $rule->getEachRules() : null;
+        $childRules = is_object($rule) && method_exists($rule, 'getChildRules') ? $rule->getChildRules() : null;
 
         if ($eachRules === null && $childRules === null) {
             $rules[$prefix] = $rule;
@@ -550,7 +545,8 @@ final class RuleSet implements Arrayable
             return;
         }
 
-        $rules[$prefix] = $rule->withoutEachRules();
+        // Store the parent rule, stripped of nested definitions to prevent double-validation.
+        $rules[$prefix] = $rule instanceof ArrayRule ? $rule->withoutEachRules() : $rule;
 
         // each() → wildcard paths: items.*.name
         if ($eachRules instanceof ValidationRule) {
@@ -561,7 +557,7 @@ final class RuleSet implements Arrayable
             }
         }
 
-        // children() → fixed paths: search.value
+        // children() → fixed paths: search.value, answer.email_address
         foreach ($childRules ?? [] as $field => $fieldRule) {
             self::flattenRule($prefix . '.' . $field, $fieldRule, $rules);
         }

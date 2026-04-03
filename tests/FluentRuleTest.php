@@ -135,6 +135,8 @@ it('validates array each() with scalar rule standalone', function (): void {
     );
 
     expect($v->passes())->toBeFalse();
+    expect($v->errors()->keys())->toContain('tags.1');
+    expect($v->errors()->keys())->not->toContain('tags');
 });
 
 it('validates array each() with field mappings standalone', function (): void {
@@ -157,6 +159,8 @@ it('validates array each() with field mappings standalone', function (): void {
     );
 
     expect($v->passes())->toBeFalse();
+    expect($v->errors()->keys())->toContain('items.0.name');
+    expect($v->errors()->keys())->not->toContain('items');
 });
 
 it('produces indexed error keys for standalone each() scalar', function (): void {
