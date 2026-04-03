@@ -4,7 +4,7 @@
 [![GitHub Tests Action Status](https://img.shields.io/github/actions/workflow/status/sandermuller/laravel-fluent-validation/run-tests.yml?branch=main&label=tests&style=flat-square)](https://github.com/sandermuller/laravel-fluent-validation/actions?query=workflow%3Arun-tests+branch%3Amain)
 [![GitHub Code Style Action Status](https://img.shields.io/github/actions/workflow/status/sandermuller/laravel-fluent-validation/fix-php-code-style-issues.yml?branch=main&label=code%20style&style=flat-square)](https://github.com/sandermuller/laravel-fluent-validation/actions?query=workflow%3A"Fix+PHP+code+style+issues"+branch%3Amain)
 
-Type-safe, fluent validation rule builders for Laravel. Write validation rules with full IDE autocompletion instead of memorizing string syntax — and validate large arrays **up to 77x faster** than native Laravel.
+Type-safe, fluent validation rule builders for Laravel. Write validation rules with full IDE autocompletion instead of memorizing string syntax. Validates large arrays **up to 77x faster** than native Laravel.
 
 ```php
 // Before
@@ -36,7 +36,7 @@ $validated = Validator::make($request->all(), [
 ])->validate();
 ```
 
-When you pass a label like `'Full Name'`, it automatically replaces `:attribute` in all error messages for that field — so you get "The Full Name field is required" instead of "The name field is required". No separate `attributes()` array needed.
+When you pass a label like `'Full Name'`, it automatically replaces `:attribute` in all error messages for that field. You get "The Full Name field is required" instead of "The name field is required". No separate `attributes()` array needed.
 
 ### In a Form Request
 
@@ -66,7 +66,7 @@ class StorePostRequest extends FormRequest
 }
 ```
 
-These rule objects implement Laravel's `ValidationRule` interface and work anywhere Laravel expects validation rules — Form Requests, `Validator::make()`, `Rule::forEach()`, and `Rule::when()`.
+These rule objects implement Laravel's `ValidationRule` interface. They work in Form Requests, `Validator::make()`, `Rule::forEach()`, and `Rule::when()`.
 
 ### Gradual adoption
 
@@ -75,8 +75,8 @@ You don't need to convert all your rules at once. Fluent rules mix freely with s
 ```php
 $rules = [
     'name'   => FluentRule::string()->required()->min(2)->max(255),  // fluent
-    'email'  => 'required|string|email|max:255',               // string — still works
-    'role'   => ['required', LaravelRule::in(['admin', 'user'])],  // array — still works
+    'email'  => 'required|string|email|max:255',               // string, still works
+    'role'   => ['required', LaravelRule::in(['admin', 'user'])],  // array, still works
 ];
 ```
 
@@ -96,13 +96,13 @@ $rules = [
 
 ## Why this package?
 
-**Better DX** — IDE autocompletion for every rule. No more guessing `required_with` vs `required_with_all`, or whether it's `digits_between` or `digitsBetween`. The method names tell you.
+**Better DX.** IDE autocompletion for every rule. No more guessing `required_with` vs `required_with_all`, or whether it's `digits_between` or `digitsBetween`. The method names tell you.
 
-**Type-safe rule combinations** — Each rule type only exposes methods that make sense for it. `FluentRule::string()` doesn't have `digits()`, `FluentRule::numeric()` doesn't have `alpha()`. Incompatible combinations like `required|string|digits:5` become impossible — your IDE catches them before you run a single test.
+**Type-safe rule combinations.** Each rule type only exposes methods that make sense for it. `FluentRule::string()` doesn't have `digits()`, `FluentRule::numeric()` doesn't have `alpha()`. Incompatible combinations like `required|string|digits:5` become impossible. Your IDE catches them before you run a single test.
 
-**Inline error messages** — Labels and per-rule messages live right next to the rules they belong to. No more maintaining a separate `messages()` array that drifts out of sync.
+**Inline error messages.** Labels and per-rule messages live right next to the rules they belong to. No more maintaining a separate `messages()` array that drifts out of sync.
 
-**77x faster array validation** — For large arrays (imports, bulk operations), `RuleSet::validate()` bypasses Laravel's O(n²) wildcard expansion and validates per-item with compiled fast-checks. [See benchmarks.](#benchmarks)
+**77x faster array validation.** For large arrays (imports, bulk operations), `RuleSet::validate()` bypasses Laravel's O(n²) wildcard expansion and validates per-item with compiled fast-checks. [See benchmarks.](#benchmarks)
 
 ## Error messages
 
@@ -122,7 +122,7 @@ return [
 // "The Import Items field must have at least 1 items."
 ```
 
-Labels work everywhere — Form Requests, `Validator::make()`, and `RuleSet::validate()`. You may also set a label after construction using `->label('Name')`.
+Labels work in Form Requests, `Validator::make()`, and `RuleSet::validate()`. You may also set a label after construction using `->label('Name')`.
 
 ### Per-rule messages
 
@@ -135,7 +135,7 @@ FluentRule::string('Full Name')
     ->max(255)
 ```
 
-Labels and messages compose naturally — labels improve ALL error messages for the field, while `->message()` overrides specific rules. For a field-level fallback that applies to any failure, use `->fieldMessage()`:
+Labels and messages compose naturally. Labels improve ALL error messages for the field, while `->message()` overrides specific rules. For a field-level fallback that applies to any failure, use `->fieldMessage()`:
 
 ```php
 FluentRule::string()->required()->min(2)->fieldMessage('Something is wrong with this field.')
@@ -148,17 +148,17 @@ FluentRule::string()->required()->min(2)->fieldMessage('Something is wrong with 
 When validating arrays of items, you may define the rules for each item inline using `each()`:
 
 ```php
-// Scalar items — each tag must be a string under 255 characters
+// Scalar items: each tag must be a string under 255 characters
 FluentRule::array()->each(FluentRule::string()->max(255))
 
-// Object items — each item has named fields
+// Object items: each item has named fields
 FluentRule::array()->required()->each([
     'name'  => FluentRule::string('Item Name')->required(),
     'email' => FluentRule::string()->required()->rule('email'),
     'qty'   => FluentRule::numeric()->required()->integer()->min(1),
 ])
 
-// Nested arrays — arrays within arrays
+// Nested arrays
 FluentRule::array()->each([
     'items' => FluentRule::array()->each([
         'qty' => FluentRule::numeric()->required()->min(1),
@@ -202,7 +202,7 @@ Laravel's wildcard validation (`items.*.name`) has [known O(n²) performance iss
 
 ### How it works
 
-`RuleSet::validate()` applies three optimizations automatically — you don't need to configure anything:
+`RuleSet::validate()` applies three optimizations automatically. You don't need to configure anything:
 
 | Optimization | What it does | Speedup |
 |---|---|---|
@@ -243,7 +243,7 @@ class ImportRequest extends FormRequest
 }
 ```
 
-> **Note:** Without `RuleSet` or the `ExpandsWildcards` trait, rules work normally through Laravel's built-in validation — just without the performance optimization for wildcards.
+> **Note:** Without `RuleSet` or the `ExpandsWildcards` trait, rules work normally through Laravel's built-in validation. You just won't get the performance optimization for wildcards.
 
 Benchmarks run automatically on PRs via GitHub Actions.
 
@@ -471,7 +471,7 @@ All rule types share common modifiers for controlling field presence, prohibitio
 // Presence
 ->required()  ->nullable()  ->sometimes()  ->filled()  ->present()  ->missing()
 
-// Conditional presence — accepts field references or Closure|bool
+// Conditional presence: accepts field references or Closure|bool
 ->requiredIf('role', 'admin')  ->requiredUnless('type', 'guest')  ->requiredIf(fn () => $cond)
 ->requiredWith('field')  ->requiredWithAll('a', 'b')  ->requiredWithout('field')  ->requiredWithoutAll('a', 'b')
 
@@ -510,7 +510,7 @@ The condition closure receives the full input as a `Fluent` object and is evalua
 
 ### Escape hatch
 
-You may add any Laravel validation rule via `rule()` — strings, objects, or array tuples:
+You may add any Laravel validation rule via `rule()`. Accepts strings, objects, and array tuples:
 
 ```php
 FluentRule::string()->rule('email:rfc,dns')
