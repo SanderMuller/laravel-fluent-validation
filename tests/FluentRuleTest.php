@@ -1096,13 +1096,13 @@ it('compiles object rules to array preserving objects', function (): void {
 it('compiles unique rule to array with object', function (): void {
     $compiled = FluentRule::string()->unique('users', 'email')->compiledRules();
     expect($compiled)->toBeArray();
-    expect($compiled[0])->toBe('string');
+    expect($compiled)->toContain('string');
 });
 
 it('compiles exists rule to array with object', function (): void {
     $compiled = FluentRule::string()->exists('users', 'email')->compiledRules();
     expect($compiled)->toBeArray();
-    expect($compiled[0])->toBe('string');
+    expect($compiled)->toContain('string');
 });
 
 // =========================================================================
@@ -1188,9 +1188,9 @@ it('compiledRules returns array when rule contains non-stringable object', funct
 
     $compiled = $stringRule->compiledRules();
     expect($compiled)->toBeArray();
-    expect($compiled[0])->toBe('string');
-    expect($compiled[1])->toBe('required');
-    expect($compiled[2])->toBe($nonStringable);
+    expect($compiled)->toContain('string');
+    expect($compiled)->toContain('required');
+    expect($compiled)->toContain($nonStringable);
 });
 
 // =========================================================================

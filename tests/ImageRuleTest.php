@@ -28,32 +28,32 @@ it('allowSvg preserves field modifiers set before it', function (): void {
 it('compiles image rule with minWidth and maxWidth', function (): void {
     $compiled = FluentRule::image()->minWidth(100)->maxWidth(1920)->compiledRules();
     expect($compiled)->toBeArray();
-    expect($compiled[0])->toBe('image');
+    expect($compiled)->toContain('image');
     expect($compiled)->toHaveCount(3); // image + 2 Dimensions objects
 });
 
 it('compiles image rule with width and height', function (): void {
     $compiled = FluentRule::image()->width(800)->height(600)->compiledRules();
     expect($compiled)->toBeArray();
-    expect($compiled[0])->toBe('image');
+    expect($compiled)->toContain('image');
 });
 
 it('compiles image rule with minHeight and maxHeight', function (): void {
     $compiled = FluentRule::image()->minHeight(100)->maxHeight(1080)->compiledRules();
     expect($compiled)->toBeArray();
-    expect($compiled[0])->toBe('image');
+    expect($compiled)->toContain('image');
 });
 
 it('compiles image rule with string ratio', function (): void {
     $compiled = FluentRule::image()->ratio('16/9')->compiledRules();
     expect($compiled)->toBeArray();
-    expect($compiled[0])->toBe('image');
+    expect($compiled)->toContain('image');
 });
 
 it('compiles image rule with float ratio', function (): void {
     $compiled = FluentRule::image()->ratio(1.5)->compiledRules();
     expect($compiled)->toBeArray();
-    expect($compiled[0])->toBe('image');
+    expect($compiled)->toContain('image');
 });
 
 it('compiles image rule with Dimensions instance', function (): void {

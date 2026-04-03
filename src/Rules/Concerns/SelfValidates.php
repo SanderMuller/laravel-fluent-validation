@@ -188,16 +188,16 @@ trait SelfValidates
             return implode('|', $this->constraints);
         }
 
-        // Object rules (ExcludeIf, RequiredIf, In, etc.) must be preserved
-        // as objects so Laravel's validator evaluates them at validation time.
-        // Stringifying would eagerly evaluate closure-based conditionals.
-        return [...$this->constraints, ...$this->rules];
+        // Object rules first (ExcludeIf, RequiredIf, etc.) so Laravel
+        // processes them before other rules. This matches native Laravel
+        // ordering where Rule::excludeIf() comes before 'required'.
+        return [...$this->rules, ...$this->constraints];
     }
 
     /** @return list<string|object> */
     protected function buildValidationRules(): array
     {
-        return [...$this->constraints, ...$this->rules];
+        return [...$this->rules, ...$this->constraints];
     }
 
     /** @return array<string, mixed> */

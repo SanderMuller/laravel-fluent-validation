@@ -195,9 +195,9 @@ class ArrayRule implements DataAwareRule, ValidationRule, ValidatorAwareRule
     protected function buildValidationRules(): array
     {
         return [
+            ...$this->rules,
             $this->buildArrayRule(),
             ...$this->constraints,
-            ...$this->rules,
         ];
     }
 }
