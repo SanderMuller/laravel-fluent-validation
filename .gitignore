@@ -29,3 +29,4 @@ testbench.yaml
 /docs
 /coverage
 /autoresearch
+benchmark-snapshot.json

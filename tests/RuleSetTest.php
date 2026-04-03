@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\ValidationData;
 use Illuminate\Validation\ValidationException;
@@ -270,6 +271,335 @@ it('supports custom attribute names', function (): void {
     }
 
     $this->fail('Expected ValidationException was not thrown.');
+});
+
+// =========================================================================
+// validate() — top-level field fails when wildcards also present
+// =========================================================================
+
+it('throws when top-level field fails alongside wildcard rules', function (): void {
+    RuleSet::from([
+        'name' => Rule::string()->required()->min(5),
+        'items' => Rule::array()->required()->each([
+            'title' => Rule::string()->required(),
+        ]),
+    ])->validate([
+        'name' => 'Jo',
+        'items' => [['title' => 'OK']],
+    ]);
+})->throws(ValidationException::class);
+
+// =========================================================================
+// validate() — scalar wildcard item failure
+// =========================================================================
+
+it('throws when scalar each item fails validation', function (): void {
+    RuleSet::from([
+        'tags' => Rule::array()->required()->each(Rule::string()->min(3)),
+    ])->validate([
+        'tags' => ['ok', 'no'],
+    ]);
+})->throws(ValidationException::class);
+
+it('reports correct field paths for scalar each item failures', function (): void {
+    try {
+        RuleSet::from([
+            'tags' => Rule::array()->required()->each(Rule::string()->min(20)),
+        ])->validate([
+            'tags' => ['short', 'tiny'],
+        ]);
+    } catch (ValidationException $validationException) {
+        $errorKeys = array_keys($validationException->errors());
+        expect($errorKeys)->toContain('tags.0');
+        expect($errorKeys)->toContain('tags.1');
+
+        return;
+    }
+
+    $this->fail('Expected ValidationException was not thrown.');
+});
+
+// =========================================================================
+// validate() — distinct rule triggers full expansion fallback
+// =========================================================================
+
+it('falls back to standard validation when distinct rule is present', function (): void {
+    $validated = RuleSet::from([
+        'tags' => Rule::array()->required()->each(Rule::string()->distinct()),
+    ])->validate([
+        'tags' => ['php', 'laravel', 'pest'],
+    ]);
+
+    expect($validated['tags'])->toBe(['php', 'laravel', 'pest']);
+});
+
+it('distinct rule detects duplicates via full expansion', function (): void {
+    RuleSet::from([
+        'tags' => Rule::array()->required()->each(Rule::string()->distinct()),
+    ])->validate([
+        'tags' => ['php', 'laravel', 'php'],
+    ]);
+})->throws(ValidationException::class);
+
+// =========================================================================
+// validate() — fast-check path coverage
+// =========================================================================
+
+it('fast-checks numeric fields in wildcard items', function (): void {
+    $validated = RuleSet::from([
+        'items' => Rule::array()->required()->each([
+            'qty' => Rule::numeric()->required()->integer()->min(1)->max(100),
+        ]),
+    ])->validate([
+        'items' => [
+            ['qty' => 5],
+            ['qty' => 50],
+        ],
+    ]);
+
+    expect($validated['items'])->toHaveCount(2);
+});
+
+it('fast-checks fail on numeric validation falling through to slow path', function (): void {
+    RuleSet::from([
+        'items' => Rule::array()->required()->each([
+            'qty' => Rule::numeric()->required()->min(10),
+        ]),
+    ])->validate([
+        'items' => [['qty' => 1]],
+    ]);
+})->throws(ValidationException::class);
+
+it('fast-checks in() values on wildcard items', function (): void {
+    $validated = RuleSet::from([
+        'items' => Rule::array()->required()->each([
+            'status' => Rule::string()->required()->in(['active', 'inactive']),
+        ]),
+    ])->validate([
+        'items' => [
+            ['status' => 'active'],
+            ['status' => 'inactive'],
+        ],
+    ]);
+
+    expect($validated['items'])->toHaveCount(2);
+});
+
+it('fast-checks fail on in() values falling through to slow path', function (): void {
+    RuleSet::from([
+        'items' => Rule::array()->required()->each([
+            'status' => Rule::string()->required()->in(['active', 'inactive']),
+        ]),
+    ])->validate([
+        'items' => [['status' => 'deleted']],
+    ]);
+})->throws(ValidationException::class);
+
+it('fast-checks boolean fields in wildcard items', function (): void {
+    $validated = RuleSet::from([
+        'items' => Rule::array()->required()->each([
+            'active' => Rule::boolean()->required(),
+        ]),
+    ])->validate([
+        'items' => [
+            ['active' => true],
+            ['active' => false],
+        ],
+    ]);
+
+    expect($validated['items'])->toHaveCount(2);
+});
+
+it('fast-checks nullable fields pass with null', function (): void {
+    $validated = RuleSet::from([
+        'items' => Rule::array()->required()->each([
+            'note' => Rule::string()->nullable()->max(100),
+        ]),
+    ])->validate([
+        'items' => [
+            ['note' => null],
+            ['note' => 'hello'],
+        ],
+    ]);
+
+    expect($validated['items'])->toHaveCount(2);
+});
+
+it('fast-checks skip non-compilable rules and use slow path', function (): void {
+    $customRule = new class implements ValidationRule {
+        public function validate(string $attribute, mixed $value, Closure $fail): void
+        {
+            if ($value !== 'valid') {
+                $fail('Must be valid.');
+            }
+        }
+    };
+
+    $validated = RuleSet::from([
+        'items' => Rule::array()->required()->each([
+            'value' => Rule::string()->required()->rule($customRule),
+        ]),
+    ])->validate([
+        'items' => [['value' => 'valid']],
+    ]);
+
+    expect($validated['items'])->toHaveCount(1);
+});
+
+it('fast-checks integer strict validation', function (): void {
+    $validated = RuleSet::from([
+        'items' => Rule::array()->required()->each([
+            'count' => Rule::numeric()->required()->integer(),
+        ]),
+    ])->validate([
+        'items' => [
+            ['count' => 42],
+            ['count' => 0],
+        ],
+    ]);
+
+    expect($validated['items'])->toHaveCount(2);
+});
+
+it('fast-checks string max violation falls through to slow path', function (): void {
+    RuleSet::from([
+        'items' => Rule::array()->required()->each([
+            'name' => Rule::string()->required()->max(3),
+        ]),
+    ])->validate([
+        'items' => [['name' => 'toolong']],
+    ]);
+})->throws(ValidationException::class);
+
+it('fast-checks numeric max violation falls through to slow path', function (): void {
+    RuleSet::from([
+        'items' => Rule::array()->required()->each([
+            'qty' => Rule::numeric()->required()->max(10),
+        ]),
+    ])->validate([
+        'items' => [['qty' => 999]],
+    ]);
+})->throws(ValidationException::class);
+
+it('fast-checks required empty string falls through to slow path', function (): void {
+    RuleSet::from([
+        'items' => Rule::array()->required()->each([
+            'name' => Rule::string()->required(),
+        ]),
+    ])->validate([
+        'items' => [['name' => '']],
+    ]);
+})->throws(ValidationException::class);
+
+it('slow path reuses validator across multiple failing items', function (): void {
+    try {
+        RuleSet::from([
+            'items' => Rule::array()->required()->each([
+                'name' => Rule::string()->required()->min(10),
+            ]),
+        ])->validate([
+            'items' => [
+                ['name' => 'ok-first-pass'],
+                ['name' => 'bad'],
+                ['name' => 'bad2'],
+            ],
+        ]);
+    } catch (ValidationException $validationException) {
+        $errorKeys = array_keys($validationException->errors());
+        expect($errorKeys)->toContain('items.1.name');
+        expect($errorKeys)->toContain('items.2.name');
+
+        return;
+    }
+
+    $this->fail('Expected ValidationException was not thrown.');
+});
+
+it('slow path reports scalar item errors with correct paths', function (): void {
+    try {
+        RuleSet::from([
+            'tags' => Rule::array()->required()->each(Rule::string()->min(10)),
+        ])->validate([
+            'tags' => ['good-enough!', 'bad'],
+        ]);
+    } catch (ValidationException $validationException) {
+        expect(array_keys($validationException->errors()))->toContain('tags.1');
+
+        return;
+    }
+
+    $this->fail('Expected ValidationException was not thrown.');
+});
+
+it('fast-checks date fields by skipping to slow path', function (): void {
+    $validated = RuleSet::from([
+        'items' => Rule::array()->required()->each([
+            'date' => Rule::date()->required(),
+        ]),
+    ])->validate([
+        'items' => [
+            ['date' => '2025-01-01'],
+            ['date' => '2025-06-15'],
+        ],
+    ]);
+
+    expect($validated['items'])->toHaveCount(2);
+});
+
+it('size rule in each triggers slow path', function (): void {
+    $validated = RuleSet::from([
+        'items' => Rule::array()->required()->each([
+            'code' => Rule::string()->required()->exactly(3),
+        ]),
+    ])->validate([
+        'items' => [['code' => 'ABC']],
+    ]);
+
+    expect($validated['items'])->toHaveCount(1);
+});
+
+it('array rule in each triggers slow path', function (): void {
+    $validated = RuleSet::from([
+        'items' => Rule::array()->required()->each([
+            'tags' => Rule::array()->required(),
+        ]),
+    ])->validate([
+        'items' => [['tags' => ['a', 'b']]],
+    ]);
+
+    expect($validated['items'])->toHaveCount(1);
+});
+
+it('unrecognized rule in each triggers slow path', function (): void {
+    $validated = RuleSet::from([
+        'items' => Rule::array()->required()->each([
+            'email' => Rule::string()->required()->rule('email'),
+        ]),
+    ])->validate([
+        'items' => [['email' => 'user@example.com']],
+    ]);
+
+    expect($validated['items'])->toHaveCount(1);
+});
+
+// =========================================================================
+// validate() — nested wildcard requires full expansion
+// =========================================================================
+
+it('nested wildcards in each fall back to standard validation', function (): void {
+    $validated = RuleSet::from([
+        'orders' => Rule::array()->required()->each([
+            'items' => Rule::array()->required()->each([
+                'name' => Rule::string()->required(),
+            ]),
+        ]),
+    ])->validate([
+        'orders' => [
+            ['items' => [['name' => 'Widget']]],
+        ],
+    ]);
+
+    expect($validated['orders'])->toHaveCount(1);
 });
 
 // =========================================================================

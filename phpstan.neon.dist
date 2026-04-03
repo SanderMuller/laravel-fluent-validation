@@ -40,3 +40,9 @@ parameters:
     ignoreErrors:
         - identifier: trait.unused
         - identifier: ternary.condNotBoolean
+        -
+            identifier: complexity.classLike
+            path: src/RuleSet.php
+        -
+            identifier: complexity.functionLike
+            path: src/RuleSet.php

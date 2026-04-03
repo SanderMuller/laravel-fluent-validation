@@ -32,6 +32,7 @@
         },
         "declare_strict_types": true,
         "function_typehint_space": false,
+        "increment_style": false,
         "linebreak_after_opening_tag": false,
         "new_with_parentheses": {
             "anonymous_class": false,

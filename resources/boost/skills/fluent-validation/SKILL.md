@@ -111,15 +111,24 @@ Rule::string()->required()->rule('email')->unique('users')
 
 ## Field Modifiers (all rule types)
 
+Presence:
 - `required()`, `nullable()`, `sometimes()`, `filled()`, `present()`, `missing()`
-- `prohibited()`, `exclude()`
-- `requiredIf($field, ...$values)`, `requiredUnless($field, ...$values)`
+- `requiredIf($field, ...$values)` — also accepts `Closure|bool`: `requiredIf(fn () => true)`, `requiredIf(true)`
+- `requiredUnless($field, ...$values)` — also accepts `Closure|bool`
 - `requiredWith(...$fields)`, `requiredWithAll(...$fields)`
 - `requiredWithout(...$fields)`, `requiredWithoutAll(...$fields)`
+
+Prohibition:
+- `prohibited()`, `prohibits(...$fields)`
+- `prohibitedIf($field, ...$values)` — also accepts `Closure|bool`
+- `prohibitedUnless($field, ...$values)` — also accepts `Closure|bool`
+
+Exclusion:
+- `exclude()`
 - `excludeIf($field, ...$values)`, `excludeUnless($field, ...$values)`
 - `excludeWith($field)`, `excludeWithout($field)`
-- `prohibitedIf($field, ...$values)`, `prohibitedUnless($field, ...$values)`
-- `prohibits(...$fields)`
+
+Other:
 - `bail()` — stop on first failure
 - `rule($rule)` — escape hatch to add any Laravel validation rule (string or `ValidationRule` object)
 
@@ -153,6 +162,17 @@ StringRule::macro('slug', function () {
 // Then use: Rule::string()->slug()
 ```
 
+## Embedded Rules (string, numeric, date)
+
+- `in($values)`, `notIn($values)`
+- `unique($table, $column?)`, `exists($table, $column?)`
+- `enum($class, $callback?)` — callback receives the `Illuminate\Validation\Rules\Enum` instance:
+
+```php
+Rule::string()->enum(StatusEnum::class, fn ($rule) => $rule->only(StatusEnum::Active, StatusEnum::Pending))
+Rule::numeric()->enum(PriorityEnum::class, fn ($rule) => $rule->except(PriorityEnum::Deprecated))
+```
+
 ## String-Specific Methods
 
 - Length: `min($n)`, `max($n)`, `between($min, $max)`, `exactly($n)`
@@ -163,7 +183,6 @@ StringRule::macro('slug', function () {
 - Date: `date()`, `dateFormat($format)`
 - Auth: `currentPassword($guard?)` — optionally specify auth guard
 - Comparison: `confirmed()`, `same($field)`, `different($field)`, `inArray($field)`, `inArrayKeys($field)`, `distinct($mode?)` — mode can be `'strict'` or `'ignore_case'`
-- Embedded: `unique($table, $column?)`, `exists($table, $column?)`, `enum($class, $callback?)`, `in($values)`, `notIn($values)`
 
 ## Numeric-Specific Methods
 
@@ -171,7 +190,6 @@ StringRule::macro('slug', function () {
 - Size: `min($n)`, `max($n)`, `between($min, $max)`, `exactly($n)`
 - Digits: `digits($n)`, `digitsBetween($min, $max)`, `minDigits($n)`, `maxDigits($n)`
 - Comparison: `greaterThan($field)`, `greaterThanOrEqualTo($field)`, `lessThan($field)`, `lessThanOrEqualTo($field)`, `multipleOf($n)`, `confirmed()`, `same($field)`, `different($field)`, `inArray($field)`, `inArrayKeys($field)`, `distinct($mode?)`
-- Embedded: `unique($table, $column?)`, `exists($table, $column?)`, `enum($class, $callback?)`, `in($values)`, `notIn($values)`
 
 ## Date-Specific Methods
 
@@ -181,7 +199,6 @@ All date comparison methods accept `DateTimeInterface|string`:
 - Today: `beforeToday()`, `afterToday()`, `todayOrBefore()`, `todayOrAfter()`
 - Now: `past()`, `future()`, `nowOrPast()`, `nowOrFuture()`
 - Compare: `before($date)`, `after($date)`, `beforeOrEqual($date)`, `afterOrEqual($date)`, `between($from, $to)`, `betweenOrEqual($from, $to)`, `dateEquals($date)`, `same($field)`, `different($field)`
-- Embedded: `unique($table, $column?)`, `exists($table, $column?)`, `enum($class, $callback?)`, `in($values)`, `notIn($values)`
 
 ## Boolean-Specific Methods
 
@@ -194,12 +211,3 @@ All date comparison methods accept `DateTimeInterface|string`:
 - Structure: `list()`, `requiredArrayKeys(...$keys)`
 - Children: `each($rule)` for scalar items, `each([...])` for object items (see Tier 2 above)
 - Constructor: `Rule::array(['name', 'email'])` — restrict allowed keys; accepts `BackedEnum` values
-
-## Enum Callback
-
-The `enum()` method accepts an optional callback to customize the enum rule:
-
-```php
-Rule::string()->enum(StatusEnum::class, fn ($rule) => $rule->only(StatusEnum::Active, StatusEnum::Pending))
-Rule::numeric()->enum(PriorityEnum::class, fn ($rule) => $rule->except(PriorityEnum::Deprecated))
-```

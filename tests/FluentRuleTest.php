@@ -1707,6 +1707,52 @@ it('supports macros on StringRule', function (): void {
 });
 
 // =========================================================================
+// compiledRules — non-Stringable object fallback
+// =========================================================================
+
+it('compiledRules returns array when rule contains non-stringable object', function (): void {
+    $nonStringable = new class implements ValidationRule {
+        public function validate(string $attribute, mixed $value, Closure $fail): void {}
+    };
+
+    $stringRule = Rule::string()->required()->rule($nonStringable);
+    expect($stringRule->canCompile())->toBeFalse();
+
+    $compiled = $stringRule->compiledRules();
+    expect($compiled)->toBeArray();
+    expect($compiled[0])->toBe('string');
+    expect($compiled[1])->toBe('required');
+    expect($compiled[2])->toBe($nonStringable);
+});
+
+// =========================================================================
+// exclude() modifier
+// =========================================================================
+
+it('exclude adds the exclude constraint', function (): void {
+    $stringRule = Rule::string()->exclude();
+    expect($stringRule->compiledRules())->toBe('string|exclude');
+});
+
+// =========================================================================
+// ArrayRule — buildNestedRules with nested ArrayRule in field mapping
+// =========================================================================
+
+it('buildNestedRules handles nested ArrayRule in field mapping each()', function (): void {
+    $arrayRule = Rule::array()->required()->each(Rule::string()->max(50));
+    $outer = Rule::array()->required()->each([
+        'tags' => $arrayRule,
+        'name' => Rule::string()->required(),
+    ]);
+
+    $nested = $outer->buildNestedRules('items');
+
+    expect($nested)->toHaveKey('items.*.tags');
+    expect($nested)->toHaveKey('items.*.tags.*');
+    expect($nested)->toHaveKey('items.*.name');
+});
+
+// =========================================================================
 // Enums for testing
 // =========================================================================
 

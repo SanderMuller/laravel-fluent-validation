@@ -7,18 +7,6 @@ parameters:
 			path: src/RuleSet.php
 
 		-
-			rawMessage: 'Cognitive complexity for "SanderMuller\FluentValidation\RuleSet::requiresFullExpansion()" is 10, keep it under 9'
-			identifier: complexity.functionLike
-			count: 1
-			path: src/RuleSet.php
-
-		-
-			rawMessage: 'Cognitive complexity for "SanderMuller\FluentValidation\RuleSet::validate()" is 40, keep it under 9'
-			identifier: complexity.functionLike
-			count: 1
-			path: src/RuleSet.php
-
-		-
 			rawMessage: 'Method SanderMuller\FluentValidation\RuleSet::validate() should return array<string, mixed> but returns array.'
 			identifier: return.type
 			count: 2

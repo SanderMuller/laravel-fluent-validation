@@ -1,0 +1,54 @@
+name: Benchmark
+
+on:
+  pull_request:
+    paths:
+      - '**.php'
+      - 'benchmark.php'
+      - '.github/workflows/benchmark.yml'
+
+jobs:
+  benchmark:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout base branch
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          coverage: none
+
+      - name: Install base dependencies
+        uses: ramsey/composer-install@v4
+
+      - name: Generate baseline snapshot
+        run: php benchmark.php --snapshot
+
+      - name: Save baseline snapshot
+        run: cp benchmark-snapshot.json ${{ runner.temp }}/benchmark-snapshot.json
+
+      - name: Checkout PR
+        uses: actions/checkout@v6
+
+      - name: Install PR dependencies
+        uses: ramsey/composer-install@v4
+
+      - name: Restore baseline snapshot
+        run: cp ${{ runner.temp }}/benchmark-snapshot.json benchmark-snapshot.json
+
+      - name: Run benchmark
+        run: |
+          echo "${{ github.event.pull_request.number }}" > benchmark-result.md
+          php benchmark.php --ci >> benchmark-result.md
+
+      - name: Upload benchmark result
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-result
+          path: benchmark-result.md

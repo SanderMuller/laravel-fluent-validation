@@ -1,0 +1,47 @@
+name: Benchmark Comment
+
+on:
+  workflow_run:
+    workflows: [Benchmark]
+    types: [completed]
+
+jobs:
+  comment:
+    if: >
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      pull-requests: write
+
+    steps:
+      - name: Download benchmark result
+        uses: actions/download-artifact@v4
+        with:
+          name: benchmark-result
+          run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        run: |
+          echo "number=$(sed -n '1p' benchmark-result.md)" >> "$GITHUB_OUTPUT"
+          echo "heading=$(sed -n '2p' benchmark-result.md)" >> "$GITHUB_OUTPUT"
+          tail -n +2 benchmark-result.md > benchmark-comment.md
+
+      - name: Find existing comment
+        uses: peter-evans/find-comment@v3
+        id: find
+        with:
+          issue-number: ${{ steps.meta.outputs.number }}
+          comment-author: 'github-actions[bot]'
+          body-includes: '${{ steps.meta.outputs.heading }}'
+
+      - name: Post or update comment
+        uses: peter-evans/create-or-update-comment@v4
+        with:
+          issue-number: ${{ steps.meta.outputs.number }}
+          comment-id: ${{ steps.find.outputs.comment-id }}
+          edit-mode: replace
+          body-path: benchmark-comment.md
