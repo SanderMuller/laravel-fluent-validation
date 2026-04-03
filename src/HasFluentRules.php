@@ -11,7 +11,7 @@ use ReflectionProperty;
 /**
  * Add this trait to a FormRequest to enable FluentRule features:
  * each()/children() flattening, wildcard expansion, label/message
- * extraction, rule compilation, and per-item performance optimization.
+ * extraction, rule compilation, and implicit attribute mapping.
  *
  *     class StorePostRequest extends FormRequest
  *     {
@@ -37,10 +37,9 @@ trait HasFluentRules
             : [];
 
         $data = $this->validationData();
-        $ruleSet = RuleSet::from($rules);
-        $prepared = $ruleSet->prepare($data);
+        $prepared = RuleSet::from($rules)->prepare($data);
 
-        $base = $factory->make(
+        $validator = $factory->make(
             $data,
             $prepared->rules,
             array_merge($prepared->messages, $this->messages()),
@@ -48,10 +47,10 @@ trait HasFluentRules
         );
 
         if ($prepared->implicitAttributes !== []) {
-            (new ReflectionProperty($base, 'implicitAttributes'))
-                ->setValue($base, $prepared->implicitAttributes);
+            (new ReflectionProperty($validator, 'implicitAttributes'))
+                ->setValue($validator, $prepared->implicitAttributes);
         }
 
-        return new OptimizedValidator($ruleSet, $base);
+        return $validator;
     }
 }

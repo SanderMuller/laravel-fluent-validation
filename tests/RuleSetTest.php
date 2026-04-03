@@ -1256,6 +1256,69 @@ it('FluentValidator merges custom messages with rule messages', function (): voi
     expect($validator->errors()->first('name'))->toBe('Custom override.');
 });
 
+it('FluentValidator handles cross-field wildcard references', function (): void {
+    // Simulates hihaho's JsonInteractionImportValidator pattern:
+    // requiredUnless('*.type', ...) references a sibling field via wildcard
+    $validator = new class (
+        ['items' => [
+            ['type' => 'chapter', 'title' => 'Hello', 'end_time' => 10],
+            ['type' => 'menu'],  // menu doesn't require end_time
+        ]],
+        [
+            'items' => 'required|array',
+            'items.*.type' => ['required', 'string', \Illuminate\Validation\Rule::in(['chapter', 'menu', 'button'])],
+            'items.*.title' => ['nullable', 'string'],
+            'items.*.end_time' => [
+                ['required_unless', 'items.*.type', 'menu'],
+                'numeric',
+            ],
+        ]
+    ) extends \SanderMuller\FluentValidation\FluentValidator {};
+
+    expect($validator->passes())->toBeTrue();
+});
+
+it('FluentValidator fails cross-field wildcard references correctly', function (): void {
+    $validator = new class (
+        ['items' => [
+            ['type' => 'chapter'],  // chapter requires end_time but it's missing
+        ]],
+        [
+            'items' => 'required|array',
+            'items.*.type' => ['required', 'string'],
+            'items.*.end_time' => [
+                ['required_unless', 'items.*.type', 'menu'],
+                'numeric',
+            ],
+        ]
+    ) extends \SanderMuller\FluentValidation\FluentValidator {};
+
+    expect($validator->passes())->toBeFalse();
+    expect($validator->errors()->keys())->toContain('items.0.end_time');
+});
+
+it('HasFluentRules handles cross-field wildcard references', function (): void {
+    $formRequest = createFormRequest(
+        rules: [
+            'items' => FluentRule::array()->required()->each([
+                'type' => FluentRule::string()->required()->in(['chapter', 'menu']),
+                'end_time' => FluentRule::numeric()
+                    ->requiredUnless('items.*.type', 'menu'),
+            ]),
+        ],
+        data: [
+            'items' => [
+                ['type' => 'menu'],  // menu doesn't require end_time
+            ],
+        ],
+    );
+
+    $factory = app(\Illuminate\Contracts\Validation\Factory::class);
+    $validator = (fn () => $this->createDefaultValidator($factory))->call($formRequest);
+
+    expect($validator->passes())->toBeTrue();
+});
+
 // =========================================================================
 // Benchmarks — excluded from default test run, use --group=benchmark
 // =========================================================================
