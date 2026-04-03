@@ -66,7 +66,7 @@ it('benchmarks all code paths', function (): void {
 
     foreach ($scenarios as $label => $fn) {
         $times = [];
-        for ($i = 0; $i < 5; $i++) {
+        for ($i = 0; $i < 5; ++$i) {
             $t = hrtime(true);
             $fn();
             $times[] = (hrtime(true) - $t) / 1e6;

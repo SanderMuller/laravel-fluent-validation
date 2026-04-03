@@ -145,7 +145,7 @@ it('benchmarks hihaho-level import validation', function (): void {
 
     $allPatterns = array_keys(array_filter($rules, fn ($k) => str_contains((string) $k, '*'), ARRAY_FILTER_USE_KEY));
 
-    for ($iter = 0; $iter < $iterations; $iter++) {
+    for ($iter = 0; $iter < $iterations; ++$iter) {
         // Native Laravel
         $t = hrtime(true);
         Validator::make($data, $rules)->validate();
