@@ -728,30 +728,49 @@ it('validates excludeUnless', function (): void {
     expect($validator->passes())->toBeTrue();
 });
 
-it('validates excludeIf with bool', function (): void {
-    $v = makeValidator(['field' => 'val'], ['field' => FluentRule::string()->excludeIf(true)]);
+it('validates excludeIf with bool excludes from validated', function (): void {
+    $v = makeValidator(['field' => 'val', 'other' => 'keep'], [
+        'field' => FluentRule::string()->excludeIf(true),
+        'other' => FluentRule::string(),
+    ]);
     expect($v->passes())->toBeTrue();
+    expect($v->validated())->not->toHaveKey('field');
+    expect($v->validated())->toHaveKey('other');
 
     $v = makeValidator(['field' => 'val'], ['field' => FluentRule::string()->excludeIf(false)]);
     expect($v->passes())->toBeTrue();
+    expect($v->validated())->toHaveKey('field');
 });
 
-it('validates excludeIf with closure', function (): void {
-    $v = makeValidator(['field' => 'val'], ['field' => FluentRule::string()->excludeIf(fn (): true => true)]);
+it('validates excludeIf with closure excludes from validated', function (): void {
+    $v = makeValidator(['field' => 'val', 'other' => 'keep'], [
+        'field' => FluentRule::string()->excludeIf(fn (): true => true),
+        'other' => FluentRule::string(),
+    ]);
     expect($v->passes())->toBeTrue();
+    expect($v->validated())->not->toHaveKey('field');
 });
 
-it('validates excludeUnless with bool', function (): void {
+it('validates excludeUnless with bool excludes from validated', function (): void {
     $v = makeValidator(['field' => 'val'], ['field' => FluentRule::string()->excludeUnless(true)]);
     expect($v->passes())->toBeTrue();
+    expect($v->validated())->toHaveKey('field');
 
-    $v = makeValidator(['field' => 'val'], ['field' => FluentRule::string()->excludeUnless(false)]);
+    $v = makeValidator(['field' => 'val', 'other' => 'keep'], [
+        'field' => FluentRule::string()->excludeUnless(false),
+        'other' => FluentRule::string(),
+    ]);
     expect($v->passes())->toBeTrue();
+    expect($v->validated())->not->toHaveKey('field');
 });
 
-it('validates excludeUnless with closure', function (): void {
-    $v = makeValidator(['field' => 'val'], ['field' => FluentRule::string()->excludeUnless(fn (): false => false)]);
+it('validates excludeUnless with closure excludes from validated', function (): void {
+    $v = makeValidator(['field' => 'val', 'other' => 'keep'], [
+        'field' => FluentRule::string()->excludeUnless(fn (): false => false),
+        'other' => FluentRule::string(),
+    ]);
     expect($v->passes())->toBeTrue();
+    expect($v->validated())->not->toHaveKey('field');
 });
 
 it('validates excludeWith', function (): void {
@@ -1014,6 +1033,16 @@ it('compiledRules returns array when rule contains non-stringable object', funct
 it('exclude adds the exclude constraint', function (): void {
     $stringRule = FluentRule::string()->exclude();
     expect($stringRule->compiledRules())->toBe('string|exclude');
+});
+
+it('exclude removes field from validated data', function (): void {
+    $v = makeValidator(['field' => 'val', 'other' => 'keep'], [
+        'field' => FluentRule::string()->exclude(),
+        'other' => FluentRule::string(),
+    ]);
+    expect($v->passes())->toBeTrue();
+    expect($v->validated())->not->toHaveKey('field');
+    expect($v->validated())->toHaveKey('other');
 });
 
 // =========================================================================

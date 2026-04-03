@@ -31,15 +31,23 @@ trait HasEmbeddedRules
         return $this->addRule($enum);
     }
 
-    /** @param  array<int, mixed>  $values */
-    public function in(array $values): static
+    /** @param  array<int, mixed>|class-string<\BackedEnum>  $values */
+    public function in(array|string $values): static
     {
+        if (is_string($values) && enum_exists($values)) {
+            $values = $values::cases();
+        }
+
         return $this->addRule(Rule::in($values));
     }
 
-    /** @param  array<int, mixed>  $values */
-    public function notIn(array $values): static
+    /** @param  array<int, mixed>|class-string<\BackedEnum>  $values */
+    public function notIn(array|string $values): static
     {
+        if (is_string($values) && enum_exists($values)) {
+            $values = $values::cases();
+        }
+
         return $this->addRule(Rule::notIn($values));
     }
 }

@@ -98,6 +98,8 @@ $rules = [
 
 **Better DX** — IDE autocompletion for every rule. No more guessing `required_with` vs `required_with_all`, or whether it's `digits_between` or `digitsBetween`. The method names tell you.
 
+**Type-safe rule combinations** — Each rule type only exposes methods that make sense for it. `FluentRule::string()` doesn't have `digits()`, `FluentRule::numeric()` doesn't have `alpha()`. Incompatible combinations like `required|string|digits:5` become impossible — your IDE catches them before you run a single test.
+
 **Inline error messages** — Labels and per-rule messages live right next to the rules they belong to. No more maintaining a separate `messages()` array that drifts out of sync.
 
 **77x faster array validation** — For large arrays (imports, bulk operations), `RuleSet::validate()` bypasses Laravel's O(n²) wildcard expansion and validates per-item with compiled fast-checks. [See benchmarks.](#benchmarks)
@@ -365,10 +367,15 @@ FluentRule::anyOf([
 
 ### Embedded rules
 
-String, numeric, and date rules support embedded Laravel rule objects for `in`, `unique`, `exists`, and `enum`:
+String, numeric, and date rules support embedded Laravel rule objects for `in`, `unique`, `exists`, and `enum`. Both `in()` and `notIn()` accept either an array of values or a `BackedEnum` class:
 
 ```php
-FluentRule::string()->in([...])->notIn([...])->enum(StatusEnum::class)->unique('table')->exists('table')
+FluentRule::string()->in(['draft', 'published'])
+FluentRule::string()->in(StatusEnum::class)          // all enum values
+FluentRule::string()->notIn(DeprecatedStatus::class)
+FluentRule::string()->enum(StatusEnum::class)
+FluentRule::string()->unique('users', 'email')
+FluentRule::string()->exists('roles', 'name')
 ```
 
 ### Field modifiers

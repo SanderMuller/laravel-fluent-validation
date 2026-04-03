@@ -7,6 +7,8 @@ namespace SanderMuller\FluentValidation\Rules\Concerns;
 use Closure;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Validation\Rules\ExcludeIf;
+use Illuminate\Validation\Rules\ExcludeUnless;
 use Illuminate\Validation\Rules\ProhibitedIf;
 use Illuminate\Validation\Rules\ProhibitedUnless;
 use Illuminate\Validation\Rules\RequiredIf;
@@ -24,6 +26,10 @@ trait SelfValidates
     public function validate(string $attribute, mixed $value, Closure $fail): void
     {
         if (! $this->hasPresenceModifier() && ! Arr::has($this->data, $attribute)) {
+            return;
+        }
+
+        if ($this->shouldExclude($attribute)) {
             return;
         }
 
@@ -103,7 +109,36 @@ trait SelfValidates
                 || $rule instanceof RequiredUnless
                 || $rule instanceof ProhibitedIf
                 || $rule instanceof ProhibitedUnless
+                || $rule instanceof ExcludeIf
+                || $rule instanceof ExcludeUnless
             ) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private function shouldExclude(string $attribute): bool
+    {
+        // Check ExcludeIf/ExcludeUnless rule objects (closure/bool variant)
+        foreach ($this->rules as $rule) {
+            if ($rule instanceof ExcludeIf || $rule instanceof ExcludeUnless) {
+                $resolved = (string) $rule;
+
+                if ($resolved === 'exclude') {
+                    $this->validator->addFailure($attribute, 'Exclude');
+
+                    return true;
+                }
+            }
+        }
+
+        // Check string-based exclude constraints
+        foreach ($this->constraints as $constraint) {
+            if ($constraint === 'exclude') {
+                $this->validator->addFailure($attribute, 'Exclude');
+
                 return true;
             }
         }

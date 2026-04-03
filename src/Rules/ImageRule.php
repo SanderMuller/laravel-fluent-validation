@@ -13,7 +13,10 @@ class ImageRule extends FileRule
 
     public function allowSvg(): static
     {
-        $this->constraints[array_search('image', $this->constraints, true)] = 'image:allow_svg';
+        $this->constraints = array_values(array_map(
+            fn (string $c): string => $c === 'image' ? 'image:allow_svg' : $c,
+            $this->constraints,
+        ));
 
         return $this;
     }

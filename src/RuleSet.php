@@ -486,12 +486,18 @@ final class RuleSet implements Arrayable
             $objects = is_object($rule) ? [$rule] : (is_array($rule) ? array_filter($rule, is_object(...)) : []);
 
             foreach ($objects as $object) {
-                if (method_exists($object, 'getLabel') && $object->getLabel() !== null) {
-                    $attributes[$field] = $object->getLabel();
+                if (method_exists($object, 'getLabel')) {
+                    $label = $object->getLabel();
+
+                    if (is_string($label)) {
+                        $attributes[$field] = $label;
+                    }
                 }
 
                 if (method_exists($object, 'getCustomMessages')) {
-                    foreach ($object->getCustomMessages() as $ruleName => $msg) {
+                    /** @var array<string, string> $customMessages */
+                    $customMessages = $object->getCustomMessages();
+                    foreach ($customMessages as $ruleName => $msg) {
                         $messages[$field . '.' . $ruleName] = $msg;
                     }
                 }

@@ -63,14 +63,16 @@ class FileRule implements DataAwareRule, ValidationRule, ValidatorAwareRule
             return $size;
         }
 
-        if (preg_match('/^(\d+(?:\.\d+)?)\s*(kb|mb|gb|tb)$/i', trim($size), $matches)) {
+        if (preg_match('/^(\d+(?:\.\d+)?)\s*(kb|mb|gb|tb)$/i', trim($size), $matches) === 1) {
             $value = (float) $matches[1];
+            $unit = strtolower($matches[2]);
 
-            return (int) round(match (strtolower($matches[2])) {
+            return (int) round(match ($unit) {
                 'kb' => $value,
                 'mb' => $value * 1_024,
                 'gb' => $value * 1_048_576,
                 'tb' => $value * 1_073_741_824,
+                default => $value,
             });
         }
 

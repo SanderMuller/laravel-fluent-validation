@@ -214,7 +214,7 @@ StringRule::macro('slug', function () {
 
 ## Embedded Rules (string, numeric, date)
 
-- `in($values)`, `notIn($values)`
+- `in($values)`, `notIn($values)` — accepts an array or a `BackedEnum` class string: `in(StatusEnum::class)`
 - `unique($table, $column?)`, `exists($table, $column?)`
 - `enum($class, $callback?)` — callback receives the `Illuminate\Validation\Rules\Enum` instance:
 
