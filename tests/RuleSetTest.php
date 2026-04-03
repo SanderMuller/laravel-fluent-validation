@@ -848,6 +848,230 @@ it('extracts message from fluent rule inside mixed array', function (): void {
 });
 
 // =========================================================================
+// children() — fixed-key child rules
+// =========================================================================
+
+it('flattens children() to fixed paths', function (): void {
+    $rules = RuleSet::from([
+        'search' => FluentRule::array()->required()->children([
+            'value' => FluentRule::string()->nullable(),
+            'regex' => FluentRule::string()->nullable()->in(['true', 'false']),
+        ]),
+    ])->toArray();
+
+    expect($rules)->toHaveKeys(['search', 'search.value', 'search.regex']);
+    expect($rules)->not->toHaveKey('search.*.value');
+});
+
+it('validates children() rules', function (): void {
+    $validated = RuleSet::from([
+        'search' => FluentRule::array()->required()->children([
+            'value' => FluentRule::string()->nullable(),
+            'regex' => FluentRule::string()->nullable()->in(['true', 'false']),
+        ]),
+    ])->validate([
+        'search' => ['value' => 'test', 'regex' => 'true'],
+    ]);
+
+    expect($validated['search']['value'])->toBe('test');
+});
+
+it('fails validation for invalid children()', function (): void {
+    RuleSet::from([
+        'search' => FluentRule::array()->required()->children([
+            'value' => FluentRule::string()->required()->min(5),
+        ]),
+    ])->validate([
+        'search' => ['value' => 'hi'],
+    ]);
+})->throws(ValidationException::class);
+
+it('supports nested children()', function (): void {
+    $rules = RuleSet::from([
+        'config' => FluentRule::array()->required()->children([
+            'db' => FluentRule::array()->required()->children([
+                'host' => FluentRule::string()->required(),
+                'port' => FluentRule::numeric()->required()->integer(),
+            ]),
+        ]),
+    ])->toArray();
+
+    expect($rules)->toHaveKeys(['config', 'config.db', 'config.db.host', 'config.db.port']);
+});
+
+it('combines each() and children() on the same parent', function (): void {
+    $rules = RuleSet::from([
+        'data' => FluentRule::array()->required()
+            ->children([
+                'meta' => FluentRule::string()->nullable(),
+            ])
+            ->each([
+                'name' => FluentRule::string()->required(),
+            ]),
+    ])->toArray();
+
+    expect($rules)->toHaveKeys(['data', 'data.meta', 'data.*.name']);
+});
+
+// =========================================================================
+// when() / unless() — conditional field groups
+// =========================================================================
+
+it('adds fields conditionally with when()', function (): void {
+    $rules = RuleSet::make()
+        ->field('name', FluentRule::string()->required())
+        ->when(true, fn (RuleSet $set) => $set
+            ->field('role', FluentRule::string()->required())
+        )
+        ->toArray();
+
+    expect($rules)->toHaveKeys(['name', 'role']);
+});
+
+it('skips fields when condition is false', function (): void {
+    $rules = RuleSet::make()
+        ->field('name', FluentRule::string()->required())
+        ->when(false, fn (RuleSet $set) => $set
+            ->field('role', FluentRule::string()->required())
+        )
+        ->toArray();
+
+    expect($rules)->toHaveKey('name');
+    expect($rules)->not->toHaveKey('role');
+});
+
+it('supports unless()', function (): void {
+    $rules = RuleSet::make()
+        ->field('name', FluentRule::string()->required())
+        ->unless(true, fn (RuleSet $set) => $set
+            ->field('role', FluentRule::string()->required())
+        )
+        ->toArray();
+
+    expect($rules)->not->toHaveKey('role');
+});
+
+// =========================================================================
+// merge()
+// =========================================================================
+
+it('merges another RuleSet', function (): void {
+    $base = RuleSet::from(['name' => FluentRule::string()->required()]);
+    $extra = RuleSet::from(['email' => FluentRule::email()->required()]);
+
+    $rules = $base->merge($extra)->toArray();
+
+    expect($rules)->toHaveKeys(['name', 'email']);
+});
+
+it('merges a plain array', function (): void {
+    $rules = RuleSet::from(['name' => FluentRule::string()->required()])
+        ->merge(['age' => 'required|integer'])
+        ->toArray();
+
+    expect($rules)->toHaveKeys(['name', 'age']);
+    expect($rules['age'])->toBe('required|integer');
+});
+
+it('later merge overwrites earlier fields', function (): void {
+    $rules = RuleSet::from(['name' => FluentRule::string()->max(100)])
+        ->merge(['name' => FluentRule::string()->max(255)])
+        ->toArray();
+
+    expect($rules['name']->compiledRules())->toContain('max:255');
+});
+
+// =========================================================================
+// FluentRule::field() — untyped entry point
+// =========================================================================
+
+it('creates an untyped field rule', function (): void {
+    $validator = makeValidator(
+        ['answer' => 'yes'],
+        ['answer' => FluentRule::field()->present()]
+    );
+
+    expect($validator->passes())->toBeTrue();
+});
+
+it('field rule fails when not present', function (): void {
+    $validator = makeValidator(
+        [],
+        ['answer' => FluentRule::field()->present()]
+    );
+
+    expect($validator->passes())->toBeFalse();
+});
+
+it('field rule with label', function (): void {
+    $validator = makeValidator(
+        [],
+        ['answer' => FluentRule::field('Your Answer')->required()]
+    );
+
+    expect($validator->passes())->toBeFalse();
+    expect($validator->errors()->first('answer'))->toContain('Your Answer');
+});
+
+it('field rule with in() and no type constraint', function (): void {
+    $validator = makeValidator(
+        ['answer' => 'yes'],
+        ['answer' => FluentRule::field()->required()->in(['yes', 'no'])]
+    );
+
+    expect($validator->passes())->toBeTrue();
+});
+
+// =========================================================================
+// ->rule() with array tuples
+// =========================================================================
+
+it('accepts array tuple in rule()', function (): void {
+    $validator = makeValidator(
+        ['role' => 'admin'],
+        ['role' => FluentRule::string()->required()->rule(['in', 'admin', 'user'])]
+    );
+
+    expect($validator->passes())->toBeTrue();
+});
+
+it('rejects invalid value with array tuple in rule()', function (): void {
+    $validator = makeValidator(
+        ['role' => 'hacker'],
+        ['role' => FluentRule::string()->required()->rule(['in', 'admin', 'user'])]
+    );
+
+    expect($validator->passes())->toBeFalse();
+});
+
+it('handles parameterless array tuple in rule()', function (): void {
+    $validator = makeValidator(
+        [],
+        ['name' => FluentRule::string()->rule(['required'])]
+    );
+
+    expect($validator->passes())->toBeFalse();
+});
+
+// =========================================================================
+// in() / notIn() with enum class
+// =========================================================================
+
+it('accepts enum class in in() via RuleSet', function (): void {
+    $validated = RuleSet::from([
+        'status' => FluentRule::string()->required()->in(TestStringEnum::class),
+    ])->validate(['status' => 'active']);
+
+    expect($validated['status'])->toBe('active');
+});
+
+it('rejects invalid enum value in in() via RuleSet', function (): void {
+    RuleSet::from([
+        'status' => FluentRule::string()->required()->in(TestStringEnum::class),
+    ])->validate(['status' => 'deleted']);
+})->throws(ValidationException::class);
+
+// =========================================================================
 // Benchmarks — excluded from default test run, use --group=benchmark
 // =========================================================================
 
