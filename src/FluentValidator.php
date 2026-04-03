@@ -83,7 +83,7 @@ abstract class FluentValidator extends Validator
                 $this->customAttributes,
             );
 
-            $this->messages = new MessageBag;
+            $this->messages = new MessageBag();
 
             return true;
         } catch (ValidationException $e) {

@@ -8,6 +8,7 @@ use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationData;
 use Illuminate\Validation\ValidationException;
 use SanderMuller\FluentValidation\FluentRule;
+use SanderMuller\FluentValidation\FluentValidator;
 use SanderMuller\FluentValidation\Rules\ArrayRule;
 use SanderMuller\FluentValidation\Rules\NumericRule;
 use SanderMuller\FluentValidation\Rules\StringRule;
@@ -1215,7 +1216,7 @@ it('prepare extracts fieldMessage as field-level fallback', function (): void {
 it('FluentValidator validates with compiled rules and labels', function (): void {
     $validator = new class (['name' => 'Jo'], [
         'name' => FluentRule::string('Full Name')->required()->min(5),
-    ]) extends \SanderMuller\FluentValidation\FluentValidator {};
+    ]) extends FluentValidator {};
 
     expect($validator->passes())->toBeFalse();
     expect($validator->errors()->first('name'))->toContain('Full Name');
@@ -1225,7 +1226,7 @@ it('FluentValidator passes valid data', function (): void {
     $validator = new class (['name' => 'John Doe', 'age' => 25], [
         'name' => FluentRule::string()->required()->min(2),
         'age' => FluentRule::numeric()->required()->integer()->min(0),
-    ]) extends \SanderMuller\FluentValidation\FluentValidator {};
+    ]) extends FluentValidator {};
 
     expect($validator->passes())->toBeTrue();
 });
@@ -1238,7 +1239,7 @@ it('FluentValidator expands each() rules', function (): void {
                 'name' => FluentRule::string()->required()->min(2),
             ]),
         ]
-    ) extends \SanderMuller\FluentValidation\FluentValidator {};
+    ) extends FluentValidator {};
 
     expect($validator->passes())->toBeFalse();
     expect($validator->errors()->keys())->toContain('items.0.name');
@@ -1249,7 +1250,7 @@ it('FluentValidator merges custom messages with rule messages', function (): voi
         ['name' => ''],
         ['name' => FluentRule::string()->required()->message('Fluent message.')],
         ['name.required' => 'Custom override.'],
-    ) extends \SanderMuller\FluentValidation\FluentValidator {};
+    ) extends FluentValidator {};
 
     expect($validator->passes())->toBeFalse();
     expect($validator->errors()->first('name'))->toBe('Custom override.');
