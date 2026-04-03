@@ -62,6 +62,30 @@ final class RuleSet implements Arrayable
     }
 
     /**
+     * Prepare rules for a Validator in one call. Handles flatten, expand,
+     * extract metadata, and compile in the correct order.
+     *
+     * Designed for custom Validator subclasses:
+     *
+     *     $p = RuleSet::from($rules)->prepare($data);
+     *     parent::__construct($translator, $data, $p->rules, $p->messages, $p->attributes);
+     *
+     * @param  array<string, mixed>  $data
+     */
+    public function prepare(array $data): PreparedRules
+    {
+        [$expanded, $implicitAttributes] = $this->expand($data);
+        [$messages, $attributes] = self::extractMetadata($expanded);
+
+        return new PreparedRules(
+            rules: self::compile($expanded),
+            messages: $messages,
+            attributes: $attributes,
+            implicitAttributes: $implicitAttributes,
+        );
+    }
+
+    /**
      * @param  array<string, mixed>  $data
      * @return array<string, mixed>
      */

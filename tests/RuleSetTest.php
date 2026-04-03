@@ -1108,6 +1108,107 @@ it('rejects invalid enum value in in() via RuleSet', function (): void {
 })->throws(ValidationException::class);
 
 // =========================================================================
+// prepare() — single-call pipeline for custom Validators
+// =========================================================================
+
+it('prepare returns compiled rules with metadata', function (): void {
+    $preparedRules = RuleSet::from([
+        'name' => FluentRule::string('Full Name')->required()->message('Name is required.')->min(2),
+        'items' => FluentRule::array()->required()->each([
+            'qty' => FluentRule::numeric('Quantity')->required()->integer()->min(1),
+        ]),
+    ])->prepare([
+        'items' => [['qty' => 1], ['qty' => 2]],
+    ]);
+
+    // Rules are compiled (strings, not objects)
+    expect($preparedRules->rules['name'])->toBeString();
+
+    // Labels extracted
+    expect($preparedRules->attributes['name'])->toBe('Full Name');
+
+    // Messages extracted
+    expect($preparedRules->messages['name.required'])->toBe('Name is required.');
+
+    // Implicit attributes for wildcard mapping
+    expect($preparedRules->implicitAttributes)->toHaveKey('items.*.qty');
+});
+
+it('prepare works with a real Validator', function (): void {
+    $preparedRules = RuleSet::from([
+        'name' => FluentRule::string('Full Name')->required()->min(5),
+    ])->prepare([]);
+
+    $validator = Validator::make(
+        ['name' => 'Jo'],
+        $preparedRules->rules,
+        $preparedRules->messages,
+        $preparedRules->attributes,
+    );
+
+    expect($validator->passes())->toBeFalse();
+    expect($validator->errors()->first('name'))->toContain('Full Name');
+});
+
+it('prepare returns implicitAttributes for wildcard rules', function (): void {
+    $prepared = RuleSet::from([
+        'items' => FluentRule::array()->required()->each([
+            'name' => FluentRule::string()->required(),
+        ]),
+    ])->prepare([
+        'items' => [['name' => 'a'], ['name' => 'b'], ['name' => 'c']],
+    ]);
+
+    expect($prepared->implicitAttributes)->toHaveKey('items.*.name');
+    expect($prepared->implicitAttributes['items.*.name'])->toHaveCount(3);
+    expect($prepared->implicitAttributes['items.*.name'])->toBe(['items.0.name', 'items.1.name', 'items.2.name']);
+});
+
+it('prepare implicitAttributes enables correct validation when applied', function (): void {
+    $prepared = RuleSet::from([
+        'items' => FluentRule::array()->required()->each([
+            'id' => FluentRule::numeric()->required()->distinct(),
+        ]),
+    ])->prepare([
+        'items' => [['id' => 1], ['id' => 1]],
+    ]);
+
+    $validator = Validator::make(
+        ['items' => [['id' => 1], ['id' => 1]]],
+        $prepared->rules,
+        $prepared->messages,
+        $prepared->attributes,
+    );
+
+    // Apply implicit attributes (needed for distinct to work across items)
+    if ($prepared->implicitAttributes !== []) {
+        (new ReflectionProperty($validator, 'implicitAttributes'))
+            ->setValue($validator, $prepared->implicitAttributes);
+    }
+
+    expect($validator->passes())->toBeFalse();
+    expect($validator->errors()->keys())->toContain('items.1.id');
+});
+
+it('prepare returns empty implicitAttributes for non-wildcard rules', function (): void {
+    $prepared = RuleSet::from([
+        'name' => FluentRule::string()->required(),
+        'email' => FluentRule::email()->required(),
+    ])->prepare([]);
+
+    expect($prepared->implicitAttributes)->toBe([]);
+});
+
+it('prepare extracts fieldMessage as field-level fallback', function (): void {
+    $prepared = RuleSet::from([
+        'name' => FluentRule::string()->required()->min(10)->fieldMessage('Check the name.'),
+    ])->prepare([]);
+
+    expect($prepared->messages)->toHaveKey('name');
+    expect($prepared->messages['name'])->toBe('Check the name.');
+});
+
+// =========================================================================
 // Benchmarks — excluded from default test run, use --group=benchmark
 // =========================================================================
 

@@ -8,7 +8,6 @@ use Rector\CodingStyle\Rector\Encapsed\EncapsedStringsToSprintfRector;
 use Rector\Config\RectorConfig;
 use Rector\DeadCode\Rector\ClassMethod\RemoveUselessParamTagRector;
 use Rector\DeadCode\Rector\ClassMethod\RemoveUselessReturnTagRector;
-use Rector\Naming\Rector\Foreach_\RenameForeachValueVariableToMatchMethodCallReturnTypeRector;
 use Rector\Privatization\Rector\ClassMethod\PrivatizeFinalClassMethodRector;
 use Rector\TypeDeclaration\Rector\ArrowFunction\AddArrowFunctionReturnTypeRector;
 use RectorLaravel\Set\LaravelSetList;
@@ -25,7 +24,6 @@ return RectorConfig::configure()
         codingStyle: true,
         typeDeclarations: true,
         privatization: true,
-        naming: true,
         instanceOf: true,
         earlyReturn: true,
         carbon: true,
@@ -34,9 +32,9 @@ return RectorConfig::configure()
     )
     ->withParallel(300, 15, 15)
     ->withMemoryLimit('3G')
-    ->withPhpSets()
+    ->withPhpSets(php82: true)
     ->withSets([
-        LaravelSetList::LARAVEL_120,
+        LaravelSetList::LARAVEL_110,
     ])
     ->withSkip([
         AddArrowFunctionReturnTypeRector::class,
@@ -46,5 +44,4 @@ return RectorConfig::configure()
         PrivatizeFinalClassMethodRector::class,
         RemoveUselessParamTagRector::class,
         RemoveUselessReturnTagRector::class,
-        RenameForeachValueVariableToMatchMethodCallReturnTypeRector::class,
     ]);

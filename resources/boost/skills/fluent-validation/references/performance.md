@@ -40,11 +40,20 @@ $validated = RuleSet::from([...])->validate($request->all());
 
 ### Custom Validator subclasses
 
-Use `RuleSet::compile()` to convert FluentRules to native format. Required when rules reference other fields using wildcards (`requiredUnless('*.type', ...)`):
+Use `->prepare($data)` for a single-call pipeline that handles expand, extract metadata, and compile in the correct order:
 
 ```php
-parent::__construct($translator, $data, rules: RuleSet::compile($this->buildRules()));
+$prepared = RuleSet::from($this->buildRules())->prepare($data);
+
+parent::__construct($translator, $data, $prepared->rules, $prepared->messages, $prepared->attributes);
+
+// Apply wildcard mapping (needed for distinct, cross-field comparisons)
+if ($prepared->implicitAttributes !== []) {
+    (new ReflectionProperty($this, 'implicitAttributes'))->setValue($this, $prepared->implicitAttributes);
+}
 ```
+
+`PreparedRules` contains: `rules`, `messages`, `attributes`, `implicitAttributes`.
 
 ## RuleSet API
 
@@ -52,6 +61,7 @@ parent::__construct($translator, $data, rules: RuleSet::compile($this->buildRule
 - `RuleSet::make()->field(...)` — fluent builder
 - `->merge($ruleSetOrArray)` — merge rules
 - `->when($cond, $callback)` / `->unless(...)` — conditional fields
+- `->prepare($data)` — expand + extract metadata + compile (returns `PreparedRules` DTO)
 - `->toArray()` — flat rules with `each()` expanded
 - `->validate($data, $messages?, $attributes?)` — validate with full optimization
 - `->expandWildcards($data)` — pre-expand without validating

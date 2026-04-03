@@ -286,6 +286,7 @@ $validated = RuleSet::make()
 | `->when($cond, $callback)` | `RuleSet` | Conditionally add fields (also: `unless`) |
 | `->toArray()` | `array` | Flat rules with `each()` expanded to wildcards |
 | `->validate($data)` | `array` | Validate with full optimization (see [Performance](#performance)) |
+| `->prepare($data)` | `PreparedRules` | Expand, extract metadata, compile. For custom Validators |
 | `->expandWildcards($data)` | `array` | Pre-expand wildcards without validating |
 | `RuleSet::compile($rules)` | `array` | Compile fluent rules to native Laravel format |
 
@@ -298,10 +299,20 @@ class JsonImportValidator extends Validator
 {
     public function __construct($translator, $data, $user)
     {
+        $prepared = RuleSet::from($this->buildRules())->prepare($data);
+
         parent::__construct(
             $translator, $data,
-            rules: RuleSet::compile($this->buildRules()),
+            rules: $prepared->rules,
+            messages: $prepared->messages,
+            attributes: $prepared->attributes,
         );
+
+        // Apply wildcard mapping for rules like distinct, cross-field comparisons
+        if ($prepared->implicitAttributes !== []) {
+            (new \ReflectionProperty($this, 'implicitAttributes'))
+                ->setValue($this, $prepared->implicitAttributes);
+        }
     }
 
     private function buildRules(): array
