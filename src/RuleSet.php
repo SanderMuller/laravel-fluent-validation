@@ -304,7 +304,7 @@ final class RuleSet implements Arrayable
                 return false;
             }
 
-            if ($isDate && is_string($value) && strtotime($value) === false) {
+            if ($isDate && is_string($value) && \Carbon\Carbon::parse($value)->getTimestamp() === false) {
                 return false;
             }
 

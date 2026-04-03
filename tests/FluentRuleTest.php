@@ -160,26 +160,26 @@ it('validates array each() with field mappings standalone', function (): void {
 });
 
 it('produces indexed error keys for standalone each() scalar', function (): void {
-    $v = makeValidator(
+    $validator = makeValidator(
         ['tags' => ['valid', 123]],
         ['tags' => FluentRule::array()->required()->each(FluentRule::string())]
     );
 
-    expect($v->passes())->toBeFalse();
-    expect($v->errors()->keys())->toContain('tags.1');
+    expect($validator->passes())->toBeFalse();
+    expect($validator->errors()->keys())->toContain('tags.1');
 });
 
 it('produces indexed error keys for standalone each() with fields', function (): void {
-    $v = makeValidator(
+    $validator = makeValidator(
         ['items' => [['name' => 'Ok'], ['name' => '']]],
         ['items' => FluentRule::array()->required()->each([
             'name' => FluentRule::string()->required()->min(2),
         ])]
     );
 
-    expect($v->passes())->toBeFalse();
-    expect($v->errors()->keys())->toContain('items.1.name');
-    expect($v->errors()->keys())->not->toContain('items');
+    expect($validator->passes())->toBeFalse();
+    expect($validator->errors()->keys())->toContain('items.1.name');
+    expect($validator->errors()->keys())->not->toContain('items');
 });
 
 it('validates nested array each() standalone', function (): void {
