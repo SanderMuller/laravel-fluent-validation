@@ -46,7 +46,7 @@ trait SelfValidates
         // Merge per-rule custom messages (from ->message()) with validator messages
         $messages = $this->validator->customMessages ?? [];
         foreach ($this->getCustomMessages() as $ruleName => $message) {
-            $messages[$attribute . '.' . $ruleName] = $message;
+            $messages[$ruleName === '' ? $attribute : $attribute . '.' . $ruleName] = $message;
         }
 
         // Merge label (from ->label()) with validator custom attributes

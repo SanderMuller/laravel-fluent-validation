@@ -65,6 +65,18 @@ trait HasFieldModifiers
         return $this;
     }
 
+    /**
+     * Set a fallback error message for this field, used when no
+     * rule-specific message matches. Equivalent to 'field' => 'message'
+     * in Laravel's messages array (without a .rule suffix).
+     */
+    public function fieldMessage(string $message): static
+    {
+        $this->customMessages[''] = $message;
+
+        return $this;
+    }
+
     /** @return array<string, string> */
     public function getCustomMessages(): array
     {
@@ -91,7 +103,7 @@ trait HasFieldModifiers
                 $rules instanceof NotIn => 'not_in',
                 $rules instanceof Unique => 'unique',
                 $rules instanceof Exists => 'exists',
-                default => null,
+                default => lcfirst(class_basename($rules)),
             };
         } else {
             $this->constraints = array_merge($this->constraints, Arr::wrap($rules));

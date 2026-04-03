@@ -512,7 +512,8 @@ final class RuleSet implements Arrayable
                     /** @var array<string, string> $customMessages */
                     $customMessages = $object->getCustomMessages();
                     foreach ($customMessages as $ruleName => $msg) {
-                        $messages[$field . '.' . $ruleName] = $msg;
+                        // Empty key = field-level fallback (no .rule suffix)
+                        $messages[$ruleName === '' ? $field : $field . '.' . $ruleName] = $msg;
                     }
                 }
             }
