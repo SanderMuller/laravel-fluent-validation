@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace SanderMuller\FluentValidation\Rules\Concerns;
 
 use Closure;
-use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Fluent;
 use Illuminate\Validation\Rule;
@@ -305,7 +304,7 @@ trait HasFieldModifiers
      * converted to string format ('mimetypes:image/jpeg,application/pdf').
      * This is useful when rule parameters are dynamic.
      *
-     * @param  ValidationRule|\Stringable|Closure(string, mixed, Closure): void|string|array<int, string>  $rule
+     * @param  object|string|array<int, string>  $rule
      */
     public function rule(object|string|array $rule): static
     {
