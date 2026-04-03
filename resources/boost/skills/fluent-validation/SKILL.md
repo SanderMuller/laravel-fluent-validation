@@ -96,7 +96,7 @@ class ImportRequest extends FormRequest
 }
 ```
 
-**RuleSet API:** `RuleSet::from([...])` creates from array, `RuleSet::make()->field('name', rule)` uses fluent builder. Methods: `->toArray()`, `->validate($data)`, `->expandWildcards($data)`, `RuleSet::compile($rules)`.
+**RuleSet API:** `RuleSet::from([...])` creates from array, `RuleSet::make()->field('name', rule)` uses fluent builder. Methods: `->toArray()`, `->validate($data)`, `->expandWildcards($data)`, `->merge($ruleSetOrArray)`, `->when($cond, $callback)`, `->unless($cond, $callback)`, `RuleSet::compile($rules)`.
 
 For inline validation, use `RuleSet::validate()` directly:
 

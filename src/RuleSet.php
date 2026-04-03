@@ -8,6 +8,7 @@ use Carbon\Carbon;
 use Illuminate\Contracts\Support\Arrayable;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Traits\Conditionable;
 use Illuminate\Validation\ValidationException;
 use ReflectionProperty;
 use SanderMuller\FluentValidation\Rules\ArrayRule;
@@ -17,6 +18,8 @@ use SanderMuller\FluentValidation\Rules\ArrayRule;
  */
 final class RuleSet implements Arrayable
 {
+    use Conditionable;
+
     /** @var array<string, mixed> */
     private array $fields = [];
 
@@ -37,6 +40,17 @@ final class RuleSet implements Arrayable
     public function field(string $name, mixed $rule): self
     {
         $this->fields[$name] = $rule;
+
+        return $this;
+    }
+
+    /** @param  self|array<string, mixed>  $rules */
+    public function merge(self|array $rules): self
+    {
+        $this->fields = array_merge(
+            $this->fields,
+            $rules instanceof self ? $rules->fields : $rules,
+        );
 
         return $this;
     }

@@ -239,17 +239,26 @@ $validated = RuleSet::from([
     ]),
 ])->validate($request->all());
 
-// Or fluently
+// Or fluently, with conditional fields and merging
 $validated = RuleSet::make()
     ->field('name', FluentRule::string('Full Name')->required())
-    ->field('items', FluentRule::array()->required()->each([...]))
+    ->field('email', FluentRule::email('Email')->required())
+    ->when($isAdmin, fn (RuleSet $set) => $set
+        ->field('role', FluentRule::string()->required()->in(['admin', 'editor']))
+        ->field('permissions', FluentRule::array()->required())
+    )
+    ->merge($sharedAddressRules)
     ->validate($request->all());
 ```
+
+`when()` and `unless()` are available via Laravel's `Conditionable` trait. `merge()` accepts another `RuleSet` or a plain array.
 
 | Method | Returns | Description |
 |---|---|---|
 | `RuleSet::from([...])` | `RuleSet` | Create from a rules array |
 | `RuleSet::make()->field(...)` | `RuleSet` | Fluent builder |
+| `->merge($ruleSet)` | `RuleSet` | Merge another RuleSet or array into this one |
+| `->when($cond, $callback)` | `RuleSet` | Conditionally add fields (also: `unless`) |
 | `->toArray()` | `array` | Flat rules with `each()` expanded to wildcards |
 | `->validate($data)` | `array` | Validate with full optimization (see [Performance](#performance)) |
 | `->expandWildcards($data)` | `array` | Pre-expand wildcards without validating |
