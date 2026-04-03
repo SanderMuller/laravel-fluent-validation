@@ -95,9 +95,17 @@ class FluentRule
         return $label !== null ? $fieldRule->label($label) : $fieldRule;
     }
 
-    /** @param  array<int, mixed>  $rules */
+    /**
+     * @param  array<int, mixed>  $rules
+     *
+     * @throws \RuntimeException If AnyOf is not available (requires Laravel 13+)
+     */
     public static function anyOf(array $rules): AnyOf
     {
+        if (! class_exists(AnyOf::class)) {
+            throw new \RuntimeException('FluentRule::anyOf() requires Laravel 13+.');
+        }
+
         return new AnyOf($rules);
     }
 }

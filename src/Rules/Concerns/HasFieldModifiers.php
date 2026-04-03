@@ -201,7 +201,10 @@ trait HasFieldModifiers
     public function requiredUnless(Closure|bool|string $field, string|int|bool ...$values): static
     {
         if ($field instanceof Closure || is_bool($field)) {
-            return $this->addRule(new RequiredUnless($field));
+            // RequiredUnless class only exists in Laravel 12+. Invert to RequiredIf.
+            $inverted = $field instanceof Closure ? fn (): bool => ! $field() : ! $field;
+
+            return $this->addRule(new RequiredIf($inverted));
         }
 
         return $this->addRule('required_unless:' . $field . ',' . self::serializeValues($values));
@@ -230,7 +233,14 @@ trait HasFieldModifiers
     public function excludeIf(Closure|bool|string $field, string|int|bool ...$values): static
     {
         if ($field instanceof Closure || is_bool($field)) {
-            return $this->addRule(new ExcludeIf($field));
+            if (class_exists(ExcludeIf::class)) {
+                return $this->addRule(new ExcludeIf($field));
+            }
+
+            // Laravel 11: evaluate eagerly
+            $shouldExclude = $field instanceof Closure ? $field() : $field;
+
+            return $shouldExclude ? $this->addRule('exclude') : $this;
         }
 
         return $this->addRule('exclude_if:' . $field . ',' . self::serializeValues($values));
@@ -239,7 +249,14 @@ trait HasFieldModifiers
     public function excludeUnless(Closure|bool|string $field, string|int|bool ...$values): static
     {
         if ($field instanceof Closure || is_bool($field)) {
-            return $this->addRule(new ExcludeUnless($field));
+            if (class_exists(ExcludeUnless::class)) {
+                return $this->addRule(new ExcludeUnless($field));
+            }
+
+            // Laravel 11: evaluate eagerly (inverted excludeIf)
+            $shouldExclude = $field instanceof Closure ? ! $field() : ! $field;
+
+            return $shouldExclude ? $this->addRule('exclude') : $this;
         }
 
         return $this->addRule('exclude_unless:' . $field . ',' . self::serializeValues($values));
@@ -267,7 +284,10 @@ trait HasFieldModifiers
     public function prohibitedUnless(Closure|bool|string $field, string|int|bool ...$values): static
     {
         if ($field instanceof Closure || is_bool($field)) {
-            return $this->addRule(new ProhibitedUnless($field));
+            // ProhibitedUnless only exists in Laravel 12+. Invert to ProhibitedIf.
+            $inverted = $field instanceof Closure ? fn (): bool => ! $field() : ! $field;
+
+            return $this->addRule(new ProhibitedIf($inverted));
         }
 
         return $this->addRule('prohibited_unless:' . $field . ',' . self::serializeValues($values));
