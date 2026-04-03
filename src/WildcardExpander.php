@@ -28,11 +28,8 @@ class WildcardExpander
     /**
      * @param  list<string>  $segments
      * @param  list<string>  $path
+     * @param  bool  $afterWildcard  Whether we've passed through a * segment
      * @return list<string>
-     */
-    /**
-     * @param  bool  $afterWildcard  Whether we've passed through a * segment. After a wildcard,
-     *                               missing keys still produce paths (so `required` rules work).
      */
     private static function resolve(array $segments, mixed $current, array $path, bool $afterWildcard = false): array
     {

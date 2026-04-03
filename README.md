@@ -135,11 +135,15 @@ FluentRule::string('Full Name')
     ->max(255)
 ```
 
-Labels and messages compose naturally — labels improve ALL error messages for the field, while `->message()` overrides specific rules.
+Labels and messages compose naturally — labels improve ALL error messages for the field, while `->message()` overrides specific rules. For a field-level fallback that applies to any failure, use `->fieldMessage()`:
 
-> **Note:** Standard Laravel `messages()` arrays and `Validator::make()` message arguments still work and take priority over `->message()`.
+```php
+FluentRule::string()->required()->min(2)->fieldMessage('Something is wrong with this field.')
+```
 
-## Array validation with `each()`
+> **Note:** Standard Laravel `messages()` arrays and `Validator::make()` message arguments still work and take priority over `->message()` and `->fieldMessage()`.
+
+## Array validation with `each()` and `children()`
 
 When validating arrays of items, you may define the rules for each item inline using `each()`:
 
@@ -183,29 +187,7 @@ For objects with known keys (not wildcard arrays), you may use `children()` to c
 
 `children()` produces fixed paths (`search.value`), while `each()` produces wildcard paths (`items.*.name`). Both may be used together on the same array when needed.
 
-`children()` is also available on `FluentRule::field()` for untyped fields with known sub-keys:
-
-```php
-'answer' => FluentRule::field()->present()->children([
-    'email_address' => FluentRule::email()->when($isVacancy, fn ($r) => $r->required()),
-]),
-```
-
-You may combine `FluentRule::field()` with `rule()` and `children()` to handle polymorphic fields — for example a field that can be either a string or an object with child keys:
-
-```php
-'data' => FluentRule::field()->nullable()->rule(FluentRule::anyOf([
-    FluentRule::string(),
-    FluentRule::array(),
-]))->children([
-    '_'      => FluentRule::string()->nullable(),
-    'sort'   => FluentRule::string()->nullable(),
-    'render' => FluentRule::array()->nullable()->children([
-        'display' => FluentRule::string()->nullable(),
-        'filter'  => FluentRule::string()->nullable(),
-    ]),
-]),
-```
+`children()` is also available on `FluentRule::field()` for untyped fields with known sub-keys. You may combine it with `rule()` for polymorphic fields (e.g., `FluentRule::field()->rule(FluentRule::anyOf(...))->children([...])`).
 
 ## Performance
 
@@ -335,6 +317,18 @@ class JsonImportValidator extends Validator
 ```
 
 > **Note:** When rules reference other fields using wildcards (e.g., `requiredUnless('*.type', ...)`), use `RuleSet::compile()` so the outer validator handles wildcard expansion. FluentRules used as standalone `ValidationRule` objects self-validate in isolation and can't resolve cross-field wildcard references.
+
+> **Tip:** For validators with many cross-field references using a dynamic prefix, a simple helper reduces repetition:
+>
+> ```php
+> protected function ref(string ...$parts): string
+> {
+>     return $this->prefix . '*.' . implode('.', $parts);
+> }
+>
+> // Then: ->excludeUnless($this->ref('type'), ...) instead of
+> //       ->excludeUnless($this->prefix . '*.' . ExternalInteraction::TYPE, ...)
+> ```
 
 ---
 
@@ -485,8 +479,11 @@ All rule types share common modifiers for controlling field presence, prohibitio
 ->prohibited()  ->prohibitedIf('field', 'val')  ->prohibitedUnless('field', 'val')  ->prohibits('other')
 ->exclude()  ->excludeIf('field', 'val')  ->excludeUnless('field', 'val')  ->excludeWith('f')  ->excludeWithout('f')
 
+// Messages
+->label('Name')  ->message('Rule-specific error')  ->fieldMessage('Field-level fallback')
+
 // Other
-->bail()  ->rule($stringOrObject)  ->label('Name')  ->message('Custom error')
+->bail()  ->rule($stringOrObjectOrArray)  ->whenInput($condition, $then, $else?)
 ```
 
 > **Note:** `exclude` rules only affect `validated()` output when placed at the outer validator level. To exclude a field from validated data, place `exclude` alongside the fluent rule: `'field' => ['exclude', FluentRule::string()]`

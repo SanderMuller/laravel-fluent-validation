@@ -534,10 +534,13 @@ final class RuleSet implements Arrayable
         return $rules;
     }
 
+    /** @param  array<string, mixed>  $rules */
     private static function flattenRule(string $prefix, mixed $rule, array &$rules): void
     {
         // Get nested rule definitions if the rule supports them.
         $eachRules = $rule instanceof ArrayRule ? $rule->getEachRules() : null;
+
+        /** @var array<string, mixed>|null $childRules */
         $childRules = is_object($rule) && method_exists($rule, 'getChildRules') ? $rule->getChildRules() : null;
 
         if ($eachRules === null && $childRules === null) {

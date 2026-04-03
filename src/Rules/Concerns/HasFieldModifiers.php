@@ -115,7 +115,7 @@ trait HasFieldModifiers
         return $this;
     }
 
-    /** @param  list<string|int|bool>  $values */
+    /** @param  array<int|string, string|int|bool>  $values */
     private static function serializeValues(array $values): string
     {
         return implode(',', array_map(
@@ -323,6 +323,7 @@ trait HasFieldModifiers
         ));
     }
 
+    /** @return string|list<string|object> */
     private function compileConditionalBranch(Closure|string|array $rules): string|array
     {
         if (! $rules instanceof Closure) {

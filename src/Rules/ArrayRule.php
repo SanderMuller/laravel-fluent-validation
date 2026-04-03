@@ -137,28 +137,52 @@ class ArrayRule implements DataAwareRule, ValidationRule, ValidatorAwareRule
     /** @return array<string, mixed> */
     public function buildNestedRules(string $attribute): array
     {
-        $rules = [];
+        $rules = $this->buildEachNestedRules($attribute);
 
+        return array_merge($rules, $this->buildChildNestedRules($attribute));
+    }
+
+    /** @return array<string, mixed> */
+    private function buildEachNestedRules(string $attribute): array
+    {
         $eachRules = $this->getEachRules();
+
         if ($eachRules instanceof ValidationRule) {
             $key = $attribute . '.*';
-            $rules[$key] = $eachRules;
-            if ($eachRules instanceof self) {
-                $rules = array_merge($rules, $eachRules->buildNestedRules($key));
-            }
-        } elseif (is_array($eachRules)) {
-            foreach ($eachRules as $field => $rule) {
-                $key = $attribute . '.*.' . $field;
-                $rules[$key] = $rule;
-                if ($rule instanceof self) {
-                    $rules = array_merge($rules, $rule->buildNestedRules($key));
-                }
+            $rules = [$key => $eachRules];
+
+            return $eachRules instanceof self
+                ? array_merge($rules, $eachRules->buildNestedRules($key))
+                : $rules;
+        }
+
+        if (! is_array($eachRules)) {
+            return [];
+        }
+
+        $rules = [];
+
+        foreach ($eachRules as $field => $rule) {
+            $key = $attribute . '.*.' . $field;
+            $rules[$key] = $rule;
+
+            if ($rule instanceof self) {
+                $rules = array_merge($rules, $rule->buildNestedRules($key));
             }
         }
+
+        return $rules;
+    }
+
+    /** @return array<string, mixed> */
+    private function buildChildNestedRules(string $attribute): array
+    {
+        $rules = [];
 
         foreach ($this->childRules ?? [] as $field => $rule) {
             $key = $attribute . '.' . $field;
             $rules[$key] = $rule;
+
             if ($rule instanceof self) {
                 $rules = array_merge($rules, $rule->buildNestedRules($key));
             }

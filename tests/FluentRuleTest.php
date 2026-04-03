@@ -414,7 +414,7 @@ it('whenInput accepts string rules instead of closures', function (): void {
 });
 
 it('whenInput branch does not leak parent messages or labels', function (): void {
-    $rule = FluentRule::string('Full Name')
+    $stringRule = FluentRule::string('Full Name')
         ->required()->message('Name is required.')
         ->whenInput(
             fn ($input) => $input->strict === '1',
@@ -423,9 +423,9 @@ it('whenInput branch does not leak parent messages or labels', function (): void
 
     // The branch closure should produce only 'min:12', not 'string|required|min:12'
     // and should not carry the parent's custom messages or label
-    $compiled = RuleSet::compile(['name' => $rule]);
-    $v = makeValidator(['strict' => '0', 'name' => 'Jo'], $compiled);
-    expect($v->passes())->toBeTrue(); // strict is 0, min:12 doesn't apply
+    $compiled = RuleSet::compile(['name' => $stringRule]);
+    $validator = makeValidator(['strict' => '0', 'name' => 'Jo'], $compiled);
+    expect($validator->passes())->toBeTrue(); // strict is 0, min:12 doesn't apply
 });
 
 // =========================================================================
@@ -442,11 +442,11 @@ it('message works on custom ValidationRule via class name fallback', function ()
         }
     };
 
-    $rule = FluentRule::string()->rule($customRule)->message('Custom message!');
-    $compiled = RuleSet::compile(['field' => $rule]);
+    $stringRule = FluentRule::string()->rule($customRule)->message('Custom message!');
+    $compiled = RuleSet::compile(['field' => $stringRule]);
 
     // The message is keyed by the class basename
-    [$messages] = RuleSet::extractMetadata(['field' => $rule]);
+    [$messages] = RuleSet::extractMetadata(['field' => $stringRule]);
     $key = array_key_first($messages);
     expect($key)->toStartWith('field.');
     expect($messages[$key])->toBe('Custom message!');
@@ -461,8 +461,8 @@ it('fieldMessage sets a fallback for any rule failure', function (): void {
         RuleSet::from([
             'name' => FluentRule::string()->required()->min(10)->fieldMessage('Something is wrong with the name.'),
         ])->validate(['name' => '']);
-    } catch (ValidationException $e) {
-        expect($e->errors()['name'][0])->toBe('Something is wrong with the name.');
+    } catch (ValidationException $validationException) {
+        expect($validationException->errors()['name'][0])->toBe('Something is wrong with the name.');
 
         return;
     }
@@ -478,8 +478,8 @@ it('rule-specific message takes priority over fieldMessage', function (): void {
                 ->min(10)
                 ->fieldMessage('General name error.'),
         ])->validate(['name' => '']);
-    } catch (ValidationException $e) {
-        expect($e->errors()['name'][0])->toBe('Name is required.');
+    } catch (ValidationException $validationException) {
+        expect($validationException->errors()['name'][0])->toBe('Name is required.');
 
         return;
     }

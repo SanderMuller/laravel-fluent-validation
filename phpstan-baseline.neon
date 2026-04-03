@@ -23,3 +23,381 @@ parameters:
 			identifier: argument.type
 			count: 1
 			path: src/RuleSet.php
+
+		-
+			rawMessage: 'Argument of an invalid type mixed supplied for foreach, only iterables are supported.'
+			identifier: foreach.nonIterable
+			count: 1
+			path: src/Rules/ArrayRule.php
+
+		-
+			rawMessage: 'Cognitive complexity for "SanderMuller\FluentValidation\Rules\ArrayRule::validate()" is 18, keep it under 9'
+			identifier: complexity.functionLike
+			count: 1
+			path: src/Rules/ArrayRule.php
+
+		-
+			rawMessage: 'Method SanderMuller\FluentValidation\Rules\ArrayRule::compileConditionalBranch() has parameter $rules with no value type specified in iterable type array.'
+			identifier: missingType.iterableValue
+			count: 1
+			path: src/Rules/ArrayRule.php
+
+		-
+			rawMessage: 'Method SanderMuller\FluentValidation\Rules\ArrayRule::compileConditionalBranch() should return list<object|string>|string but returns array|string.'
+			identifier: return.type
+			count: 1
+			path: src/Rules/ArrayRule.php
+
+		-
+			rawMessage: 'Method SanderMuller\FluentValidation\Rules\ArrayRule::whenInput() has parameter $condition with generic class Illuminate\Support\Fluent but does not specify its types: TKey, TValue'
+			identifier: missingType.generics
+			count: 1
+			path: src/Rules/ArrayRule.php
+
+		-
+			rawMessage: 'Parameter #1 of closure expects string, mixed given.'
+			identifier: argument.type
+			count: 1
+			path: src/Rules/ArrayRule.php
+
+		-
+			rawMessage: 'Parameter #2 $message of method Illuminate\Support\MessageBag::add() expects string, mixed given.'
+			identifier: argument.type
+			count: 1
+			path: src/Rules/ArrayRule.php
+
+		-
+			rawMessage: 'Argument of an invalid type mixed supplied for foreach, only iterables are supported.'
+			identifier: foreach.nonIterable
+			count: 1
+			path: src/Rules/BooleanRule.php
+
+		-
+			rawMessage: 'Cognitive complexity for "SanderMuller\FluentValidation\Rules\BooleanRule::validate()" is 18, keep it under 9'
+			identifier: complexity.functionLike
+			count: 1
+			path: src/Rules/BooleanRule.php
+
+		-
+			rawMessage: 'Method SanderMuller\FluentValidation\Rules\BooleanRule::compileConditionalBranch() has parameter $rules with no value type specified in iterable type array.'
+			identifier: missingType.iterableValue
+			count: 1
+			path: src/Rules/BooleanRule.php
+
+		-
+			rawMessage: 'Method SanderMuller\FluentValidation\Rules\BooleanRule::compileConditionalBranch() should return list<object|string>|string but returns array|string.'
+			identifier: return.type
+			count: 1
+			path: src/Rules/BooleanRule.php
+
+		-
+			rawMessage: 'Method SanderMuller\FluentValidation\Rules\BooleanRule::whenInput() has parameter $condition with generic class Illuminate\Support\Fluent but does not specify its types: TKey, TValue'
+			identifier: missingType.generics
+			count: 1
+			path: src/Rules/BooleanRule.php
+
+		-
+			rawMessage: 'Parameter #1 of closure expects string, mixed given.'
+			identifier: argument.type
+			count: 1
+			path: src/Rules/BooleanRule.php
+
+		-
+			rawMessage: 'Parameter #2 $message of method Illuminate\Support\MessageBag::add() expects string, mixed given.'
+			identifier: argument.type
+			count: 1
+			path: src/Rules/BooleanRule.php
+
+		-
+			rawMessage: 'Argument of an invalid type mixed supplied for foreach, only iterables are supported.'
+			identifier: foreach.nonIterable
+			count: 1
+			path: src/Rules/DateRule.php
+
+		-
+			rawMessage: 'Cognitive complexity for "SanderMuller\FluentValidation\Rules\DateRule::validate()" is 18, keep it under 9'
+			identifier: complexity.functionLike
+			count: 1
+			path: src/Rules/DateRule.php
+
+		-
+			rawMessage: 'Method SanderMuller\FluentValidation\Rules\DateRule::compileConditionalBranch() has parameter $rules with no value type specified in iterable type array.'
+			identifier: missingType.iterableValue
+			count: 1
+			path: src/Rules/DateRule.php
+
+		-
+			rawMessage: 'Method SanderMuller\FluentValidation\Rules\DateRule::compileConditionalBranch() should return list<object|string>|string but returns array|string.'
+			identifier: return.type
+			count: 1
+			path: src/Rules/DateRule.php
+
+		-
+			rawMessage: 'Method SanderMuller\FluentValidation\Rules\DateRule::whenInput() has parameter $condition with generic class Illuminate\Support\Fluent but does not specify its types: TKey, TValue'
+			identifier: missingType.generics
+			count: 1
+			path: src/Rules/DateRule.php
+
+		-
+			rawMessage: 'Parameter #1 of closure expects string, mixed given.'
+			identifier: argument.type
+			count: 1
+			path: src/Rules/DateRule.php
+
+		-
+			rawMessage: 'Parameter #2 $message of method Illuminate\Support\MessageBag::add() expects string, mixed given.'
+			identifier: argument.type
+			count: 1
+			path: src/Rules/DateRule.php
+
+		-
+			rawMessage: 'Argument of an invalid type mixed supplied for foreach, only iterables are supported.'
+			identifier: foreach.nonIterable
+			count: 1
+			path: src/Rules/EmailRule.php
+
+		-
+			rawMessage: 'Cognitive complexity for "SanderMuller\FluentValidation\Rules\EmailRule::validate()" is 18, keep it under 9'
+			identifier: complexity.functionLike
+			count: 1
+			path: src/Rules/EmailRule.php
+
+		-
+			rawMessage: 'Method SanderMuller\FluentValidation\Rules\EmailRule::compileConditionalBranch() has parameter $rules with no value type specified in iterable type array.'
+			identifier: missingType.iterableValue
+			count: 1
+			path: src/Rules/EmailRule.php
+
+		-
+			rawMessage: 'Method SanderMuller\FluentValidation\Rules\EmailRule::compileConditionalBranch() should return list<object|string>|string but returns array|string.'
+			identifier: return.type
+			count: 1
+			path: src/Rules/EmailRule.php
+
+		-
+			rawMessage: 'Method SanderMuller\FluentValidation\Rules\EmailRule::whenInput() has parameter $condition with generic class Illuminate\Support\Fluent but does not specify its types: TKey, TValue'
+			identifier: missingType.generics
+			count: 1
+			path: src/Rules/EmailRule.php
+
+		-
+			rawMessage: 'Parameter #1 of closure expects string, mixed given.'
+			identifier: argument.type
+			count: 1
+			path: src/Rules/EmailRule.php
+
+		-
+			rawMessage: 'Parameter #2 $message of method Illuminate\Support\MessageBag::add() expects string, mixed given.'
+			identifier: argument.type
+			count: 1
+			path: src/Rules/EmailRule.php
+
+		-
+			rawMessage: 'Argument of an invalid type mixed supplied for foreach, only iterables are supported.'
+			identifier: foreach.nonIterable
+			count: 1
+			path: src/Rules/FieldRule.php
+
+		-
+			rawMessage: 'Cognitive complexity for "SanderMuller\FluentValidation\Rules\FieldRule::validate()" is 18, keep it under 9'
+			identifier: complexity.functionLike
+			count: 1
+			path: src/Rules/FieldRule.php
+
+		-
+			rawMessage: 'Method SanderMuller\FluentValidation\Rules\FieldRule::compileConditionalBranch() has parameter $rules with no value type specified in iterable type array.'
+			identifier: missingType.iterableValue
+			count: 1
+			path: src/Rules/FieldRule.php
+
+		-
+			rawMessage: 'Method SanderMuller\FluentValidation\Rules\FieldRule::compileConditionalBranch() should return list<object|string>|string but returns array|string.'
+			identifier: return.type
+			count: 1
+			path: src/Rules/FieldRule.php
+
+		-
+			rawMessage: 'Method SanderMuller\FluentValidation\Rules\FieldRule::whenInput() has parameter $condition with generic class Illuminate\Support\Fluent but does not specify its types: TKey, TValue'
+			identifier: missingType.generics
+			count: 1
+			path: src/Rules/FieldRule.php
+
+		-
+			rawMessage: 'Parameter #1 of closure expects string, mixed given.'
+			identifier: argument.type
+			count: 1
+			path: src/Rules/FieldRule.php
+
+		-
+			rawMessage: 'Parameter #2 $message of method Illuminate\Support\MessageBag::add() expects string, mixed given.'
+			identifier: argument.type
+			count: 1
+			path: src/Rules/FieldRule.php
+
+		-
+			rawMessage: 'Argument of an invalid type mixed supplied for foreach, only iterables are supported.'
+			identifier: foreach.nonIterable
+			count: 1
+			path: src/Rules/FileRule.php
+
+		-
+			rawMessage: 'Cognitive complexity for "SanderMuller\FluentValidation\Rules\FileRule::validate()" is 18, keep it under 9'
+			identifier: complexity.functionLike
+			count: 1
+			path: src/Rules/FileRule.php
+
+		-
+			rawMessage: 'Method SanderMuller\FluentValidation\Rules\FileRule::compileConditionalBranch() has parameter $rules with no value type specified in iterable type array.'
+			identifier: missingType.iterableValue
+			count: 1
+			path: src/Rules/FileRule.php
+
+		-
+			rawMessage: 'Method SanderMuller\FluentValidation\Rules\FileRule::compileConditionalBranch() should return list<object|string>|string but returns array|string.'
+			identifier: return.type
+			count: 1
+			path: src/Rules/FileRule.php
+
+		-
+			rawMessage: 'Method SanderMuller\FluentValidation\Rules\FileRule::whenInput() has parameter $condition with generic class Illuminate\Support\Fluent but does not specify its types: TKey, TValue'
+			identifier: missingType.generics
+			count: 1
+			path: src/Rules/FileRule.php
+
+		-
+			rawMessage: 'Parameter #1 of closure expects string, mixed given.'
+			identifier: argument.type
+			count: 1
+			path: src/Rules/FileRule.php
+
+		-
+			rawMessage: 'Parameter #2 $message of method Illuminate\Support\MessageBag::add() expects string, mixed given.'
+			identifier: argument.type
+			count: 1
+			path: src/Rules/FileRule.php
+
+		-
+			rawMessage: 'Argument of an invalid type mixed supplied for foreach, only iterables are supported.'
+			identifier: foreach.nonIterable
+			count: 1
+			path: src/Rules/NumericRule.php
+
+		-
+			rawMessage: 'Cognitive complexity for "SanderMuller\FluentValidation\Rules\NumericRule::validate()" is 18, keep it under 9'
+			identifier: complexity.functionLike
+			count: 1
+			path: src/Rules/NumericRule.php
+
+		-
+			rawMessage: 'Method SanderMuller\FluentValidation\Rules\NumericRule::compileConditionalBranch() has parameter $rules with no value type specified in iterable type array.'
+			identifier: missingType.iterableValue
+			count: 1
+			path: src/Rules/NumericRule.php
+
+		-
+			rawMessage: 'Method SanderMuller\FluentValidation\Rules\NumericRule::compileConditionalBranch() should return list<object|string>|string but returns array|string.'
+			identifier: return.type
+			count: 1
+			path: src/Rules/NumericRule.php
+
+		-
+			rawMessage: 'Method SanderMuller\FluentValidation\Rules\NumericRule::whenInput() has parameter $condition with generic class Illuminate\Support\Fluent but does not specify its types: TKey, TValue'
+			identifier: missingType.generics
+			count: 1
+			path: src/Rules/NumericRule.php
+
+		-
+			rawMessage: 'Parameter #1 of closure expects string, mixed given.'
+			identifier: argument.type
+			count: 1
+			path: src/Rules/NumericRule.php
+
+		-
+			rawMessage: 'Parameter #2 $message of method Illuminate\Support\MessageBag::add() expects string, mixed given.'
+			identifier: argument.type
+			count: 1
+			path: src/Rules/NumericRule.php
+
+		-
+			rawMessage: 'Argument of an invalid type mixed supplied for foreach, only iterables are supported.'
+			identifier: foreach.nonIterable
+			count: 1
+			path: src/Rules/PasswordRule.php
+
+		-
+			rawMessage: 'Cognitive complexity for "SanderMuller\FluentValidation\Rules\PasswordRule::validate()" is 18, keep it under 9'
+			identifier: complexity.functionLike
+			count: 1
+			path: src/Rules/PasswordRule.php
+
+		-
+			rawMessage: 'Method SanderMuller\FluentValidation\Rules\PasswordRule::compileConditionalBranch() has parameter $rules with no value type specified in iterable type array.'
+			identifier: missingType.iterableValue
+			count: 1
+			path: src/Rules/PasswordRule.php
+
+		-
+			rawMessage: 'Method SanderMuller\FluentValidation\Rules\PasswordRule::compileConditionalBranch() should return list<object|string>|string but returns array|string.'
+			identifier: return.type
+			count: 1
+			path: src/Rules/PasswordRule.php
+
+		-
+			rawMessage: 'Method SanderMuller\FluentValidation\Rules\PasswordRule::whenInput() has parameter $condition with generic class Illuminate\Support\Fluent but does not specify its types: TKey, TValue'
+			identifier: missingType.generics
+			count: 1
+			path: src/Rules/PasswordRule.php
+
+		-
+			rawMessage: 'Parameter #1 of closure expects string, mixed given.'
+			identifier: argument.type
+			count: 1
+			path: src/Rules/PasswordRule.php
+
+		-
+			rawMessage: 'Parameter #2 $message of method Illuminate\Support\MessageBag::add() expects string, mixed given.'
+			identifier: argument.type
+			count: 1
+			path: src/Rules/PasswordRule.php
+
+		-
+			rawMessage: 'Argument of an invalid type mixed supplied for foreach, only iterables are supported.'
+			identifier: foreach.nonIterable
+			count: 1
+			path: src/Rules/StringRule.php
+
+		-
+			rawMessage: 'Cognitive complexity for "SanderMuller\FluentValidation\Rules\StringRule::validate()" is 18, keep it under 9'
+			identifier: complexity.functionLike
+			count: 1
+			path: src/Rules/StringRule.php
+
+		-
+			rawMessage: 'Method SanderMuller\FluentValidation\Rules\StringRule::compileConditionalBranch() has parameter $rules with no value type specified in iterable type array.'
+			identifier: missingType.iterableValue
+			count: 1
+			path: src/Rules/StringRule.php
+
+		-
+			rawMessage: 'Method SanderMuller\FluentValidation\Rules\StringRule::compileConditionalBranch() should return list<object|string>|string but returns array|string.'
+			identifier: return.type
+			count: 1
+			path: src/Rules/StringRule.php
+
+		-
+			rawMessage: 'Method SanderMuller\FluentValidation\Rules\StringRule::whenInput() has parameter $condition with generic class Illuminate\Support\Fluent but does not specify its types: TKey, TValue'
+			identifier: missingType.generics
+			count: 1
+			path: src/Rules/StringRule.php
+
+		-
+			rawMessage: 'Parameter #1 of closure expects string, mixed given.'
+			identifier: argument.type
+			count: 1
+			path: src/Rules/StringRule.php
+
+		-
+			rawMessage: 'Parameter #2 $message of method Illuminate\Support\MessageBag::add() expects string, mixed given.'
+			identifier: argument.type
+			count: 1
+			path: src/Rules/StringRule.php
