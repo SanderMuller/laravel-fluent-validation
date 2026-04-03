@@ -29,6 +29,9 @@ class ArrayRule implements DataAwareRule, ValidationRule, ValidatorAwareRule
     /** @var ValidationRule|array<string, ValidationRule>|null */
     protected ValidationRule|array|null $eachRules = null;
 
+    /** @var array<string, ValidationRule>|null */
+    protected ?array $childRules = null;
+
     /** @param  Arrayable<array-key, string|\BackedEnum>|list<string|\BackedEnum>|null  $keys */
     public function __construct(Arrayable|array|null $keys = null)
     {
@@ -57,10 +60,32 @@ class ArrayRule implements DataAwareRule, ValidationRule, ValidatorAwareRule
         return $this->eachRules;
     }
 
+    /**
+     * Define rules for fixed-key children of this array/object.
+     *
+     * Unlike each() which produces wildcard paths (items.*.name),
+     * children() produces fixed paths (search.value, search.regex).
+     *
+     * @param  array<string, ValidationRule>  $rules
+     */
+    public function children(array $rules): static
+    {
+        $this->childRules = $rules;
+
+        return $this;
+    }
+
+    /** @return array<string, ValidationRule>|null */
+    public function getChildRules(): ?array
+    {
+        return $this->childRules;
+    }
+
     public function withoutEachRules(): static
     {
         $clone = clone $this;
         $clone->eachRules = null;
+        $clone->childRules = null;
 
         return $clone;
     }
@@ -112,24 +137,27 @@ class ArrayRule implements DataAwareRule, ValidationRule, ValidatorAwareRule
     /** @return array<string, mixed> */
     public function buildNestedRules(string $attribute): array
     {
-        $eachRules = $this->getEachRules();
-        if ($eachRules === null) {
-            return [];
-        }
+        $rules = [];
 
+        $eachRules = $this->getEachRules();
         if ($eachRules instanceof ValidationRule) {
             $key = $attribute . '.*';
-            $rules = [$key => $eachRules];
+            $rules[$key] = $eachRules;
             if ($eachRules instanceof self) {
-                return array_merge($rules, $eachRules->buildNestedRules($key));
+                $rules = array_merge($rules, $eachRules->buildNestedRules($key));
             }
-
-            return $rules;
+        } elseif (is_array($eachRules)) {
+            foreach ($eachRules as $field => $rule) {
+                $key = $attribute . '.*.' . $field;
+                $rules[$key] = $rule;
+                if ($rule instanceof self) {
+                    $rules = array_merge($rules, $rule->buildNestedRules($key));
+                }
+            }
         }
 
-        $rules = [];
-        foreach ($eachRules as $field => $rule) {
-            $key = $attribute . '.*.' . $field;
+        foreach ($this->childRules ?? [] as $field => $rule) {
+            $key = $attribute . '.' . $field;
             $rules[$key] = $rule;
             if ($rule instanceof self) {
                 $rules = array_merge($rules, $rule->buildNestedRules($key));

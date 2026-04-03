@@ -543,8 +543,9 @@ final class RuleSet implements Arrayable
         }
 
         $eachRules = $rule->getEachRules();
+        $childRules = $rule->getChildRules();
 
-        if ($eachRules === null) {
+        if ($eachRules === null && $childRules === null) {
             $rules[$prefix] = $rule;
 
             return;
@@ -552,14 +553,18 @@ final class RuleSet implements Arrayable
 
         $rules[$prefix] = $rule->withoutEachRules();
 
+        // each() → wildcard paths: items.*.name
         if ($eachRules instanceof ValidationRule) {
             self::flattenRule($prefix . '.*', $eachRules, $rules);
-
-            return;
+        } elseif (is_array($eachRules)) {
+            foreach ($eachRules as $field => $fieldRule) {
+                self::flattenRule($prefix . '.*.' . $field, $fieldRule, $rules);
+            }
         }
 
-        foreach ($eachRules as $childField => $childRule) {
-            self::flattenRule($prefix . '.*.' . $childField, $childRule, $rules);
+        // children() → fixed paths: search.value
+        foreach ($childRules ?? [] as $field => $fieldRule) {
+            self::flattenRule($prefix . '.' . $field, $fieldRule, $rules);
         }
     }
 }

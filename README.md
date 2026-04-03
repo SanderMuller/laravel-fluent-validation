@@ -164,6 +164,25 @@ FluentRule::array()->each([
 
 `each()` works both standalone (passed directly to a validator) and through `RuleSet`. When used through `RuleSet`, wildcard expansion is automatically optimized for better performance on large datasets.
 
+### Fixed-key children with `children()`
+
+For objects with known keys (not wildcard arrays), you may use `children()` to co-locate the child rules with the parent:
+
+```php
+// Instead of:
+'search'       => FluentRule::array()->required(),
+'search.value' => FluentRule::string()->nullable(),
+'search.regex' => FluentRule::string()->nullable()->in(['true', 'false']),
+
+// Write:
+'search' => FluentRule::array()->required()->children([
+    'value' => FluentRule::string()->nullable(),
+    'regex' => FluentRule::string()->nullable()->in(['true', 'false']),
+]),
+```
+
+`children()` produces fixed paths (`search.value`), while `each()` produces wildcard paths (`items.*.name`). Both may be used together on the same array when needed.
+
 ## Performance
 
 Laravel's wildcard validation (`items.*.name`) has [known O(n²) performance issues](https://github.com/laravel/framework/issues/49375) for large arrays. This package solves them.
