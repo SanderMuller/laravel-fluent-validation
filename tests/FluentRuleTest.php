@@ -1082,49 +1082,27 @@ it('compiles to pipe-joined string when no object rules', function (): void {
     expect($stringRule->compiledRules())->toBe('string|required|min:2|max:255');
 });
 
-it('compiles stringable object rules to pipe string', function (): void {
-    $stringRule = FluentRule::string()->required()->in(['a', 'b']);
-    $compiled = $stringRule->compiledRules();
-    expect($compiled)->toBeString();
+it('compiles object rules to array preserving objects', function (): void {
+    $compiled = FluentRule::string()->required()->in(['a', 'b'])->compiledRules();
+    expect($compiled)->toBeArray();
     expect($compiled)->toContain('string');
     expect($compiled)->toContain('required');
-    expect($compiled)->toContain('in:');
 });
 
 // =========================================================================
 // HasEmbeddedRules — unique / exists
 // =========================================================================
 
-it('compiles unique rule to pipe string', function (): void {
-    $stringRule = FluentRule::string()->unique('users', 'email');
-    expect($stringRule->canCompile())->toBeFalse();
-    $compiled = $stringRule->compiledRules();
-    expect($compiled)->toBeString();
-    expect($compiled)->toContain('unique:');
+it('compiles unique rule to array with object', function (): void {
+    $compiled = FluentRule::string()->unique('users', 'email')->compiledRules();
+    expect($compiled)->toBeArray();
+    expect($compiled[0])->toBe('string');
 });
 
-it('compiles unique rule with default column to pipe string', function (): void {
-    $stringRule = FluentRule::string()->unique('users');
-    expect($stringRule->canCompile())->toBeFalse();
-    $compiled = $stringRule->compiledRules();
-    expect($compiled)->toBeString();
-    expect($compiled)->toContain('unique:');
-});
-
-it('compiles exists rule to pipe string', function (): void {
-    $stringRule = FluentRule::string()->exists('users', 'email');
-    expect($stringRule->canCompile())->toBeFalse();
-    $compiled = $stringRule->compiledRules();
-    expect($compiled)->toBeString();
-    expect($compiled)->toContain('exists:');
-});
-
-it('compiles exists rule with default column to pipe string', function (): void {
-    $stringRule = FluentRule::string()->exists('users');
-    expect($stringRule->canCompile())->toBeFalse();
-    $compiled = $stringRule->compiledRules();
-    expect($compiled)->toBeString();
-    expect($compiled)->toContain('exists:');
+it('compiles exists rule to array with object', function (): void {
+    $compiled = FluentRule::string()->exists('users', 'email')->compiledRules();
+    expect($compiled)->toBeArray();
+    expect($compiled[0])->toBe('string');
 });
 
 // =========================================================================

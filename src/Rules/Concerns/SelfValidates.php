@@ -188,18 +188,10 @@ trait SelfValidates
             return implode('|', $this->constraints);
         }
 
-        /** @var list<string> $stringRules */
-        $stringRules = $this->constraints;
-
-        foreach ($this->rules as $rule) {
-            if (! $rule instanceof \Stringable) {
-                return [...$this->constraints, ...$this->rules];
-            }
-
-            $stringRules[] = (string) $rule;
-        }
-
-        return implode('|', $stringRules);
+        // Object rules (ExcludeIf, RequiredIf, In, etc.) must be preserved
+        // as objects so Laravel's validator evaluates them at validation time.
+        // Stringifying would eagerly evaluate closure-based conditionals.
+        return [...$this->constraints, ...$this->rules];
     }
 
     /** @return list<string|object> */

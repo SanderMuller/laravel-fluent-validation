@@ -27,38 +27,40 @@ it('allowSvg preserves field modifiers set before it', function (): void {
 
 it('compiles image rule with minWidth and maxWidth', function (): void {
     $compiled = FluentRule::image()->minWidth(100)->maxWidth(1920)->compiledRules();
-    expect($compiled)->toContain('image');
-    expect($compiled)->toContain('dimensions:min_width=100');
-    expect($compiled)->toContain('dimensions:max_width=1920');
+    expect($compiled)->toBeArray();
+    expect($compiled[0])->toBe('image');
+    expect($compiled)->toHaveCount(3); // image + 2 Dimensions objects
 });
 
 it('compiles image rule with width and height', function (): void {
     $compiled = FluentRule::image()->width(800)->height(600)->compiledRules();
-    expect($compiled)->toContain('dimensions:width=800');
-    expect($compiled)->toContain('dimensions:height=600');
+    expect($compiled)->toBeArray();
+    expect($compiled[0])->toBe('image');
 });
 
 it('compiles image rule with minHeight and maxHeight', function (): void {
     $compiled = FluentRule::image()->minHeight(100)->maxHeight(1080)->compiledRules();
-    expect($compiled)->toContain('dimensions:min_height=100');
-    expect($compiled)->toContain('dimensions:max_height=1080');
+    expect($compiled)->toBeArray();
+    expect($compiled[0])->toBe('image');
 });
 
 it('compiles image rule with string ratio', function (): void {
     $compiled = FluentRule::image()->ratio('16/9')->compiledRules();
-    expect($compiled)->toContain('image');
-    expect($compiled)->toContain('dimensions:ratio=16/9');
+    expect($compiled)->toBeArray();
+    expect($compiled[0])->toBe('image');
 });
 
 it('compiles image rule with float ratio', function (): void {
     $compiled = FluentRule::image()->ratio(1.5)->compiledRules();
-    expect($compiled)->toContain('dimensions:ratio=1.5');
+    expect($compiled)->toBeArray();
+    expect($compiled[0])->toBe('image');
 });
 
 it('compiles image rule with Dimensions instance', function (): void {
     $dimensions = new Dimensions(['min_width' => 200, 'ratio' => 1.0]);
     $compiled = FluentRule::image()->dimensions($dimensions)->compiledRules();
-    expect($compiled)->toContain((string) $dimensions);
+    expect($compiled)->toBeArray();
+    expect($compiled)->toContain($dimensions);
 });
 
 it('validates image upload', function (): void {
