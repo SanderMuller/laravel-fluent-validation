@@ -83,3 +83,27 @@ it('handles wildcard at end without sub-field', function (): void {
     expect(WildcardExpander::expand('tags.*', ['tags' => ['php', 'laravel', 'pest']]))
         ->toBe(['tags.0', 'tags.1', 'tags.2']);
 });
+
+it('produces paths for missing keys after wildcard', function (): void {
+    $data = [
+        'items' => [
+            ['sort_order' => 1],
+            ['title' => 'hello', 'sort_order' => 2],
+        ],
+    ];
+
+    expect(WildcardExpander::expand('items.*.title', $data))
+        ->toBe(['items.0.title', 'items.1.title']);
+});
+
+it('produces paths for missing nested keys after wildcard', function (): void {
+    $data = [
+        'items' => [
+            ['style' => ['top' => '10%']],
+            ['style' => []],
+        ],
+    ];
+
+    expect(WildcardExpander::expand('items.*.style.color', $data))
+        ->toBe(['items.0.style.color', 'items.1.style.color']);
+});
