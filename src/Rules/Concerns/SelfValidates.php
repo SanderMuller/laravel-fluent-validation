@@ -55,15 +55,29 @@ trait SelfValidates
             $attributes[$attribute] = $this->getLabel();
         }
 
-        $validator = Validator::make(
+        $innerValidator = Validator::make(
             $this->data,
             $rules,
             $messages,
             $attributes
         );
 
-        foreach ($validator->errors()->all() as $message) {
-            $fail($message);
+        if ($innerValidator->passes()) {
+            return;
+        }
+
+        $hasNestedRules = count($rules) > 1;
+
+        foreach ($innerValidator->errors()->toArray() as $errorAttribute => $errorMessages) {
+            foreach ($errorMessages as $errorMessage) {
+                if ($hasNestedRules && $errorAttribute !== $attribute) {
+                    // Nested rule errors (from each/children) — preserve the indexed key
+                    // by adding directly to the outer validator instead of using $fail.
+                    $this->validator->errors()->add($errorAttribute, $errorMessage);
+                } else {
+                    $fail($errorMessage);
+                }
+            }
         }
     }
 

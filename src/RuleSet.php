@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace SanderMuller\FluentValidation;
 
-use Carbon\Carbon;
 use Illuminate\Contracts\Support\Arrayable;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Support\Facades\Validator;
@@ -305,7 +304,7 @@ final class RuleSet implements Arrayable
                 return false;
             }
 
-            if ($isDate && is_string($value) && Carbon::parse($value)->getTimestamp() === false) {
+            if ($isDate && is_string($value) && strtotime($value) === false) {
                 return false;
             }
 
