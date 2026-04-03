@@ -101,6 +101,15 @@ trait HasFieldModifiers
         return $this;
     }
 
+    /** @param  list<string|int|bool>  $values */
+    private static function serializeValues(array $values): string
+    {
+        return implode(',', array_map(
+            static fn (string|int|bool $v): string|int => is_bool($v) ? ($v ? '1' : '0') : $v,
+            $values,
+        ));
+    }
+
     public function bail(): static
     {
         return $this->addRule('bail');
@@ -148,12 +157,12 @@ trait HasFieldModifiers
 
     public function missingIf(string $field, string|int|bool ...$values): static
     {
-        return $this->addRule('missing_if:' . $field . ',' . implode(',', $values));
+        return $this->addRule('missing_if:' . $field . ',' . self::serializeValues($values));
     }
 
     public function missingUnless(string $field, string|int|bool ...$values): static
     {
-        return $this->addRule('missing_unless:' . $field . ',' . implode(',', $values));
+        return $this->addRule('missing_unless:' . $field . ',' . self::serializeValues($values));
     }
 
     public function missingWith(string ...$fields): static
@@ -172,7 +181,7 @@ trait HasFieldModifiers
             return $this->addRule(new RequiredIf($field));
         }
 
-        return $this->addRule('required_if:' . $field . ',' . implode(',', $values));
+        return $this->addRule('required_if:' . $field . ',' . self::serializeValues($values));
     }
 
     public function requiredUnless(Closure|bool|string $field, string|int|bool ...$values): static
@@ -181,7 +190,7 @@ trait HasFieldModifiers
             return $this->addRule(new RequiredUnless($field));
         }
 
-        return $this->addRule('required_unless:' . $field . ',' . implode(',', $values));
+        return $this->addRule('required_unless:' . $field . ',' . self::serializeValues($values));
     }
 
     public function requiredWith(string ...$fields): static
@@ -210,7 +219,7 @@ trait HasFieldModifiers
             return $this->addRule(new ExcludeIf($field));
         }
 
-        return $this->addRule('exclude_if:' . $field . ',' . implode(',', $values));
+        return $this->addRule('exclude_if:' . $field . ',' . self::serializeValues($values));
     }
 
     public function excludeUnless(Closure|bool|string $field, string|int|bool ...$values): static
@@ -219,7 +228,7 @@ trait HasFieldModifiers
             return $this->addRule(new ExcludeUnless($field));
         }
 
-        return $this->addRule('exclude_unless:' . $field . ',' . implode(',', $values));
+        return $this->addRule('exclude_unless:' . $field . ',' . self::serializeValues($values));
     }
 
     public function excludeWith(string $field): static
@@ -238,7 +247,7 @@ trait HasFieldModifiers
             return $this->addRule(new ProhibitedIf($field));
         }
 
-        return $this->addRule('prohibited_if:' . $field . ',' . implode(',', $values));
+        return $this->addRule('prohibited_if:' . $field . ',' . self::serializeValues($values));
     }
 
     public function prohibitedUnless(Closure|bool|string $field, string|int|bool ...$values): static
@@ -247,7 +256,7 @@ trait HasFieldModifiers
             return $this->addRule(new ProhibitedUnless($field));
         }
 
-        return $this->addRule('prohibited_unless:' . $field . ',' . implode(',', $values));
+        return $this->addRule('prohibited_unless:' . $field . ',' . self::serializeValues($values));
     }
 
     public function prohibits(string ...$fields): static

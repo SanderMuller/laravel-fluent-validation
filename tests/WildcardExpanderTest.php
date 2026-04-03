@@ -107,3 +107,11 @@ it('produces paths for missing nested keys after wildcard', function (): void {
     expect(WildcardExpander::expand('items.*.style.color', $data))
         ->toBe(['items.0.style.color', 'items.1.style.color']);
 });
+
+it('does not emit paths with unresolved wildcards for missing nested arrays', function (): void {
+    // items.*.style.* where style is missing — can't resolve the inner *
+    expect(WildcardExpander::expand('items.*.style.*', ['items' => [[]]]))->toBe([]);
+
+    // items.*.chapters.*.title where chapters is missing
+    expect(WildcardExpander::expand('items.*.chapters.*.title', ['items' => [['name' => 'test']]]))->toBe([]);
+});

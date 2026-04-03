@@ -29,7 +29,7 @@ class BooleanRule implements DataAwareRule, ValidationRule, ValidatorAwareRule
 
     public function acceptedIf(string $field, string|int|bool ...$values): static
     {
-        return $this->addRule('accepted_if:' . $field . ',' . implode(',', $values));
+        return $this->addRule('accepted_if:' . $field . ',' . self::serializeValues($values));
     }
 
     public function declined(): static
@@ -39,7 +39,7 @@ class BooleanRule implements DataAwareRule, ValidationRule, ValidatorAwareRule
 
     public function declinedIf(string $field, string|int|bool ...$values): static
     {
-        return $this->addRule('declined_if:' . $field . ',' . implode(',', $values));
+        return $this->addRule('declined_if:' . $field . ',' . self::serializeValues($values));
     }
 
     /** @return list<string|object> */

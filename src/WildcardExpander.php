@@ -61,7 +61,9 @@ class WildcardExpander
             // Before any wildcard: the path doesn't exist in the data at all.
             // After a wildcard: the key is missing from this item — still emit
             // the path so rules like `required` can validate against it.
-            if (! $afterWildcard) {
+            // But only if the remaining segments have no more wildcards —
+            // we can't resolve wildcards without data to iterate.
+            if (! $afterWildcard || in_array('*', $remaining, true)) {
                 return [];
             }
 

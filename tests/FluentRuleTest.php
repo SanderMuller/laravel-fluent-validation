@@ -329,6 +329,40 @@ it('validates requiredIf with closure', function (): void {
 });
 
 // =========================================================================
+// Regression: bool values in conditional rules serialize correctly
+// =========================================================================
+
+it('requiredIf with bool value serializes correctly', function (): void {
+    // required_if:published,1 — matches when published is "1" or 1 (form input)
+    $v = makeValidator(
+        ['published' => '0'],
+        ['title' => FluentRule::string()->requiredIf('published', true)]
+    );
+    expect($v->passes())->toBeTrue();
+
+    $v = makeValidator(
+        ['published' => '1'],
+        ['title' => FluentRule::string()->requiredIf('published', true)]
+    );
+    expect($v->passes())->toBeFalse();
+});
+
+it('requiredIf with false value serializes correctly', function (): void {
+    // required_if:active,0 — matches when active is "0" or 0
+    $v = makeValidator(
+        ['active' => '0', 'reason' => 'testing'],
+        ['reason' => FluentRule::string()->requiredIf('active', false)]
+    );
+    expect($v->passes())->toBeTrue();
+
+    $v = makeValidator(
+        ['active' => '1'],
+        ['reason' => FluentRule::string()->requiredIf('active', false)]
+    );
+    expect($v->passes())->toBeTrue(); // active is 1, not 0 → reason not required
+});
+
+// =========================================================================
 // notIn validation
 // =========================================================================
 
