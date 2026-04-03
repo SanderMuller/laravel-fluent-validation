@@ -69,7 +69,7 @@ final class RuleSet implements Arrayable
         $flat = $this->flatten();
 
         $topRules = [];
-        /** @var array<string, array<string, mixed>> */
+        /** @var array<string, array<string, mixed>> $wildcardGroups */
         $wildcardGroups = [];
 
         foreach ($flat as $field => $rule) {
@@ -85,6 +85,11 @@ final class RuleSet implements Arrayable
             $child = $child === '' ? '*' : ltrim($child, '.');
             $wildcardGroups[$parent][$child] = $rule;
         }
+
+        // Extract labels and per-rule messages before compilation destroys rule objects.
+        [$ruleMessages, $ruleAttributes] = self::extractMetadata($topRules);
+        $messages = array_merge($ruleMessages, $messages);
+        $attributes = array_merge($ruleAttributes, $attributes);
 
         if ($wildcardGroups === []) {
             return Validator::make($data, self::compile($topRules), $messages, $attributes)->validate();
@@ -110,9 +115,21 @@ final class RuleSet implements Arrayable
 
             $isScalar = isset($groupRules['*']) && count($groupRules) === 1;
 
-            $itemRules = $isScalar ? self::compile(['_v' => $groupRules['*']]) : self::compile($groupRules);
+            if ($isScalar) {
+                $rawItemRules = ['_v' => $groupRules['*']];
+            } else {
+                // Rewrite conditional rule references from wildcard paths to
+                // relative paths so per-item validation works.
+                $rawItemRules = $this->rewriteRulesForPerItem($groupRules, $parent);
+            }
 
-            if ($this->requiresFullExpansion($groupRules, $itemRules)) {
+            // Extract labels/messages before compilation destroys rule objects.
+            [$itemMessages, $itemAttributes] = self::extractMetadata($rawItemRules);
+            $itemMessages = array_merge($itemMessages, $messages);
+            $itemAttributes = array_merge($itemAttributes, $attributes);
+            $itemRules = self::compile($rawItemRules);
+
+            if ($this->requiresFullExpansion($itemRules)) {
                 return $this->validateStandard($data, $messages, $attributes);
             }
 
@@ -144,7 +161,7 @@ final class RuleSet implements Arrayable
 
                 // Slow path: use Laravel for proper error messages.
                 if ($itemValidator === null) {
-                    $itemValidator = Validator::make($itemData, $itemRules, $messages, $attributes);
+                    $itemValidator = Validator::make($itemData, $itemRules, $itemMessages, $itemAttributes);
                 } else {
                     $itemValidator->setData($itemData);
                 }
@@ -171,7 +188,7 @@ final class RuleSet implements Arrayable
             throw new ValidationException($errorValidator);
         }
 
-        return $topValidator->validated() + $data;
+        return $topValidator->validated();
     }
 
     /**
@@ -248,7 +265,8 @@ final class RuleSet implements Arrayable
             } elseif (str_starts_with($part, 'after:') || str_starts_with($part, 'before:')
                 || str_starts_with($part, 'after_or_equal:') || str_starts_with($part, 'before_or_equal:')
                 || str_starts_with($part, 'date_format:') || str_starts_with($part, 'date_equals:')) {
-                // Date comparison rules — handled by the date check below.
+                // Date comparison rules can't be fast-checked — bail to Laravel.
+                return null;
             } elseif ($part === 'accepted' || $part === 'declined') {
                 // Boolean-like checks.
             } elseif (str_starts_with($part, 'size:') || str_starts_with($part, 'between:')) {
@@ -317,17 +335,58 @@ final class RuleSet implements Arrayable
     }
 
     /**
+     * Rewrite conditional rule references from wildcard paths to relative paths
+     * so per-item validation works. Transforms:
+     *   ['exclude_unless', 'items.*.type', 'chapter'] → ['exclude_unless', 'type', 'chapter']
+     *   'gte:items.*.start_time' → 'gte:start_time'
+     *
      * @param  array<string, mixed>  $groupRules
-     * @param  array<string, mixed>  $compiledRules
+     * @return array<string, mixed>
      */
-    private function requiresFullExpansion(array $groupRules, array $compiledRules): bool
+    private function rewriteRulesForPerItem(array $groupRules, string $parent): array
     {
-        foreach (array_keys($groupRules) as $child) {
-            if (str_contains($child, '*')) {
-                return true;
+        $prefix = $parent . '.*.';
+        $rewritten = [];
+
+        foreach ($groupRules as $field => $rule) {
+            if (! is_array($rule)) {
+                $rewritten[$field] = $rule;
+
+                continue;
             }
+
+            $newRules = [];
+
+            foreach ($rule as $r) {
+                if (is_array($r) && count($r) >= 2 && is_string($r[1])) {
+                    // ['exclude_unless', 'items.*.type', ...] → ['exclude_unless', 'type', ...]
+                    $r[1] = $this->stripPrefix($r[1], $prefix);
+                    $newRules[] = $r;
+                } elseif (is_string($r) && str_contains($r, $prefix)) {
+                    // 'gte:items.*.start_time' → 'gte:start_time'
+                    $newRules[] = str_replace($prefix, '', $r);
+                } else {
+                    $newRules[] = $r;
+                }
+            }
+
+            $rewritten[$field] = $newRules;
         }
 
+        return $rewritten;
+    }
+
+    private function stripPrefix(string $value, string $prefix): string
+    {
+        return str_starts_with($value, $prefix) ? substr($value, strlen($prefix)) : $value;
+    }
+
+    /** @param  array<string, mixed>  $compiledRules */
+    private function requiresFullExpansion(array $compiledRules): bool
+    {
+        // Cross-item rules like distinct need full expansion to compare across items.
+        // Nested wildcards (chapters.*.title) are fine — the per-item validator
+        // handles them within each item's scope.
         foreach ($compiledRules as $compiledRule) {
             $ruleString = is_string($compiledRule) ? $compiledRule : (is_array($compiledRule) ? implode('|', array_filter($compiledRule, is_string(...))) : '');
             if (str_contains($ruleString, 'distinct')) {
@@ -349,6 +408,10 @@ final class RuleSet implements Arrayable
     private function validateStandard(array $data, array $messages, array $attributes): array
     {
         [$rules, $implicitAttributes] = $this->expand($data);
+
+        [$ruleMessages, $ruleAttributes] = self::extractMetadata($rules);
+        $messages = array_merge($ruleMessages, $messages);
+        $attributes = array_merge($ruleAttributes, $attributes);
 
         $validator = Validator::make($data, self::compile($rules), $messages, $attributes);
 
@@ -404,6 +467,38 @@ final class RuleSet implements Arrayable
         }
 
         return $rules;
+    }
+
+    /**
+     * Extract labels and per-rule messages from rule objects before compilation.
+     *
+     * @param  array<string, mixed>  $rules
+     * @return array{0: array<string, string>, 1: array<string, string>}
+     */
+    public static function extractMetadata(array $rules): array
+    {
+        $messages = [];
+        $attributes = [];
+
+        foreach ($rules as $field => $rule) {
+            // For mixed arrays like ['exclude', FluentRule::string('ID')],
+            // look inside for rule objects with metadata.
+            $objects = is_object($rule) ? [$rule] : (is_array($rule) ? array_filter($rule, is_object(...)) : []);
+
+            foreach ($objects as $object) {
+                if (method_exists($object, 'getLabel') && $object->getLabel() !== null) {
+                    $attributes[$field] = $object->getLabel();
+                }
+
+                if (method_exists($object, 'getCustomMessages')) {
+                    foreach ($object->getCustomMessages() as $ruleName => $msg) {
+                        $messages[$field . '.' . $ruleName] = $msg;
+                    }
+                }
+            }
+        }
+
+        return [$messages, $attributes];
     }
 
     /** @return array<string, mixed> */

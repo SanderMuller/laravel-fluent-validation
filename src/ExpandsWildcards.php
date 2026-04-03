@@ -19,8 +19,8 @@ use ReflectionProperty;
  *         public function rules(): array
  *         {
  *             return [
- *                 'items' => Rule::array()->required()->each([
- *                     'name' => Rule::string()->required()->min(2),
+ *                 'items' => FluentRule::array()->required()->each([
+ *                     'name' => FluentRule::string()->required()->min(2),
  *                 ]),
  *             ];
  *         }
@@ -36,9 +36,18 @@ trait ExpandsWildcards
 
         $data = $this->validationData();
 
-        [$expanded, $implicitAttributes] = RuleSet::from($rules)->expand($data);
+        $ruleSet = RuleSet::from($rules);
+        [$expanded, $implicitAttributes] = $ruleSet->expand($data);
 
-        $validator = $validationFactory->make($data, RuleSet::compile($expanded), $this->messages(), $this->attributes());
+        // Extract labels/messages before compilation destroys rule objects.
+        [$ruleMessages, $ruleAttributes] = RuleSet::extractMetadata($expanded);
+
+        $validator = $validationFactory->make(
+            $data,
+            RuleSet::compile($expanded),
+            array_merge($ruleMessages, $this->messages()),
+            array_merge($ruleAttributes, $this->attributes())
+        );
 
         if ($implicitAttributes !== []) {
             (new ReflectionProperty($validator, 'implicitAttributes'))

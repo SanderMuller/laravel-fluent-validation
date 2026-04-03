@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-use SanderMuller\FluentValidation\Rule;
+use SanderMuller\FluentValidation\FluentRule;
 use SanderMuller\FluentValidation\RuleSet;
 
 it('benchmarks all code paths', function (): void {
@@ -21,40 +21,40 @@ it('benchmarks all code paths', function (): void {
 
     $scenarios = [
         'string+numeric (fast-check)' => fn () => RuleSet::from([
-            'items' => Rule::array()->required()->each([
-                'name' => Rule::string()->required()->min(2)->max(255),
-                'email' => Rule::string()->required()->max(255),
-                'age' => Rule::numeric()->required()->integer()->min(0)->max(150),
-                'role' => Rule::string()->required()->in(['admin', 'editor', 'viewer']),
+            'items' => FluentRule::array()->required()->each([
+                'name' => FluentRule::string()->required()->min(2)->max(255),
+                'email' => FluentRule::string()->required()->max(255),
+                'age' => FluentRule::numeric()->required()->integer()->min(0)->max(150),
+                'role' => FluentRule::string()->required()->in(['admin', 'editor', 'viewer']),
             ]),
         ])->validate(['items' => $items500]),
 
         'with date (no fast-check)' => fn () => RuleSet::from([
-            'items' => Rule::array()->required()->each([
-                'name' => Rule::string()->required()->min(2)->max(255),
-                'starts_at' => Rule::date()->required()->after('2024-01-01'),
+            'items' => FluentRule::array()->required()->each([
+                'name' => FluentRule::string()->required()->min(2)->max(255),
+                'starts_at' => FluentRule::date()->required()->after('2024-01-01'),
             ]),
         ])->validate(['items' => $items500]),
 
         'with boolean (no fast-check)' => fn () => RuleSet::from([
-            'items' => Rule::array()->required()->each([
-                'name' => Rule::string()->required()->min(2)->max(255),
-                'active' => Rule::boolean()->required(),
+            'items' => FluentRule::array()->required()->each([
+                'name' => FluentRule::string()->required()->min(2)->max(255),
+                'active' => FluentRule::boolean()->required(),
             ]),
         ])->validate(['items' => $items500]),
 
         'nested wildcards (fallback)' => fn () => RuleSet::from([
-            'orders' => Rule::array()->required()->each([
-                'items' => Rule::array()->required()->each([
-                    'qty' => Rule::numeric()->required()->integer()->min(1),
+            'orders' => FluentRule::array()->required()->each([
+                'items' => FluentRule::array()->required()->each([
+                    'qty' => FluentRule::numeric()->required()->integer()->min(1),
                 ]),
             ]),
         ])->validate($nestedData),
 
         'with unique (non-Stringable obj)' => fn () => RuleSet::from([
-            'items' => Rule::array()->required()->each([
-                'name' => Rule::string()->required()->min(2)->max(255),
-                'age' => Rule::numeric()->required()->integer()->min(0)->max(150),
+            'items' => FluentRule::array()->required()->each([
+                'name' => FluentRule::string()->required()->min(2)->max(255),
+                'age' => FluentRule::numeric()->required()->integer()->min(0)->max(150),
             ]),
         ])->validate(['items' => $items500]),
     ];

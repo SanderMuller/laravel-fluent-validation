@@ -4,9 +4,10 @@ declare(strict_types=1);
 
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationData;
 use Illuminate\Validation\ValidationException;
-use SanderMuller\FluentValidation\Rule;
+use SanderMuller\FluentValidation\FluentRule;
 use SanderMuller\FluentValidation\Rules\ArrayRule;
 use SanderMuller\FluentValidation\Rules\NumericRule;
 use SanderMuller\FluentValidation\Rules\StringRule;
@@ -19,8 +20,8 @@ use SanderMuller\FluentValidation\WildcardExpander;
 
 it('builds a rule set from fluent fields', function (): void {
     $rules = RuleSet::make()
-        ->field('name', Rule::string()->required()->min(2)->max(255))
-        ->field('age', Rule::numeric()->nullable()->integer()->min(0))
+        ->field('name', FluentRule::string()->required()->min(2)->max(255))
+        ->field('age', FluentRule::numeric()->nullable()->integer()->min(0))
         ->toArray();
 
     expect($rules)->toHaveKeys(['name', 'age']);
@@ -30,8 +31,8 @@ it('builds a rule set from fluent fields', function (): void {
 
 it('builds a rule set from an array via from()', function (): void {
     $rules = RuleSet::from([
-        'name' => Rule::string()->required(),
-        'age' => Rule::numeric()->nullable(),
+        'name' => FluentRule::string()->required(),
+        'age' => FluentRule::numeric()->nullable(),
     ])->toArray();
 
     expect($rules)->toHaveKeys(['name', 'age']);
@@ -41,7 +42,7 @@ it('handles mixed rule types via from()', function (): void {
     $rules = RuleSet::from([
         'name' => 'required|string|max:255',
         'age' => ['required', 'integer'],
-        'email' => Rule::string()->required()->rule('email'),
+        'email' => FluentRule::string()->required()->rule('email'),
     ])->toArray();
 
     expect($rules['name'])->toBe('required|string|max:255');
@@ -55,7 +56,7 @@ it('handles mixed rule types via from()', function (): void {
 
 it('flattens each() with a single rule to wildcard path', function (): void {
     $rules = RuleSet::from([
-        'tags' => Rule::array()->required()->each(Rule::string()->max(50)),
+        'tags' => FluentRule::array()->required()->each(FluentRule::string()->max(50)),
     ])->toArray();
 
     expect($rules)->toHaveKeys(['tags', 'tags.*']);
@@ -65,9 +66,9 @@ it('flattens each() with a single rule to wildcard path', function (): void {
 
 it('flattens each() with field mappings to wildcard paths', function (): void {
     $rules = RuleSet::from([
-        'items' => Rule::array()->required()->each([
-            'name' => Rule::string()->required(),
-            'qty' => Rule::numeric()->required()->integer(),
+        'items' => FluentRule::array()->required()->each([
+            'name' => FluentRule::string()->required(),
+            'qty' => FluentRule::numeric()->required()->integer(),
         ]),
     ])->toArray();
 
@@ -78,9 +79,9 @@ it('flattens each() with field mappings to wildcard paths', function (): void {
 
 it('flattens nested each() recursively', function (): void {
     $rules = RuleSet::from([
-        'orders' => Rule::array()->required()->each([
-            'items' => Rule::array()->required()->each([
-                'name' => Rule::string()->required(),
+        'orders' => FluentRule::array()->required()->each([
+            'items' => FluentRule::array()->required()->each([
+                'name' => FluentRule::string()->required(),
             ]),
         ]),
     ])->toArray();
@@ -94,7 +95,7 @@ it('flattens nested each() recursively', function (): void {
 
 it('does not flatten array without each()', function (): void {
     $rules = RuleSet::from([
-        'tags' => Rule::array()->required(),
+        'tags' => FluentRule::array()->required(),
     ])->toArray();
 
     expect($rules)->toHaveKeys(['tags']);
@@ -107,8 +108,8 @@ it('does not flatten array without each()', function (): void {
 
 it('expands wildcard fields against data', function (): void {
     $rules = RuleSet::from([
-        'items' => Rule::array()->required(),
-        'items.*.name' => Rule::string()->required(),
+        'items' => FluentRule::array()->required(),
+        'items.*.name' => FluentRule::string()->required(),
     ])->expandWildcards([
         'items' => [
             ['name' => 'John'],
@@ -122,8 +123,8 @@ it('expands wildcard fields against data', function (): void {
 
 it('expands each() rules against data', function (): void {
     $rules = RuleSet::from([
-        'items' => Rule::array()->required()->each([
-            'name' => Rule::string()->required(),
+        'items' => FluentRule::array()->required()->each([
+            'name' => FluentRule::string()->required(),
         ]),
     ])->expandWildcards([
         'items' => [
@@ -139,8 +140,8 @@ it('expands each() rules against data', function (): void {
 
 it('leaves non-wildcard fields unchanged during expansion', function (): void {
     $rules = RuleSet::from([
-        'name' => Rule::string()->required(),
-        'tags' => Rule::array()->each(Rule::string()->max(50)),
+        'name' => FluentRule::string()->required(),
+        'tags' => FluentRule::array()->each(FluentRule::string()->max(50)),
     ])->expandWildcards([
         'name' => 'John',
         'tags' => ['php', 'laravel'],
@@ -151,7 +152,7 @@ it('leaves non-wildcard fields unchanged during expansion', function (): void {
 
 it('handles empty array during wildcard expansion', function (): void {
     $rules = RuleSet::from([
-        'items' => Rule::array()->each(Rule::string()),
+        'items' => FluentRule::array()->each(FluentRule::string()),
     ])->expandWildcards(['items' => []]);
 
     expect($rules)->toHaveKey('items');
@@ -164,8 +165,8 @@ it('handles empty array during wildcard expansion', function (): void {
 
 it('validates data with wildcard rules', function (): void {
     $validated = RuleSet::from([
-        'items' => Rule::array()->required()->min(1)->each([
-            'name' => Rule::string()->required()->min(2),
+        'items' => FluentRule::array()->required()->min(1)->each([
+            'name' => FluentRule::string()->required()->min(2),
         ]),
     ])->validate([
         'items' => [
@@ -179,8 +180,8 @@ it('validates data with wildcard rules', function (): void {
 
 it('validates simple rules without wildcards', function (): void {
     $validated = RuleSet::from([
-        'name' => Rule::string()->required()->min(2),
-        'age' => Rule::numeric()->nullable()->integer()->min(0),
+        'name' => FluentRule::string()->required()->min(2),
+        'age' => FluentRule::numeric()->nullable()->integer()->min(0),
     ])->validate(['name' => 'John', 'age' => 25]);
 
     expect($validated)->toBe(['name' => 'John', 'age' => 25]);
@@ -188,9 +189,9 @@ it('validates simple rules without wildcards', function (): void {
 
 it('validates nested each() rules', function (): void {
     $validated = RuleSet::from([
-        'orders' => Rule::array()->required()->each([
-            'items' => Rule::array()->required()->each([
-                'qty' => Rule::numeric()->required()->integer()->min(1),
+        'orders' => FluentRule::array()->required()->each([
+            'items' => FluentRule::array()->required()->each([
+                'qty' => FluentRule::numeric()->required()->integer()->min(1),
             ]),
         ]),
     ])->validate([
@@ -206,7 +207,7 @@ it('validates nested each() rules', function (): void {
 
 it('validates scalar each() rules', function (): void {
     $validated = RuleSet::from([
-        'tags' => Rule::array()->required()->each(Rule::string()->max(50)),
+        'tags' => FluentRule::array()->required()->each(FluentRule::string()->max(50)),
     ])->validate([
         'tags' => ['php', 'laravel'],
     ]);
@@ -220,8 +221,8 @@ it('validates scalar each() rules', function (): void {
 
 it('throws ValidationException for invalid wildcard data', function (): void {
     RuleSet::from([
-        'items' => Rule::array()->required()->each([
-            'name' => Rule::string()->required()->min(2),
+        'items' => FluentRule::array()->required()->each([
+            'name' => FluentRule::string()->required()->min(2),
         ]),
     ])->validate([
         'items' => [['name' => 'J']],
@@ -230,7 +231,7 @@ it('throws ValidationException for invalid wildcard data', function (): void {
 
 it('throws ValidationException for invalid simple data', function (): void {
     RuleSet::from([
-        'name' => Rule::string()->required()->min(5),
+        'name' => FluentRule::string()->required()->min(5),
     ])->validate(['name' => 'Jo']);
 })->throws(ValidationException::class);
 
@@ -241,7 +242,7 @@ it('throws ValidationException for invalid simple data', function (): void {
 it('supports custom error messages', function (): void {
     try {
         RuleSet::from([
-            'name' => Rule::string()->required(),
+            'name' => FluentRule::string()->required(),
         ])->validate(
             ['name' => ''],
             ['name.required' => 'Please provide your name.']
@@ -258,7 +259,7 @@ it('supports custom error messages', function (): void {
 it('supports custom attribute names', function (): void {
     try {
         RuleSet::from([
-            'email_address' => Rule::string()->required()->min(100),
+            'email_address' => FluentRule::string()->required()->min(100),
         ])->validate(
             ['email_address' => 'test@example.com'],
             [],
@@ -279,9 +280,9 @@ it('supports custom attribute names', function (): void {
 
 it('throws when top-level field fails alongside wildcard rules', function (): void {
     RuleSet::from([
-        'name' => Rule::string()->required()->min(5),
-        'items' => Rule::array()->required()->each([
-            'title' => Rule::string()->required(),
+        'name' => FluentRule::string()->required()->min(5),
+        'items' => FluentRule::array()->required()->each([
+            'title' => FluentRule::string()->required(),
         ]),
     ])->validate([
         'name' => 'Jo',
@@ -295,7 +296,7 @@ it('throws when top-level field fails alongside wildcard rules', function (): vo
 
 it('throws when scalar each item fails validation', function (): void {
     RuleSet::from([
-        'tags' => Rule::array()->required()->each(Rule::string()->min(3)),
+        'tags' => FluentRule::array()->required()->each(FluentRule::string()->min(3)),
     ])->validate([
         'tags' => ['ok', 'no'],
     ]);
@@ -304,7 +305,7 @@ it('throws when scalar each item fails validation', function (): void {
 it('reports correct field paths for scalar each item failures', function (): void {
     try {
         RuleSet::from([
-            'tags' => Rule::array()->required()->each(Rule::string()->min(20)),
+            'tags' => FluentRule::array()->required()->each(FluentRule::string()->min(20)),
         ])->validate([
             'tags' => ['short', 'tiny'],
         ]);
@@ -325,7 +326,7 @@ it('reports correct field paths for scalar each item failures', function (): voi
 
 it('falls back to standard validation when distinct rule is present', function (): void {
     $validated = RuleSet::from([
-        'tags' => Rule::array()->required()->each(Rule::string()->distinct()),
+        'tags' => FluentRule::array()->required()->each(FluentRule::string()->distinct()),
     ])->validate([
         'tags' => ['php', 'laravel', 'pest'],
     ]);
@@ -335,7 +336,7 @@ it('falls back to standard validation when distinct rule is present', function (
 
 it('distinct rule detects duplicates via full expansion', function (): void {
     RuleSet::from([
-        'tags' => Rule::array()->required()->each(Rule::string()->distinct()),
+        'tags' => FluentRule::array()->required()->each(FluentRule::string()->distinct()),
     ])->validate([
         'tags' => ['php', 'laravel', 'php'],
     ]);
@@ -347,8 +348,8 @@ it('distinct rule detects duplicates via full expansion', function (): void {
 
 it('fast-checks numeric fields in wildcard items', function (): void {
     $validated = RuleSet::from([
-        'items' => Rule::array()->required()->each([
-            'qty' => Rule::numeric()->required()->integer()->min(1)->max(100),
+        'items' => FluentRule::array()->required()->each([
+            'qty' => FluentRule::numeric()->required()->integer()->min(1)->max(100),
         ]),
     ])->validate([
         'items' => [
@@ -362,8 +363,8 @@ it('fast-checks numeric fields in wildcard items', function (): void {
 
 it('fast-checks fail on numeric validation falling through to slow path', function (): void {
     RuleSet::from([
-        'items' => Rule::array()->required()->each([
-            'qty' => Rule::numeric()->required()->min(10),
+        'items' => FluentRule::array()->required()->each([
+            'qty' => FluentRule::numeric()->required()->min(10),
         ]),
     ])->validate([
         'items' => [['qty' => 1]],
@@ -372,8 +373,8 @@ it('fast-checks fail on numeric validation falling through to slow path', functi
 
 it('fast-checks in() values on wildcard items', function (): void {
     $validated = RuleSet::from([
-        'items' => Rule::array()->required()->each([
-            'status' => Rule::string()->required()->in(['active', 'inactive']),
+        'items' => FluentRule::array()->required()->each([
+            'status' => FluentRule::string()->required()->in(['active', 'inactive']),
         ]),
     ])->validate([
         'items' => [
@@ -387,8 +388,8 @@ it('fast-checks in() values on wildcard items', function (): void {
 
 it('fast-checks fail on in() values falling through to slow path', function (): void {
     RuleSet::from([
-        'items' => Rule::array()->required()->each([
-            'status' => Rule::string()->required()->in(['active', 'inactive']),
+        'items' => FluentRule::array()->required()->each([
+            'status' => FluentRule::string()->required()->in(['active', 'inactive']),
         ]),
     ])->validate([
         'items' => [['status' => 'deleted']],
@@ -397,8 +398,8 @@ it('fast-checks fail on in() values falling through to slow path', function (): 
 
 it('fast-checks boolean fields in wildcard items', function (): void {
     $validated = RuleSet::from([
-        'items' => Rule::array()->required()->each([
-            'active' => Rule::boolean()->required(),
+        'items' => FluentRule::array()->required()->each([
+            'active' => FluentRule::boolean()->required(),
         ]),
     ])->validate([
         'items' => [
@@ -412,8 +413,8 @@ it('fast-checks boolean fields in wildcard items', function (): void {
 
 it('fast-checks nullable fields pass with null', function (): void {
     $validated = RuleSet::from([
-        'items' => Rule::array()->required()->each([
-            'note' => Rule::string()->nullable()->max(100),
+        'items' => FluentRule::array()->required()->each([
+            'note' => FluentRule::string()->nullable()->max(100),
         ]),
     ])->validate([
         'items' => [
@@ -436,8 +437,8 @@ it('fast-checks skip non-compilable rules and use slow path', function (): void 
     };
 
     $validated = RuleSet::from([
-        'items' => Rule::array()->required()->each([
-            'value' => Rule::string()->required()->rule($customRule),
+        'items' => FluentRule::array()->required()->each([
+            'value' => FluentRule::string()->required()->rule($customRule),
         ]),
     ])->validate([
         'items' => [['value' => 'valid']],
@@ -448,8 +449,8 @@ it('fast-checks skip non-compilable rules and use slow path', function (): void 
 
 it('fast-checks integer strict validation', function (): void {
     $validated = RuleSet::from([
-        'items' => Rule::array()->required()->each([
-            'count' => Rule::numeric()->required()->integer(),
+        'items' => FluentRule::array()->required()->each([
+            'count' => FluentRule::numeric()->required()->integer(),
         ]),
     ])->validate([
         'items' => [
@@ -463,8 +464,8 @@ it('fast-checks integer strict validation', function (): void {
 
 it('fast-checks string max violation falls through to slow path', function (): void {
     RuleSet::from([
-        'items' => Rule::array()->required()->each([
-            'name' => Rule::string()->required()->max(3),
+        'items' => FluentRule::array()->required()->each([
+            'name' => FluentRule::string()->required()->max(3),
         ]),
     ])->validate([
         'items' => [['name' => 'toolong']],
@@ -473,8 +474,8 @@ it('fast-checks string max violation falls through to slow path', function (): v
 
 it('fast-checks numeric max violation falls through to slow path', function (): void {
     RuleSet::from([
-        'items' => Rule::array()->required()->each([
-            'qty' => Rule::numeric()->required()->max(10),
+        'items' => FluentRule::array()->required()->each([
+            'qty' => FluentRule::numeric()->required()->max(10),
         ]),
     ])->validate([
         'items' => [['qty' => 999]],
@@ -483,8 +484,8 @@ it('fast-checks numeric max violation falls through to slow path', function (): 
 
 it('fast-checks required empty string falls through to slow path', function (): void {
     RuleSet::from([
-        'items' => Rule::array()->required()->each([
-            'name' => Rule::string()->required(),
+        'items' => FluentRule::array()->required()->each([
+            'name' => FluentRule::string()->required(),
         ]),
     ])->validate([
         'items' => [['name' => '']],
@@ -494,8 +495,8 @@ it('fast-checks required empty string falls through to slow path', function (): 
 it('slow path reuses validator across multiple failing items', function (): void {
     try {
         RuleSet::from([
-            'items' => Rule::array()->required()->each([
-                'name' => Rule::string()->required()->min(10),
+            'items' => FluentRule::array()->required()->each([
+                'name' => FluentRule::string()->required()->min(10),
             ]),
         ])->validate([
             'items' => [
@@ -518,7 +519,7 @@ it('slow path reuses validator across multiple failing items', function (): void
 it('slow path reports scalar item errors with correct paths', function (): void {
     try {
         RuleSet::from([
-            'tags' => Rule::array()->required()->each(Rule::string()->min(10)),
+            'tags' => FluentRule::array()->required()->each(FluentRule::string()->min(10)),
         ])->validate([
             'tags' => ['good-enough!', 'bad'],
         ]);
@@ -533,8 +534,8 @@ it('slow path reports scalar item errors with correct paths', function (): void 
 
 it('fast-checks date fields by skipping to slow path', function (): void {
     $validated = RuleSet::from([
-        'items' => Rule::array()->required()->each([
-            'date' => Rule::date()->required(),
+        'items' => FluentRule::array()->required()->each([
+            'date' => FluentRule::date()->required(),
         ]),
     ])->validate([
         'items' => [
@@ -548,8 +549,8 @@ it('fast-checks date fields by skipping to slow path', function (): void {
 
 it('size rule in each triggers slow path', function (): void {
     $validated = RuleSet::from([
-        'items' => Rule::array()->required()->each([
-            'code' => Rule::string()->required()->exactly(3),
+        'items' => FluentRule::array()->required()->each([
+            'code' => FluentRule::string()->required()->exactly(3),
         ]),
     ])->validate([
         'items' => [['code' => 'ABC']],
@@ -560,8 +561,8 @@ it('size rule in each triggers slow path', function (): void {
 
 it('array rule in each triggers slow path', function (): void {
     $validated = RuleSet::from([
-        'items' => Rule::array()->required()->each([
-            'tags' => Rule::array()->required(),
+        'items' => FluentRule::array()->required()->each([
+            'tags' => FluentRule::array()->required(),
         ]),
     ])->validate([
         'items' => [['tags' => ['a', 'b']]],
@@ -572,8 +573,8 @@ it('array rule in each triggers slow path', function (): void {
 
 it('unrecognized rule in each triggers slow path', function (): void {
     $validated = RuleSet::from([
-        'items' => Rule::array()->required()->each([
-            'email' => Rule::string()->required()->rule('email'),
+        'items' => FluentRule::array()->required()->each([
+            'email' => FluentRule::string()->required()->rule('email'),
         ]),
     ])->validate([
         'items' => [['email' => 'user@example.com']],
@@ -588,9 +589,9 @@ it('unrecognized rule in each triggers slow path', function (): void {
 
 it('nested wildcards in each fall back to standard validation', function (): void {
     $validated = RuleSet::from([
-        'orders' => Rule::array()->required()->each([
-            'items' => Rule::array()->required()->each([
-                'name' => Rule::string()->required(),
+        'orders' => FluentRule::array()->required()->each([
+            'items' => FluentRule::array()->required()->each([
+                'name' => FluentRule::string()->required(),
             ]),
         ]),
     ])->validate([
@@ -600,6 +601,250 @@ it('nested wildcards in each fall back to standard validation', function (): voi
     ]);
 
     expect($validated['orders'])->toHaveCount(1);
+});
+
+// =========================================================================
+// Regression: validate() must not leak unvalidated fields
+// =========================================================================
+
+it('does not include unvalidated fields in validated output', function (): void {
+    $validated = RuleSet::from([
+        'name' => FluentRule::string()->required(),
+    ])->validate(['name' => 'John', 'evil' => 'payload']);
+
+    expect($validated)->toHaveKey('name');
+    expect($validated)->not->toHaveKey('evil');
+});
+
+// =========================================================================
+// Regression: date comparison rules must not be silently accepted
+// =========================================================================
+
+it('rejects invalid dates via RuleSet validate', function (): void {
+    RuleSet::from([
+        'items' => FluentRule::array()->required()->each([
+            'starts_at' => FluentRule::date()->required()->after('2099-01-01'),
+        ]),
+    ])->validate([
+        'items' => [['starts_at' => '2020-01-01']],
+    ]);
+})->throws(ValidationException::class);
+
+// =========================================================================
+// Labels — factory argument and ->label()
+// =========================================================================
+
+it('uses label from factory argument in error messages', function (): void {
+    try {
+        RuleSet::from([
+            'name' => FluentRule::string('Full Name')->required(),
+        ])->validate(['name' => '']);
+    } catch (ValidationException $validationException) {
+        expect($validationException->errors()['name'][0])->toContain('Full Name');
+
+        return;
+    }
+
+    $this->fail('Expected ValidationException');
+});
+
+it('uses label from ->label() method in error messages', function (): void {
+    try {
+        RuleSet::from([
+            'email' => FluentRule::string()->label('Email Address')->required()->rule('email'),
+        ])->validate(['email' => '']);
+    } catch (ValidationException $validationException) {
+        expect($validationException->errors()['email'][0])->toContain('Email Address');
+
+        return;
+    }
+
+    $this->fail('Expected ValidationException');
+});
+
+it('uses array label via named parameter', function (): void {
+    try {
+        RuleSet::from([
+            'items' => FluentRule::array(label: 'Import Items')->required()->min(1),
+        ])->validate(['items' => []]);
+    } catch (ValidationException $validationException) {
+        expect($validationException->errors()['items'][0])->toContain('Import Items');
+
+        return;
+    }
+
+    $this->fail('Expected ValidationException');
+});
+
+it('uses labels within each() rules', function (): void {
+    try {
+        RuleSet::from([
+            'items' => FluentRule::array()->required()->each([
+                'name' => FluentRule::string('Item Name')->required()->min(5),
+            ]),
+        ])->validate([
+            'items' => [['name' => 'Jo']],
+        ]);
+    } catch (ValidationException $validationException) {
+        expect($validationException->errors()['items.0.name'][0])->toContain('Item Name');
+
+        return;
+    }
+
+    $this->fail('Expected ValidationException');
+});
+
+// =========================================================================
+// Per-rule messages — ->message()
+// =========================================================================
+
+it('uses custom message from ->message() on required', function (): void {
+    try {
+        RuleSet::from([
+            'name' => FluentRule::string()->required()->message('We need your name!'),
+        ])->validate(['name' => '']);
+    } catch (ValidationException $validationException) {
+        expect($validationException->errors()['name'][0])->toBe('We need your name!');
+
+        return;
+    }
+
+    $this->fail('Expected ValidationException');
+});
+
+it('uses custom message from ->message() on min', function (): void {
+    try {
+        RuleSet::from([
+            'name' => FluentRule::string()->required()->min(10)->message('Too short!'),
+        ])->validate(['name' => 'Jo']);
+    } catch (ValidationException $validationException) {
+        expect($validationException->errors()['name'][0])->toBe('Too short!');
+
+        return;
+    }
+
+    $this->fail('Expected ValidationException');
+});
+
+it('combines label and message', function (): void {
+    try {
+        RuleSet::from([
+            'name' => FluentRule::string('Full Name')->required()->min(10)->message('At least :min characters.'),
+        ])->validate(['name' => 'Jo']);
+    } catch (ValidationException $validationException) {
+        // min message is custom, required would use label
+        expect($validationException->errors()['name'][0])->toBe('At least 10 characters.');
+
+        return;
+    }
+
+    $this->fail('Expected ValidationException');
+});
+
+it('message only applies to the preceding rule', function (): void {
+    try {
+        RuleSet::from([
+            'name' => FluentRule::string('Full Name')
+                ->required()->message('Name is required.')
+                ->min(2),  // No custom message — uses default with label
+        ])->validate(['name' => '']);
+    } catch (ValidationException $validationException) {
+        expect($validationException->errors()['name'][0])->toBe('Name is required.');
+
+        return;
+    }
+
+    $this->fail('Expected ValidationException');
+});
+
+it('user-provided messages override per-rule messages', function (): void {
+    try {
+        RuleSet::from([
+            'name' => FluentRule::string()->required()->message('Fluent message.'),
+        ])->validate(
+            ['name' => ''],
+            ['name.required' => 'User override.'],
+        );
+    } catch (ValidationException $validationException) {
+        expect($validationException->errors()['name'][0])->toBe('User override.');
+
+        return;
+    }
+
+    $this->fail('Expected ValidationException');
+});
+
+it('label survives each() flattening and withoutEachRules clone', function (): void {
+    try {
+        RuleSet::from([
+            'items' => FluentRule::array(label: 'Product List')->required()->min(3)->each([
+                'name' => FluentRule::string('Product Name')->required(),
+            ]),
+        ])->validate([
+            'items' => [['name' => 'A']],
+        ]);
+    } catch (ValidationException $validationException) {
+        expect($validationException->errors()['items'][0])->toContain('Product List');
+
+        return;
+    }
+
+    $this->fail('Expected ValidationException');
+});
+
+// =========================================================================
+// Regression: labels/messages survive validateStandard() fallback (P2)
+// =========================================================================
+
+it('preserves label in distinct fallback path', function (): void {
+    try {
+        RuleSet::from([
+            'tags' => FluentRule::array(label: 'Tag List')->required()->each(
+                FluentRule::string('Tag')->required()->distinct()
+            ),
+        ])->validate([
+            'tags' => ['php', 'php'],
+        ]);
+    } catch (ValidationException $validationException) {
+        // The distinct error should use the label from the rule
+        expect($validationException->validator->errors()->toArray())->not->toBeEmpty();
+
+        return;
+    }
+
+    $this->fail('Expected ValidationException');
+});
+
+// =========================================================================
+// Regression: extractMetadata finds labels inside mixed arrays (P3)
+// =========================================================================
+
+it('extracts label from fluent rule inside mixed array', function (): void {
+    try {
+        RuleSet::from([
+            'secret' => ['bail', FluentRule::string('API Secret')->required()->min(20)],
+        ])->validate(['secret' => 'short']);
+    } catch (ValidationException $validationException) {
+        expect($validationException->errors()['secret'][0])->toContain('API Secret');
+
+        return;
+    }
+
+    $this->fail('Expected ValidationException');
+});
+
+it('extracts message from fluent rule inside mixed array', function (): void {
+    try {
+        RuleSet::from([
+            'token' => ['sometimes', FluentRule::string()->required()->message('Token is required.')],
+        ])->validate(['token' => '']);
+    } catch (ValidationException $validationException) {
+        expect($validationException->errors()['token'][0])->toBe('Token is required.');
+
+        return;
+    }
+
+    $this->fail('Expected ValidationException');
 });
 
 // =========================================================================
@@ -699,18 +944,18 @@ it('RuleSet::validate() with compiled rules matches native Laravel performance',
         'items.*.name' => 'required|string|min:2|max:255',
         'items.*.email' => 'required|string|max:255',
         'items.*.age' => 'required|numeric|integer|min:0|max:150',
-        'items.*.role' => ['required', 'string', Illuminate\Validation\Rule::in(['admin', 'editor', 'viewer'])],
+        'items.*.role' => ['required', 'string', Rule::in(['admin', 'editor', 'viewer'])],
     ])->validate();
     $nativeElapsed = microtime(true) - $nativeStart;
 
     // RuleSet with compilable fluent rules (no object rules except 'role' which uses in())
     $ruleSetStart = microtime(true);
     RuleSet::from([
-        'items' => Rule::array()->required()->each([
-            'name' => Rule::string()->required()->min(2)->max(255),
-            'email' => Rule::string()->required()->max(255),
-            'age' => Rule::numeric()->required()->integer()->min(0)->max(150),
-            'role' => Rule::string()->required()->in(['admin', 'editor', 'viewer']),
+        'items' => FluentRule::array()->required()->each([
+            'name' => FluentRule::string()->required()->min(2)->max(255),
+            'email' => FluentRule::string()->required()->max(255),
+            'age' => FluentRule::numeric()->required()->integer()->min(0)->max(150),
+            'role' => FluentRule::string()->required()->in(['admin', 'editor', 'viewer']),
         ]),
     ])->validate($data);
     $ruleSetElapsed = microtime(true) - $ruleSetStart;

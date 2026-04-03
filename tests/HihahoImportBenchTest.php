@@ -141,6 +141,7 @@ it('benchmarks hihaho-level import validation', function (): void {
     $iterations = 3;
     $nativeTimes = [];
     $expandedTimes = [];
+    $validateTimes = [];
     $wildcardExpanderTimes = [];
 
     $allPatterns = array_keys(array_filter($rules, fn ($k) => str_contains((string) $k, '*'), ARRAY_FILTER_USE_KEY));
@@ -151,7 +152,7 @@ it('benchmarks hihaho-level import validation', function (): void {
         Validator::make($data, $rules)->validate();
         $nativeTimes[] = (hrtime(true) - $t) / 1e6;
 
-        // Pre-expanded via RuleSet
+        // Pre-expanded via RuleSet (big validator)
         $t = hrtime(true);
         $ruleSet = RuleSet::from($rules);
         [$expanded, $ia] = $ruleSet->expand($data);
@@ -161,7 +162,12 @@ it('benchmarks hihaho-level import validation', function (): void {
         $v->validate();
         $expandedTimes[] = (hrtime(true) - $t) / 1e6;
 
-        // Just WildcardExpander vs ValidationData (expansion only)
+        // RuleSet::validate() — per-item with conditional rule rewriting
+        $t = hrtime(true);
+        RuleSet::from($rules)->validate($data);
+        $validateTimes[] = (hrtime(true) - $t) / 1e6;
+
+        // Just WildcardExpander (expansion only)
         $t = hrtime(true);
         foreach ($allPatterns as $allPattern) {
             WildcardExpander::expand($allPattern, $data);
@@ -172,18 +178,19 @@ it('benchmarks hihaho-level import validation', function (): void {
 
     sort($nativeTimes);
     sort($expandedTimes);
+    sort($validateTimes);
     sort($wildcardExpanderTimes);
 
-    $nativeMedian = $nativeTimes[2];
-    $expandedMedian = $expandedTimes[2];
-    $expanderMedian = $wildcardExpanderTimes[2];
+    $nativeMedian = $nativeTimes[1];
+    $expandedMedian = $expandedTimes[1];
+    $validateMedian = $validateTimes[1];
+    $expanderMedian = $wildcardExpanderTimes[1];
 
-    fprintf(STDERR, "\n  === Hihaho-level import (300 interactions, %d wildcard patterns) ===\n\n", count($allPatterns));
-    fprintf(STDERR, "  Native Laravel:         %7.2fms\n", $nativeMedian);
-    fprintf(STDERR, "  Pre-expanded (RuleSet): %7.2fms (%.1fx)\n", $expandedMedian, $nativeMedian / $expandedMedian);
-    fprintf(STDERR, "  WildcardExpander only:  %7.2fms\n\n", $expanderMedian);
-    fprintf(STDERR, "  Expansion overhead saved: %.2fms\n", $nativeMedian - $expandedMedian);
+    fprintf(STDERR, "\n  === Hihaho-level import (100 interactions, %d wildcard patterns) ===\n\n", count($allPatterns));
+    fprintf(STDERR, "  Native Laravel:               %7.2fms\n", $nativeMedian);
+    fprintf(STDERR, "  Pre-expanded (big validator):  %7.2fms (%.1fx)\n", $expandedMedian, $nativeMedian / $expandedMedian);
+    fprintf(STDERR, "  RuleSet::validate() per-item:  %7.2fms (%.1fx)\n", $validateMedian, $nativeMedian / $validateMedian);
+    fprintf(STDERR, "  WildcardExpander only:         %7.2fms\n", $expanderMedian);
 
-    // Just verify it's faster
-    expect($expandedMedian)->toBeLessThan($nativeMedian);
+    expect($validateMedian)->toBeLessThan($nativeMedian);
 })->group('benchmark');

@@ -164,6 +164,11 @@ class StringRule implements DataAwareRule, ValidationRule, ValidatorAwareRule
         return $this->addRule('date');
     }
 
+    public function email(string ...$modes): static
+    {
+        return $this->addRule($modes === [] ? 'email' : 'email:' . implode(',', $modes));
+    }
+
     public function dateFormat(string $format): static
     {
         return $this->addRule('date_format:' . $format);

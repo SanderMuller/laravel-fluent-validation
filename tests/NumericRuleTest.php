@@ -1,0 +1,222 @@
+<?php
+
+declare(strict_types=1);
+
+use SanderMuller\FluentValidation\FluentRule;
+
+// =========================================================================
+// NumericRule
+// =========================================================================
+
+it('validates numeric with integer and min', function (): void {
+    $validator = makeValidator(['age' => 25], ['age' => FluentRule::numeric()->integer()->min(0)]);
+
+    expect($validator->passes())->toBeTrue();
+});
+
+it('validates numeric with required', function (): void {
+    $validator = makeValidator([], ['age' => FluentRule::numeric()->required()]);
+
+    expect($validator->passes())->toBeFalse();
+});
+
+it('validates numeric with nullable', function (): void {
+    $validator = makeValidator(['age' => null], ['age' => FluentRule::numeric()->nullable()]);
+
+    expect($validator->passes())->toBeTrue();
+});
+
+it('validates numeric with between', function (): void {
+    $v = makeValidator(['price' => 15.5], ['price' => FluentRule::numeric()->between(10, 20)]);
+    expect($v->passes())->toBeTrue();
+
+    $v = makeValidator(['price' => 25], ['price' => FluentRule::numeric()->between(10, 20)]);
+    expect($v->passes())->toBeFalse();
+});
+
+// =========================================================================
+// NumericRule — min / max / decimal / digits / digitsBetween
+// =========================================================================
+
+it('validates numeric with min', function (): void {
+    $v = makeValidator(['age' => 18], ['age' => FluentRule::numeric()->min(18)]);
+    expect($v->passes())->toBeTrue();
+
+    $v = makeValidator(['age' => 17], ['age' => FluentRule::numeric()->min(18)]);
+    expect($v->passes())->toBeFalse();
+});
+
+it('validates numeric with max', function (): void {
+    $v = makeValidator(['age' => 100], ['age' => FluentRule::numeric()->max(120)]);
+    expect($v->passes())->toBeTrue();
+
+    $v = makeValidator(['age' => 150], ['age' => FluentRule::numeric()->max(120)]);
+    expect($v->passes())->toBeFalse();
+});
+
+it('validates numeric with decimal', function (): void {
+    $v = makeValidator(['price' => '10.50'], ['price' => FluentRule::numeric()->decimal(2)]);
+    expect($v->passes())->toBeTrue();
+
+    $v = makeValidator(['price' => '10.5'], ['price' => FluentRule::numeric()->decimal(2)]);
+    expect($v->passes())->toBeFalse();
+});
+
+it('validates numeric with decimal min and max', function (): void {
+    $v = makeValidator(['price' => '10.5'], ['price' => FluentRule::numeric()->decimal(1, 3)]);
+    expect($v->passes())->toBeTrue();
+
+    $v = makeValidator(['price' => '10.5000'], ['price' => FluentRule::numeric()->decimal(1, 3)]);
+    expect($v->passes())->toBeFalse();
+});
+
+it('validates numeric with digits', function (): void {
+    $v = makeValidator(['pin' => 1234], ['pin' => FluentRule::numeric()->digits(4)]);
+    expect($v->passes())->toBeTrue();
+
+    $v = makeValidator(['pin' => 123], ['pin' => FluentRule::numeric()->digits(4)]);
+    expect($v->passes())->toBeFalse();
+});
+
+it('validates numeric with digitsBetween', function (): void {
+    $v = makeValidator(['code' => 12345], ['code' => FluentRule::numeric()->digitsBetween(4, 6)]);
+    expect($v->passes())->toBeTrue();
+
+    $v = makeValidator(['code' => 123], ['code' => FluentRule::numeric()->digitsBetween(4, 6)]);
+    expect($v->passes())->toBeFalse();
+});
+
+// =========================================================================
+// NumericRule — greaterThan / greaterThanOrEqualTo / lessThan / lessThanOrEqualTo
+// =========================================================================
+
+it('validates numeric with greaterThan', function (): void {
+    $v = makeValidator(['max' => 20, 'min' => 10], ['max' => FluentRule::numeric()->greaterThan('min')]);
+    expect($v->passes())->toBeTrue();
+
+    $v = makeValidator(['max' => 5, 'min' => 10], ['max' => FluentRule::numeric()->greaterThan('min')]);
+    expect($v->passes())->toBeFalse();
+});
+
+it('validates numeric with greaterThanOrEqualTo', function (): void {
+    $v = makeValidator(['max' => 10, 'min' => 10], ['max' => FluentRule::numeric()->greaterThanOrEqualTo('min')]);
+    expect($v->passes())->toBeTrue();
+
+    $v = makeValidator(['max' => 9, 'min' => 10], ['max' => FluentRule::numeric()->greaterThanOrEqualTo('min')]);
+    expect($v->passes())->toBeFalse();
+});
+
+it('validates numeric with lessThan', function (): void {
+    $v = makeValidator(['min' => 5, 'max' => 10], ['min' => FluentRule::numeric()->lessThan('max')]);
+    expect($v->passes())->toBeTrue();
+
+    $v = makeValidator(['min' => 15, 'max' => 10], ['min' => FluentRule::numeric()->lessThan('max')]);
+    expect($v->passes())->toBeFalse();
+});
+
+it('validates numeric with lessThanOrEqualTo', function (): void {
+    $v = makeValidator(['min' => 10, 'max' => 10], ['min' => FluentRule::numeric()->lessThanOrEqualTo('max')]);
+    expect($v->passes())->toBeTrue();
+
+    $v = makeValidator(['min' => 11, 'max' => 10], ['min' => FluentRule::numeric()->lessThanOrEqualTo('max')]);
+    expect($v->passes())->toBeFalse();
+});
+
+// =========================================================================
+// NumericRule — multipleOf / maxDigits / minDigits / exactly / same / different
+// =========================================================================
+
+it('validates numeric with multipleOf', function (): void {
+    $v = makeValidator(['qty' => 15], ['qty' => FluentRule::numeric()->multipleOf(5)]);
+    expect($v->passes())->toBeTrue();
+
+    $v = makeValidator(['qty' => 13], ['qty' => FluentRule::numeric()->multipleOf(5)]);
+    expect($v->passes())->toBeFalse();
+});
+
+it('validates numeric with maxDigits', function (): void {
+    $v = makeValidator(['num' => 999], ['num' => FluentRule::numeric()->maxDigits(3)]);
+    expect($v->passes())->toBeTrue();
+
+    $v = makeValidator(['num' => 10000], ['num' => FluentRule::numeric()->maxDigits(3)]);
+    expect($v->passes())->toBeFalse();
+});
+
+it('validates numeric with minDigits', function (): void {
+    $v = makeValidator(['num' => 100], ['num' => FluentRule::numeric()->minDigits(3)]);
+    expect($v->passes())->toBeTrue();
+
+    $v = makeValidator(['num' => 10], ['num' => FluentRule::numeric()->minDigits(3)]);
+    expect($v->passes())->toBeFalse();
+});
+
+it('validates numeric with exactly', function (): void {
+    $v = makeValidator(['count' => 5], ['count' => FluentRule::numeric()->exactly(5)]);
+    expect($v->passes())->toBeTrue();
+
+    $v = makeValidator(['count' => 6], ['count' => FluentRule::numeric()->exactly(5)]);
+    expect($v->passes())->toBeFalse();
+});
+
+it('validates numeric with same', function (): void {
+    $v = makeValidator(['a' => 10, 'b' => 10], ['a' => FluentRule::numeric()->same('b')]);
+    expect($v->passes())->toBeTrue();
+
+    $v = makeValidator(['a' => 10, 'b' => 20], ['a' => FluentRule::numeric()->same('b')]);
+    expect($v->passes())->toBeFalse();
+});
+
+it('validates numeric with different', function (): void {
+    $v = makeValidator(['a' => 10, 'b' => 20], ['a' => FluentRule::numeric()->different('b')]);
+    expect($v->passes())->toBeTrue();
+
+    $v = makeValidator(['a' => 10, 'b' => 10], ['a' => FluentRule::numeric()->different('b')]);
+    expect($v->passes())->toBeFalse();
+});
+
+it('validates numeric with confirmed', function (): void {
+    $v = makeValidator(
+        ['amount' => 100, 'amount_confirmation' => 100],
+        ['amount' => FluentRule::numeric()->confirmed()]
+    );
+    expect($v->passes())->toBeTrue();
+
+    $v = makeValidator(
+        ['amount' => 100, 'amount_confirmation' => 200],
+        ['amount' => FluentRule::numeric()->confirmed()]
+    );
+    expect($v->passes())->toBeFalse();
+});
+
+it('validates numeric with inArray', function (): void {
+    $v = makeValidator(
+        ['val' => 2, 'allowed' => [1, 2, 3]],
+        ['val' => FluentRule::numeric()->inArray('allowed.*')]
+    );
+    expect($v->passes())->toBeTrue();
+
+    $v = makeValidator(
+        ['val' => 9, 'allowed' => [1, 2, 3]],
+        ['val' => FluentRule::numeric()->inArray('allowed.*')]
+    );
+    expect($v->passes())->toBeFalse();
+});
+
+it('compiles numeric with distinct rule', function (): void {
+    $numericRule = FluentRule::numeric()->distinct();
+    expect($numericRule->compiledRules())->toBe('numeric|distinct');
+});
+
+it('validates numeric with integer strict mode', function (): void {
+    $validator = makeValidator(['num' => 5], ['num' => FluentRule::numeric()->integer(true)]);
+    expect($validator->passes())->toBeTrue();
+});
+
+// =========================================================================
+// NumericRule — inArrayKeys
+// =========================================================================
+
+it('compiles numeric with inArrayKeys rule', function (): void {
+    $numericRule = FluentRule::numeric()->inArrayKeys('options.*');
+    expect($numericRule->compiledRules())->toBe('numeric|in_array_keys:options.*');
+});

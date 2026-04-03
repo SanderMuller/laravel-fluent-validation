@@ -37,11 +37,23 @@ trait SelfValidates
             $rules[$nestedAttribute] = $nestedRule;
         }
 
+        // Merge per-rule custom messages (from ->message()) with validator messages
+        $messages = $this->validator->customMessages ?? [];
+        foreach ($this->getCustomMessages() as $ruleName => $message) {
+            $messages[$attribute . '.' . $ruleName] = $message;
+        }
+
+        // Merge label (from ->label()) with validator custom attributes
+        $attributes = $this->validator->customAttributes ?? [];
+        if ($this->getLabel() !== null) {
+            $attributes[$attribute] = $this->getLabel();
+        }
+
         $validator = Validator::make(
             $this->data,
             $rules,
-            $this->validator->customMessages ?? [],
-            $this->validator->customAttributes ?? []
+            $messages,
+            $attributes
         );
 
         foreach ($validator->errors()->all() as $message) {
