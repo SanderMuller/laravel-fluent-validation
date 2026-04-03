@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Validation\Rules\AnyOf;
+use Illuminate\Validation\ValidationException;
 use SanderMuller\FluentValidation\FluentRule;
 use SanderMuller\FluentValidation\Rules\ArrayRule;
 use SanderMuller\FluentValidation\Rules\BooleanRule;
@@ -432,8 +433,8 @@ it('whenInput branch does not leak parent messages or labels', function (): void
 // =========================================================================
 
 it('message works on custom ValidationRule via class name fallback', function (): void {
-    $customRule = new class implements \Illuminate\Contracts\Validation\ValidationRule {
-        public function validate(string $attribute, mixed $value, \Closure $fail): void
+    $customRule = new class implements ValidationRule {
+        public function validate(string $attribute, mixed $value, Closure $fail): void
         {
             if ($value !== 'valid') {
                 $fail('Default error.');
@@ -460,7 +461,7 @@ it('fieldMessage sets a fallback for any rule failure', function (): void {
         RuleSet::from([
             'name' => FluentRule::string()->required()->min(10)->fieldMessage('Something is wrong with the name.'),
         ])->validate(['name' => '']);
-    } catch (\Illuminate\Validation\ValidationException $e) {
+    } catch (ValidationException $e) {
         expect($e->errors()['name'][0])->toBe('Something is wrong with the name.');
 
         return;
@@ -477,7 +478,7 @@ it('rule-specific message takes priority over fieldMessage', function (): void {
                 ->min(10)
                 ->fieldMessage('General name error.'),
         ])->validate(['name' => '']);
-    } catch (\Illuminate\Validation\ValidationException $e) {
+    } catch (ValidationException $e) {
         expect($e->errors()['name'][0])->toBe('Name is required.');
 
         return;
