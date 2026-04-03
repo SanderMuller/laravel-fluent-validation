@@ -274,7 +274,8 @@ All date comparison methods accept `DateTimeInterface|string`:
 
 - Size: `min($n)`, `max($n)`, `between($min, $max)`, `exactly($n)`
 - Structure: `list()`, `requiredArrayKeys(...$keys)`
-- Children: `each($rule)` for scalar items, `each([...])` for object items (see Tier 2 above)
+- Wildcard children: `each($rule)` for scalar items, `each([...])` for object items → produces `items.*.name`
+- Fixed-key children: `children([...])` for known-key objects → produces `search.value` (no wildcard)
 - Constructor: `FluentRule::array(['name', 'email'])` — restrict allowed keys; accepts `BackedEnum` values
 
 ## File-Specific Methods
