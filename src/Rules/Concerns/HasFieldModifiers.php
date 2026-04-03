@@ -146,12 +146,12 @@ trait HasFieldModifiers
         return $this->addRule('missing');
     }
 
-    public function missingIf(string $field, string|int ...$values): static
+    public function missingIf(string $field, string|int|bool ...$values): static
     {
         return $this->addRule('missing_if:' . $field . ',' . implode(',', $values));
     }
 
-    public function missingUnless(string $field, string|int ...$values): static
+    public function missingUnless(string $field, string|int|bool ...$values): static
     {
         return $this->addRule('missing_unless:' . $field . ',' . implode(',', $values));
     }
@@ -166,7 +166,7 @@ trait HasFieldModifiers
         return $this->addRule('missing_with_all:' . implode(',', $fields));
     }
 
-    public function requiredIf(Closure|bool|string $field, string|int ...$values): static
+    public function requiredIf(Closure|bool|string $field, string|int|bool ...$values): static
     {
         if ($field instanceof Closure || is_bool($field)) {
             return $this->addRule(new RequiredIf($field));
@@ -175,7 +175,7 @@ trait HasFieldModifiers
         return $this->addRule('required_if:' . $field . ',' . implode(',', $values));
     }
 
-    public function requiredUnless(Closure|bool|string $field, string|int ...$values): static
+    public function requiredUnless(Closure|bool|string $field, string|int|bool ...$values): static
     {
         if ($field instanceof Closure || is_bool($field)) {
             return $this->addRule(new RequiredUnless($field));
@@ -204,7 +204,7 @@ trait HasFieldModifiers
         return $this->addRule('required_without_all:' . implode(',', $fields));
     }
 
-    public function excludeIf(Closure|bool|string $field, string|int ...$values): static
+    public function excludeIf(Closure|bool|string $field, string|int|bool ...$values): static
     {
         if ($field instanceof Closure || is_bool($field)) {
             return $this->addRule(new ExcludeIf($field));
@@ -213,7 +213,7 @@ trait HasFieldModifiers
         return $this->addRule('exclude_if:' . $field . ',' . implode(',', $values));
     }
 
-    public function excludeUnless(Closure|bool|string $field, string|int ...$values): static
+    public function excludeUnless(Closure|bool|string $field, string|int|bool ...$values): static
     {
         if ($field instanceof Closure || is_bool($field)) {
             return $this->addRule(new ExcludeUnless($field));
@@ -232,7 +232,7 @@ trait HasFieldModifiers
         return $this->addRule('exclude_without:' . $field);
     }
 
-    public function prohibitedIf(Closure|bool|string $field, string|int ...$values): static
+    public function prohibitedIf(Closure|bool|string $field, string|int|bool ...$values): static
     {
         if ($field instanceof Closure || is_bool($field)) {
             return $this->addRule(new ProhibitedIf($field));
@@ -241,7 +241,7 @@ trait HasFieldModifiers
         return $this->addRule('prohibited_if:' . $field . ',' . implode(',', $values));
     }
 
-    public function prohibitedUnless(Closure|bool|string $field, string|int ...$values): static
+    public function prohibitedUnless(Closure|bool|string $field, string|int|bool ...$values): static
     {
         if ($field instanceof Closure || is_bool($field)) {
             return $this->addRule(new ProhibitedUnless($field));
