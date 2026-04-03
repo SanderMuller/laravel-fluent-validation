@@ -222,11 +222,14 @@ it('returns correct rule types from factory', function (): void {
     expect(FluentRule::file())->toBeInstanceOf(FileRule::class);
     expect(FluentRule::image())->toBeInstanceOf(ImageRule::class);
     expect(FluentRule::password())->toBeInstanceOf(PasswordRule::class);
-    expect(FluentRule::anyOf(['string', 'integer']))->toBeInstanceOf(AnyOf::class);
+
+    if (class_exists(AnyOf::class)) {
+        expect(FluentRule::anyOf(['string', 'integer']))->toBeInstanceOf(AnyOf::class);
+    }
 });
 
 // =========================================================================
-// anyOf
+// anyOf (Laravel 13+)
 // =========================================================================
 
 it('validates anyOf passes when any rule matches', function (): void {
@@ -241,7 +244,7 @@ it('validates anyOf passes when any rule matches', function (): void {
         ['contact' => FluentRule::anyOf([FluentRule::string()->email(), FluentRule::string()->url()])]
     );
     expect($v->passes())->toBeTrue();
-});
+})->skip(! class_exists(AnyOf::class), 'AnyOf requires Laravel 13+');
 
 it('validates anyOf fails when no rule matches', function (): void {
     $validator = makeValidator(
@@ -249,7 +252,7 @@ it('validates anyOf fails when no rule matches', function (): void {
         ['contact' => FluentRule::anyOf([FluentRule::string()->email(), FluentRule::string()->url()])]
     );
     expect($validator->passes())->toBeFalse();
-});
+})->skip(! class_exists(AnyOf::class), 'AnyOf requires Laravel 13+');
 
 // =========================================================================
 // Presence handling — optional fields (no modifier)

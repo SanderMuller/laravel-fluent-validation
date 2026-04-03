@@ -305,7 +305,7 @@ trait HasFieldModifiers
      * converted to string format ('mimetypes:image/jpeg,application/pdf').
      * This is useful when rule parameters are dynamic.
      *
-     * @param  ValidationRule|Closure(string, mixed, Closure): void|string|array<int, string>  $rule
+     * @param  ValidationRule|\Stringable|Closure(string, mixed, Closure): void|string|array<int, string>  $rule
      */
     public function rule(object|string|array $rule): static
     {
