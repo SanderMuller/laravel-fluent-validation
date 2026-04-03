@@ -1,54 +1,6 @@
 parameters:
 	ignoreErrors:
 		-
-			rawMessage: 'Parameter #1 $data of method SanderMuller\FluentValidation\RuleSet::validate() expects array<string, mixed>, array given.'
-			identifier: argument.type
-			count: 1
-			path: src/FluentValidator.php
-
-		-
-			rawMessage: 'Parameter #2 $messages of method SanderMuller\FluentValidation\RuleSet::validate() expects array<string, string>, array given.'
-			identifier: argument.type
-			count: 1
-			path: src/FluentValidator.php
-
-		-
-			rawMessage: 'Parameter #3 $attributes of method SanderMuller\FluentValidation\RuleSet::validate() expects array<string, string>, array given.'
-			identifier: argument.type
-			count: 1
-			path: src/FluentValidator.php
-
-		-
-			rawMessage: 'Property Illuminate\Validation\Validator::$failedRules (array) does not accept mixed.'
-			identifier: assign.propertyType
-			count: 1
-			path: src/FluentValidator.php
-
-		-
-			rawMessage: 'Parameter #1 $data of method SanderMuller\FluentValidation\RuleSet::validate() expects array<string, mixed>, array given.'
-			identifier: argument.type
-			count: 1
-			path: src/OptimizedValidator.php
-
-		-
-			rawMessage: 'Parameter #2 $messages of method SanderMuller\FluentValidation\RuleSet::validate() expects array<string, string>, array given.'
-			identifier: argument.type
-			count: 1
-			path: src/OptimizedValidator.php
-
-		-
-			rawMessage: 'Parameter #3 $attributes of method SanderMuller\FluentValidation\RuleSet::validate() expects array<string, string>, array given.'
-			identifier: argument.type
-			count: 1
-			path: src/OptimizedValidator.php
-
-		-
-			rawMessage: 'Property Illuminate\Validation\Validator::$failedRules (array) does not accept mixed.'
-			identifier: assign.propertyType
-			count: 1
-			path: src/OptimizedValidator.php
-
-		-
 			rawMessage: 'Argument of an invalid type mixed supplied for foreach, only iterables are supported.'
 			identifier: foreach.nonIterable
 			count: 1
