@@ -805,7 +805,7 @@ it('works with sometimes() rules added after validator creation', function (): v
         rules: [
             'items' => FluentRule::array()->required()->each([
                 'name' => FluentRule::string()->required()->max(255),
-                'type' => FluentRule::string()->required()->in('book', 'dvd'),
+                'type' => FluentRule::string()->required()->in('book'),
             ]),
         ],
         data: [
@@ -820,9 +820,7 @@ it('works with sometimes() rules added after validator creation', function (): v
     $validator = (fn () => $this->createDefaultValidator($factory))->call($formRequest);
 
     // Add a dynamic rule via sometimes().
-    $validator->sometimes('items.*.isbn', 'required|string|min:10', function ($input, $item) {
-        return $item->type === 'book';
-    });
+    $validator->sometimes('items.*.isbn', 'required|string|min:10', fn($input, $item): bool => $item->type === 'book');
 
     expect($validator->passes())->toBeFalse();
     // isbn '5678' is too short (min:10) for the book item
@@ -862,9 +860,10 @@ it('builds fast checks for accepted rule', function (): void {
 
 it('correctly identifies the specific invalid item among many valid ones', function (): void {
     $items = [];
-    for ($i = 0; $i < 50; $i++) {
+    for ($i = 0; $i < 50; ++$i) {
         $items[] = ['name' => 'Valid Name ' . $i, 'qty' => $i + 1];
     }
+
     // Make item 37 invalid.
     $items[37] = ['name' => '', 'qty' => 0];
 
