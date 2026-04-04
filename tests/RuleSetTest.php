@@ -1437,3 +1437,121 @@ it('RuleSet::validate() with compiled rules matches native Laravel performance',
     // Without compilation this was ~15x slower.
     expect($ruleSetElapsed)->toBeLessThan($nativeElapsed * 3);
 })->group('benchmark');
+
+// =========================================================================
+// ArrayRule compiledRules — must include 'array' type
+// =========================================================================
+
+it('ArrayRule compiledRules includes array type', function (): void {
+    expect(FluentRule::array()->compiledRules())->toBe('array');
+    expect(FluentRule::array()->nullable()->compiledRules())->toBe('array|nullable');
+    expect(FluentRule::array()->required()->compiledRules())->toBe('array|required');
+    expect(FluentRule::array()->required()->min(1)->compiledRules())->toBe('array|required|min:1');
+});
+
+it('ArrayRule compiledRules includes keys', function (): void {
+    expect(FluentRule::array(['name', 'email'])->compiledRules())->toBe('array:name,email');
+    expect(FluentRule::array(['name'])->required()->compiledRules())->toBe('array:name|required');
+});
+
+it('ArrayRule with each() compiles parent without children', function (): void {
+    $rule = FluentRule::array()->required()->each([
+        'name' => FluentRule::string()->required(),
+    ]);
+
+    // compiledRules() on the parent should not include child rules
+    expect($rule->compiledRules())->toBe('array|required');
+});
+
+// =========================================================================
+// validated() output — children() keys must appear
+// =========================================================================
+
+it('validated() includes children keys via HasFluentRules prepare path', function (): void {
+    $rules = [
+        'search' => FluentRule::array()->required()->children([
+            'value' => FluentRule::string()->nullable(),
+            'regex' => FluentRule::string()->nullable(),
+        ]),
+    ];
+
+    $data = [
+        'search' => ['value' => 'foo', 'regex' => 'bar'],
+    ];
+
+    $prepared = RuleSet::from($rules)->prepare($data);
+
+    // All keys should be present in compiled rules
+    expect($prepared->rules)->toHaveKey('search');
+    expect($prepared->rules)->toHaveKey('search.value');
+    expect($prepared->rules)->toHaveKey('search.regex');
+
+    // The search key should compile with 'array' type
+    expect($prepared->rules['search'])->toContain('array');
+
+    // validated() should include all keys
+    $validator = Validator::make($data, $prepared->rules);
+    expect($validator->passes())->toBeTrue();
+    $validated = $validator->validated();
+    expect($validated)->toHaveKey('search');
+    expect($validated['search'])->toHaveKey('value');
+    expect($validated['search'])->toHaveKey('regex');
+});
+
+it('validated() includes nested each+children keys via prepare path', function (): void {
+    $rules = [
+        'answers' => FluentRule::array()->nullable()->each([
+            'action' => FluentRule::array()->nullable()->children([
+                'type' => FluentRule::numeric()->required()->integer(),
+            ]),
+        ]),
+    ];
+
+    $data = [
+        'answers' => [
+            ['action' => ['type' => 1]],
+            ['action' => ['type' => 2]],
+        ],
+    ];
+
+    $prepared = RuleSet::from($rules)->prepare($data);
+
+    // All expanded keys should be present
+    expect($prepared->rules)->toHaveKey('answers');
+    expect($prepared->rules)->toHaveKey('answers.0.action');
+    expect($prepared->rules)->toHaveKey('answers.0.action.type');
+    expect($prepared->rules)->toHaveKey('answers.1.action');
+    expect($prepared->rules)->toHaveKey('answers.1.action.type');
+
+    // Parent keys should include 'array' type
+    expect($prepared->rules['answers'])->toContain('array');
+    expect($prepared->rules['answers.0.action'])->toContain('array');
+
+    // validated() should include all nested keys
+    $validator = Validator::make($data, $prepared->rules);
+
+    if ($prepared->implicitAttributes !== []) {
+        (new ReflectionProperty($validator, 'implicitAttributes'))
+            ->setValue($validator, $prepared->implicitAttributes);
+    }
+
+    expect($validator->passes())->toBeTrue();
+    $validated = $validator->validated();
+    expect($validated['answers'][0]['action']['type'])->toBe(1);
+    expect($validated['answers'][1]['action']['type'])->toBe(2);
+});
+
+it('validated() includes children keys in self-validation mode', function (): void {
+    $data = [
+        'search' => ['value' => 'foo', 'regex' => 'bar'],
+    ];
+
+    $validator = makeValidator($data, [
+        'search' => FluentRule::array()->required()->children([
+            'value' => FluentRule::string()->nullable(),
+            'regex' => FluentRule::string()->nullable(),
+        ]),
+    ]);
+
+    expect($validator->passes())->toBeTrue();
+});

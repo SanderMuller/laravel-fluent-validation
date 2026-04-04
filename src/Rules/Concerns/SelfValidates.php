@@ -195,7 +195,25 @@ trait SelfValidates
             }
         }
 
-        return $allStrings ? implode('|', $rules) : $rules;
+        if ($allStrings) {
+            return implode('|', $rules);
+        }
+
+        // Object rules first (ExcludeIf, RequiredIf, etc.) so Laravel
+        // processes them before string constraints. This matches native
+        // Laravel ordering where Rule::excludeIf() comes before 'required'.
+        $objects = [];
+        $strings = [];
+
+        foreach ($rules as $rule) {
+            if (is_string($rule)) {
+                $strings[] = $rule;
+            } else {
+                $objects[] = $rule;
+            }
+        }
+
+        return [...$objects, ...$strings];
     }
 
     /** @return list<string|object> */
