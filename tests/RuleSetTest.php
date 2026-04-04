@@ -1,6 +1,4 @@
-<?php
-
-declare(strict_types=1);
+<?php declare(strict_types=1);
 
 use Illuminate\Contracts\Validation\Factory;
 use Illuminate\Contracts\Validation\ValidationRule;
@@ -1554,4 +1552,89 @@ it('validated() includes children keys in self-validation mode', function (): vo
     ]);
 
     expect($validator->passes())->toBeTrue();
+});
+
+// =========================================================================
+// Partial fast-check path
+// =========================================================================
+
+it('validates mixed fast+slow rules via partial fast-check', function (): void {
+    $validated = RuleSet::from([
+        'items' => FluentRule::array()->required()->each([
+            'name' => FluentRule::string()->required()->min(2)->max(255),
+            'starts_at' => FluentRule::date()->required()->after('2025-01-01'),
+        ]),
+    ])->validate(['items' => [
+        ['name' => 'Alice', 'starts_at' => '2025-06-01'],
+        ['name' => 'Bob', 'starts_at' => '2025-07-15'],
+    ]]);
+
+    expect($validated['items'])->toHaveCount(2);
+});
+
+it('reports errors from slow-only path when fast-checks pass', function (): void {
+    try {
+        RuleSet::from([
+            'items' => FluentRule::array()->required()->each([
+                'name' => FluentRule::string()->required()->min(2)->max(255),
+                'starts_at' => FluentRule::date()->required()->after('2025-01-01'),
+            ]),
+        ])->validate(['items' => [
+            ['name' => 'Valid', 'starts_at' => '2020-01-01'],
+        ]]);
+        test()->fail('Expected ValidationException');
+    } catch (ValidationException $e) {
+        expect($e->errors())->toHaveKey('items.0.starts_at');
+        expect($e->errors())->not->toHaveKey('items.0.name');
+    }
+});
+
+it('reports errors from full path when fast-check fails', function (): void {
+    try {
+        RuleSet::from([
+            'items' => FluentRule::array()->required()->each([
+                'name' => FluentRule::string()->required()->min(2)->max(255),
+                'starts_at' => FluentRule::date()->required()->after('2025-01-01'),
+            ]),
+        ])->validate(['items' => [
+            ['name' => 'X', 'starts_at' => '2020-01-01'],
+        ]]);
+        test()->fail('Expected ValidationException');
+    } catch (ValidationException $e) {
+        expect($e->errors())->toHaveKey('items.0.name');
+        expect($e->errors())->toHaveKey('items.0.starts_at');
+    }
+});
+
+it('partial fast-check with all-fast rules skips Laravel entirely', function (): void {
+    $validated = RuleSet::from([
+        'items' => FluentRule::array()->required()->each([
+            'name' => FluentRule::string()->required()->min(2),
+            'age' => FluentRule::numeric()->required()->integer()->min(0),
+        ]),
+    ])->validate(['items' => [['name' => 'Alice', 'age' => 30]]]);
+
+    expect($validated['items'])->toHaveCount(1);
+});
+
+it('partial fast-check catches single invalid item among many valid', function (): void {
+    $items = array_map(fn (int $i): array => [
+        'name' => 'User ' . $i,
+        'starts_at' => '2025-06-' . str_pad((string) ($i % 28 + 1), 2, '0', STR_PAD_LEFT),
+    ], range(1, 50));
+
+    $items[24]['starts_at'] = '2020-01-01';
+
+    try {
+        RuleSet::from([
+            'items' => FluentRule::array()->required()->each([
+                'name' => FluentRule::string()->required()->min(2),
+                'starts_at' => FluentRule::date()->required()->after('2025-01-01'),
+            ]),
+        ])->validate(['items' => $items]);
+        test()->fail('Expected ValidationException');
+    } catch (ValidationException $e) {
+        expect($e->errors())->toHaveKey('items.24.starts_at');
+        expect($e->errors())->toHaveCount(1);
+    }
 });
