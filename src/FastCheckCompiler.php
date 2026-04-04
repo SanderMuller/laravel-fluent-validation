@@ -2,8 +2,6 @@
 
 namespace SanderMuller\FluentValidation;
 
-
-
 /**
  * Compiles pipe-delimited rule strings into fast PHP closures
  * that validate a single value without invoking Laravel's validator.
