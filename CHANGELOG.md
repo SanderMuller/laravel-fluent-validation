@@ -2,6 +2,32 @@
 
 All notable changes to `laravel-fluent-validation` will be documented in this file.
 
+## 0.3.3 - 2026-04-04
+
+### Added
+
+- **`HasFluentRules` now includes `OptimizedValidator` support** — the trait conditionally creates an `OptimizedValidator` when fast-checkable wildcard rules are detected. Non-wildcard FormRequests still get a plain `Validator` with zero overhead. No code changes needed in existing FormRequests.
+  
+- **`FastCheckCompiler`** — new shared class for compiling rule strings into fast PHP closures. Used by both `RuleSet` (per-item validation) and `OptimizedValidator` (per-attribute fast-checks). Eliminates code duplication.
+  
+
+### Improved
+
+- **PHPStan baseline reduced from 73 to 3 entries** — added proper generics, typed all test closures for 100% param/return coverage, extracted helpers to reduce cognitive complexity. Remaining 3 entries are inherent complexity in the fast-check closure builder and per-item validation loop.
+  
+- **`FluentFormRequest` simplified** — now just `class FluentFormRequest extends FormRequest { use HasFluentRules; }`. All logic lives in the trait.
+  
+- **`RuleSet::validate()` refactored** — split from one 130-line method into 5 focused helpers: `separateRules()`, `validateWildcardGroups()`, `validateItems()`, `passesAllFastChecks()`, `throwValidationErrors()`.
+  
+- **`SelfValidates::validate()` refactored** — extracted `buildRulesForAttribute()`, `buildMessages()`, `buildAttributes()`, `forwardErrors()`. Eliminates 9 complexity baseline entries.
+  
+- **`buildCompiledRules()` ordering improved** — presence modifiers (`ExcludeIf`, `RequiredIf`, etc.) run first, then string constraints, then other object rules (closures, custom rules). Previously all objects ran before strings, which could produce misleading errors when `bail` was present.
+  
+- **`accepted`/`declined` fast-check fix** — these rules now correctly bail to Laravel instead of being silently ignored in the fast path.
+  
+
+**Full Changelog**: https://github.com/SanderMuller/laravel-fluent-validation/compare/0.3.2...0.3.3
+
 ## 0.3.2 - 2026-04-04
 
 ### Fixed
@@ -12,6 +38,7 @@ All notable changes to `laravel-fluent-validation` will be documented in this fi
   
   ```php
   $rules[self::TYPE] = (clone $rules[self::TYPE])->rule($extraClosure);
+  
   
   ```
 - **PHPStan errors in OptimizedValidator** — Matched parent `Validator::validateAttribute()` signature.
@@ -58,6 +85,7 @@ All notable changes to `laravel-fluent-validation` will be documented in this fi
   
   
   
+  
   ```
 - FluentFormRequest base class — Combines HasFluentRules compilation with per-attribute
   fast-check optimization via OptimizedValidator. Eligible wildcard rules are fast-checked
@@ -90,6 +118,7 @@ All notable changes to `laravel-fluent-validation` will be documented in this fi
   ```php
   FluentRule::string()->unique('users', 'email', fn($r) => $r->ignore($this->user()->id))
   FluentRule::string()->exists('subjects', 'id', fn($r) => $r->where('video_id',          
+  
   
   
   
