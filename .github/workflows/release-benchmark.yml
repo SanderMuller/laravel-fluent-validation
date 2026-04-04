@@ -35,7 +35,7 @@ jobs:
 
       - name: Run Pest benchmark suite
         run: |
-          PEST_OUTPUT=$(vendor/bin/pest --no-coverage --colors=never --group=benchmark 2>&1 | grep -E '(ms$|===.*===|Native Laravel|Pre-expanded|RuleSet::validate|WildcardExpander only)' | grep -v '✓' || true)
+          PEST_OUTPUT=$(vendor/bin/pest --no-coverage --colors=never --group=benchmark 2>&1 | grep -E '(Benchmark:|Scenario|Approach|──|Native|fast-check|per-item|fallback|HasFluentRules|RuleSet)' | grep -v '✓' || true)
 
           if [ -n "$PEST_OUTPUT" ]; then
             {
