@@ -1,5 +1,6 @@
 <?php declare(strict_types=1);
 
+use Rector\Carbon\Rector\FuncCall\DateFuncCallToCarbonRector;
 use Rector\CodeQuality\Rector\ClassMethod\InlineArrayReturnAssignRector;
 use Rector\CodeQuality\Rector\If_\ExplicitBoolCompareRector;
 use Rector\CodingStyle\Rector\Encapsed\EncapsedStringsToSprintfRector;
@@ -8,7 +9,6 @@ use Rector\DeadCode\Rector\ClassMethod\RemoveUselessParamTagRector;
 use Rector\DeadCode\Rector\ClassMethod\RemoveUselessReturnTagRector;
 use Rector\Privatization\Rector\ClassMethod\PrivatizeFinalClassMethodRector;
 use Rector\TypeDeclaration\Rector\ArrowFunction\AddArrowFunctionReturnTypeRector;
-use Rector\Carbon\Rector\FuncCall\DateFuncCallToCarbonRector;
 use RectorLaravel\Set\LaravelSetList;
 
 return RectorConfig::configure()
