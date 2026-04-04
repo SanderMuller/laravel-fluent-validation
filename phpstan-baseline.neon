@@ -7,18 +7,6 @@ parameters:
 			path: src/FastCheckCompiler.php
 
 		-
-			rawMessage: 'Out of 663 possible param types, only 661 - 99.6 %% actually have it. Add more param types to get over 100 %%'
-			identifier: typeCoverage.paramTypeCoverage
-			count: 2
-			path: src/OptimizedValidator.php
-
-		-
-			rawMessage: 'Out of 694 possible return types, only 693 - 99.8 %% actually have it. Add more return types to get over 100 %%'
-			identifier: typeCoverage.returnTypeCoverage
-			count: 1
-			path: src/OptimizedValidator.php
-
-		-
 			rawMessage: 'Class cognitive complexity is 103, keep it under 50'
 			identifier: complexity.classLike
 			count: 1
