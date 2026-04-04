@@ -118,6 +118,11 @@ class ArrayRule implements DataAwareRule, ValidationRule, ValidatorAwareRule
         return $this->addRule('required_array_keys:' . implode(',', $keys));
     }
 
+    public function distinct(?string $mode = null): static
+    {
+        return $this->addRule($mode ? 'distinct:' . $mode : 'distinct');
+    }
+
     protected function buildArrayRule(): string
     {
         if ($this->keys === []) {

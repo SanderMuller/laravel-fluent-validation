@@ -1461,6 +1461,13 @@ it('ArrayRule with each() compiles parent without children', function (): void {
     expect($rule->compiledRules())->toBe('array|required');
 });
 
+it('ArrayRule supports distinct()', function (): void {
+    expect(FluentRule::array()->distinct()->compiledRules())->toBe('array|distinct');
+    expect(FluentRule::array()->distinct('strict')->compiledRules())->toBe('array|distinct:strict');
+    expect(FluentRule::array()->required()->each(FluentRule::numeric()->integer())->distinct()->compiledRules())
+        ->toBe('array|required|distinct');
+});
+
 // =========================================================================
 // validated() output — children() keys must appear
 // =========================================================================
