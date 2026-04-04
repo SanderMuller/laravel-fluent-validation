@@ -2,6 +2,22 @@
 
 All notable changes to `laravel-fluent-validation` will be documented in this file.
 
+## 0.3.5 - 2026-04-04
+
+### Fixed
+
+- **Date fast-check was broken** — `Carbon::parse()` throws on invalid dates and `getTimestamp()` never returns false, so the date check always passed. Replaced with `strtotime()` which correctly returns false for invalid dates. Added `DateFuncCallToCarbonRector` to the Rector skip list to prevent CI from reverting this.
+  
+- **benchmark.php crash** — updated for `buildFastChecks()` new return type (tuple instead of nullable array).
+  
+
+### Improved
+
+- **README performance section simplified** — `HasFluentRules` now provides the full optimization automatically (O(n) expansion + per-attribute fast-checks + partial fast-check). No longer framed as two tiers. Benchmark table simplified to two columns.
+  
+- **Boost skills updated** — performance reference and main skill reflect that `HasFluentRules` is the single recommended path for all FormRequests.
+  
+
 ## 0.3.4 - 2026-04-04
 
 ### Performance
@@ -62,6 +78,7 @@ All notable changes to `laravel-fluent-validation` will be documented in this fi
   
   
   
+  
   ```
 - **PHPStan errors in OptimizedValidator** — Matched parent `Validator::validateAttribute()` signature.
   
@@ -109,6 +126,7 @@ All notable changes to `laravel-fluent-validation` will be documented in this fi
   
   
   
+  
   ```
 - FluentFormRequest base class — Combines HasFluentRules compilation with per-attribute
   fast-check optimization via OptimizedValidator. Eligible wildcard rules are fast-checked
@@ -141,6 +159,7 @@ All notable changes to `laravel-fluent-validation` will be documented in this fi
   ```php
   FluentRule::string()->unique('users', 'email', fn($r) => $r->ignore($this->user()->id))
   FluentRule::string()->exists('subjects', 'id', fn($r) => $r->where('video_id',          
+  
   
   
   
