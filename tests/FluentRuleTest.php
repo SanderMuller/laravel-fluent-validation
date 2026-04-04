@@ -1089,11 +1089,12 @@ it('compiles to pipe-joined string when no object rules', function (): void {
     expect($stringRule->compiledRules())->toBe('string|required|min:2|max:255');
 });
 
-it('compiles object rules to array preserving objects', function (): void {
+it('compiles object rules to string when all rules are stringable', function (): void {
     $compiled = FluentRule::string()->required()->in(['a', 'b'])->compiledRules();
-    expect($compiled)->toBeArray();
+    expect($compiled)->toBeString();
     expect($compiled)->toContain('string');
     expect($compiled)->toContain('required');
+    expect($compiled)->toContain('in:');
 });
 
 it('compiles presence modifiers before string constraints and closures after', function (): void {
@@ -1135,7 +1136,7 @@ it('compiles presence modifiers before string constraints and closures after', f
     expect($bailIdx)->toBeLessThan($closureIdx); // @phpstan-ignore argument.type
 });
 
-it('compiles Unique and In rules after string constraints', function (): void {
+it('compiles Unique and In rules as stringified pipe-joined string', function (): void {
     $compiled = FluentRule::string()
         ->required()
         ->bail()
@@ -1143,102 +1144,69 @@ it('compiles Unique and In rules after string constraints', function (): void {
         ->in(['a', 'b'])
         ->compiledRules();
 
-    // Find the last string constraint and first object rule.
-    expect($compiled)->toBeArray();
-    /** @var list<object|string> $compiled */
-    $lastStringIdx = null;
-    $firstObjectIdx = null;
-    foreach ($compiled as $i => $r) {
-        if (is_string($r)) {
-            $lastStringIdx = $i;
-        } elseif ($firstObjectIdx === null && ! $r instanceof ExcludeIf) {
-            $firstObjectIdx = $i;
-        }
-    }
-
-    expect($lastStringIdx)->not->toBeNull();
-    expect($firstObjectIdx)->not->toBeNull();
-    // All string constraints come before Unique/In objects.
-    expect($lastStringIdx)->toBeLessThan($firstObjectIdx); // @phpstan-ignore argument.type
+    expect($compiled)->toBeString();
+    expect($compiled)->toContain('unique:users,email');
+    expect($compiled)->toContain('in:');
+    expect($compiled)->toContain('required');
+    expect($compiled)->toContain('bail');
 });
 
 // =========================================================================
 // HasEmbeddedRules — unique / exists
 // =========================================================================
 
-it('compiles unique rule to array with object', function (): void {
+it('compiles unique rule to string', function (): void {
     $compiled = FluentRule::string()->unique('users', 'email')->compiledRules();
-    expect($compiled)->toBeArray();
+    expect($compiled)->toBeString();
     expect($compiled)->toContain('string');
+    expect($compiled)->toContain('unique:users,email');
 });
 
-it('compiles exists rule to array with object', function (): void {
+it('compiles exists rule to string', function (): void {
     $compiled = FluentRule::string()->exists('users', 'email')->compiledRules();
-    expect($compiled)->toBeArray();
+    expect($compiled)->toBeString();
     expect($compiled)->toContain('string');
+    expect($compiled)->toContain('exists:users,email');
 });
 
 it('unique with where callback adds constraint', function (): void {
     $compiled = FluentRule::string()->unique('users', 'email', fn (Unique $rule): Unique => $rule->where('tenant_id', 1))->compiledRules();
-    expect($compiled)->toBeArray();
-    /** @var list<object|string> $compiled */
-
-    // Find the Unique rule object in the compiled output.
-    $uniqueRule = collect($compiled)->first(fn (object|string $r): bool => $r instanceof Unique);
-    expect($uniqueRule)->toBeInstanceOf(Unique::class);
-    /** @var Unique $uniqueRule */
-    expect((string) $uniqueRule)->toContain('tenant_id');
+    expect($compiled)->toBeString();
+    expect($compiled)->toContain('unique:users,email');
+    expect($compiled)->toContain('tenant_id');
 });
 
 it('unique with ignore callback adds constraint', function (): void {
     $compiled = FluentRule::string()->unique('users', 'email', fn (Unique $rule): Unique => $rule->ignore(42))->compiledRules();
-    expect($compiled)->toBeArray();
-    /** @var list<object|string> $compiled */
-    $uniqueRule = collect($compiled)->first(fn (object|string $r): bool => $r instanceof Unique);
-    expect($uniqueRule)->toBeInstanceOf(Unique::class);
-    /** @var Unique $uniqueRule */
-    expect((string) $uniqueRule)->toContain('"42"');
+    expect($compiled)->toBeString();
+    expect($compiled)->toContain('unique:users,email');
+    expect($compiled)->toContain('"42"');
 });
 
 it('exists with where callback adds constraint', function (): void {
     $compiled = FluentRule::string()->exists('subjects', 'id', fn (Exists $rule): Exists => $rule->where('video_id', 42))->compiledRules();
-    expect($compiled)->toBeArray();
-    /** @var list<object|string> $compiled */
-    $existsRule = collect($compiled)->first(fn (object|string $r): bool => $r instanceof Exists);
-    expect($existsRule)->toBeInstanceOf(Exists::class);
-    /** @var Exists $existsRule */
-    expect((string) $existsRule)->toContain('video_id');
+    expect($compiled)->toBeString();
+    expect($compiled)->toContain('exists:subjects,id');
+    expect($compiled)->toContain('video_id');
 });
 
 it('exists with whereNull callback adds constraint', function (): void {
     $compiled = FluentRule::string()->exists('users', 'id', fn (Exists $rule): Exists => $rule->where('deleted_at'))->compiledRules();
-    expect($compiled)->toBeArray();
-    /** @var list<object|string> $compiled */
-    $existsRule = collect($compiled)->first(fn (object|string $r): bool => $r instanceof Exists);
-    expect($existsRule)->toBeInstanceOf(Exists::class);
-    /** @var Exists $existsRule */
-    expect((string) $existsRule)->toContain('deleted_at');
+    expect($compiled)->toBeString();
+    expect($compiled)->toContain('exists:users,id');
+    expect($compiled)->toContain('deleted_at');
 });
 
 it('unique without callback still works (backward compat)', function (): void {
     $compiled = FluentRule::string()->unique('users', 'email')->compiledRules();
-    expect($compiled)->toBeArray();
-    /** @var list<object|string> $compiled */
-    $uniqueRule = collect($compiled)->first(fn (object|string $r): bool => $r instanceof Unique);
-    expect($uniqueRule)->toBeInstanceOf(Unique::class);
-    /** @var Unique $uniqueRule */
-    // No where constraints — just table, column, and Laravel's defaults.
-    expect((string) $uniqueRule)->toStartWith('unique:users,email');
+    expect($compiled)->toBeString();
+    expect($compiled)->toContain('unique:users,email');
 });
 
 it('exists without callback still works (backward compat)', function (): void {
     $compiled = FluentRule::string()->exists('users', 'email')->compiledRules();
-    expect($compiled)->toBeArray();
-    /** @var list<object|string> $compiled */
-    $existsRule = collect($compiled)->first(fn (object|string $r): bool => $r instanceof Exists);
-    expect($existsRule)->toBeInstanceOf(Exists::class);
-    /** @var Exists $existsRule */
-    expect((string) $existsRule)->toBe('exists:users,email');
+    expect($compiled)->toBeString();
+    expect($compiled)->toContain('exists:users,email');
 });
 
 // =========================================================================
@@ -1252,8 +1220,9 @@ it('clone clears compiled cache so new rules take effect', function (): void {
     $child = (clone $parent)->in(['a', 'b']);
     $compiled = $child->compiledRules();
 
-    expect($compiled)->toBeArray();
+    expect($compiled)->toBeString();
     expect($compiled)->toContain('required');
+    expect($compiled)->toContain('in:');
 
     // Parent should be unaffected
     expect($parent->compiledRules())->toBe('required');

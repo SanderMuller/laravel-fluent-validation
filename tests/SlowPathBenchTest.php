@@ -19,8 +19,39 @@ it('benchmarks all code paths', function (): void {
         'items' => array_map(fn (int $j) => ['qty' => $j + 1], range(0, 3)),
     ], range(0, 99))];
 
+    // Native Laravel baseline for the string+numeric scenario (used for speedup comparison)
+    $nativeRules = [
+        'items' => 'required|array',
+        'items.*.name' => 'required|string|min:2|max:255',
+        'items.*.email' => 'required|string|max:255',
+        'items.*.age' => 'required|numeric|integer|min:0|max:150',
+        'items.*.role' => ['required', 'string', \Illuminate\Validation\Rule::in(['admin', 'editor', 'viewer'])],
+    ];
+    $nativeData = ['items' => $items500];
+
+    // Warmup native
+    \Illuminate\Support\Facades\Validator::make($nativeData, $nativeRules)->validate();
+
+    // Benchmark native
+    $nativeTimes = [];
+    for ($i = 0; $i < 3; ++$i) {
+        $t = hrtime(true);
+        \Illuminate\Support\Facades\Validator::make($nativeData, $nativeRules)->validate();
+        $nativeTimes[] = (hrtime(true) - $t) / 1e6;
+    }
+    sort($nativeTimes);
+    $nativeMedian = $nativeTimes[1];
+
     $scenarios = [
         'string+numeric (fast-check)' => fn () => RuleSet::from([
+            'items' => FluentRule::array()->required()->each([
+                'name' => FluentRule::string()->required()->min(2)->max(255),
+                'email' => FluentRule::string()->required()->max(255),
+                'age' => FluentRule::numeric()->required()->integer()->min(0)->max(150),
+            ]),
+        ])->validate(['items' => $items500]),
+
+        'string+numeric+in (no fast-check)' => fn () => RuleSet::from([
             'items' => FluentRule::array()->required()->each([
                 'name' => FluentRule::string()->required()->min(2)->max(255),
                 'email' => FluentRule::string()->required()->max(255),
@@ -64,6 +95,8 @@ it('benchmarks all code paths', function (): void {
         $fn();
     }
 
+    fprintf(STDERR, "  Native Laravel (500 items, 4 fields):  %7.2fms\n", $nativeMedian);
+
     foreach ($scenarios as $label => $fn) {
         $times = [];
         for ($i = 0; $i < 5; ++$i) {
@@ -73,7 +106,9 @@ it('benchmarks all code paths', function (): void {
         }
 
         sort($times);
-        fprintf(STDERR, "  %-40s %7.2fms\n", $label, $times[2]);
+        $median = $times[2];
+        $speedup = $nativeMedian / $median;
+        fprintf(STDERR, "  %-40s %7.2fms (%.0fx)\n", $label, $median, $speedup);
     }
 
     expect(true)->toBeTrue();

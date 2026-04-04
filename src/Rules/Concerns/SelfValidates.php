@@ -221,18 +221,25 @@ trait SelfValidates
     {
         $rules = $this->buildValidationRules();
 
-        // When all rules are strings, join them for faster Laravel parsing.
-        $allStrings = true;
+        // Try to produce a pipe-joined string for fastest Laravel parsing.
+        // Stringify Stringable objects (In, NotIn, Exists, Unique) but keep
+        // non-stringable objects (closures, ExcludeIf, RequiredIf) as-is.
+        $stringified = [];
+        $hasNonStringable = false;
+
         foreach ($rules as $rule) {
-            if (! is_string($rule)) {
-                $allStrings = false;
+            if (is_string($rule)) {
+                $stringified[] = $rule;
+            } elseif ($rule instanceof \Stringable && ! $this->isPresenceModifier($rule)) {
+                $stringified[] = (string) $rule;
+            } else {
+                $hasNonStringable = true;
                 break;
             }
         }
 
-        if ($allStrings) {
-            /** @var list<string> $rules */
-            return implode('|', $rules);
+        if (! $hasNonStringable) {
+            return implode('|', $stringified);
         }
 
         // Presence modifiers (ExcludeIf, RequiredIf, etc.) must run before
@@ -245,9 +252,7 @@ trait SelfValidates
         foreach ($rules as $rule) {
             if (is_string($rule)) {
                 $strings[] = $rule;
-            } elseif ($rule instanceof ExcludeIf || $rule instanceof ExcludeUnless
-                || $rule instanceof RequiredIf || $rule instanceof RequiredUnless
-                || $rule instanceof ProhibitedIf || $rule instanceof ProhibitedUnless) {
+            } elseif ($this->isPresenceModifier($rule)) {
                 $presenceRules[] = $rule;
             } else {
                 $otherRules[] = $rule;
@@ -255,6 +260,13 @@ trait SelfValidates
         }
 
         return [...$presenceRules, ...$strings, ...$otherRules];
+    }
+
+    private function isPresenceModifier(object $rule): bool
+    {
+        return $rule instanceof ExcludeIf || $rule instanceof ExcludeUnless
+            || $rule instanceof RequiredIf || $rule instanceof RequiredUnless
+            || $rule instanceof ProhibitedIf || $rule instanceof ProhibitedUnless;
     }
 
     /** @return list<string|object> */
