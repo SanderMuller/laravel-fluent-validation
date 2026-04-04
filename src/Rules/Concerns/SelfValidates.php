@@ -184,14 +184,18 @@ trait SelfValidates
     /** @return string|list<string|object> */
     private function buildCompiledRules(): string|array
     {
-        if ($this->rules === []) {
-            return implode('|', $this->constraints);
+        $rules = $this->buildValidationRules();
+
+        // When all rules are strings, join them for faster Laravel parsing.
+        $allStrings = true;
+        foreach ($rules as $rule) {
+            if (! is_string($rule)) {
+                $allStrings = false;
+                break;
+            }
         }
 
-        // Object rules first (ExcludeIf, RequiredIf, etc.) so Laravel
-        // processes them before other rules. This matches native Laravel
-        // ordering where Rule::excludeIf() comes before 'required'.
-        return [...$this->rules, ...$this->constraints];
+        return $allStrings ? implode('|', $rules) : $rules;
     }
 
     /** @return list<string|object> */

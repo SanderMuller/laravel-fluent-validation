@@ -4,7 +4,7 @@
 [![GitHub Tests Action Status](https://img.shields.io/github/actions/workflow/status/sandermuller/laravel-fluent-validation/run-tests.yml?branch=main&label=tests&style=flat-square)](https://github.com/sandermuller/laravel-fluent-validation/actions?query=workflow%3Arun-tests+branch%3Amain)
 [![GitHub Code Style Action Status](https://img.shields.io/github/actions/workflow/status/sandermuller/laravel-fluent-validation/fix-php-code-style-issues.yml?branch=main&label=code%20style&style=flat-square)](https://github.com/sandermuller/laravel-fluent-validation/actions?query=workflow%3A"Fix+PHP+code+style+issues"+branch%3Amain)
 
-Stop memorizing Laravel's 100+ validation rule strings. Write them fluently with full IDE autocompletion, type safety, and structure that mirrors your data.
+Write Laravel validation rules with IDE autocompletion instead of memorizing string syntax. Type-safe builders prevent impossible rule combinations, and nested `each()`/`children()` rules keep your structure readable.
 
 ```php
 // Before
@@ -14,17 +14,48 @@ Stop memorizing Laravel's 100+ validation rule strings. Write them fluently with
 ['name' => FluentRule::string('Full Name')->required()->min(2)->max(255)]
 ```
 
+## Contents
+
+- [Why this package?](#why-this-package) — DX, type safety, structure, performance
+- [Installation](#installation)
+- [Quick start](#quick-start) — Validator::make, Form Requests, migrating existing rules
+- [Error messages](#error-messages) — labels, per-rule messages
+- [Array validation](#array-validation-with-each-and-children) — each, children, nesting
+- [Performance](#performance) — O(n) wildcards, benchmarks, RuleSet::validate
+- [RuleSet](#ruleset) — builder, conditional fields, custom Validators
+- [Rule reference](#rule-reference) — string, email, password, numeric, date, boolean, array, file, image, field, anyOf, modifiers, conditionals, macros
+
 ## Why this package?
 
-**Better DX.** IDE autocompletion for every rule. No more guessing `required_with` vs `required_with_all`, or whether it's `digits_between` or `digitsBetween`. The method names tell you.
+**Autocompletion instead of memorization.** Is it `required_with` or `required_with_all`? `digits_between` or `digitsBetween`? With fluent rules, your IDE tells you.
 
-**Type-safe rule combinations.** Each rule type only exposes methods that make sense for it. `FluentRule::string()` doesn't have `digits()`, `FluentRule::numeric()` doesn't have `alpha()`. Incompatible combinations become impossible. Your IDE catches them before you run a single test.
+**Type-safe combinations.** `FluentRule::string()` doesn't have `digits()`. `FluentRule::numeric()` doesn't have `alpha()`. Impossible combinations won't compile.
 
-**Co-located structure.** `each()` and `children()` keep parent and child rules together. No more maintaining 20 flat dot-notation keys that mirror a data structure. The rules mirror it directly.
+**Rules that match your data shape.** `each()` and `children()` keep parent and child rules together instead of spreading 20 flat dot-notation keys across the file.
 
-**Inline error messages.** Labels and per-rule messages live right next to the rules they belong to. No more maintaining a separate `messages()` array that drifts out of sync.
+**Labels and messages next to the rules.** No more maintaining a separate `messages()` array that drifts out of sync.
 
-**Faster array validation.** For large arrays (imports, bulk operations), this package replaces Laravel's O(n²) wildcard expansion with an O(n) approach. With `RuleSet::validate()`, per-item validation and compiled fast-checks push that to [up to 77x faster](#benchmarks).
+**Faster array validation.** For large arrays, this package replaces Laravel's O(n²) wildcard expansion with O(n). With `RuleSet::validate()`, per-item validation and compiled fast-checks push that to [up to 77x faster](#benchmarks).
+
+### Compared to Laravel's `Rule` class
+
+`FluentRule` is intentionally named differently from `Illuminate\Validation\Rule` so both can be used without aliasing. You generally don't need Laravel's `Rule` at all:
+
+| Laravel's `Rule`                              | FluentRule equivalent                                      |
+|-----------------------------------------------|------------------------------------------------------------|
+| `Rule::forEach(fn () => ...)`                 | `FluentRule::array()->each(...)`                           |
+| `Rule::when($cond, $rules, $default)`         | `->when($cond, fn ($r) => ..., fn ($r) => ...)`            |
+| `Rule::unique('users')`                       | `FluentRule::string()->unique('users')`                    |
+| `Rule::exists('roles')`                       | `FluentRule::string()->exists('roles')`                    |
+| `Rule::in([...])`                             | `FluentRule::string()->in([...])`                          |
+| `Rule::enum(Status::class)`                   | `FluentRule::string()->enum(Status::class)`                |
+| `Rule::anyOf([...])`                          | `FluentRule::anyOf([...])`                                 |
+| No equivalent                                 | `->each([...])` co-locate wildcard child rules             |
+| No equivalent                                 | `->children([...])` co-locate fixed-key child rules        |
+| No equivalent                                 | `->label('Name')` / `->message('...')` inline messages     |
+| No equivalent                                 | `->whenInput(fn ($input) => ...)` data-dependent conditions|
+| No equivalent                                 | `HasFluentRules` automatic compile + expand optimization   |
+| No equivalent                                 | `FluentValidator` base class for custom Validators         |
 
 ## Installation
 
@@ -52,11 +83,11 @@ $validated = Validator::make($request->all(), [
 ])->validate();
 ```
 
-When you pass a label like `'Full Name'`, it automatically replaces `:attribute` in all error messages for that field. You get "The Full Name field is required" instead of "The name field is required". No separate `attributes()` array needed.
+The label `'Full Name'` replaces `:attribute` in error messages. You get "The Full Name field is required" instead of "The name field is required", without a separate `attributes()` array.
 
 ### In a Form Request
 
-Add the `HasFluentRules` trait to your Form Requests. It compiles rules to native Laravel format, optimizes wildcard expansion, and extracts labels and messages automatically:
+Add the `HasFluentRules` trait to your Form Requests. It compiles rules to native Laravel format and handles wildcard expansion and metadata extraction:
 
 ```php
 use Illuminate\Foundation\Http\FormRequest;
@@ -85,7 +116,7 @@ class StorePostRequest extends FormRequest
 }
 ```
 
-> **Tip:** `HasFluentRules` is recommended for all Form Requests using FluentRule. It has no downsides and ensures labels, messages, and wildcard rules all work correctly.
+> **Tip:** Always add `HasFluentRules` when using FluentRule in a Form Request. Without it, labels, messages, and wildcard expansion won't be optimized.
 
 FluentRule objects implement Laravel's `ValidationRule` interface. They also work in `Validator::make()`, `Rule::forEach()`, and `Rule::when()`.
 
@@ -129,31 +160,11 @@ FluentRule::file()->rule(['mimetypes', ...$types])     // array tuple
 - Cross-field wildcard references (`requiredUnless('items.*.type', ...)`) require `HasFluentRules` or `FluentValidator`. They don't work in standalone self-validation mode.
 - `each()` and `children()` nest naturally. Flat dot-notation keys like `columns.*.data.sort` become nested `each([...children([...])])` trees that mirror the data shape.
 
-### Relationship with Laravel's `Rule` class
-
-`FluentRule` is intentionally named differently from `Illuminate\Validation\Rule` so both can be used without aliasing. You generally don't need Laravel's `Rule` at all:
-
-| Laravel's `Rule`                              | FluentRule equivalent                                      |
-|-----------------------------------------------|------------------------------------------------------------|
-| `Rule::forEach(fn () => ...)`                 | `FluentRule::array()->each(...)`                           |
-| `Rule::when($cond, $rules, $default)`         | `->when($cond, fn ($r) => ..., fn ($r) => ...)`            |
-| `Rule::unique('users')`                       | `FluentRule::string()->unique('users')`                    |
-| `Rule::exists('roles')`                       | `FluentRule::string()->exists('roles')`                    |
-| `Rule::in([...])`                             | `FluentRule::string()->in([...])`                          |
-| `Rule::enum(Status::class)`                   | `FluentRule::string()->enum(Status::class)`                |
-| `Rule::anyOf([...])`                          | `FluentRule::anyOf([...])`                                 |
-| No equivalent                                 | `->each([...])` co-locate wildcard child rules             |
-| No equivalent                                 | `->children([...])` co-locate fixed-key child rules        |
-| No equivalent                                 | `->label('Name')` / `->message('...')` inline messages     |
-| No equivalent                                 | `->whenInput(fn ($input) => ...)` data-dependent conditions|
-| No equivalent                                 | `HasFluentRules` automatic compile + expand optimization   |
-| No equivalent                                 | `FluentValidator` base class for custom Validators         |
-
 ## Error messages
 
 ### Labels
 
-Pass a label to the factory method and every error message automatically uses it as the `:attribute` name:
+Pass a label to the factory method. It replaces `:attribute` in all error messages for that field:
 
 ```php
 return [
@@ -167,11 +178,21 @@ return [
 // "The Import Items field must have at least 1 items."
 ```
 
-Labels work in Form Requests, `Validator::make()`, and `RuleSet::validate()`. You may also set a label after construction using `->label('Name')`.
+Labels work in Form Requests, `Validator::make()`, and `RuleSet::validate()`. They also work inside `each()`, so child fields get clean names too:
+
+```php
+'items' => FluentRule::array()->required()->each([
+    'name'  => FluentRule::string('Item Name')->required(),
+    'email' => FluentRule::email('Email')->required(),
+]),
+// "The Item Name field is required." (instead of "The items.0.name field is required.")
+```
+
+You can also set a label after construction with `->label('Name')`.
 
 ### Per-rule messages
 
-You may attach a custom error message to the most recently added rule using `->message()`:
+Attach a custom error message to the most recently added rule with `->message()`:
 
 ```php
 FluentRule::string('Full Name')
@@ -180,17 +201,19 @@ FluentRule::string('Full Name')
     ->max(255)
 ```
 
-Labels and messages compose naturally. Labels improve ALL error messages for the field, while `->message()` overrides specific rules. For a field-level fallback that applies to any failure, use `->fieldMessage()`:
+Labels affect all error messages for the field. `->message()` overrides a specific rule. For a field-level fallback that applies to any failure, use `->fieldMessage()`:
 
 ```php
 FluentRule::string()->required()->min(2)->fieldMessage('Something is wrong with this field.')
 ```
 
-> **Note:** Standard Laravel `messages()` arrays and `Validator::make()` message arguments still work and take priority over `->message()` and `->fieldMessage()`.
+> **Note:** `->message()` must be called after a rule method. Calling it before any rule (e.g. `FluentRule::string()->message(...)`) throws a `LogicException`.
+
+> Standard Laravel `messages()` arrays and `Validator::make()` message arguments still work and take priority over `->message()` and `->fieldMessage()`.
 
 ## Array validation with `each()` and `children()`
 
-When validating arrays of items, you may define the rules for each item inline using `each()`:
+Define rules for each item in an array inline with `each()`:
 
 ```php
 // Scalar items: each tag must be a string under 255 characters
@@ -211,11 +234,11 @@ FluentRule::array()->each([
 ])
 ```
 
-`each()` works both standalone (passed directly to a validator) and through Form Requests with `HasFluentRules`. Wildcard expansion is automatically optimized when using the trait or `RuleSet`.
+`each()` works standalone and through Form Requests with `HasFluentRules`. The trait and `RuleSet` both optimize wildcard expansion.
 
 ### Fixed-key children with `children()`
 
-For objects with known keys (not wildcard arrays), you may use `children()` to co-locate the child rules with the parent:
+For objects with known keys (not wildcard arrays), use `children()` to keep child rules with the parent:
 
 ```php
 // Instead of:
@@ -256,13 +279,13 @@ The rule tree mirrors the data shape. Compare this with the flat dot-notation al
 
 ## Performance
 
-FluentRule objects compile to native Laravel format (pipe-delimited strings or arrays) before validation runs. There is zero runtime overhead compared to writing string rules by hand.
+FluentRule objects compile to native Laravel format (pipe-delimited strings or arrays) before validation runs. There is no runtime overhead compared to string rules.
 
-When validating large arrays with wildcard rules (`items.*.name`), the `HasFluentRules` trait replaces Laravel's [O(n²) wildcard expansion](https://github.com/laravel/framework/issues/49375) with an O(n) tree traversal. The bigger your arrays, the more this matters.
+When validating large arrays with wildcard rules (`items.*.name`), the `HasFluentRules` trait replaces Laravel's [O(n²) wildcard expansion](https://github.com/laravel/framework/issues/49375) with an O(n) tree traversal.
 
 ### `RuleSet::validate()`
 
-For the fastest possible validation (batch imports, bulk APIs), `RuleSet::validate()` goes further. It adds per-item validation and compiled fast-checks on top of the wildcard optimization:
+For batch imports and bulk APIs, `RuleSet::validate()` goes further with per-item validation and compiled fast-checks:
 
 ```php
 $validated = RuleSet::from([
@@ -286,7 +309,7 @@ Benchmarks run automatically on PRs via GitHub Actions.
 
 ## RuleSet
 
-`RuleSet` provides a structured way to define and validate complete rule sets. You may create one from an array of rules or build it fluently:
+`RuleSet` wraps a set of rules with methods for building, merging, and validating:
 
 ```php
 use SanderMuller\FluentValidation\RuleSet;
@@ -329,7 +352,7 @@ $validated = RuleSet::make()
 
 ### Using with custom Validators
 
-If you extend `Illuminate\Validation\Validator` directly (e.g., for import jobs), extend `FluentValidator` instead. It handles the full pipeline automatically:
+If you extend `Illuminate\Validation\Validator` directly (e.g., for import jobs), extend `FluentValidator` instead:
 
 ```php
 use SanderMuller\FluentValidation\FluentValidator;
@@ -353,9 +376,9 @@ class JsonImportValidator extends FluentValidator
 }
 ```
 
-`FluentValidator` resolves the translator and presence verifier from the container, calls `prepare()` on the rules, and sets implicit attributes. No manual wiring needed.
+`FluentValidator` resolves the translator and presence verifier from the container, calls `prepare()` on the rules, and sets implicit attributes.
 
-> **Note:** When rules reference other fields using wildcards (e.g., `requiredUnless('*.type', ...)`), `FluentValidator` and `HasFluentRules` handle this automatically. Standalone FluentRule objects self-validate in isolation and can't resolve cross-field wildcard references.
+> **Note:** Cross-field wildcard references (e.g., `requiredUnless('*.type', ...)`) only work through `FluentValidator` or `HasFluentRules`. Standalone FluentRule objects self-validate in isolation and can't resolve them.
 
 > **Tip:** For validators with many cross-field references using a dynamic prefix, a simple helper reduces repetition:
 >
@@ -375,7 +398,7 @@ class JsonImportValidator extends FluentValidator
 
 ### String
 
-Validate string values with length, pattern, format, and comparison constraints:
+Length, pattern, format, and comparison constraints:
 
 ```php
 FluentRule::string()->min(2)->max(255)->between(2, 255)->exactly(10)
@@ -390,7 +413,7 @@ FluentRule::string()->inArray('values.*')->inArrayKeys('values.*')->distinct()
 
 ### Email
 
-Validate email addresses with configurable strictness:
+Configurable strictness levels:
 
 ```php
 FluentRule::email()->rfcCompliant()->strict()->validateMxRecord()->preventSpoofing()
@@ -402,7 +425,7 @@ FluentRule::email()->required()->unique('users', 'email')
 
 ### Password
 
-Validate password strength with readable, chainable requirements:
+Chainable strength requirements:
 
 ```php
 FluentRule::password(min: 12)->letters()->mixedCase()->numbers()->symbols()->uncompromised()
@@ -410,7 +433,7 @@ FluentRule::password(min: 12)->letters()->mixedCase()->numbers()->symbols()->unc
 
 ### Numeric
 
-Validate numbers with type, size, digit, and comparison constraints:
+Type, size, digit, and comparison constraints:
 
 ```php
 FluentRule::numeric()->integer(strict: true)->decimal(2)->min(0)->max(100)->between(1, 99)
@@ -420,7 +443,7 @@ FluentRule::numeric()->greaterThan('field')->lessThan('field')  // also: greater
 
 ### Date
 
-Validate dates with boundaries, convenience shortcuts, and format control. All comparison methods accept `DateTimeInterface|string`:
+Boundaries, shortcuts, and format control. All comparison methods accept `DateTimeInterface|string`:
 
 ```php
 FluentRule::date()->after('today')->before('2025-12-31')->between('2025-01-01', '2025-12-31')
@@ -431,7 +454,7 @@ FluentRule::dateTime()->afterToday()                     // shortcut for format(
 
 ### Boolean
 
-Validate boolean values and acceptance/decline:
+Acceptance and decline:
 
 ```php
 FluentRule::boolean()->accepted()->declined()
@@ -440,7 +463,7 @@ FluentRule::boolean()->acceptedIf('role', 'admin')->declinedIf('type', 'free')
 
 ### Array
 
-Validate arrays with size constraints, structure requirements, and allowed keys:
+Size constraints, structure, and allowed keys:
 
 ```php
 FluentRule::array()->min(1)->max(10)->between(1, 5)->exactly(3)->list()
@@ -451,7 +474,7 @@ FluentRule::array(MyEnum::cases())    // BackedEnum keys
 
 ### File
 
-Validate uploaded files with size and type constraints. Size methods accept integers (kilobytes) or human-readable strings:
+Size and type constraints. Size methods accept integers (kilobytes) or human-readable strings:
 
 ```php
 FluentRule::file()->max('5mb')->between('1mb', '10mb')
@@ -460,7 +483,7 @@ FluentRule::file()->extensions('pdf', 'docx')->mimes('jpg', 'png')->mimetypes('a
 
 ### Image
 
-Validate images with dimension constraints. Inherits all file methods:
+Dimension constraints. Inherits all file methods:
 
 ```php
 FluentRule::image()->max('5mb')->allowSvg()
@@ -470,7 +493,7 @@ FluentRule::image()->width(800)->height(600)->ratio(16 / 9)
 
 ### Field (untyped)
 
-When a field needs modifiers but no type constraint, you may use `FluentRule::field()`:
+For fields that need modifiers but no type constraint:
 
 ```php
 FluentRule::field()->present()
@@ -480,7 +503,7 @@ FluentRule::field('Answer')->nullable()->in(['yes', 'no'])
 
 ### AnyOf
 
-Validate that a value passes at least one of the given rule sets (Laravel's `Rule::anyOf` equivalent):
+A value passes if it matches any of the given rule sets. Requires Laravel 13+.
 
 ```php
 FluentRule::anyOf([
@@ -491,7 +514,7 @@ FluentRule::anyOf([
 
 ### Embedded rules
 
-String, numeric, and date rules support embedded Laravel rule objects for `in`, `unique`, `exists`, and `enum`. Both `in()` and `notIn()` accept either an array of values or a `BackedEnum` class:
+String, numeric, and date rules support `in`, `unique`, `exists`, and `enum`. `in()` and `notIn()` accept arrays or a `BackedEnum` class:
 
 ```php
 FluentRule::string()->in(['draft', 'published'])
@@ -504,7 +527,7 @@ FluentRule::string()->exists('roles', 'name')
 
 ### Field modifiers
 
-All rule types share common modifiers for controlling field presence, prohibition, and exclusion:
+Shared by all rule types:
 
 ```php
 // Presence
@@ -529,13 +552,13 @@ All rule types share common modifiers for controlling field presence, prohibitio
 
 ### Conditional rules
 
-All rule types use Laravel's `Conditionable` trait, so you may conditionally apply rules using `when()`:
+All rule types use Laravel's `Conditionable` trait:
 
 ```php
 FluentRule::string()->required()->when($isAdmin, fn ($r) => $r->min(12))->max(255)
 ```
 
-For data-dependent conditions that need to inspect the input at validation time, you may use `whenInput()`:
+For conditions that depend on the input data at validation time, use `whenInput()`:
 
 ```php
 FluentRule::string()->whenInput(
@@ -545,11 +568,11 @@ FluentRule::string()->whenInput(
 )
 ```
 
-The condition closure receives the full input as a `Fluent` object and is evaluated during validation, not at build time. You may also pass string rules instead of closures: `->whenInput($condition, 'required|min:12')`.
+The closure receives the full input as a `Fluent` object and runs during validation, not at build time. You can also pass string rules: `->whenInput($condition, 'required|min:12')`.
 
 ### Escape hatch
 
-You may add any Laravel validation rule via `rule()`. Accepts strings, objects, and array tuples:
+Add any Laravel validation rule with `rule()`. Accepts strings, objects, and array tuples:
 
 ```php
 FluentRule::string()->rule('email:rfc,dns')
@@ -559,7 +582,7 @@ FluentRule::file()->rule(['mimetypes', ...$acceptedTypes])
 
 ### Macros
 
-Macros let you create reusable rule chains that can be shared across fields and files:
+Define reusable rule chains in a service provider:
 
 ```php
 // In a service provider
@@ -592,4 +615,4 @@ Please review [our security policy](../../security/policy) on how to report secu
 
 ## License
 
-The MIT License (MIT). Please see [License File](LICENSE.md) for more information.
+MIT License. Please see [License File](LICENSE.md) for more information.

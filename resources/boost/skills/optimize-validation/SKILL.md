@@ -38,7 +38,7 @@ Read each file. Look for these specific patterns:
 
 **Detection patterns:**
 - `items.*.name` with no `HasFluentRules` → suggest the trait
-- `required_unless:items.*.type` or `gte:items.*.field` (cross-field wildcard refs) → MUST use `RuleSet::compile()`, flag as risk
+- `required_unless:items.*.type` or `gte:items.*.field` (cross-field wildcard refs) → MUST use `HasFluentRules` or `FluentValidator`, flag as risk
 - `field.child1`, `field.child2` sharing a parent → suggest `children()`
 - `field.*` + `field.*.child1` + `field.*.child2` → suggest `each()`
 - `attributes()` array entries → suggest `->label()`
@@ -54,7 +54,7 @@ Format the summary as:
 
 ### High impact (performance)
 - `app/Http/Requests/ImportRequest.php` — 12 wildcard rules, no HasFluentRules trait
-- `app/Validators/JsonImportValidator.php` — custom Validator with cross-field wildcards, needs RuleSet::compile()
+- `app/Validators/JsonImportValidator.php` — custom Validator with cross-field wildcards, needs FluentValidator
 
 ### Medium impact (DX)
 - `app/Http/Requests/StorePostRequest.php` — 8 string rules convertible to fluent
@@ -70,7 +70,7 @@ Ask the user which files/categories to proceed with.
 
 **High impact (performance):**
 1. FormRequests with wildcard rules that don't use `HasFluentRules`
-2. Custom Validator subclasses with wildcard rules that don't use `RuleSet::compile()`
+2. Custom Validator subclasses with wildcard rules that don't extend `FluentValidator`
 
 **Medium impact (DX):**
 3. String rules convertible to fluent chains
@@ -158,6 +158,7 @@ Then convert one field at a time:
 | `'nullable\|file\|max:2048'` | `FluentRule::file()->nullable()->max('2mb')` |
 | `'nullable\|image\|max:5120'` | `FluentRule::image()->nullable()->max('5mb')` |
 | `['required', Rule::in([...])]` | `FluentRule::string()->required()->in([...])` |
+| `['required', Rule::in(Enum::cases())]` | `FluentRule::string()->required()->in(Enum::class)` |
 | `['required', Rule::enum(X::class)]` | `FluentRule::string()->required()->enum(X::class)` |
 | `['present']` (no type) | `FluentRule::field()->present()` |
 
@@ -165,8 +166,9 @@ Then convert one field at a time:
 
 | Laravel pattern | Fluent equivalent |
 |---|---|
-| `->when($bool, fn ($r) => ...)` | Same: `->when($bool, fn ($r) => ...)` (build-time) |
 | `Rule::when($cond, 'required')` | `->whenInput($cond, fn ($r) => $r->required())` (validation-time) |
+| `Rule::excludeIf(fn () => ...)` | `->excludeIf(fn () => ...)` |
+| `Rule::requiredIf(fn () => ...)` | `->requiredIf(fn () => ...)` |
 | `Rule::forEach(fn () => ...)` | `FluentRule::array()->each(...)` |
 
 ### 4d: Replace attributes() with labels
@@ -225,6 +227,58 @@ Only for simple rule-specific messages. Keep `messages()` for complex/conditiona
 ]),
 ```
 
+### 4h: Converting deeply nested dot-notation trees
+
+When a file has many flat keys sharing a common prefix, group them into a nested tree using `each()` for wildcard levels and `children()` for fixed-key levels. Work from the deepest keys upward.
+
+**Step-by-step process:**
+
+1. **Identify the tree.** Sort all keys and group by prefix. For example:
+   - `columns.*.data` → wildcard level
+   - `columns.*.data.sort` → fixed child of `data`
+   - `columns.*.data.render.display` → fixed child of `render`, which is a fixed child of `data`
+   - `columns.*.search.value` → fixed child of `search`
+
+2. **Build from the leaves.** Start with the deepest keys and work up:
+   ```php
+   // Level 3: render.display
+   'render' => FluentRule::array()->nullable()->children([
+       'display' => FluentRule::string()->nullable(),
+   ]),
+   
+   // Level 2: data.sort + data.render
+   'data' => FluentRule::field()->nullable()->children([
+       'sort'   => FluentRule::string()->nullable(),
+       'render' => FluentRule::array()->nullable()->children([
+           'display' => FluentRule::string()->nullable(),
+       ]),
+   ]),
+   ```
+
+3. **Combine into the wildcard parent.** The `*.` level uses `each()`:
+   ```php
+   'columns' => FluentRule::array()->required()->each([
+       'data' => FluentRule::field()->nullable()->children([
+           'sort'   => FluentRule::string()->nullable(),
+           'render' => FluentRule::array()->nullable()->children([
+               'display' => FluentRule::string()->nullable(),
+           ]),
+       ]),
+       'search' => FluentRule::array()->required()->children([
+           'value' => FluentRule::string()->nullable(),
+       ]),
+   ]),
+   ```
+
+4. **Remove all the flat keys.** The nested structure replaces them all. Delete `columns.*.data`, `columns.*.data.sort`, `columns.*.data.render.display`, `columns.*.search.value`, etc.
+
+**Rules for choosing each() vs children():**
+- `*.` in the key → `each()` (wildcard: unknown number of items)
+- `.fixed_name` in the key → `children()` (known keys on an object)
+- Both can be combined: `each([...])` for the wildcard level, `children([...])` inside it for fixed sub-keys
+
+**Use `FluentRule::field()` when a parent key has children but no type constraint.** For example, `columns.*.data` might accept strings or arrays. Use `FluentRule::field()->nullable()->children([...])` or add `->rule(FluentRule::anyOf([...]))` for union types.
+
 ## Step 5: Verify after each file
 
 1. Run the file's specific tests immediately (not the full suite until the end)
@@ -236,14 +290,13 @@ Only for simple rule-specific messages. Keep `messages()` for complex/conditiona
 1. Simple FormRequests with few rules and no cross-field references
 2. FormRequests with wildcards (add `HasFluentRules`)
 3. FormRequests with `attributes()`/`messages()` (replace with labels)
-4. Complex custom Validator subclasses (need `RuleSet::compile()` understanding)
+4. Complex custom Validator subclasses (extend `FluentValidator`)
 
 ## Risk flags
 
 Flag these to the user before applying changes:
 
-- **Cross-field wildcard references** (`requiredUnless('items.*.type', ...)`) MUST use `RuleSet::compile()` or `HasFluentRules`. They don't work through standalone FluentRule self-validation. Flag any file that has these.
-- **`exclude` rules** only affect `validated()` at the outer validator level. When converting, keep `['exclude', FluentRule::string()]` not `FluentRule::string()->exclude()`.
-- **`anyOf()`** requires Laravel 13+. Skip on older versions.
-- **`anyOf()`** requires Laravel 13+.
-- **Gradual adoption is fine.** Convert one field at a time. Fluent rules mix with string rules.
+- **Cross-field wildcard references** (`requiredUnless('items.*.type', ...)`) MUST use `HasFluentRules` or `FluentValidator`. They don't work through standalone FluentRule self-validation. Flag any file that has these.
+- **`exclude` rules** only affect `validated()` output when placed at the outer validator level. When converting, keep `['exclude', FluentRule::string()]` not `FluentRule::string()->exclude()`.
+- **`anyOf()`** requires Laravel 13+. Use `class_exists(\Illuminate\Validation\Rules\AnyOf::class)` to check. Skip on older versions.
+- **Gradual adoption is fine.** Convert one field at a time. Fluent rules mix with string rules in the same array.

@@ -4,17 +4,17 @@
 
 Laravel's wildcard validation (`items.*.name`) has O(n²) performance for large arrays due to `explodeWildcardRules()` and `shouldBeExcluded()` scanning.
 
-## Optimization Layers
+## Two Levels of Optimization
 
-| Optimization | What it does | Speedup |
-|---|---|---|
-| **Per-item validation** | Reuses one small validator per item | ~40x for complex rules |
-| **Compiled fast-checks** | PHP closures skip Laravel for valid items | ~77x for simple rules |
-| **Conditional rule rewriting** | Rewrites `exclude_unless` for per-item context | Enables per-item for real-world validators |
+### HasFluentRules / FluentValidator (recommended default)
 
-## How to Use
+Replaces Laravel's O(n²) wildcard expansion with an O(n) tree traversal. Also extracts labels and messages from rule objects automatically. Use this for all FormRequests and custom Validators.
 
-### FormRequest (recommended)
+| What it does | Speedup |
+|---|---|
+| O(n) wildcard expansion via `WildcardExpander` | ~20% for large arrays |
+| Compiles FluentRule objects to native Laravel format | Zero overhead vs string rules |
+| Extracts labels and messages in the same pass | No extra iteration |
 
 ```php
 use SanderMuller\FluentValidation\HasFluentRules;
@@ -32,13 +32,21 @@ class ImportRequest extends FormRequest
 }
 ```
 
-### Inline validation
+### RuleSet::validate() (maximum performance)
+
+For batch imports and bulk APIs where every millisecond counts. Adds per-item validation and compiled fast-checks on top of the wildcard optimization.
+
+| Optimization | What it does | Speedup |
+|---|---|---|
+| **Per-item validation** | Reuses one small validator per item | ~40x for complex rules |
+| **Compiled fast-checks** | PHP closures skip Laravel for valid items | ~77x for simple rules |
+| **Conditional rule rewriting** | Rewrites `exclude_unless` for per-item context | Enables per-item for real-world validators |
 
 ```php
 $validated = RuleSet::from([...])->validate($request->all());
 ```
 
-### Custom Validator subclasses
+## Custom Validator Subclasses
 
 Extend `FluentValidator` instead of `Illuminate\Validation\Validator`. It handles the full pipeline automatically:
 

@@ -30,7 +30,7 @@ use SanderMuller\FluentValidation\RuleSet;
 | `FluentRule::dateTime('Label?')` | `DateRule` | `'date_format:Y-m-d H:i:s'` |
 | `FluentRule::boolean('Label?')` | `BooleanRule` | `'boolean'` |
 | `FluentRule::array(keys?, label:?)` | `ArrayRule` | `'array'` |
-| `FluentRule::email('Label?')` | `EmailRule` | `'string\|email'` |
+| `FluentRule::email('Label?')` | `EmailRule` | `'string'` + `'email'` |
 | `FluentRule::password(min?, label:?)` | `PasswordRule` | `'string'` + `Password` |
 | `FluentRule::file('Label?')` | `FileRule` | `'file'` |
 | `FluentRule::image('Label?')` | `ImageRule` | `'image'` |
@@ -108,12 +108,28 @@ FluentRule::string()->whenInput(
 FluentRule::string()->in(StatusEnum::class)
 ```
 
+**Fixed-key children** (`children`) on field — for untyped parents with known sub-keys:
+```php
+FluentRule::field()->required()->children([
+    'value' => FluentRule::string()->nullable(),
+    'regex' => FluentRule::string()->nullable()->in(['true', 'false']),
+])
+```
+
 **Escape hatch** — any Laravel rule (string, object, array tuple):
 ```php
 FluentRule::string()->rule('email:rfc,dns')
 FluentRule::file()->rule(['mimetypes', ...$types])
 FluentRule::string()->rule(new MyCustomRule())
 ```
+
+**Macros** — reusable rule chains registered in a service provider:
+```php
+NumericRule::macro('percentage', fn () => $this->integer()->min(0)->max(100));
+// Then: FluentRule::numeric()->percentage()
+```
+
+All rule types support macros via `Macroable`.
 
 ## Performance (large arrays)
 

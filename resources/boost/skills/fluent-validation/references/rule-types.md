@@ -83,4 +83,4 @@ All comparison methods accept `DateTimeInterface|string`:
 
 ## Combinators
 
-- `FluentRule::anyOf([...])` — value passes if it matches any of the given rules
+- `FluentRule::anyOf([...])` — value passes if it matches any of the given rules. Requires Laravel 13+ (`AnyOf` class). Guarded by `class_exists()` at runtime.
