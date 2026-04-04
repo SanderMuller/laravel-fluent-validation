@@ -2,6 +2,27 @@
 
 All notable changes to `laravel-fluent-validation` will be documented in this file.
 
+## 0.3.4 - 2026-04-04
+
+### Performance
+
+- **Partial fast-check path** — Previously, if any field in a wildcard group couldn't be fast-checked, the entire group fell back to Laravel. Now fast-checkable fields are validated with PHP closures, and only non-eligible fields go through Laravel. Items where all fast-checks pass use a separate slow-only validator for the remaining rules, avoiding redundant re-validation.
+  
+- **Stringified Stringable rule objects** — `In`, `NotIn`, `Exists`, `Unique`, and `Dimensions` objects are now stringified during compilation, producing pipe-joined strings that enable the fast-check path. `FluentRule::string()->in([...])` previously blocked fast-checks because the `In` object made the output an array.
+  
+- **Expanded fast-check coverage to 25 rules** — New rules in the fast-check path: `email`, `url`, `ip`, `uuid`, `ulid`, `alpha`, `alpha_dash`, `alpha_num`, `accepted`, `declined`, `filled`, `not_in`, `regex`, `not_regex`, `digits`, `digits_between`. Replaced `Carbon::parse()` with `strtotime()` for lighter date checks.
+  
+
+### Other
+
+- Renamed `HihahoImportBenchTest` to `ImportBenchTest`
+- Fixed misleading WildcardExpander benchmark multiplier
+- Formatted benchmark output as aligned tables
+- Updated release benchmark workflow to match new output format
+- 5 new tests for partial fast-check path correctness
+
+**Full Changelog**: https://github.com/SanderMuller/laravel-fluent-validation/compare/0.3.3...0.3.4
+
 ## 0.3.3 - 2026-04-04
 
 ### Added
@@ -38,6 +59,7 @@ All notable changes to `laravel-fluent-validation` will be documented in this fi
   
   ```php
   $rules[self::TYPE] = (clone $rules[self::TYPE])->rule($extraClosure);
+  
   
   
   ```
@@ -86,6 +108,7 @@ All notable changes to `laravel-fluent-validation` will be documented in this fi
   
   
   
+  
   ```
 - FluentFormRequest base class — Combines HasFluentRules compilation with per-attribute
   fast-check optimization via OptimizedValidator. Eligible wildcard rules are fast-checked
@@ -118,6 +141,7 @@ All notable changes to `laravel-fluent-validation` will be documented in this fi
   ```php
   FluentRule::string()->unique('users', 'email', fn($r) => $r->ignore($this->user()->id))
   FluentRule::string()->exists('subjects', 'id', fn($r) => $r->where('video_id',          
+  
   
   
   
