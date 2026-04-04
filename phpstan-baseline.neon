@@ -59,3 +59,9 @@ parameters:
 			identifier: complexity.functionLike
 			count: 1
 			path: src/RuleSet.php
+
+		-
+			rawMessage: 'Call to an undefined method Pest\PendingCalls\TestCall|Pest\Support\HigherOrderTapProxy::fail().'
+			identifier: method.notFound
+			count: 3
+			path: tests/RuleSetTest.php

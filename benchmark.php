@@ -1,6 +1,4 @@
-<?php
-
-declare(strict_types=1);
+<?php declare(strict_types=1);
 
 /**
  * Benchmark script for CI — compares RuleSet performance against native Laravel.

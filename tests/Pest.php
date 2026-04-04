@@ -1,6 +1,4 @@
-<?php
-
-declare(strict_types=1);
+<?php declare(strict_types=1);
 
 use Illuminate\Translation\ArrayLoader;
 use Illuminate\Translation\Translator;
