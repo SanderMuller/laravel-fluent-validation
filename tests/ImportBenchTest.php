@@ -5,17 +5,15 @@ declare(strict_types=1);
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule as LaravelRule;
 use SanderMuller\FluentValidation\RuleSet;
-use SanderMuller\FluentValidation\WildcardExpander;
-
 /**
- * Simulates the hihaho JsonInteractionImportValidator complexity:
- * - 300 interactions with ~30 wildcard patterns each
+ * Simulates a complex JSON import validator:
+ * - 100 items with ~47 wildcard patterns
  * - Heavy use of exclude_unless, required_if (conditional rules)
  * - Nested wildcards: *.chapters.*.title
  * - Custom rule objects mixed with string rules
  * - Cross-field references: gte:*.start_time
  */
-it('benchmarks hihaho-level import validation', function (): void {
+it('benchmarks complex import validation', function (): void {
     $interactionTypes = ['button', 'hotspot', 'scroll_area', 'image', 'chapter', 'menu', 'frame', 'text', 'iframe'];
 
     // Generate 300 realistic interactions
@@ -130,6 +128,8 @@ it('benchmarks hihaho-level import validation', function (): void {
 
     // ── Warmup ──
     Validator::make($data, $rules)->validate();
+    RuleSet::from($rules)->validate($data);
+
     $ruleSet = RuleSet::from($rules);
     [$expanded, $ia] = $ruleSet->expand($data);
     $compiled = RuleSet::compile($expanded);
@@ -138,59 +138,28 @@ it('benchmarks hihaho-level import validation', function (): void {
     $v->validate();
 
     // ── Benchmark ──
-    $iterations = 3;
-    $nativeTimes = [];
-    $expandedTimes = [];
-    $validateTimes = [];
-    $wildcardExpanderTimes = [];
+    $nativeMedian = benchmarkMedian(fn () => Validator::make($data, $rules)->validate(), 3);
 
-    $allPatterns = array_keys(array_filter($rules, fn (string $k): bool => str_contains($k, '*'), ARRAY_FILTER_USE_KEY));
-
-    for ($iter = 0; $iter < $iterations; ++$iter) {
-        // Native Laravel
-        $t = hrtime(true);
-        Validator::make($data, $rules)->validate();
-        $nativeTimes[] = (hrtime(true) - $t) / 1e6;
-
-        // Pre-expanded via RuleSet (big validator)
-        $t = hrtime(true);
+    $expandedMedian = benchmarkMedian(function () use ($rules, $data): void {
         $ruleSet = RuleSet::from($rules);
         [$expanded, $ia] = $ruleSet->expand($data);
         $compiled = RuleSet::compile($expanded);
         $v = Validator::make($data, $compiled);
         (new ReflectionProperty($v, 'implicitAttributes'))->setValue($v, $ia);
         $v->validate();
-        $expandedTimes[] = (hrtime(true) - $t) / 1e6;
+    }, 3);
 
-        // RuleSet::validate() — per-item with conditional rule rewriting
-        $t = hrtime(true);
-        RuleSet::from($rules)->validate($data);
-        $validateTimes[] = (hrtime(true) - $t) / 1e6;
+    $validateMedian = benchmarkMedian(fn () => RuleSet::from($rules)->validate($data), 3);
 
-        // Just WildcardExpander (expansion only)
-        $t = hrtime(true);
-        foreach ($allPatterns as $allPattern) {
-            WildcardExpander::expand($allPattern, $data);
-        }
+    $patternCount = count(array_filter(array_keys($rules), fn (string $k): bool => str_contains($k, '*')));
 
-        $wildcardExpanderTimes[] = (hrtime(true) - $t) / 1e6;
-    }
-
-    sort($nativeTimes);
-    sort($expandedTimes);
-    sort($validateTimes);
-    sort($wildcardExpanderTimes);
-
-    $nativeMedian = $nativeTimes[1];
-    $expandedMedian = $expandedTimes[1];
-    $validateMedian = $validateTimes[1];
-    $expanderMedian = $wildcardExpanderTimes[1];
-
-    fprintf(STDERR, "\n  === Hihaho-level import (100 interactions, %d wildcard patterns) ===\n\n", count($allPatterns));
-    fprintf(STDERR, "  Native Laravel:               %7.2fms\n", $nativeMedian);
-    fprintf(STDERR, "  Pre-expanded (big validator):  %7.2fms (%.1fx)\n", $expandedMedian, $nativeMedian / $expandedMedian);
-    fprintf(STDERR, "  RuleSet::validate() per-item:  %7.2fms (%.1fx)\n", $validateMedian, $nativeMedian / $validateMedian);
-    fprintf(STDERR, "  WildcardExpander only:         %7.2fms (expansion cost, no validation)\n", $expanderMedian);
+    fprintf(STDERR, "\n  Benchmark: 100 interactions × %d wildcard patterns (conditional rules)\n", $patternCount);
+    fprintf(STDERR, "  %-30s %8s %8s\n", 'Approach', 'Time', 'Speedup');
+    fprintf(STDERR, "  %s\n", str_repeat('─', 50));
+    fprintf(STDERR, "  %-30s %7.0fms %8s\n", 'Native Laravel', $nativeMedian, '1x');
+    fprintf(STDERR, "  %-30s %7.0fms %7.1fx\n", 'HasFluentRules (O(n) expand)', $expandedMedian, $nativeMedian / $expandedMedian);
+    fprintf(STDERR, "  %-30s %7.0fms %7.0fx\n", 'RuleSet::validate() per-item', $validateMedian, $nativeMedian / $validateMedian);
+    fprintf(STDERR, "\n");
 
     expect($validateMedian)->toBeLessThan($nativeMedian);
 })->group('benchmark');
