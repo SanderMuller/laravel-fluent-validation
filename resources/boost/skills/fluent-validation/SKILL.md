@@ -133,7 +133,7 @@ All rule types support macros via `Macroable`.
 
 ## Performance (large arrays)
 
-Use `HasFluentRules` in FormRequests (or extend `FluentFormRequest`) for O(n) wildcard expansion and per-attribute fast-checks on eligible wildcard rules. Use `RuleSet::validate()` inline for up to **77x faster** batch validation. See `references/performance.md` for details.
+`HasFluentRules` automatically applies O(n) wildcard expansion and per-attribute fast-checks (25 rules supported). Up to **97x faster** for simple rules, **10x** for mixed rule sets. Use `RuleSet::validate()` for inline validation outside FormRequests. See `references/performance.md` for details.
 
 ## Custom Validator Subclasses
 

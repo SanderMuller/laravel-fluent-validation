@@ -4,18 +4,17 @@
 
 Laravel's wildcard validation (`items.*.name`) has O(n²) performance for large arrays due to `explodeWildcardRules()` and `shouldBeExcluded()` scanning.
 
-## Two Levels of Optimization
+## Optimization (automatic via HasFluentRules)
 
-### HasFluentRules / FluentFormRequest / FluentValidator (recommended default)
+The `HasFluentRules` trait (and `FluentFormRequest`) applies three optimizations automatically:
 
-Replaces Laravel's O(n²) wildcard expansion with an O(n) tree traversal. Also extracts labels and messages from rule objects automatically. For eligible wildcard rules (string, numeric, boolean, integer — without object rules or date comparisons), applies per-attribute fast-checks that skip Laravel's validation entirely for valid items.
+| Optimization | What it does | Speedup |
+|---|---|---|
+| **O(n) wildcard expansion** | `WildcardExpander` replaces Laravel's O(n²) approach | ~20% for large arrays |
+| **Per-attribute fast-checks** | Pure PHP closures skip Laravel for valid items (25 rules supported) | Up to 97x for simple rules |
+| **Partial fast-check** | Fast-checkable fields use PHP, non-eligible fields go through Laravel | 10x for mixed rule sets |
 
-| What it does | Speedup |
-|---|---|
-| O(n) wildcard expansion via `WildcardExpander` | ~20% for large arrays |
-| Per-attribute fast-checks on eligible wildcard rules | Significant for valid data |
-| Compiles FluentRule objects to native Laravel format | Zero overhead vs string rules |
-| Extracts labels and messages in the same pass | No extra iteration |
+Fast-checked rules: `required`, `filled`, `string`, `numeric`, `integer`, `boolean`, `date`, `email`, `url`, `ip`, `uuid`, `ulid`, `alpha`, `alpha_dash`, `alpha_num`, `accepted`, `declined`, `min`, `max`, `digits`, `digits_between`, `in`, `not_in`, `regex`, `not_regex`.
 
 ```php
 use SanderMuller\FluentValidation\HasFluentRules;
@@ -33,15 +32,9 @@ class ImportRequest extends FormRequest
 }
 ```
 
-### RuleSet::validate() (maximum performance)
+### RuleSet::validate() (inline validation)
 
-For batch imports and bulk APIs where every millisecond counts. Adds per-item validation and compiled fast-checks on top of the wildcard optimization.
-
-| Optimization | What it does | Speedup |
-|---|---|---|
-| **Per-item validation** | Reuses one small validator per item | ~40x for complex rules |
-| **Compiled fast-checks** | PHP closures skip Laravel for valid items | ~77x for simple rules |
-| **Conditional rule rewriting** | Rewrites `exclude_unless` for per-item context | Enables per-item for real-world validators |
+For validation outside FormRequests. Applies the same optimizations with an additional per-item approach (reuses one small validator per item instead of one giant validator).
 
 ```php
 $validated = RuleSet::from([...])->validate($request->all());
