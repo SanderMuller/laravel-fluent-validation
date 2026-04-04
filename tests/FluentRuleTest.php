@@ -1164,6 +1164,41 @@ it('exists without callback still works (backward compat)', function (): void {
 });
 
 // =========================================================================
+// Clone support — for FormRequest inheritance patterns
+// =========================================================================
+
+it('clone clears compiled cache so new rules take effect', function (): void {
+    $parent = FluentRule::field()->required();
+    $parent->compiledRules(); // trigger cache
+
+    $child = (clone $parent)->in(['a', 'b']);
+    $compiled = $child->compiledRules();
+
+    expect($compiled)->toBeArray();
+    expect($compiled)->toContain('required');
+
+    // Parent should be unaffected
+    expect($parent->compiledRules())->toBe('required');
+});
+
+it('clone allows extending rules for FormRequest inheritance', function (): void {
+    $parent = FluentRule::string()->required()->max(255);
+    $parent->compiledRules(); // trigger cache
+
+    $child = (clone $parent)->rule(function (string $attribute, mixed $value, Closure $fail): void {
+        if ($value === 'forbidden') {
+            $fail('This value is forbidden.');
+        }
+    });
+    $compiled = $child->compiledRules();
+
+    expect($compiled)->toBeArray();
+    expect($compiled)->toContain('string');
+    expect($compiled)->toContain('required');
+    expect($compiled)->toContain('max:255');
+});
+
+// =========================================================================
 // RuleSet::compile()
 // =========================================================================
 

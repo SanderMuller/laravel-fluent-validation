@@ -89,6 +89,8 @@ trait HasFieldModifiers
      */
     protected function addRule(array|string|object $rules): static
     {
+        $this->compiledCache = null;
+
         if (is_object($rules)) {
             $this->rules[] = $rules;
             $this->lastConstraint = match (true) {

@@ -166,7 +166,12 @@ trait SelfValidates
     }
 
     /** @var string|list<string|object>|null */
-    private string|array|null $compiledCache = null;
+    protected string|array|null $compiledCache = null;
+
+    public function __clone(): void
+    {
+        $this->compiledCache = null;
+    }
 
     /**
      * Compile to native Laravel format. Returns a pipe-joined string
