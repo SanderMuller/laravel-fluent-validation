@@ -9,14 +9,26 @@ use Illuminate\Validation\Rule;
 
 trait HasEmbeddedRules
 {
-    public function unique(string $table, ?string $column = null): static
+    public function unique(string $table, ?string $column = null, ?Closure $callback = null): static
     {
-        return $this->addRule(Rule::unique($table, $column ?? 'NULL'));
+        $rule = Rule::unique($table, $column ?? 'NULL');
+
+        if ($callback instanceof Closure) {
+            $callback($rule);
+        }
+
+        return $this->addRule($rule);
     }
 
-    public function exists(string $table, ?string $column = null): static
+    public function exists(string $table, ?string $column = null, ?Closure $callback = null): static
     {
-        return $this->addRule(Rule::exists($table, $column ?? 'NULL'));
+        $rule = Rule::exists($table, $column ?? 'NULL');
+
+        if ($callback instanceof Closure) {
+            $callback($rule);
+        }
+
+        return $this->addRule($rule);
     }
 
     /** @param  class-string  $type */
