@@ -870,7 +870,7 @@ it('works with sometimes() rules added after validator creation', function (): v
         rules: [
             'items' => FluentRule::array()->required()->each([
                 'name' => FluentRule::string()->required()->max(255),
-                'type' => FluentRule::string()->required()->in('book', 'dvd'),
+                'type' => FluentRule::string()->required()->in('book'),
             ]),
         ],
         data: [
