@@ -1583,9 +1583,9 @@ it('reports errors from slow-only path when fast-checks pass', function (): void
             ['name' => 'Valid', 'starts_at' => '2020-01-01'],
         ]]);
         test()->fail('Expected ValidationException');
-    } catch (ValidationException $e) {
-        expect($e->errors())->toHaveKey('items.0.starts_at');
-        expect($e->errors())->not->toHaveKey('items.0.name');
+    } catch (ValidationException $validationException) {
+        expect($validationException->errors())->toHaveKey('items.0.starts_at');
+        expect($validationException->errors())->not->toHaveKey('items.0.name');
     }
 });
 
@@ -1600,9 +1600,9 @@ it('reports errors from full path when fast-check fails', function (): void {
             ['name' => 'X', 'starts_at' => '2020-01-01'],
         ]]);
         test()->fail('Expected ValidationException');
-    } catch (ValidationException $e) {
-        expect($e->errors())->toHaveKey('items.0.name');
-        expect($e->errors())->toHaveKey('items.0.starts_at');
+    } catch (ValidationException $validationException) {
+        expect($validationException->errors())->toHaveKey('items.0.name');
+        expect($validationException->errors())->toHaveKey('items.0.starts_at');
     }
 });
 
@@ -1633,8 +1633,8 @@ it('partial fast-check catches single invalid item among many valid', function (
             ]),
         ])->validate(['items' => $items]);
         test()->fail('Expected ValidationException');
-    } catch (ValidationException $e) {
-        expect($e->errors())->toHaveKey('items.24.starts_at');
-        expect($e->errors())->toHaveCount(1);
+    } catch (ValidationException $validationException) {
+        expect($validationException->errors())->toHaveKey('items.24.starts_at');
+        expect($validationException->errors())->toHaveCount(1);
     }
 });
