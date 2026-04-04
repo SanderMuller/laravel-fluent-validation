@@ -8,6 +8,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Validation\Rules\Unique;
 use Illuminate\Validation\ValidationException;
+use Illuminate\Validation\Validator;
 use SanderMuller\FluentValidation\FluentFormRequest;
 use SanderMuller\FluentValidation\FluentRule;
 use SanderMuller\FluentValidation\OptimizedValidator;
@@ -820,7 +821,7 @@ it('works with sometimes() rules added after validator creation', function (): v
     $validator = (fn () => $this->createDefaultValidator($factory))->call($formRequest);
 
     // Add a dynamic rule via sometimes().
-    $validator->sometimes('items.*.isbn', 'required|string|min:10', fn($input, $item): bool => $item->type === 'book');
+    $validator->sometimes('items.*.isbn', 'required|string|min:10', fn ($input, $item): bool => $item->type === 'book');
 
     expect($validator->passes())->toBeFalse();
     // isbn '5678' is too short (min:10) for the book item
@@ -908,7 +909,7 @@ it('restores the factory resolver after creating the validator', function (): vo
 
     // The factory should still create standard Validators after FluentFormRequest is done.
     $standardValidator = $factory->make(['x' => 'y'], ['x' => 'required']);
-    expect($standardValidator)->toBeInstanceOf(\Illuminate\Validation\Validator::class);
+    expect($standardValidator)->toBeInstanceOf(Validator::class);
     expect($standardValidator)->not->toBeInstanceOf(OptimizedValidator::class);
 });
 

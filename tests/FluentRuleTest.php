@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Validation\Rules\AnyOf;
+use Illuminate\Validation\Rules\Exists;
+use Illuminate\Validation\Rules\Unique;
 use Illuminate\Validation\ValidationException;
 use SanderMuller\FluentValidation\FluentRule;
 use SanderMuller\FluentValidation\Rules\ArrayRule;
@@ -1110,7 +1112,7 @@ it('unique with where callback adds constraint', function (): void {
     expect($compiled)->toBeArray();
 
     // Find the Unique rule object in the compiled output.
-    $uniqueRule = collect($compiled)->first(fn ($r) => $r instanceof \Illuminate\Validation\Rules\Unique);
+    $uniqueRule = collect($compiled)->first(fn ($r) => $r instanceof Unique);
     expect($uniqueRule)->not->toBeNull();
     expect((string) $uniqueRule)->toContain('tenant_id');
 });
@@ -1119,7 +1121,7 @@ it('unique with ignore callback adds constraint', function (): void {
     $compiled = FluentRule::string()->unique('users', 'email', fn ($rule) => $rule->ignore(42))->compiledRules();
     expect($compiled)->toBeArray();
 
-    $uniqueRule = collect($compiled)->first(fn ($r) => $r instanceof \Illuminate\Validation\Rules\Unique);
+    $uniqueRule = collect($compiled)->first(fn ($r) => $r instanceof Unique);
     expect($uniqueRule)->not->toBeNull();
     expect((string) $uniqueRule)->toContain('"42"');
 });
@@ -1128,7 +1130,7 @@ it('exists with where callback adds constraint', function (): void {
     $compiled = FluentRule::string()->exists('subjects', 'id', fn ($rule) => $rule->where('video_id', 42))->compiledRules();
     expect($compiled)->toBeArray();
 
-    $existsRule = collect($compiled)->first(fn ($r) => $r instanceof \Illuminate\Validation\Rules\Exists);
+    $existsRule = collect($compiled)->first(fn ($r) => $r instanceof Exists);
     expect($existsRule)->not->toBeNull();
     expect((string) $existsRule)->toContain('video_id');
 });
@@ -1137,7 +1139,7 @@ it('exists with whereNull callback adds constraint', function (): void {
     $compiled = FluentRule::string()->exists('users', 'id', fn ($rule) => $rule->where('deleted_at', null))->compiledRules();
     expect($compiled)->toBeArray();
 
-    $existsRule = collect($compiled)->first(fn ($r) => $r instanceof \Illuminate\Validation\Rules\Exists);
+    $existsRule = collect($compiled)->first(fn ($r) => $r instanceof Exists);
     expect($existsRule)->not->toBeNull();
     expect((string) $existsRule)->toContain('deleted_at');
 });
@@ -1146,7 +1148,7 @@ it('unique without callback still works (backward compat)', function (): void {
     $compiled = FluentRule::string()->unique('users', 'email')->compiledRules();
     expect($compiled)->toBeArray();
 
-    $uniqueRule = collect($compiled)->first(fn ($r) => $r instanceof \Illuminate\Validation\Rules\Unique);
+    $uniqueRule = collect($compiled)->first(fn ($r) => $r instanceof Unique);
     expect($uniqueRule)->not->toBeNull();
     // No where constraints — just table, column, and Laravel's defaults.
     expect((string) $uniqueRule)->toStartWith('unique:users,email');
@@ -1156,7 +1158,7 @@ it('exists without callback still works (backward compat)', function (): void {
     $compiled = FluentRule::string()->exists('users', 'email')->compiledRules();
     expect($compiled)->toBeArray();
 
-    $existsRule = collect($compiled)->first(fn ($r) => $r instanceof \Illuminate\Validation\Rules\Exists);
+    $existsRule = collect($compiled)->first(fn ($r) => $r instanceof Exists);
     expect($existsRule)->not->toBeNull();
     expect((string) $existsRule)->toBe('exists:users,email');
 });

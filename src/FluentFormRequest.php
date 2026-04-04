@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace SanderMuller\FluentValidation;
 
+use Illuminate\Contracts\Translation\Translator;
 use Illuminate\Contracts\Validation\Factory as ValidationFactory;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Factory;
@@ -103,7 +104,7 @@ class FluentFormRequest extends FormRequest
 
         /** @var Factory $factory */
         $factory->resolver(
-            static fn (\Illuminate\Contracts\Translation\Translator $translator, array $data, array $rules, array $messages, array $attributes) => new OptimizedValidator($translator, $data, $rules, $messages, $attributes),
+            static fn (Translator $translator, array $data, array $rules, array $messages, array $attributes) => new OptimizedValidator($translator, $data, $rules, $messages, $attributes),
         );
 
         /** @var OptimizedValidator $validator */
