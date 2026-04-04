@@ -205,21 +205,27 @@ final class FastCheckCompiler
         if ($c['accepted']) {
             $checks[] = static fn (mixed $v): bool => in_array($v, ['yes', 'on', '1', 1, true, 'true'], true);
         }
+
         if ($c['declined']) {
             $checks[] = static fn (mixed $v): bool => in_array($v, ['no', 'off', '0', 0, false, 'false'], true);
         }
+
         if ($c['boolean']) {
             $checks[] = static fn (mixed $v): bool => in_array($v, [true, false, 0, 1, '0', '1'], true);
         }
+
         if ($c['date']) {
-            $checks[] = static fn (mixed $v): bool => ! is_string($v) || strtotime($v) !== false;
+            $checks[] = static fn (mixed $v): bool => ! is_string($v) || \Carbon\Carbon::parse($v)->getTimestamp() !== false;
         }
+
         if ($c['string']) {
             $checks[] = static fn (mixed $v): bool => is_string($v);
         }
+
         if ($c['numeric']) {
             $checks[] = static fn (mixed $v): bool => is_numeric($v);
         }
+
         if ($c['integer']) {
             $checks[] = static fn (mixed $v): bool => ! is_numeric($v) || (int) $v === $v;
         }
@@ -231,24 +237,31 @@ final class FastCheckCompiler
         if ($c['email']) {
             $checks[] = static fn (mixed $v): bool => is_string($v) && filter_var($v, FILTER_VALIDATE_EMAIL) !== false;
         }
+
         if ($c['url']) {
             $checks[] = static fn (mixed $v): bool => is_string($v) && filter_var($v, FILTER_VALIDATE_URL) !== false;
         }
+
         if ($c['ip']) {
             $checks[] = static fn (mixed $v): bool => is_string($v) && filter_var($v, FILTER_VALIDATE_IP) !== false;
         }
+
         if ($c['uuid']) {
             $checks[] = static fn (mixed $v): bool => is_string($v) && (bool) preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/iD', $v);
         }
+
         if ($c['ulid']) {
             $checks[] = static fn (mixed $v): bool => is_string($v) && (bool) preg_match('/^[0-7][0-9A-HJKMNP-TV-Z]{25}$/D', $v);
         }
+
         if ($c['alpha']) {
             $checks[] = static fn (mixed $v): bool => is_string($v) && (bool) preg_match('/\A[a-zA-Z]+\z/u', $v);
         }
+
         if ($c['alphaDash']) {
             $checks[] = static fn (mixed $v): bool => is_string($v) && (bool) preg_match('/\A[a-zA-Z0-9_-]+\z/u', $v);
         }
+
         if ($c['alphaNum']) {
             $checks[] = static fn (mixed $v): bool => is_string($v) && (bool) preg_match('/\A[a-zA-Z0-9]+\z/u', $v);
         }
