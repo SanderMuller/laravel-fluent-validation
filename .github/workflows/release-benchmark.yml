@@ -1,0 +1,63 @@
+name: Release Benchmark
+
+on:
+  release:
+    types: [released]
+
+concurrency:
+  group: release-${{ github.event.release.tag_name }}
+
+jobs:
+  benchmark:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout release
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.release.tag_name }}
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          coverage: none
+
+      - name: Install dependencies
+        uses: ramsey/composer-install@v4
+
+      - name: Run benchmark
+        run: php benchmark.php --ci > benchmark-result.md
+
+      - name: Append benchmark to release description
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ github.event.release.tag_name }}
+        run: |
+          START='<!-- benchmark-start -->'
+          END='<!-- benchmark-end -->'
+
+          # Fetch current body to a file (safe for any content).
+          gh release view "$TAG" --json body --jq '.body // ""' > current-body.md
+
+          # Strip any existing benchmark section (idempotent on rerun).
+          sed -i "/$START/,/$END/d" current-body.md
+
+          # Strip trailing blank lines.
+          sed -i -e :a -e '/^\n*$/{$d;N;ba' -e '}' current-body.md
+
+          # Append separator only if there's existing content.
+          if [ -s current-body.md ]; then
+            printf '\n\n---\n\n' >> current-body.md
+          fi
+
+          # Append benchmark section with markers.
+          printf '%s\n' "$START" >> current-body.md
+          cat benchmark-result.md >> current-body.md
+          printf '%s\n' "$END" >> current-body.md
+
+          gh release edit "$TAG" --notes-file current-body.md
