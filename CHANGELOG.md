@@ -2,6 +2,30 @@
 
 All notable changes to `laravel-fluent-validation` will be documented in this file.
 
+## 0.3.2 - 2026-04-04
+
+### Fixed
+
+- **ArrayRule `compiledRules()` now includes `array` type** — `FluentRule::array()->nullable()` previously compiled to `'nullable'` instead of `'array|nullable'`, causing `validated()` to omit nested child keys when using `children()` or `each()` nesting.
+  
+- **Clone support for FormRequest inheritance** — Cloning a FluentRule after `compiledRules()` was called no longer inherits a stale cache. Enables the pattern:
+  
+  ```php
+  $rules[self::TYPE] = (clone $rules[self::TYPE])->rule($extraClosure);
+  
+  ```
+- **PHPStan errors in OptimizedValidator** — Matched parent `Validator::validateAttribute()` signature.
+  
+
+### Improved
+
+- **PHPStan baseline reduced from 73 to 5 entries** — Added proper generics (`Fluent<string, mixed>`), typed error iteration loops, return type annotations, and extracted `SelfValidates::validate()` into focused helper methods. Remaining 5 entries are inherent complexity in `OptimizedValidator` and type coverage gaps from Laravel's untyped `Validator` parent.
+  
+- **`HasFluentRules` now includes `OptimizedValidator` support** — The trait conditionally creates an `OptimizedValidator` when fast-checkable wildcard rules are detected. Non-wildcard FormRequests still get a plain `Validator` with zero overhead. `FluentFormRequest` is now a convenience base class equivalent to `FormRequest` + `HasFluentRules`.
+  
+
+**Full Changelog**: https://github.com/SanderMuller/laravel-fluent-validation/compare/0.3.1...0.3.2
+
 ## 0.3.1 - 2026-04-04
 
 ### Fixed
@@ -31,6 +55,7 @@ All notable changes to `laravel-fluent-validation` will be documented in this fi
   ```php
   FluentRule::string()->unique('users', 'email', fn ($r) => $r->ignore($this->user()->id))
   FluentRule::string()->exists('subjects', 'id', fn ($r) => $r->where('active', true))    
+  
   
   
   ```
@@ -65,6 +90,7 @@ All notable changes to `laravel-fluent-validation` will be documented in this fi
   ```php
   FluentRule::string()->unique('users', 'email', fn($r) => $r->ignore($this->user()->id))
   FluentRule::string()->exists('subjects', 'id', fn($r) => $r->where('video_id',          
+  
   
   
   ```
