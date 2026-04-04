@@ -37,45 +37,72 @@ trait SelfValidates
             return;
         }
 
-        $rules = [$attribute => $this->buildValidationRules()];
-
-        foreach ($this->buildNestedRules($attribute) as $nestedAttribute => $nestedRule) {
-            $rules[$nestedAttribute] = $nestedRule;
-        }
-
-        // Merge per-rule custom messages (from ->message()) with validator messages
-        $messages = $this->validator->customMessages ?? [];
-        foreach ($this->getCustomMessages() as $ruleName => $message) {
-            $messages[$ruleName === '' ? $attribute : $attribute . '.' . $ruleName] = $message;
-        }
-
-        // Merge label (from ->label()) with validator custom attributes
-        $attributes = $this->validator->customAttributes ?? [];
-        if ($this->getLabel() !== null) {
-            $attributes[$attribute] = $this->getLabel();
-        }
+        $rules = $this->buildRulesForAttribute($attribute);
 
         $innerValidator = Validator::make(
             $this->data,
             $rules,
-            $messages,
-            $attributes
+            $this->buildMessages($attribute),
+            $this->buildAttributes($attribute),
         );
 
         if ($innerValidator->passes()) {
             return;
         }
 
-        $hasNestedRules = count($rules) > 1;
+        $this->forwardErrors($innerValidator, $attribute, count($rules) > 1, $fail);
+    }
 
+    /** @return array<string, mixed> */
+    private function buildRulesForAttribute(string $attribute): array
+    {
+        $rules = [$attribute => $this->buildValidationRules()];
+
+        foreach ($this->buildNestedRules($attribute) as $nestedAttribute => $nestedRule) {
+            $rules[$nestedAttribute] = $nestedRule;
+        }
+
+        return $rules;
+    }
+
+    /** @return array<string, string> */
+    private function buildMessages(string $attribute): array
+    {
+        /** @var array<string, string> $messages */
+        $messages = $this->validator->customMessages ?? [];
+
+        foreach ($this->getCustomMessages() as $ruleName => $message) {
+            $messages[$ruleName === '' ? $attribute : $attribute . '.' . $ruleName] = $message;
+        }
+
+        return $messages;
+    }
+
+    /** @return array<string, string> */
+    private function buildAttributes(string $attribute): array
+    {
+        /** @var array<string, string> $attributes */
+        $attributes = $this->validator->customAttributes ?? [];
+
+        if ($this->getLabel() !== null) {
+            $attributes[$attribute] = $this->getLabel();
+        }
+
+        return $attributes;
+    }
+
+    private function forwardErrors(
+        \Illuminate\Validation\Validator $innerValidator,
+        string $attribute,
+        bool $hasNestedRules,
+        Closure $fail,
+    ): void {
         /** @var array<string, list<string>> $errors */
         $errors = $innerValidator->errors()->toArray();
 
         foreach ($errors as $errorAttribute => $errorMessages) {
             foreach ($errorMessages as $errorMessage) {
                 if ($hasNestedRules && $errorAttribute !== $attribute) {
-                    // Nested rule errors (from each/children) — preserve the indexed key
-                    // by adding directly to the outer validator instead of using $fail.
                     $this->validator->errors()->add($errorAttribute, $errorMessage);
                 } else {
                     $fail($errorMessage);

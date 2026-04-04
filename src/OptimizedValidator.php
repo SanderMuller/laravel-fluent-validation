@@ -120,59 +120,78 @@ class OptimizedValidator extends Validator
      */
     private static function compileFastCheck(string $ruleString): ?\Closure
     {
-        $parts = explode('|', $ruleString);
-        $isRequired = false;
-        $isString = false;
-        $isNumeric = false;
-        $isInteger = false;
-        $isBoolean = false;
-        $isDate = false;
-        $min = null;
-        $max = null;
-        /** @var list<string>|null $inValues */
-        $inValues = null;
+        $config = self::parseFastCheckConfig($ruleString);
 
-        foreach ($parts as $part) {
+        return $config !== null ? self::buildFastCheckClosure($config) : null;
+    }
+
+    /**
+     * Parse a pipe-delimited rule string into a fast-check config array.
+     * Returns null if any rule part is not fast-checkable.
+     *
+     * @return array{required: bool, string: bool, numeric: bool, integer: bool, boolean: bool, date: bool, min: ?int, max: ?int, in: ?list<string>}|null
+     */
+    private static function parseFastCheckConfig(string $ruleString): ?array
+    {
+        $config = [
+            'required' => false, 'string' => false, 'numeric' => false,
+            'integer' => false, 'boolean' => false, 'date' => false,
+            'min' => null, 'max' => null, 'in' => null,
+        ];
+
+        foreach (explode('|', $ruleString) as $part) {
             if ($part === 'required') {
-                $isRequired = true;
+                $config['required'] = true;
             } elseif ($part === 'string') {
-                $isString = true;
+                $config['string'] = true;
             } elseif ($part === 'numeric') {
-                $isNumeric = true;
+                $config['numeric'] = true;
             } elseif ($part === 'integer' || $part === 'integer:strict') {
-                $isInteger = true;
+                $config['integer'] = true;
             } elseif ($part === 'boolean') {
-                $isBoolean = true;
+                $config['boolean'] = true;
             } elseif ($part === 'date') {
-                $isDate = true;
+                $config['date'] = true;
             } elseif ($part === 'array') {
                 return null;
             } elseif (str_starts_with($part, 'min:')) {
-                $min = (int) substr($part, 4);
+                $config['min'] = (int) substr($part, 4);
             } elseif (str_starts_with($part, 'max:')) {
-                $max = (int) substr($part, 4);
+                $config['max'] = (int) substr($part, 4);
             } elseif (str_starts_with($part, 'in:')) {
-                $inValues = array_map(
+                $config['in'] = array_map(
                     static fn (string $v): string => trim($v, '"'),
                     explode(',', substr($part, 3)),
                 );
-            } elseif (in_array($part, ['nullable', 'sometimes', 'bail'], true)) {
-                // Flow modifiers — safe to include.
-            } elseif (str_starts_with($part, 'after:') || str_starts_with($part, 'before:')
-                || str_starts_with($part, 'after_or_equal:') || str_starts_with($part, 'before_or_equal:')
-                || str_starts_with($part, 'date_format:') || str_starts_with($part, 'date_equals:')) {
-                return null;
-            } elseif ($part === 'accepted' || $part === 'declined') {
-                // Boolean-like checks.
+            } elseif (in_array($part, ['nullable', 'sometimes', 'bail', 'accepted', 'declined'], true)) {
+                // Flow modifiers and boolean-like checks — safe to include.
             } elseif (str_starts_with($part, 'size:') || str_starts_with($part, 'between:')) {
+                return null;
+            } elseif (self::isDateComparisonRule($part)) {
                 return null;
             } else {
                 return null;
             }
         }
 
-        return static function (mixed $value) use ($isRequired, $isString, $isNumeric, $isInteger, $isBoolean, $isDate, $min, $max, $inValues): bool {
-            if ($isRequired && ($value === null || $value === '')) {
+        return $config;
+    }
+
+    private static function isDateComparisonRule(string $part): bool
+    {
+        return str_starts_with($part, 'after:') || str_starts_with($part, 'before:')
+            || str_starts_with($part, 'after_or_equal:') || str_starts_with($part, 'before_or_equal:')
+            || str_starts_with($part, 'date_format:') || str_starts_with($part, 'date_equals:');
+    }
+
+    /**
+     * @param  array{required: bool, string: bool, numeric: bool, integer: bool, boolean: bool, date: bool, min: ?int, max: ?int, in: ?list<string>}  $c
+     * @return \Closure(mixed): bool
+     */
+    private static function buildFastCheckClosure(array $c): \Closure
+    {
+        return static function (mixed $value) use ($c): bool {
+            if ($c['required'] && ($value === null || $value === '')) {
                 return false;
             }
 
@@ -180,46 +199,47 @@ class OptimizedValidator extends Validator
                 return true;
             }
 
-            if ($isBoolean && ! in_array($value, [true, false, 0, 1, '0', '1'], true)) {
+            if ($c['boolean'] && ! in_array($value, [true, false, 0, 1, '0', '1'], true)) {
                 return false;
             }
 
-            if ($isDate && is_string($value) && Carbon::parse($value)->getTimestamp() === false) {
+            if ($c['date'] && is_string($value) && Carbon::parse($value)->getTimestamp() === false) {
                 return false;
             }
 
-            if ($isString && ! is_string($value)) {
+            if ($c['string'] && ! is_string($value)) {
                 return false;
             }
 
-            if ($isNumeric && ! is_numeric($value)) {
+            if ($c['numeric'] && ! is_numeric($value)) {
                 return false;
             }
 
-            if ($isInteger && is_numeric($value) && (int) $value !== $value) {
+            if ($c['integer'] && is_numeric($value) && (int) $value !== $value) {
                 return false;
             }
 
-            if ($isString && is_string($value)) {
+            if ($c['string'] && is_string($value)) {
                 $len = mb_strlen($value);
-                if ($min !== null && $len < $min) {
+
+                if ($c['min'] !== null && $len < $c['min']) {
                     return false;
                 }
 
-                if ($max !== null && $len > $max) {
+                if ($c['max'] !== null && $len > $c['max']) {
                     return false;
                 }
-            } elseif ($isNumeric || $isInteger) {
-                if ($min !== null && $value < $min) {
+            } elseif ($c['numeric'] || $c['integer']) {
+                if ($c['min'] !== null && $value < $c['min']) {
                     return false;
                 }
 
-                if ($max !== null && $value > $max) {
+                if ($c['max'] !== null && $value > $c['max']) {
                     return false;
                 }
             }
 
-            if ($inValues !== null && is_scalar($value) && ! in_array((string) $value, $inValues, true)) {
+            if ($c['in'] !== null && is_scalar($value) && ! in_array((string) $value, $c['in'], true)) {
                 return false;
             }
 
