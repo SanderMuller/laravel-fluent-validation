@@ -1,7 +1,11 @@
 <?php declare(strict_types=1);
 
 /**
- * Benchmark script for CI — compares RuleSet performance against native Laravel.
+ * Standalone benchmark — compares HasFluentRules performance against native Laravel.
+ * Runs without a full Laravel app by using the ValidatorFactory directly.
+ *
+ * For the full benchmark suite (including RuleSet::validate()), run:
+ *   vendor/bin/pest --group=benchmark
  *
  * Usage:
  *   php benchmark.php                  Run and display results
@@ -17,8 +21,8 @@ use Illuminate\Translation\Translator;
 use Illuminate\Validation\Factory as ValidatorFactory;
 use Illuminate\Validation\Rule;
 use SanderMuller\FluentValidation\FluentRule;
+use SanderMuller\FluentValidation\OptimizedValidator;
 use SanderMuller\FluentValidation\RuleSet;
-use SanderMuller\FluentValidation\WildcardExpander;
 
 $isSnapshot = in_array('--snapshot', $argv);
 $isCi = in_array('--ci', $argv);
@@ -27,7 +31,7 @@ $isJson = in_array('--json', $argv);
 $translator = new Translator(new ArrayLoader(), 'en');
 $factory = new ValidatorFactory($translator);
 
-// ── Scenario: 500 items, 7 fields (realistic form with labels/messages) ──
+// ── Scenario: 500 items, 7 fields ──
 $items = array_map(fn (int $i): array => [
     'name' => "Item {$i}",
     'email' => "user{$i}@example.com",
@@ -62,94 +66,49 @@ $makeRuleSet = fn (): RuleSet => RuleSet::from([
     ]),
 ]);
 
+/**
+ * Simulate what HasFluentRules does: prepare() + OptimizedValidator with fast-checks.
+ */
+$runTraitPath = function () use ($translator, $makeRuleSet, $data): void {
+    $prepared = $makeRuleSet()->prepare($data);
+
+    $fastChecks = OptimizedValidator::buildFastChecks($prepared->rules);
+    $attributePatternMap = [];
+    foreach ($prepared->implicitAttributes as $pattern => $paths) {
+        if (isset($fastChecks[$pattern])) {
+            foreach ($paths as $path) {
+                $attributePatternMap[$path] = $pattern;
+            }
+        }
+    }
+
+    $validator = new OptimizedValidator($translator, $data, $prepared->rules, $prepared->messages, $prepared->attributes);
+    $validator->withFastChecks($fastChecks, $attributePatternMap);
+
+    if ($prepared->implicitAttributes !== []) {
+        (new ReflectionProperty($validator, 'implicitAttributes'))->setValue($validator, $prepared->implicitAttributes);
+    }
+
+    $validator->validate();
+};
+
 // Warmup
 $factory->make($data, $nativeRules)->validate();
-$rs = $makeRuleSet();
-[$expanded, $ia] = $rs->expand($data);
-$compiled = RuleSet::compile($expanded);
-$factory->make($data, $compiled)->validate();
-
-// Per-item warmup (mimics RuleSet::validate fast path)
-$perItemRules = RuleSet::compile([
-    'name' => FluentRule::string('Item Name')->required()->min(2)->max(255),
-    'email' => FluentRule::string('Email')->required()->max(255),
-    'age' => FluentRule::numeric('Age')->required()->integer()->min(0)->max(150),
-    'role' => FluentRule::string('Role')->required()->in(['admin', 'editor', 'viewer']),
-    'starts_at' => FluentRule::date('Start Date')->required(),
-    'active' => FluentRule::boolean('Active')->required(),
-    'notes' => FluentRule::string('Notes')->nullable()->max(1000),
-]);
-$fastChecks = (new ReflectionMethod(RuleSet::class, 'buildFastChecks'))->invoke(new RuleSet(), $perItemRules);
-$pv = $factory->make($items[0], $perItemRules);
-$pv->passes();
+$runTraitPath();
 
 // Benchmark
 $rounds = 7;
 $nativeTimes = [];
-$rulesetTimes = [];
-$expandOnlyTimes = [];
-
-$patterns = array_keys(array_filter($nativeRules, fn ($k) => str_contains($k, '*'), ARRAY_FILTER_USE_KEY));
+$traitTimes = [];
 
 for ($r = 0; $r < $rounds; $r++) {
-    // Native Laravel (wildcard expansion by Laravel)
     $t = hrtime(true);
     $factory->make($data, $nativeRules)->validate();
     $nativeTimes[] = (hrtime(true) - $t) / 1e6;
 
-    // RuleSet pipeline: flatten → expand → compile → fast-check → per-item
     $t = hrtime(true);
-    $rs = $makeRuleSet();
-    $flat = (new ReflectionMethod($rs, 'flatten'))->invoke($rs);
-    $topRules = [];
-    $groupRules = [];
-    foreach ($flat as $field => $rule) {
-        if (! str_contains($field, '*')) {
-            $topRules[$field] = $rule;
-
-            continue;
-        }
-        $pos = strpos($field, '.*');
-        $parent = substr($field, 0, $pos);
-        $child = substr($field, $pos + 2);
-        $child = $child === '' ? '*' : ltrim($child, '.');
-        $groupRules[$parent][$child] = $rule;
-    }
-    $factory->make($data, RuleSet::compile($topRules))->validate();
-    foreach ($groupRules as $parent => $itemRulesRaw) {
-        $itemRulesCompiled = RuleSet::compile($itemRulesRaw);
-        [$checks] = (new ReflectionMethod(RuleSet::class, 'buildFastChecks'))->invoke(new RuleSet(), $itemRulesCompiled);
-        $parentItems = data_get($data, $parent, []);
-        $iv = null;
-        foreach ($parentItems as $item) {
-            if ($checks !== []) {
-                $pass = true;
-                foreach ($checks as $check) {
-                    if (! $check($item)) {
-                        $pass = false;
-                        break;
-                    }
-                }
-                if ($pass) {
-                    continue;
-                }
-            }
-            if ($iv === null) {
-                $iv = $factory->make($item, $itemRulesCompiled);
-            } else {
-                $iv->setData($item);
-            }
-            $iv->passes();
-        }
-    }
-    $rulesetTimes[] = (hrtime(true) - $t) / 1e6;
-
-    // Expansion only
-    $t = hrtime(true);
-    foreach ($patterns as $pattern) {
-        WildcardExpander::expand($pattern, $data);
-    }
-    $expandOnlyTimes[] = (hrtime(true) - $t) / 1e6;
+    $runTraitPath();
+    $traitTimes[] = (hrtime(true) - $t) / 1e6;
 }
 
 $median = function (array $v): float {
@@ -160,13 +119,16 @@ $median = function (array $v): float {
     return $c % 2 === 0 ? ($v[$m - 1] + $v[$m]) / 2 : $v[$m];
 };
 
+$nativeMs = round($median($nativeTimes), 1);
+$traitMs = round($median($traitTimes), 1);
+$speedup = $nativeMs / $traitMs;
+
 $results = [
-    'native_ms' => round($median($nativeTimes), 2),
-    'ruleset_ms' => round($median($rulesetTimes), 2),
-    'expand_ms' => round($median($expandOnlyTimes), 2),
-    'ratio' => round($median($rulesetTimes) / $median($nativeTimes), 3),
+    'native_ms' => $nativeMs,
+    'trait_ms' => $traitMs,
+    'speedup' => round($speedup, 1),
     'items' => 500,
-    'patterns' => count($patterns),
+    'fields' => 7,
 ];
 
 $snapshotFile = __DIR__ . '/benchmark-snapshot.json';
@@ -178,51 +140,23 @@ if ($isSnapshot) {
     exit(0);
 }
 
-$formatDelta = function (float $current, float $baseline): string {
-    $delta = (($current - $baseline) / $baseline) * 100;
-    if (abs($delta) < 2.0) {
-        return '(~)';
-    }
-
-    return $delta > 0 ? sprintf('(+%.1f%%)', $delta) : sprintf('(%.1f%%)', $delta);
-};
-
 if ($isJson) {
     echo json_encode($results, JSON_PRETTY_PRINT) . "\n";
     exit(0);
 }
 
+$formatSpeedup = fn (float $x): string => $x >= 1.5 ? sprintf('**%.0fx**', $x) : sprintf('%.1fx', $x);
+
 if ($isCi) {
-    echo "## Benchmark: 500 items × 7 fields\n\n";
-    echo '| Metric | Value |' . ($snapshot ? " Delta |\n" : "\n");
-    echo '|--------|------:|' . ($snapshot ? "------:|\n" : "\n");
-
-    $rows = [
-        ['Native Laravel', sprintf('%.2fms', $results['native_ms'])],
-        ['RuleSet::validate()', sprintf('%.2fms', $results['ruleset_ms'])],
-        ['WildcardExpander', sprintf('%.2fms', $results['expand_ms'])],
-        ['Ratio (lower=better)', sprintf('%.3fx', $results['ratio'])],
-    ];
-
-    foreach ($rows as $row) {
-        echo "| {$row[0]} | {$row[1]} |";
-        if ($snapshot) {
-            $key = match ($row[0]) {
-                'Native Laravel' => 'native_ms',
-                'RuleSet::validate()' => 'ruleset_ms',
-                'WildcardExpander' => 'expand_ms',
-                'Ratio (lower=better)' => 'ratio',
-            };
-            echo ' ' . $formatDelta($results[$key], $snapshot[$key]) . ' |';
-        }
-        echo "\n";
-    }
+    echo "## Benchmark: {$results['items']} items × {$results['fields']} fields\n\n";
+    echo "| Approach | Time | Speedup |\n";
+    echo "|----------|-----:|--------:|\n";
+    echo sprintf("| Native Laravel | %.1fms | 1x |\n", $nativeMs);
+    echo sprintf("| HasFluentRules | %.1fms | %s |\n", $traitMs, $formatSpeedup($speedup));
     exit(0);
 }
 
 // Console output
-echo "\n=== Benchmark: {$results['items']} items × {$results['patterns']} fields ===\n\n";
-echo sprintf("Native Laravel:        %7.2fms%s\n", $results['native_ms'], $snapshot ? ' ' . $formatDelta($results['native_ms'], $snapshot['native_ms']) : '');
-echo sprintf("RuleSet::validate():   %7.2fms%s\n", $results['ruleset_ms'], $snapshot ? ' ' . $formatDelta($results['ruleset_ms'], $snapshot['ruleset_ms']) : '');
-echo sprintf("WildcardExpander only: %7.2fms%s\n", $results['expand_ms'], $snapshot ? ' ' . $formatDelta($results['expand_ms'], $snapshot['expand_ms']) : '');
-echo sprintf("Ratio:                 %7.3fx%s\n", $results['ratio'], $snapshot ? ' ' . $formatDelta($results['ratio'], $snapshot['ratio']) : '');
+echo sprintf("\n=== Benchmark: %d items × %d fields ===\n\n", $results['items'], $results['fields']);
+echo sprintf("  Native Laravel:  %7.1fms\n", $nativeMs);
+echo sprintf("  HasFluentRules:  %7.1fms  (%s)\n", $traitMs, $formatSpeedup($speedup));
