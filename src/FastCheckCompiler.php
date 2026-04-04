@@ -2,7 +2,7 @@
 
 namespace SanderMuller\FluentValidation;
 
-use Carbon\Carbon;
+
 
 /**
  * Compiles pipe-delimited rule strings into fast PHP closures
@@ -215,7 +215,7 @@ final class FastCheckCompiler
         }
 
         if ($c['date']) {
-            $checks[] = static fn (mixed $v): bool => ! is_string($v) || Carbon::parse($v)->getTimestamp() !== false;
+            $checks[] = static fn (mixed $v): bool => ! is_string($v) || strtotime($v) !== false;
         }
 
         if ($c['string']) {
