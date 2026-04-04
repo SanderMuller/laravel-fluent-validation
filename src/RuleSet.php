@@ -238,8 +238,10 @@ final class RuleSet implements Arrayable
      */
     private function validateItems(array $items, array $itemRules, array $itemMessages, array $itemAttributes, string $parent, bool $isScalar): array
     {
-        $fastChecks = $this->buildFastChecks($itemRules);
+        [$fastChecks, $slowRules] = $this->buildFastChecks($itemRules);
+        $allFast = $slowRules === [];
         $itemValidator = null;
+        $slowValidator = null;
         /** @var array<string, list<string>> $errors */
         $errors = [];
 
@@ -247,10 +249,30 @@ final class RuleSet implements Arrayable
             /** @var array<string, mixed> $itemData */
             $itemData = $isScalar ? ['_v' => $item] : (is_array($item) ? $item : []);
 
-            if ($fastChecks !== null && $this->passesAllFastChecks($fastChecks, $itemData)) {
-                continue;
+            if ($fastChecks !== []) {
+                $fastPass = $this->passesAllFastChecks($fastChecks, $itemData);
+
+                if ($fastPass && $allFast) {
+                    continue; // All fields fast-checked and passed — skip Laravel entirely.
+                }
+
+                if ($fastPass && $slowRules !== []) {
+                    // Fast fields passed — only validate slow fields via Laravel.
+                    if ($slowValidator === null) {
+                        $slowValidator = Validator::make($itemData, $slowRules, $itemMessages, $itemAttributes);
+                    } else {
+                        $slowValidator->setData($itemData);
+                    }
+
+                    if (! $slowValidator->passes()) {
+                        $this->collectErrors($slowValidator, $parent, $index, $isScalar, $errors);
+                    }
+
+                    continue;
+                }
             }
 
+            // No fast-checks, or a fast-check failed — validate all fields for proper error messages.
             if ($itemValidator === null) {
                 $itemValidator = Validator::make($itemData, $itemRules, $itemMessages, $itemAttributes);
             } else {
@@ -258,16 +280,24 @@ final class RuleSet implements Arrayable
             }
 
             if (! $itemValidator->passes()) {
-                /** @var array<string, list<string>> $itemErrors */
-                $itemErrors = $itemValidator->errors()->toArray();
-                foreach ($itemErrors as $field => $fieldErrors) {
-                    $fullPath = $isScalar ? "{$parent}.{$index}" : "{$parent}.{$index}.{$field}";
-                    $errors[$fullPath] = $fieldErrors;
-                }
+                $this->collectErrors($itemValidator, $parent, $index, $isScalar, $errors);
             }
         }
 
         return $errors;
+    }
+
+    /**
+     * @param  array<string, list<string>>  $errors
+     */
+    private function collectErrors(\Illuminate\Validation\Validator $validator, string $parent, int|string $index, bool $isScalar, array &$errors): void
+    {
+        /** @var array<string, list<string>> $itemErrors */
+        $itemErrors = $validator->errors()->toArray();
+        foreach ($itemErrors as $field => $fieldErrors) {
+            $fullPath = $isScalar ? "{$parent}.{$index}" : "{$parent}.{$index}.{$field}";
+            $errors[$fullPath] = $fieldErrors;
+        }
     }
 
     /**
@@ -303,32 +333,34 @@ final class RuleSet implements Arrayable
     }
 
     /**
-     * Build fast PHP closures for compiled string rules.
-     * Returns null if any field can't be fast-checked (has object rules or unknown rules).
+     * Build fast-check closures for eligible fields.
+     * Returns fast checks for compilable fields and the remaining slow rules.
      *
      * @param  array<string, mixed>  $compiledRules
-     * @return list<\Closure(array<string, mixed>): bool>|null
+     * @return array{0: list<\Closure(array<string, mixed>): bool>, 1: array<string, mixed>}
      */
-    private function buildFastChecks(array $compiledRules): ?array
+    private function buildFastChecks(array $compiledRules): array
     {
         $checks = [];
+        $slowRules = [];
 
         foreach ($compiledRules as $field => $rule) {
             if (! is_string($rule)) {
-                return null;
+                $slowRules[$field] = $rule;
+
+                continue;
             }
 
             $valueCheck = FastCheckCompiler::compile($rule);
 
-            if (! $valueCheck instanceof \Closure) {
-                return null;
+            if ($valueCheck instanceof \Closure) {
+                $checks[] = static fn (array $data): bool => $valueCheck($data[$field] ?? null);
+            } else {
+                $slowRules[$field] = $rule;
             }
-
-            // Wrap the value-level check to extract the field from the item array.
-            $checks[] = static fn (array $data): bool => $valueCheck($data[$field] ?? null);
         }
 
-        return $checks;
+        return [$checks, $slowRules];
     }
 
     /**
