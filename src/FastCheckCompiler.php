@@ -135,7 +135,7 @@ final class FastCheckCompiler
                 return false;
             }
 
-            if ($c['date'] && is_string($value) && strtotime($value) === false) {
+            if ($c['date'] && is_string($value) && \Carbon\Carbon::parse($value)->getTimestamp() === false) {
                 return false;
             }
 
