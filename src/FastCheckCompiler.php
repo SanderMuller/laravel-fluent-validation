@@ -213,7 +213,7 @@ final class FastCheckCompiler
         }
 
         if ($c['date']) {
-            $checks[] = static fn (mixed $v): bool => ! is_string($v) || strtotime($v) !== false;
+            $checks[] = static fn (mixed $v): bool => ! is_string($v) || \Carbon\Carbon::parse($v)->getTimestamp() !== false;
         }
 
         if ($c['string']) {
