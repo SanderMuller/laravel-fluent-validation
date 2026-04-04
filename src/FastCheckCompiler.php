@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace SanderMuller\FluentValidation;
 
+use Carbon\Carbon;
+
 /**
  * Compiles pipe-delimited rule strings into fast PHP closures
  * that validate a single value without invoking Laravel's validator.
@@ -215,7 +217,7 @@ final class FastCheckCompiler
         }
 
         if ($c['date']) {
-            $checks[] = static fn (mixed $v): bool => ! is_string($v) || \Carbon\Carbon::parse($v)->getTimestamp() !== false;
+            $checks[] = static fn (mixed $v): bool => ! is_string($v) || Carbon::parse($v)->getTimestamp() !== false;
         }
 
         if ($c['string']) {
