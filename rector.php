@@ -8,6 +8,7 @@ use Rector\DeadCode\Rector\ClassMethod\RemoveUselessParamTagRector;
 use Rector\DeadCode\Rector\ClassMethod\RemoveUselessReturnTagRector;
 use Rector\Privatization\Rector\ClassMethod\PrivatizeFinalClassMethodRector;
 use Rector\TypeDeclaration\Rector\ArrowFunction\AddArrowFunctionReturnTypeRector;
+use Rector\Carbon\Rector\FuncCall\DateFuncCallToCarbonRector;
 use RectorLaravel\Set\LaravelSetList;
 
 return RectorConfig::configure()
@@ -35,6 +36,7 @@ return RectorConfig::configure()
         LaravelSetList::LARAVEL_110,
     ])
     ->withSkip([
+        DateFuncCallToCarbonRector::class,
         AddArrowFunctionReturnTypeRector::class,
         EncapsedStringsToSprintfRector::class,
         ExplicitBoolCompareRector::class,
