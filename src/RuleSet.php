@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace SanderMuller\FluentValidation;
 
-use Carbon\Carbon;
 use Illuminate\Contracts\Support\Arrayable;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Support\Facades\Validator;
@@ -104,8 +103,45 @@ final class RuleSet implements Arrayable
      */
     public function validate(array $data, array $messages = [], array $attributes = []): array
     {
-        $flat = $this->flatten();
+        [$topRules, $wildcardGroups] = $this->separateRules();
 
+        [$ruleMessages, $ruleAttributes] = self::extractMetadata($topRules);
+        $messages = array_merge($ruleMessages, $messages);
+        $attributes = array_merge($ruleAttributes, $attributes);
+
+        if ($wildcardGroups === []) {
+            /** @var array<string, mixed> */
+            return Validator::make($data, self::compile($topRules), $messages, $attributes)->validate();
+        }
+
+        $topValidator = Validator::make($data, self::compile($topRules), $messages, $attributes);
+        if ($topValidator->fails()) {
+            throw new ValidationException($topValidator);
+        }
+
+        $fallbackResult = null;
+        $allErrors = $this->validateWildcardGroups($wildcardGroups, $data, $messages, $attributes, $fallbackResult);
+
+        if ($fallbackResult !== null) {
+            return $fallbackResult;
+        }
+
+        if ($allErrors !== []) {
+            $this->throwValidationErrors($allErrors);
+        }
+
+        /** @var array<string, mixed> */
+        return $topValidator->validated();
+    }
+
+    /**
+     * Split flattened rules into top-level rules and wildcard groups.
+     *
+     * @return array{0: array<string, mixed>, 1: array<string, array<string, mixed>>}
+     */
+    private function separateRules(): array
+    {
+        $flat = $this->flatten();
         $topRules = [];
         /** @var array<string, array<string, mixed>> $wildcardGroups */
         $wildcardGroups = [];
@@ -124,21 +160,37 @@ final class RuleSet implements Arrayable
             $wildcardGroups[$parent][$child] = $rule;
         }
 
-        // Extract labels and per-rule messages before compilation destroys rule objects.
-        [$ruleMessages, $ruleAttributes] = self::extractMetadata($topRules);
-        $messages = array_merge($ruleMessages, $messages);
-        $attributes = array_merge($ruleAttributes, $attributes);
+        return [$topRules, $wildcardGroups];
+    }
 
-        if ($wildcardGroups === []) {
-            /** @var array<string, mixed> */
-            return Validator::make($data, self::compile($topRules), $messages, $attributes)->validate();
-        }
-
-        $topValidator = Validator::make($data, self::compile($topRules), $messages, $attributes);
-        if ($topValidator->fails()) {
-            throw new ValidationException($topValidator);
-        }
-
+    /**
+     * Validate all wildcard groups per-item with fast-check optimization.
+     *
+     * @param  array<string, array<string, mixed>>  $wildcardGroups
+     * @param  array<string, mixed>  $data
+     * @param  array<string, string>  $messages
+     * @param  array<string, string>  $attributes
+     * @return array<string, list<string>>
+     *
+     * @throws ValidationException
+     */
+    /**
+     * @param  array<string, array<string, mixed>>  $wildcardGroups
+     * @param  array<string, mixed>  $data
+     * @param  array<string, string>  $messages
+     * @param  array<string, string>  $attributes
+     * @param  array<string, mixed>|null  $fallbackResult  Set when full expansion fallback is used
+     * @return array<string, list<string>>
+     *
+     * @throws ValidationException
+     */
+    private function validateWildcardGroups(
+        array $wildcardGroups,
+        array $data,
+        array $messages,
+        array $attributes,
+        ?array &$fallbackResult = null,
+    ): array {
         /** @var array<string, list<string>> $allErrors */
         $allErrors = [];
 
@@ -153,84 +205,101 @@ final class RuleSet implements Arrayable
             }
 
             $isScalar = isset($groupRules['*']) && count($groupRules) === 1;
+            $rawItemRules = $isScalar
+                ? ['_v' => $groupRules['*']]
+                : $this->rewriteRulesForPerItem($groupRules, $parent);
 
-            if ($isScalar) {
-                $rawItemRules = ['_v' => $groupRules['*']];
-            } else {
-                // Rewrite conditional rule references from wildcard paths to
-                // relative paths so per-item validation works.
-                $rawItemRules = $this->rewriteRulesForPerItem($groupRules, $parent);
-            }
-
-            // Extract labels/messages before compilation destroys rule objects.
             [$itemMessages, $itemAttributes] = self::extractMetadata($rawItemRules);
             $itemMessages = array_merge($itemMessages, $messages);
             $itemAttributes = array_merge($itemAttributes, $attributes);
             $itemRules = self::compile($rawItemRules);
 
             if ($this->requiresFullExpansion($itemRules)) {
-                return $this->validateStandard($data, $messages, $attributes);
+                $fallbackResult = $this->validateStandard($data, $messages, $attributes);
+
+                return [];
             }
 
-            // Build fast PHP checks for string-only rules. If ALL fields
-            // are fast-checkable, items that pass the fast check skip
-            // the Laravel validator entirely (~100x faster happy path).
-            $fastChecks = $this->buildFastChecks($itemRules);
-            $itemValidator = null;
+            $groupErrors = $this->validateItems($items, $itemRules, $itemMessages, $itemAttributes, $parent, $isScalar);
+            $allErrors = array_merge($allErrors, $groupErrors);
+        }
 
-            foreach ($items as $index => $item) {
-                /** @var array<string, mixed> $itemData */
-                $itemData = $isScalar ? ['_v' => $item] : (is_array($item) ? $item : []);
+        return $allErrors;
+    }
 
-                // Fast path: if all fields pass the PHP check, skip Laravel entirely.
-                if ($fastChecks !== null) {
-                    $fastPass = true;
+    /**
+     * Validate individual items in a wildcard group.
+     *
+     * @param  array<int|string, mixed>  $items
+     * @param  array<string, mixed>  $itemRules
+     * @param  array<string, string>  $itemMessages
+     * @param  array<string, string>  $itemAttributes
+     * @return array<string, list<string>>
+     */
+    private function validateItems(array $items, array $itemRules, array $itemMessages, array $itemAttributes, string $parent, bool $isScalar): array
+    {
+        $fastChecks = $this->buildFastChecks($itemRules);
+        $itemValidator = null;
+        /** @var array<string, list<string>> $errors */
+        $errors = [];
 
-                    foreach ($fastChecks as $fastCheck) {
-                        if (! $fastCheck($itemData)) {
-                            $fastPass = false;
-                            break;
-                        }
-                    }
+        foreach ($items as $index => $item) {
+            /** @var array<string, mixed> $itemData */
+            $itemData = $isScalar ? ['_v' => $item] : (is_array($item) ? $item : []);
 
-                    if ($fastPass) {
-                        continue;
-                    }
-                }
+            if ($fastChecks !== null && $this->passesAllFastChecks($fastChecks, $itemData)) {
+                continue;
+            }
 
-                // Slow path: use Laravel for proper error messages.
-                if ($itemValidator === null) {
-                    $itemValidator = Validator::make($itemData, $itemRules, $itemMessages, $itemAttributes);
-                } else {
-                    $itemValidator->setData($itemData);
-                }
+            if ($itemValidator === null) {
+                $itemValidator = Validator::make($itemData, $itemRules, $itemMessages, $itemAttributes);
+            } else {
+                $itemValidator->setData($itemData);
+            }
 
-                if (! $itemValidator->passes()) {
-                    /** @var array<string, list<string>> $itemErrors */
-                    $itemErrors = $itemValidator->errors()->toArray();
-                    foreach ($itemErrors as $field => $fieldErrors) {
-                        $fullPath = $isScalar
-                            ? "{$parent}.{$index}"
-                            : "{$parent}.{$index}.{$field}";
-                        $allErrors[$fullPath] = $fieldErrors;
-                    }
+            if (! $itemValidator->passes()) {
+                /** @var array<string, list<string>> $itemErrors */
+                $itemErrors = $itemValidator->errors()->toArray();
+                foreach ($itemErrors as $field => $fieldErrors) {
+                    $fullPath = $isScalar ? "{$parent}.{$index}" : "{$parent}.{$index}.{$field}";
+                    $errors[$fullPath] = $fieldErrors;
                 }
             }
         }
 
-        if ($allErrors !== []) {
-            $errorValidator = Validator::make([], []);
-            foreach ($allErrors as $field => $fieldErrors) {
-                foreach ($fieldErrors as $fieldError) {
-                    $errorValidator->errors()->add($field, $fieldError);
-                }
-            }
+        return $errors;
+    }
 
-            throw new ValidationException($errorValidator);
+    /**
+     * @param  list<\Closure(array<string, mixed>): bool>  $fastChecks
+     * @param  array<string, mixed>  $itemData
+     */
+    private function passesAllFastChecks(array $fastChecks, array $itemData): bool
+    {
+        foreach ($fastChecks as $fastCheck) {
+            if (! $fastCheck($itemData)) {
+                return false;
+            }
         }
 
-        /** @var array<string, mixed> */
-        return $topValidator->validated();
+        return true;
+    }
+
+    /**
+     * @param  array<string, list<string>>  $errors
+     *
+     * @throws ValidationException
+     */
+    private function throwValidationErrors(array $errors): never
+    {
+        $errorValidator = Validator::make([], []);
+        foreach ($errors as $field => $fieldErrors) {
+            foreach ($fieldErrors as $fieldError) {
+                $errorValidator->errors()->add($field, $fieldError);
+            }
+        }
+
+        throw new ValidationException($errorValidator);
     }
 
     /**
@@ -249,131 +318,17 @@ final class RuleSet implements Arrayable
                 return null;
             }
 
-            $check = $this->compileFastCheck($field, $rule);
+            $valueCheck = FastCheckCompiler::compile($rule);
 
-            if (! $check instanceof \Closure) {
+            if (! $valueCheck instanceof \Closure) {
                 return null;
             }
 
-            $checks[] = $check;
+            // Wrap the value-level check to extract the field from the item array.
+            $checks[] = static fn (array $data): bool => $valueCheck($data[$field] ?? null);
         }
 
         return $checks;
-    }
-
-    /**
-     * @return \Closure(array<string, mixed>): bool|null
-     */
-    private function compileFastCheck(string $field, string $ruleString): ?\Closure
-    {
-        $parts = explode('|', $ruleString);
-        $isRequired = false;
-        $isString = false;
-        $isNumeric = false;
-        $isInteger = false;
-        $isBoolean = false;
-        $isDate = false;
-        $min = null;
-        $max = null;
-        /** @var list<string>|null $inValues */
-        $inValues = null;
-
-        foreach ($parts as $part) {
-            if ($part === 'required') {
-                $isRequired = true;
-            } elseif ($part === 'string') {
-                $isString = true;
-            } elseif ($part === 'numeric') {
-                $isNumeric = true;
-            } elseif ($part === 'integer' || $part === 'integer:strict') {
-                $isInteger = true;
-            } elseif ($part === 'boolean') {
-                $isBoolean = true;
-            } elseif ($part === 'date') {
-                $isDate = true;
-            } elseif ($part === 'array') {
-                return null;
-            } elseif (str_starts_with($part, 'min:')) {
-                $min = (int) substr($part, 4);
-            } elseif (str_starts_with($part, 'max:')) {
-                $max = (int) substr($part, 4);
-            } elseif (str_starts_with($part, 'in:')) {
-                $inValues = array_map(
-                    static fn (string $v): string => trim($v, '"'),
-                    explode(',', substr($part, 3))
-                );
-            } elseif (in_array($part, ['nullable', 'sometimes', 'bail'], true)) {
-                // These affect flow, not value checks. Safe to include.
-            } elseif (str_starts_with($part, 'after:') || str_starts_with($part, 'before:')
-                || str_starts_with($part, 'after_or_equal:') || str_starts_with($part, 'before_or_equal:')
-                || str_starts_with($part, 'date_format:') || str_starts_with($part, 'date_equals:')) {
-                // Date comparison rules can't be fast-checked — bail to Laravel.
-                return null;
-            } elseif ($part === 'accepted' || $part === 'declined') {
-                // Boolean-like checks.
-            } elseif (str_starts_with($part, 'size:') || str_starts_with($part, 'between:')) {
-                return null;
-            } else {
-                return null;
-            }
-        }
-
-        return static function (array $data) use ($field, $isRequired, $isString, $isNumeric, $isInteger, $isBoolean, $isDate, $min, $max, $inValues): bool {
-            $value = $data[$field] ?? null;
-
-            if ($isRequired && ($value === null || $value === '')) {
-                return false;
-            }
-
-            if ($value === null) {
-                return true;
-            }
-
-            if ($isBoolean && ! in_array($value, [true, false, 0, 1, '0', '1'], true)) {
-                return false;
-            }
-
-            if ($isDate && is_string($value) && Carbon::parse($value)->getTimestamp() === false) {
-                return false;
-            }
-
-            if ($isString && ! is_string($value)) {
-                return false;
-            }
-
-            if ($isNumeric && ! is_numeric($value)) {
-                return false;
-            }
-
-            if ($isInteger && is_numeric($value) && (int) $value !== $value) {
-                return false;
-            }
-
-            if ($isString && is_string($value)) {
-                $len = mb_strlen($value);
-                if ($min !== null && $len < $min) {
-                    return false;
-                }
-
-                if ($max !== null && $len > $max) {
-                    return false;
-                }
-            } elseif ($isNumeric) {
-                if ($min !== null && $value < $min) {
-                    return false;
-                }
-
-                if ($max !== null && $value > $max) {
-                    return false;
-                }
-            }
-
-            if ($inValues !== null && is_scalar($value) && ! in_array((string) $value, $inValues, true)) {
-                return false;
-            }
-
-            return true;
-        };
     }
 
     /**
@@ -529,22 +484,7 @@ final class RuleSet implements Arrayable
             $objects = is_object($rule) ? [$rule] : (is_array($rule) ? array_filter($rule, is_object(...)) : []);
 
             foreach ($objects as $object) {
-                if (method_exists($object, 'getLabel')) {
-                    $label = $object->getLabel();
-
-                    if (is_string($label)) {
-                        $attributes[$field] = $label;
-                    }
-                }
-
-                if (method_exists($object, 'getCustomMessages')) {
-                    /** @var array<string, string> $customMessages */
-                    $customMessages = $object->getCustomMessages();
-                    foreach ($customMessages as $ruleName => $msg) {
-                        // Empty key = field-level fallback (no .rule suffix)
-                        $messages[$ruleName === '' ? $field : $field . '.' . $ruleName] = $msg;
-                    }
-                }
+                self::extractObjectMetadata($object, $field, $messages, $attributes);
             }
         }
 
@@ -561,6 +501,29 @@ final class RuleSet implements Arrayable
         }
 
         return $rules;
+    }
+
+    /**
+     * @param  array<string, string>  $messages
+     * @param  array<string, string>  $attributes
+     */
+    private static function extractObjectMetadata(object $object, string $field, array &$messages, array &$attributes): void
+    {
+        if (method_exists($object, 'getLabel')) {
+            $label = $object->getLabel();
+
+            if (is_string($label)) {
+                $attributes[$field] = $label;
+            }
+        }
+
+        if (method_exists($object, 'getCustomMessages')) {
+            /** @var array<string, string> $customMessages */
+            $customMessages = $object->getCustomMessages();
+            foreach ($customMessages as $ruleName => $msg) {
+                $messages[$ruleName === '' ? $field : $field . '.' . $ruleName] = $msg;
+            }
+        }
     }
 
     /** @param  array<string, mixed>  $rules */

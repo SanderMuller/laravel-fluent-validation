@@ -1,31 +1,31 @@
 parameters:
 	ignoreErrors:
 		-
-			rawMessage: 'Class cognitive complexity is 62, keep it under 16'
-			identifier: complexity.classLike
-			count: 1
-			path: src/OptimizedValidator.php
-
-		-
-			rawMessage: 'Cognitive complexity for "SanderMuller\FluentValidation\OptimizedValidator::buildFastCheckClosure()" is 33, keep it under 9'
+			rawMessage: 'Cognitive complexity for "SanderMuller\FluentValidation\FastCheckCompiler::buildClosure()" is 33, keep it under 12'
 			identifier: complexity.functionLike
 			count: 1
-			path: src/OptimizedValidator.php
+			path: src/FastCheckCompiler.php
 
 		-
-			rawMessage: 'Cognitive complexity for "SanderMuller\FluentValidation\OptimizedValidator::parseFastCheckConfig()" is 16, keep it under 9'
-			identifier: complexity.functionLike
-			count: 1
-			path: src/OptimizedValidator.php
-
-		-
-			rawMessage: 'Out of 544 possible param types, only 542 - 99.6 %% actually have it. Add more param types to get over 100 %%'
+			rawMessage: 'Out of 663 possible param types, only 661 - 99.6 %% actually have it. Add more param types to get over 100 %%'
 			identifier: typeCoverage.paramTypeCoverage
 			count: 2
 			path: src/OptimizedValidator.php
 
 		-
-			rawMessage: 'Out of 675 possible return types, only 674 - 99.8 %% actually have it. Add more return types to get over 100 %%'
+			rawMessage: 'Out of 694 possible return types, only 693 - 99.8 %% actually have it. Add more return types to get over 100 %%'
 			identifier: typeCoverage.returnTypeCoverage
 			count: 1
 			path: src/OptimizedValidator.php
+
+		-
+			rawMessage: 'Class cognitive complexity is 103, keep it under 50'
+			identifier: complexity.classLike
+			count: 1
+			path: src/RuleSet.php
+
+		-
+			rawMessage: 'Cognitive complexity for "SanderMuller\FluentValidation\RuleSet::validateItems()" is 18, keep it under 12'
+			identifier: complexity.functionLike
+			count: 1
+			path: src/RuleSet.php
