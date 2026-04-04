@@ -68,7 +68,10 @@ trait SelfValidates
 
         $hasNestedRules = count($rules) > 1;
 
-        foreach ($innerValidator->errors()->toArray() as $errorAttribute => $errorMessages) {
+        /** @var array<string, list<string>> $errors */
+        $errors = $innerValidator->errors()->toArray();
+
+        foreach ($errors as $errorAttribute => $errorMessages) {
             foreach ($errorMessages as $errorMessage) {
                 if ($hasNestedRules && $errorAttribute !== $attribute) {
                     // Nested rule errors (from each/children) — preserve the indexed key
@@ -201,6 +204,7 @@ trait SelfValidates
         }
 
         if ($allStrings) {
+            /** @var list<string> $rules */
             return implode('|', $rules);
         }
 

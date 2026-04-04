@@ -130,6 +130,7 @@ final class RuleSet implements Arrayable
         $attributes = array_merge($ruleAttributes, $attributes);
 
         if ($wildcardGroups === []) {
+            /** @var array<string, mixed> */
             return Validator::make($data, self::compile($topRules), $messages, $attributes)->validate();
         }
 
@@ -205,7 +206,9 @@ final class RuleSet implements Arrayable
                 }
 
                 if (! $itemValidator->passes()) {
-                    foreach ($itemValidator->errors()->toArray() as $field => $fieldErrors) {
+                    /** @var array<string, list<string>> $itemErrors */
+                    $itemErrors = $itemValidator->errors()->toArray();
+                    foreach ($itemErrors as $field => $fieldErrors) {
                         $fullPath = $isScalar
                             ? "{$parent}.{$index}"
                             : "{$parent}.{$index}.{$field}";
@@ -226,6 +229,7 @@ final class RuleSet implements Arrayable
             throw new ValidationException($errorValidator);
         }
 
+        /** @var array<string, mixed> */
         return $topValidator->validated();
     }
 
@@ -458,6 +462,7 @@ final class RuleSet implements Arrayable
                 ->setValue($validator, $implicitAttributes);
         }
 
+        /** @var array<string, mixed> */
         return $validator->validate();
     }
 

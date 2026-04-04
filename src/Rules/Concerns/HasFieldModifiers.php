@@ -331,9 +331,9 @@ trait HasFieldModifiers
      *         fn ($r) => $r->sometimes()->max(100),
      *     )
      *
-     * @param  Closure(Fluent): bool  $condition
-     * @param  Closure(static): static|string|array<int, string>  $rules
-     * @param  Closure(static): static|string|array<int, string>  $defaultRules
+     * @param  Closure(Fluent<string, mixed>): bool  $condition
+     * @param  Closure(static): static|string|list<string>  $rules
+     * @param  Closure(static): static|string|list<string>  $defaultRules
      */
     public function whenInput(Closure $condition, Closure|string|array $rules, Closure|string|array $defaultRules = []): static
     {
@@ -344,7 +344,10 @@ trait HasFieldModifiers
         ));
     }
 
-    /** @return string|list<string|object> */
+    /**
+     * @param  Closure(static): static|string|list<string>  $rules
+     * @return string|list<string|object>
+     */
     private function compileConditionalBranch(Closure|string|array $rules): string|array
     {
         if (! $rules instanceof Closure) {

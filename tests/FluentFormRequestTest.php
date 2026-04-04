@@ -291,7 +291,9 @@ it('works with non-fast-checkable rules falling through to Laravel', function ()
     $validator = (fn () => $this->createDefaultValidator($factory))->call($formRequest);
 
     expect($validator->passes())->toBeFalse();
-    expect($validator->errors()->keys())->toContain('items.1.email');
+    expect($validator->errors()->has('items.1.email'))->toBeTrue();
+    // Valid email should not produce a false positive.
+    expect($validator->errors()->has('items.0.email'))->toBeFalse();
 });
 
 it('extracts labels and messages correctly', function (): void {
@@ -343,7 +345,7 @@ it('validated() returns all wildcard data even when fast-checked', function (): 
     expect($validated['items'][2]['qty'])->toBe(3);
 });
 
-it('works with after() hooks', function (): void {
+it('works with after() hooks on passing validation', function (): void {
     $formRequest = createFluentFormRequest(
         rules: [
             'items' => FluentRule::array()->required()->each([
@@ -369,6 +371,32 @@ it('works with after() hooks', function (): void {
     expect($afterCalled)->toBeTrue();
 });
 
+it('after() hooks can add errors that cause validation to fail', function (): void {
+    $formRequest = createFluentFormRequest(
+        rules: [
+            'items' => FluentRule::array()->required()->each([
+                'name' => FluentRule::string()->required()->max(255),
+            ]),
+        ],
+        data: [
+            'items' => [
+                ['name' => 'Valid'],
+            ],
+        ],
+    );
+
+    $factory = app(Factory::class);
+    $validator = (fn () => $this->createDefaultValidator($factory))->call($formRequest);
+
+    $validator->after(function ($v): void {
+        $v->errors()->add('items', 'Custom cross-field error from after hook');
+    });
+
+    // All rules pass, but after() added an error.
+    expect($validator->passes())->toBeFalse();
+    expect($validator->errors()->first('items'))->toBe('Custom cross-field error from after hook');
+});
+
 it('handles cross-field wildcard references correctly', function (): void {
     $formRequest = createFluentFormRequest(
         rules: [
@@ -389,7 +417,10 @@ it('handles cross-field wildcard references correctly', function (): void {
     $validator = (fn () => $this->createDefaultValidator($factory))->call($formRequest);
 
     expect($validator->passes())->toBeFalse();
-    expect($validator->errors()->keys())->toContain('items.1.end');
+    expect($validator->errors()->has('items.1.end'))->toBeTrue();
+    // The valid pair (start=1, end=5) should not error.
+    expect($validator->errors()->has('items.0.end'))->toBeFalse();
+    expect($validator->errors()->has('items.0.start'))->toBeFalse();
 });
 
 it('handles rules without wildcards', function (): void {
@@ -474,6 +505,10 @@ it('handles missing wildcard parent gracefully', function (): void {
 
     // Items is not required, so missing is fine. No fast checks invoked.
     expect($validator->passes())->toBeTrue();
+    // validated() should include title but not items.
+    $validated = $validator->validated();
+    expect($validated)->toHaveKey('title');
+    expect($validated)->not->toHaveKey('items');
 });
 
 // =========================================================================
@@ -528,6 +563,33 @@ it('resets caches correctly when passes() transitions from pass to fail', functi
     $validator->setData(['items' => [['name' => 'No']]]);
     expect($validator->passes())->toBeFalse();
     expect($validator->errors()->has('items.0.name'))->toBeTrue();
+});
+
+it('resets caches correctly when passes() transitions from fail to pass', function (): void {
+    $formRequest = createFluentFormRequest(
+        rules: [
+            'items' => FluentRule::array()->required()->each([
+                'name' => FluentRule::string()->required()->min(3),
+            ]),
+        ],
+        data: [
+            'items' => [
+                ['name' => 'No'],
+            ],
+        ],
+    );
+
+    $factory = app(Factory::class);
+    /** @var OptimizedValidator $validator */
+    $validator = (fn () => $this->createDefaultValidator($factory))->call($formRequest);
+
+    expect($validator->passes())->toBeFalse();
+    expect($validator->errors()->has('items.0.name'))->toBeTrue();
+
+    // Change data to valid — errors must clear and fast checks re-evaluate.
+    $validator->setData(['items' => [['name' => 'Valid']]]);
+    expect($validator->passes())->toBeTrue();
+    expect($validator->errors()->isEmpty())->toBeTrue();
 });
 
 // =========================================================================
@@ -795,6 +857,8 @@ it('reports errors in children() rules', function (): void {
 
     expect($validator->passes())->toBeFalse();
     expect($validator->errors()->has('address.street'))->toBeTrue();
+    // Valid sibling should not have errors.
+    expect($validator->errors()->has('address.city'))->toBeFalse();
 });
 
 // =========================================================================
@@ -806,7 +870,7 @@ it('works with sometimes() rules added after validator creation', function (): v
         rules: [
             'items' => FluentRule::array()->required()->each([
                 'name' => FluentRule::string()->required()->max(255),
-                'type' => FluentRule::string()->required()->in('book'),
+                'type' => FluentRule::string()->required()->in('book', 'dvd'),
             ]),
         ],
         data: [
@@ -824,8 +888,13 @@ it('works with sometimes() rules added after validator creation', function (): v
     $validator->sometimes('items.*.isbn', 'required|string|min:10', fn ($input, $item): bool => $item->type === 'book');
 
     expect($validator->passes())->toBeFalse();
-    // isbn '5678' is too short (min:10) for the book item
+    // isbn '5678' is too short (min:10) for the book item.
     expect($validator->errors()->has('items.1.isbn'))->toBeTrue();
+    // The dvd item's isbn should not be checked (sometimes() condition is false for dvd).
+    expect($validator->errors()->has('items.0.isbn'))->toBeFalse();
+    // No errors on fields unrelated to the sometimes() rule.
+    expect($validator->errors()->has('items.0.name'))->toBeFalse();
+    expect($validator->errors()->has('items.1.name'))->toBeFalse();
 });
 
 // =========================================================================
@@ -853,6 +922,13 @@ it('builds fast checks for accepted rule', function (): void {
 
     // accepted is handled as a boolean-like check — it's fast-checkable.
     expect($checks)->toHaveKey('items.*.agreed');
+    // accepted values pass the fast check (required + accepted).
+    expect(($checks['items.*.agreed'])(true))->toBeTrue();
+    expect(($checks['items.*.agreed'])(1))->toBeTrue();
+    expect(($checks['items.*.agreed'])('1'))->toBeTrue();
+    // null/empty fail required.
+    expect(($checks['items.*.agreed'])(null))->toBeFalse();
+    expect(($checks['items.*.agreed'])(''))->toBeFalse();
 });
 
 // =========================================================================
