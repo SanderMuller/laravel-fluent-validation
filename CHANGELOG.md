@@ -2,6 +2,43 @@
 
 All notable changes to `laravel-fluent-validation` will be documented in this file.
 
+## 0.3.0 - 2026-04-04
+
+### Added
+
+- **`FluentFormRequest`** — new base class that combines `HasFluentRules` compilation with
+  per-attribute fast-check optimization. Extend it instead of `FormRequest` to
+  automatically skip Laravel's validation for valid wildcard items via pure PHP checks.
+  Eligible rules are fast-checked; ineligible rules (object rules, date comparisons,
+  cross-field references) fall through to Laravel transparently.
+  
+- **`OptimizedValidator`** — new `Validator` subclass that overrides `validateAttribute()`
+  with a per-attribute fast-check cache. Valid attributes skip all remaining rule
+  evaluations. Created automatically by `FluentFormRequest`.
+  
+- **Callback support for `exists()` and `unique()`** — both now accept an optional
+  `?Closure $callback` parameter (3rd argument), matching the existing `enum()` pattern.
+  Enables `->where()`, `->whereNull()`, and `->ignore()` chaining:
+  
+  ```php
+  FluentRule::string()->unique('users', 'email', fn($r) => $r->ignore($this->user()->id))
+  FluentRule::string()->exists('subjects', 'id', fn($r) => $r->where('video_id',          
+  
+  ```
+
+$videoId))
+
+- Release benchmark workflow — automatically runs benchmarks on each release and appends
+  results to the release description for performance tracking across versions.
+
+Fixed
+
+- compiledRules() now delegates to buildValidationRules() and only joins to a
+  pipe-separated string when all rules are strings, improving consistency with the
+  validation pipeline.
+
+**Full Changelog**: https://github.com/SanderMuller/laravel-fluent-validation/compare/0.2.4...0.3.0
+
 ## 0.2.4 - 2026-04-04
 
 ### Fixed
