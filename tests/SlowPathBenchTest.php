@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+use Illuminate\Support\Facades\Validator;
+use Illuminate\Validation\Rule;
 use SanderMuller\FluentValidation\FluentRule;
 use SanderMuller\FluentValidation\RuleSet;
 
@@ -25,18 +27,18 @@ it('benchmarks all code paths', function (): void {
         'items.*.name' => 'required|string|min:2|max:255',
         'items.*.email' => 'required|string|max:255',
         'items.*.age' => 'required|numeric|integer|min:0|max:150',
-        'items.*.role' => ['required', 'string', \Illuminate\Validation\Rule::in(['admin', 'editor', 'viewer'])],
+        'items.*.role' => ['required', 'string', Rule::in(['admin', 'editor', 'viewer'])],
     ];
     $nativeData = ['items' => $items500];
 
     // Warmup native
-    \Illuminate\Support\Facades\Validator::make($nativeData, $nativeRules)->validate();
+    Validator::make($nativeData, $nativeRules)->validate();
 
     // Benchmark native
     $nativeTimes = [];
     for ($i = 0; $i < 3; ++$i) {
         $t = hrtime(true);
-        \Illuminate\Support\Facades\Validator::make($nativeData, $nativeRules)->validate();
+        Validator::make($nativeData, $nativeRules)->validate();
         $nativeTimes[] = (hrtime(true) - $t) / 1e6;
     }
     sort($nativeTimes);
