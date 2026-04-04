@@ -6,13 +6,14 @@ Laravel's wildcard validation (`items.*.name`) has O(n²) performance for large 
 
 ## Two Levels of Optimization
 
-### HasFluentRules / FluentValidator (recommended default)
+### HasFluentRules / FluentFormRequest / FluentValidator (recommended default)
 
-Replaces Laravel's O(n²) wildcard expansion with an O(n) tree traversal. Also extracts labels and messages from rule objects automatically. Use this for all FormRequests and custom Validators.
+Replaces Laravel's O(n²) wildcard expansion with an O(n) tree traversal. Also extracts labels and messages from rule objects automatically. For eligible wildcard rules (string, numeric, boolean, integer — without object rules or date comparisons), applies per-attribute fast-checks that skip Laravel's validation entirely for valid items.
 
 | What it does | Speedup |
 |---|---|
 | O(n) wildcard expansion via `WildcardExpander` | ~20% for large arrays |
+| Per-attribute fast-checks on eligible wildcard rules | Significant for valid data |
 | Compiles FluentRule objects to native Laravel format | Zero overhead vs string rules |
 | Extracts labels and messages in the same pass | No extra iteration |
 

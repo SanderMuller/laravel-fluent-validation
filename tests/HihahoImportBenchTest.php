@@ -144,7 +144,7 @@ it('benchmarks hihaho-level import validation', function (): void {
     $validateTimes = [];
     $wildcardExpanderTimes = [];
 
-    $allPatterns = array_keys(array_filter($rules, fn ($k) => str_contains((string) $k, '*'), ARRAY_FILTER_USE_KEY));
+    $allPatterns = array_keys(array_filter($rules, fn (string $k): bool => str_contains($k, '*'), ARRAY_FILTER_USE_KEY));
 
     for ($iter = 0; $iter < $iterations; ++$iter) {
         // Native Laravel
@@ -190,7 +190,7 @@ it('benchmarks hihaho-level import validation', function (): void {
     fprintf(STDERR, "  Native Laravel:               %7.2fms\n", $nativeMedian);
     fprintf(STDERR, "  Pre-expanded (big validator):  %7.2fms (%.1fx)\n", $expandedMedian, $nativeMedian / $expandedMedian);
     fprintf(STDERR, "  RuleSet::validate() per-item:  %7.2fms (%.1fx)\n", $validateMedian, $nativeMedian / $validateMedian);
-    fprintf(STDERR, "  WildcardExpander only:         %7.2fms\n", $expanderMedian);
+    fprintf(STDERR, "  WildcardExpander only:         %7.2fms (%.1fx)\n", $expanderMedian, $nativeMedian / $expanderMedian);
 
     expect($validateMedian)->toBeLessThan($nativeMedian);
 })->group('benchmark');

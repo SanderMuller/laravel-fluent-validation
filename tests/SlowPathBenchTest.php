@@ -15,7 +15,7 @@ it('benchmarks all code paths', function (): void {
         'active' => $i % 2 === 0,
     ], range(1, 500));
 
-    $nestedData = ['orders' => array_map(fn ($i) => [
+    $nestedData = ['orders' => array_map(fn (int $i): array => [
         'items' => array_map(fn (int $j) => ['qty' => $j + 1], range(0, 3)),
     ], range(0, 99))];
 

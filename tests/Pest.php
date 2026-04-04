@@ -9,6 +9,10 @@ use SanderMuller\FluentValidation\Tests\TestCase;
 
 uses(TestCase::class)->in(__DIR__);
 
+/**
+ * @param array<string, mixed> $data
+ * @param array<string, mixed> $rules
+ */
 function makeValidator(array $data, array $rules): Validator
 {
     return new Validator(

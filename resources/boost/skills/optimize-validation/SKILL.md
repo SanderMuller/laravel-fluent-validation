@@ -86,9 +86,9 @@ Ask the user which files/categories to proceed with.
 
 Apply one file at a time. Run tests after each file.
 
-### 4a: Add HasFluentRules trait
+### 4a: Add HasFluentRules trait (or extend FluentFormRequest)
 
-The minimal performance change. Works with existing wildcard rules without converting to fluent:
+The minimal performance change. Works with existing wildcard rules without converting to fluent. Adds O(n) wildcard expansion and per-attribute fast-checks for eligible rules:
 
 ```php
 use SanderMuller\FluentValidation\HasFluentRules;
@@ -98,6 +98,14 @@ class ImportRequest extends FormRequest
     use HasFluentRules;
 
     // existing rules() method unchanged — wildcards are optimized automatically
+}
+
+// Or, if you don't have a custom base class:
+use SanderMuller\FluentValidation\FluentFormRequest;
+
+class ImportRequest extends FluentFormRequest
+{
+    // equivalent to FormRequest + HasFluentRules
 }
 ```
 
@@ -160,6 +168,9 @@ Then convert one field at a time:
 | `['required', Rule::in([...])]` | `FluentRule::string()->required()->in([...])` |
 | `['required', Rule::in(Enum::cases())]` | `FluentRule::string()->required()->in(Enum::class)` |
 | `['required', Rule::enum(X::class)]` | `FluentRule::string()->required()->enum(X::class)` |
+| `['required', Rule::unique('t')->where(...)]` | `FluentRule::string()->required()->unique('t', 'col', fn($r) => $r->where(...))` |
+| `['required', Rule::exists('t')->where(...)]` | `FluentRule::string()->required()->exists('t', 'col', fn($r) => $r->where(...))` |
+| `['required', Rule::unique('t')->ignore($id)]` | `FluentRule::string()->required()->unique('t', 'col', fn($r) => $r->ignore($id))` |
 | `['present']` (no type) | `FluentRule::field()->present()` |
 
 **Conditional rules:**

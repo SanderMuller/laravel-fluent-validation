@@ -45,8 +45,8 @@ Write Laravel validation rules with IDE autocompletion instead of memorizing str
 |-----------------------------------------------|------------------------------------------------------------|
 | `Rule::forEach(fn () => ...)`                 | `FluentRule::array()->each(...)`                           |
 | `Rule::when($cond, $rules, $default)`         | `->when($cond, fn ($r) => ..., fn ($r) => ...)`            |
-| `Rule::unique('users')`                       | `FluentRule::string()->unique('users')`                    |
-| `Rule::exists('roles')`                       | `FluentRule::string()->exists('roles')`                    |
+| `Rule::unique('users')->where(...)` | `->unique('users', 'col', fn($r) => $r->where(...))` |
+| `Rule::exists('roles')->where(...)` | `->exists('roles', 'col', fn($r) => $r->where(...))` |
 | `Rule::in([...])`                             | `FluentRule::string()->in([...])`                          |
 | `Rule::enum(Status::class)`                   | `FluentRule::string()->enum(Status::class)`                |
 | `Rule::anyOf([...])`                          | `FluentRule::anyOf([...])`                                 |
@@ -87,7 +87,7 @@ The label `'Full Name'` replaces `:attribute` in error messages. You get "The Fu
 
 ### In a Form Request
 
-Add the `HasFluentRules` trait to your Form Requests. It compiles rules to native Laravel format and handles wildcard expansion and metadata extraction:
+Add the `HasFluentRules` trait to your Form Requests. It compiles rules to native Laravel format, optimizes wildcard expansion, extracts labels and messages, and applies per-attribute fast-checks for eligible wildcard rules:
 
 ```php
 use Illuminate\Foundation\Http\FormRequest;
@@ -117,6 +117,17 @@ class StorePostRequest extends FormRequest
 ```
 
 > **Tip:** Always add `HasFluentRules` when using FluentRule in a Form Request. Without it, labels, messages, and wildcard expansion won't be optimized.
+
+Alternatively, extend `FluentFormRequest` instead of `FormRequest` — it applies the trait automatically:
+
+```php
+use SanderMuller\FluentValidation\FluentFormRequest;
+
+class StorePostRequest extends FluentFormRequest
+{
+    public function rules(): array { /* same as above */ }
+}
+```
 
 FluentRule objects implement Laravel's `ValidationRule` interface. They also work in `Validator::make()`, `Rule::forEach()`, and `Rule::when()`.
 
@@ -281,11 +292,11 @@ The rule tree mirrors the data shape. Compare this with the flat dot-notation al
 
 FluentRule objects compile to native Laravel format (pipe-delimited strings or arrays) before validation runs. There is no runtime overhead compared to string rules.
 
-When validating large arrays with wildcard rules (`items.*.name`), the `HasFluentRules` trait replaces Laravel's [O(n²) wildcard expansion](https://github.com/laravel/framework/issues/49375) with an O(n) tree traversal.
+When validating large arrays with wildcard rules (`items.*.name`), the `HasFluentRules` trait replaces Laravel's [O(n²) wildcard expansion](https://github.com/laravel/framework/issues/49375) with an O(n) tree traversal. For eligible wildcard rules (string, numeric, boolean, integer — without object rules or date comparisons), it also applies per-attribute fast-checks that skip Laravel's validation entirely for valid items.
 
 ### `RuleSet::validate()`
 
-For batch imports and bulk APIs, `RuleSet::validate()` goes further with per-item validation and compiled fast-checks:
+For batch imports and bulk APIs where you control the full pipeline, `RuleSet::validate()` goes further with per-item validation and compiled fast-checks:
 
 ```php
 $validated = RuleSet::from([
@@ -521,9 +532,14 @@ FluentRule::string()->in(['draft', 'published'])
 FluentRule::string()->in(StatusEnum::class)          // all enum values
 FluentRule::string()->notIn(DeprecatedStatus::class)
 FluentRule::string()->enum(StatusEnum::class)
+FluentRule::string()->enum(StatusEnum::class, fn ($r) => $r->only(StatusEnum::Active))
 FluentRule::string()->unique('users', 'email')
+FluentRule::string()->unique('users', 'email', fn ($r) => $r->ignore($this->user()->id))
 FluentRule::string()->exists('roles', 'name')
+FluentRule::string()->exists('subjects', 'id', fn ($r) => $r->where('active', true))
 ```
+
+`unique()`, `exists()`, and `enum()` accept an optional callback as the last argument. The callback receives the underlying Laravel rule object, so you can chain `->where()`, `->ignore()`, `->only()`, etc.
 
 ### Field modifiers
 

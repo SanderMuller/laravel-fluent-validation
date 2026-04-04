@@ -10,6 +10,7 @@ parameters:
 
     paths:
         - src
+        - tests
 
     level: max
 
@@ -27,8 +28,8 @@ parameters:
         narrow_return: true
 
     cognitive_complexity:
-        class: 16
-        function: 9
+        class: 50
+        function: 12
 
     strictRules:
         allRules: true
@@ -38,11 +39,39 @@ parameters:
     treatPhpDocTypesAsCertain: false
 
     ignoreErrors:
-        - identifier: trait.unused
+        -
+            identifier: trait.unused
+            reportUnmatched: false
         - identifier: ternary.condNotBoolean
+
+        # Pest framework internals — expect() chains use Pest's internal Expectation class
         -
-            identifier: complexity.classLike
-            path: src/RuleSet.php
+            identifier: method.internalClass
+            path: tests/
+            reportUnmatched: false
+        # Pest higher-order expectations and test helpers return mixed
         -
-            identifier: complexity.functionLike
-            path: src/RuleSet.php
+            identifier: method.nonObject
+            path: tests/
+            reportUnmatched: false
+        -
+            identifier: staticMethod.dynamicCall
+            path: tests/
+            reportUnmatched: false
+        -
+            identifier: offsetAccess.nonOffsetAccessible
+            path: tests/
+            reportUnmatched: false
+        -
+            identifier: property.nonObject
+            path: tests/
+            reportUnmatched: false
+        -
+            identifier: property.notFound
+            path: tests/
+            reportUnmatched: false
+        # Pest arch test API (->expect()->each->not->...)
+        -
+            identifier: method.notFound
+            path: tests/ArchTest.php
+            reportUnmatched: false

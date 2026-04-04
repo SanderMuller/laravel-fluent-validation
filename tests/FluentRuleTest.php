@@ -3,7 +3,10 @@
 declare(strict_types=1);
 
 use Illuminate\Contracts\Validation\ValidationRule;
+use Illuminate\Support\Fluent;
 use Illuminate\Validation\Rules\AnyOf;
+use Illuminate\Validation\Rules\Enum;
+use Illuminate\Validation\Rules\ExcludeIf;
 use Illuminate\Validation\Rules\Exists;
 use Illuminate\Validation\Rules\Unique;
 use Illuminate\Validation\ValidationException;
@@ -375,8 +378,8 @@ it('requiredIf with false value serializes correctly', function (): void {
 
 it('whenInput applies rules when condition is true', function (): void {
     $stringRule = FluentRule::string()->whenInput(
-        fn ($input) => $input->role === 'admin',
-        fn ($r) => $r->required()->min(12),
+        fn (Fluent $input): bool => $input->role === 'admin',
+        fn (StringRule $r): StringRule => $r->required()->min(12),
     );
 
     $compiled = RuleSet::compile(['password' => $stringRule]);
@@ -386,8 +389,8 @@ it('whenInput applies rules when condition is true', function (): void {
 
 it('whenInput skips rules when condition is false', function (): void {
     $stringRule = FluentRule::string()->whenInput(
-        fn ($input) => $input->role === 'admin',
-        fn ($r) => $r->required()->min(12),
+        fn (Fluent $input): bool => $input->role === 'admin',
+        fn (StringRule $r): StringRule => $r->required()->min(12),
     );
 
     $compiled = RuleSet::compile(['password' => $stringRule]);
@@ -397,9 +400,9 @@ it('whenInput skips rules when condition is false', function (): void {
 
 it('whenInput applies default rules when condition is false', function (): void {
     $stringRule = FluentRule::string()->whenInput(
-        fn ($input) => $input->role === 'admin',
-        fn ($r) => $r->required()->min(12),
-        fn ($r) => $r->sometimes()->max(5),
+        fn (Fluent $input): bool => $input->role === 'admin',
+        fn (StringRule $r): StringRule => $r->required()->min(12),
+        fn (StringRule $r): StringRule => $r->sometimes()->max(5),
     );
 
     $compiled = RuleSet::compile(['password' => $stringRule]);
@@ -409,7 +412,7 @@ it('whenInput applies default rules when condition is false', function (): void 
 
 it('whenInput accepts string rules instead of closures', function (): void {
     $stringRule = FluentRule::string()->whenInput(
-        fn ($input) => $input->type === 'premium',
+        fn (Fluent $input): bool => $input->type === 'premium',
         'required|min:12',
     );
 
@@ -422,8 +425,8 @@ it('whenInput branch does not leak parent messages or labels', function (): void
     $stringRule = FluentRule::string('Full Name')
         ->required()->message('Name is required.')
         ->whenInput(
-            fn ($input) => $input->strict === '1',
-            fn ($r) => $r->min(12),
+            fn (Fluent $input): bool => $input->strict === '1',
+            fn (StringRule $r): StringRule => $r->min(12),
         );
 
     // The branch closure should produce only 'min:12', not 'string|required|min:12'
@@ -453,7 +456,9 @@ it('message works on custom ValidationRule via class name fallback', function ()
     // The message is keyed by the class basename
     [$messages] = RuleSet::extractMetadata(['field' => $stringRule]);
     $key = array_key_first($messages);
+    expect($key)->not->toBeNull();
     expect($key)->toStartWith('field.');
+    /** @var string $key */
     expect($messages[$key])->toBe('Custom message!');
 });
 
@@ -651,7 +656,7 @@ it('supports multiple messages on different rules', function (): void {
 it('uses message inside when() conditional', function (): void {
     $validator = makeValidator(
         ['password' => 'short'],
-        ['password' => FluentRule::string()->required()->when(true, fn ($r) => $r->min(12)->message('Admin passwords need 12+ chars.'))]
+        ['password' => FluentRule::string()->required()->when(true, fn (StringRule $r): StringRule => $r->min(12)->message('Admin passwords need 12+ chars.'))]
     );
 
     expect($validator->passes())->toBeFalse();
@@ -1054,13 +1059,13 @@ it('validates prohibits', function (): void {
 it('validates enum with callback modifier', function (): void {
     $v = makeValidator(
         ['status' => 'active'],
-        ['status' => FluentRule::string()->required()->enum(TestStringEnum::class, fn ($rule) => $rule->only(TestStringEnum::Active))]
+        ['status' => FluentRule::string()->required()->enum(TestStringEnum::class, fn (Enum $rule): Enum => $rule->only(TestStringEnum::Active))]
     );
     expect($v->passes())->toBeTrue();
 
     $v = makeValidator(
         ['status' => 'inactive'],
-        ['status' => FluentRule::string()->required()->enum(TestStringEnum::class, fn ($rule) => $rule->only(TestStringEnum::Active))]
+        ['status' => FluentRule::string()->required()->enum(TestStringEnum::class, fn (Enum $rule): Enum => $rule->only(TestStringEnum::Active))]
     );
     expect($v->passes())->toBeFalse();
 });
@@ -1091,6 +1096,72 @@ it('compiles object rules to array preserving objects', function (): void {
     expect($compiled)->toContain('required');
 });
 
+it('compiles presence modifiers before string constraints and closures after', function (): void {
+    $closure = function (string $attribute, mixed $value, Closure $fail): void {};
+
+    $compiled = FluentRule::string()
+        ->excludeIf(fn (): bool => false)
+        ->required()
+        ->bail()
+        ->min(3)
+        ->rule($closure)
+        ->compiledRules();
+
+    // Find positions: ExcludeIf first, strings in middle, closure last.
+    expect($compiled)->toBeArray();
+    /** @var list<object|string> $compiled */
+    $excludeIdx = null;
+    $closureIdx = null;
+    $bailIdx = null;
+    foreach ($compiled as $i => $r) {
+        if ($r instanceof ExcludeIf) {
+            $excludeIdx = $i;
+        }
+
+        if ($r === $closure) {
+            $closureIdx = $i;
+        }
+
+        if ($r === 'bail') {
+            $bailIdx = $i;
+        }
+    }
+
+    expect($excludeIdx)->not->toBeNull();
+    expect($closureIdx)->not->toBeNull();
+    expect($bailIdx)->not->toBeNull();
+    // ExcludeIf before bail, bail before closure.
+    expect($excludeIdx)->toBeLessThan($bailIdx); // @phpstan-ignore argument.type
+    expect($bailIdx)->toBeLessThan($closureIdx); // @phpstan-ignore argument.type
+});
+
+it('compiles Unique and In rules after string constraints', function (): void {
+    $compiled = FluentRule::string()
+        ->required()
+        ->bail()
+        ->unique('users', 'email')
+        ->in(['a', 'b'])
+        ->compiledRules();
+
+    // Find the last string constraint and first object rule.
+    expect($compiled)->toBeArray();
+    /** @var list<object|string> $compiled */
+    $lastStringIdx = null;
+    $firstObjectIdx = null;
+    foreach ($compiled as $i => $r) {
+        if (is_string($r)) {
+            $lastStringIdx = $i;
+        } elseif ($firstObjectIdx === null && ! $r instanceof ExcludeIf) {
+            $firstObjectIdx = $i;
+        }
+    }
+
+    expect($lastStringIdx)->not->toBeNull();
+    expect($firstObjectIdx)->not->toBeNull();
+    // All string constraints come before Unique/In objects.
+    expect($lastStringIdx)->toBeLessThan($firstObjectIdx); // @phpstan-ignore argument.type
+});
+
 // =========================================================================
 // HasEmbeddedRules — unique / exists
 // =========================================================================
@@ -1108,48 +1179,54 @@ it('compiles exists rule to array with object', function (): void {
 });
 
 it('unique with where callback adds constraint', function (): void {
-    $compiled = FluentRule::string()->unique('users', 'email', fn ($rule) => $rule->where('tenant_id', 1))->compiledRules();
+    $compiled = FluentRule::string()->unique('users', 'email', fn (Unique $rule): Unique => $rule->where('tenant_id', 1))->compiledRules();
     expect($compiled)->toBeArray();
+    /** @var list<object|string> $compiled */
 
     // Find the Unique rule object in the compiled output.
-    $uniqueRule = collect($compiled)->first(fn ($r) => $r instanceof Unique);
-    expect($uniqueRule)->not->toBeNull();
+    $uniqueRule = collect($compiled)->first(fn (object|string $r): bool => $r instanceof Unique);
+    expect($uniqueRule)->toBeInstanceOf(Unique::class);
+    /** @var Unique $uniqueRule */
     expect((string) $uniqueRule)->toContain('tenant_id');
 });
 
 it('unique with ignore callback adds constraint', function (): void {
-    $compiled = FluentRule::string()->unique('users', 'email', fn ($rule) => $rule->ignore(42))->compiledRules();
+    $compiled = FluentRule::string()->unique('users', 'email', fn (Unique $rule): Unique => $rule->ignore(42))->compiledRules();
     expect($compiled)->toBeArray();
-
-    $uniqueRule = collect($compiled)->first(fn ($r) => $r instanceof Unique);
-    expect($uniqueRule)->not->toBeNull();
+    /** @var list<object|string> $compiled */
+    $uniqueRule = collect($compiled)->first(fn (object|string $r): bool => $r instanceof Unique);
+    expect($uniqueRule)->toBeInstanceOf(Unique::class);
+    /** @var Unique $uniqueRule */
     expect((string) $uniqueRule)->toContain('"42"');
 });
 
 it('exists with where callback adds constraint', function (): void {
-    $compiled = FluentRule::string()->exists('subjects', 'id', fn ($rule) => $rule->where('video_id', 42))->compiledRules();
+    $compiled = FluentRule::string()->exists('subjects', 'id', fn (Exists $rule): Exists => $rule->where('video_id', 42))->compiledRules();
     expect($compiled)->toBeArray();
-
-    $existsRule = collect($compiled)->first(fn ($r) => $r instanceof Exists);
-    expect($existsRule)->not->toBeNull();
+    /** @var list<object|string> $compiled */
+    $existsRule = collect($compiled)->first(fn (object|string $r): bool => $r instanceof Exists);
+    expect($existsRule)->toBeInstanceOf(Exists::class);
+    /** @var Exists $existsRule */
     expect((string) $existsRule)->toContain('video_id');
 });
 
 it('exists with whereNull callback adds constraint', function (): void {
-    $compiled = FluentRule::string()->exists('users', 'id', fn ($rule) => $rule->where('deleted_at', null))->compiledRules();
+    $compiled = FluentRule::string()->exists('users', 'id', fn (Exists $rule): Exists => $rule->where('deleted_at'))->compiledRules();
     expect($compiled)->toBeArray();
-
-    $existsRule = collect($compiled)->first(fn ($r) => $r instanceof Exists);
-    expect($existsRule)->not->toBeNull();
+    /** @var list<object|string> $compiled */
+    $existsRule = collect($compiled)->first(fn (object|string $r): bool => $r instanceof Exists);
+    expect($existsRule)->toBeInstanceOf(Exists::class);
+    /** @var Exists $existsRule */
     expect((string) $existsRule)->toContain('deleted_at');
 });
 
 it('unique without callback still works (backward compat)', function (): void {
     $compiled = FluentRule::string()->unique('users', 'email')->compiledRules();
     expect($compiled)->toBeArray();
-
-    $uniqueRule = collect($compiled)->first(fn ($r) => $r instanceof Unique);
-    expect($uniqueRule)->not->toBeNull();
+    /** @var list<object|string> $compiled */
+    $uniqueRule = collect($compiled)->first(fn (object|string $r): bool => $r instanceof Unique);
+    expect($uniqueRule)->toBeInstanceOf(Unique::class);
+    /** @var Unique $uniqueRule */
     // No where constraints — just table, column, and Laravel's defaults.
     expect((string) $uniqueRule)->toStartWith('unique:users,email');
 });
@@ -1157,9 +1234,10 @@ it('unique without callback still works (backward compat)', function (): void {
 it('exists without callback still works (backward compat)', function (): void {
     $compiled = FluentRule::string()->exists('users', 'email')->compiledRules();
     expect($compiled)->toBeArray();
-
-    $existsRule = collect($compiled)->first(fn ($r) => $r instanceof Exists);
-    expect($existsRule)->not->toBeNull();
+    /** @var list<object|string> $compiled */
+    $existsRule = collect($compiled)->first(fn (object|string $r): bool => $r instanceof Exists);
+    expect($existsRule)->toBeInstanceOf(Exists::class);
+    /** @var Exists $existsRule */
     expect((string) $existsRule)->toBe('exists:users,email');
 });
 
@@ -1254,14 +1332,14 @@ it('supports macros on StringRule', function (): void {
 
     $v = makeValidator(
         ['slug' => 'hello'],
-        ['slug' => FluentRule::string()->slug()]
+        ['slug' => FluentRule::string()->slug()] // @phpstan-ignore method.notFound
     );
 
     expect($v->passes())->toBeTrue();
 
     $v = makeValidator(
         ['slug' => 'Hello World'],
-        ['slug' => FluentRule::string()->slug()]
+        ['slug' => FluentRule::string()->slug()] // @phpstan-ignore method.notFound
     );
 
     expect($v->passes())->toBeFalse();
@@ -1366,7 +1444,7 @@ it('validates prohibits with multiple fields', function (): void {
 it('validates unless conditional modifier', function (): void {
     $stringRule = FluentRule::string()
         ->required()
-        ->unless(false, fn ($r) => $r->min(12))
+        ->unless(false, fn (StringRule $r): StringRule => $r->min(12))
         ->max(255);
 
     $validator = makeValidator(['name' => 'short'], ['name' => $stringRule]);
@@ -1376,7 +1454,7 @@ it('validates unless conditional modifier', function (): void {
 it('validates unless does not apply when condition is true', function (): void {
     $stringRule = FluentRule::string()
         ->required()
-        ->unless(true, fn ($r) => $r->min(12))
+        ->unless(true, fn (StringRule $r): StringRule => $r->min(12))
         ->max(255);
 
     $validator = makeValidator(['name' => 'short'], ['name' => $stringRule]);

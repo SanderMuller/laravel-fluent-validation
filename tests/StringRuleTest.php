@@ -50,14 +50,14 @@ it('validates string with min and max', function (): void {
 it('validates string with chained modifiers and constraints', function (): void {
     $v = makeValidator(
         ['password' => 'short'],
-        ['password' => FluentRule::string()->required()->when(true, fn ($r): StringRule => $r->min(12))->max(255)]
+        ['password' => FluentRule::string()->required()->when(true, fn (StringRule $r): StringRule => $r->min(12))->max(255)]
     );
 
     expect($v->passes())->toBeFalse();
 
     $v = makeValidator(
         ['password' => 'longenoughpassword'],
-        ['password' => FluentRule::string()->required()->when(true, fn ($r): StringRule => $r->min(12))->max(255)]
+        ['password' => FluentRule::string()->required()->when(true, fn (StringRule $r): StringRule => $r->min(12))->max(255)]
     );
 
     expect($v->passes())->toBeTrue();
@@ -66,7 +66,7 @@ it('validates string with chained modifiers and constraints', function (): void 
 it('validates when condition is false does not apply', function (): void {
     $validator = makeValidator(
         ['name' => 'Jo'],
-        ['name' => FluentRule::string()->required()->when(false, fn ($r): StringRule => $r->min(12))->max(255)]
+        ['name' => FluentRule::string()->required()->when(false, fn (StringRule $r): StringRule => $r->min(12))->max(255)]
     );
 
     expect($validator->passes())->toBeTrue();

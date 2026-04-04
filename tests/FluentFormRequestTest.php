@@ -6,6 +6,7 @@ use Illuminate\Contracts\Validation\Factory;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Fluent;
 use Illuminate\Validation\Rules\Unique;
 use Illuminate\Validation\ValidationException;
 use Illuminate\Validation\Validator;
@@ -196,6 +197,7 @@ it('creates an OptimizedValidator from FluentFormRequest', function (): void {
     );
 
     $factory = app(Factory::class);
+    /** @var Validator $validator */
     $validator = (fn () => $this->createDefaultValidator($factory))->call($formRequest);
 
     expect($validator)->toBeInstanceOf(OptimizedValidator::class);
@@ -388,7 +390,7 @@ it('after() hooks can add errors that cause validation to fail', function (): vo
     $factory = app(Factory::class);
     $validator = (fn () => $this->createDefaultValidator($factory))->call($formRequest);
 
-    $validator->after(function ($v): void {
+    $validator->after(function (Validator $v): void {
         $v->errors()->add('items', 'Custom cross-field error from after hook');
     });
 
@@ -436,9 +438,12 @@ it('handles rules without wildcards', function (): void {
     );
 
     $factory = app(Factory::class);
+    /** @var Validator $validator */
     $validator = (fn () => $this->createDefaultValidator($factory))->call($formRequest);
 
-    expect($validator)->toBeInstanceOf(OptimizedValidator::class);
+    // No wildcard rules — returns a plain Validator, not OptimizedValidator.
+    expect($validator)->not->toBeInstanceOf(OptimizedValidator::class);
+    expect($validator)->toBeInstanceOf(Validator::class);
     expect($validator->passes())->toBeTrue();
     expect($validator->validated())->toHaveKeys(['name', 'email']);
 });
@@ -616,6 +621,102 @@ it('respects bail rule when fast check fails and falls through to Laravel', func
     expect($validator->passes())->toBeFalse();
     // With bail, only one error should be reported (not both required and min:3).
     expect($validator->errors()->get('items.0.name'))->toHaveCount(1);
+});
+
+it('bail prevents closure from running when earlier rule fails', function (): void {
+    $closureCalled = false;
+
+    $formRequest = createFluentFormRequest(
+        rules: [
+            'items' => FluentRule::array()->required()->each([
+                'name' => FluentRule::string()->required()->max(255),
+                'user_id' => FluentRule::numeric()->bail()->required()->integer()
+                    ->rule(function (string $attribute, mixed $value, Closure $fail) use (&$closureCalled): void {
+                        $closureCalled = true;
+                    }),
+            ]),
+        ],
+        data: [
+            'items' => [
+                ['name' => 'Valid', 'user_id' => 'not-a-number'],
+            ],
+        ],
+    );
+
+    $factory = app(Factory::class);
+    $validator = (fn () => $this->createDefaultValidator($factory))->call($formRequest);
+
+    expect($validator->passes())->toBeFalse();
+    expect($validator->errors()->has('items.0.user_id'))->toBeTrue();
+    // Closure added via ->rule() compiles after string constraints, so bail +
+    // numeric stops validation before the closure runs.
+    expect($closureCalled)->toBeFalse();
+    // The fast-checkable name field should have no errors.
+    expect($validator->errors()->has('items.0.name'))->toBeFalse();
+});
+
+it('closure runs when bail rules pass and value is valid', function (): void {
+    $closureCalled = false;
+    $closureValue = null;
+
+    $formRequest = createFluentFormRequest(
+        rules: [
+            'items' => FluentRule::array()->required()->each([
+                'name' => FluentRule::string()->required()->max(255),
+                'user_id' => FluentRule::numeric()->bail()->required()->integer()
+                    ->rule(function (string $attribute, mixed $value, Closure $fail) use (&$closureCalled, &$closureValue): void {
+                        $closureCalled = true;
+                        $closureValue = $value;
+                    }),
+            ]),
+        ],
+        data: [
+            'items' => [
+                ['name' => 'Valid', 'user_id' => 42],
+            ],
+        ],
+    );
+
+    $factory = app(Factory::class);
+    $validator = (fn () => $this->createDefaultValidator($factory))->call($formRequest);
+
+    expect($validator->passes())->toBeTrue();
+    // All bail rules passed — closure should be called with the value.
+    expect($closureCalled)->toBeTrue();
+    expect($closureValue)->toBe(42);
+});
+
+it('fast check does not interfere with non-fast-checkable fields in same group', function (): void {
+    $closureCalled = false;
+
+    $formRequest = createFluentFormRequest(
+        rules: [
+            'items' => FluentRule::array()->required()->each([
+                'name' => FluentRule::string()->required()->max(255),  // fast-checkable
+                'score' => FluentRule::numeric()->required()->rule(function (string $attribute, mixed $value, Closure $fail) use (&$closureCalled): void {
+                    $closureCalled = true;
+                    if ($value > 100) {
+                        $fail('Score must be 100 or less.');
+                    }
+                }),
+            ]),
+        ],
+        data: [
+            'items' => [
+                ['name' => 'Alice', 'score' => 150],
+            ],
+        ],
+    );
+
+    $factory = app(Factory::class);
+    $validator = (fn () => $this->createDefaultValidator($factory))->call($formRequest);
+
+    expect($validator->passes())->toBeFalse();
+    // Closure ran and added a custom error.
+    expect($closureCalled)->toBeTrue();
+    expect($validator->errors()->has('items.0.score'))->toBeTrue();
+    // Fast-checked name field should pass without interference.
+    expect($validator->errors()->has('items.0.name'))->toBeFalse();
 });
 
 // =========================================================================
@@ -885,7 +986,7 @@ it('works with sometimes() rules added after validator creation', function (): v
     $validator = (fn () => $this->createDefaultValidator($factory))->call($formRequest);
 
     // Add a dynamic rule via sometimes().
-    $validator->sometimes('items.*.isbn', 'required|string|min:10', fn ($input, $item): bool => $item->type === 'book');
+    $validator->sometimes('items.*.isbn', 'required|string|min:10', fn (Fluent $input, Fluent $item): bool => $item->type === 'book');
 
     expect($validator->passes())->toBeFalse();
     // isbn '5678' is too short (min:10) for the book item.
@@ -915,20 +1016,16 @@ it('builds fast checks for plain date rules', function (): void {
 // Edge cases: accepted/declined fast check
 // =========================================================================
 
-it('builds fast checks for accepted rule', function (): void {
-    $checks = OptimizedValidator::buildFastChecks([
+it('skips fast checks for accepted and declined rules', function (): void {
+    $acceptedCheck = OptimizedValidator::buildFastChecks([
         'items.*.agreed' => 'required|accepted',
     ]);
+    expect($acceptedCheck)->not->toHaveKey('items.*.agreed');
 
-    // accepted is handled as a boolean-like check — it's fast-checkable.
-    expect($checks)->toHaveKey('items.*.agreed');
-    // accepted values pass the fast check (required + accepted).
-    expect(($checks['items.*.agreed'])(true))->toBeTrue();
-    expect(($checks['items.*.agreed'])(1))->toBeTrue();
-    expect(($checks['items.*.agreed'])('1'))->toBeTrue();
-    // null/empty fail required.
-    expect(($checks['items.*.agreed'])(null))->toBeFalse();
-    expect(($checks['items.*.agreed'])(''))->toBeFalse();
+    $declinedCheck = OptimizedValidator::buildFastChecks([
+        'items.*.declined' => 'required|declined',
+    ]);
+    expect($declinedCheck)->not->toHaveKey('items.*.declined');
 });
 
 // =========================================================================
@@ -1010,7 +1107,7 @@ it('validates a POST request through FluentFormRequest', function (): void {
         return response()->json($validator->validated());
     });
 
-    $response = $this->postJson('/test-fluent-form-request', [
+    $response = $this->postJson('/test-fluent-form-request', [ // @phpstan-ignore method.notFound
         'items' => [
             ['name' => 'John'],
             ['name' => 'Jane'],
@@ -1036,13 +1133,13 @@ it('returns 422 for invalid data through FluentFormRequest', function (): void {
         $validator = (fn () => $this->createDefaultValidator($factory))->call($formRequest);
 
         if ($validator->fails()) {
-            throw new ValidationException($validator);
+            throw new ValidationException($validator); // @phpstan-ignore argument.type
         }
 
         return response()->json($validator->validated());
     });
 
-    $response = $this->postJson('/test-fluent-form-request-fail', [
+    $response = $this->postJson('/test-fluent-form-request-fail', [ // @phpstan-ignore method.notFound
         'items' => [
             ['name' => 'Jo'],
         ],
@@ -1056,11 +1153,17 @@ it('returns 422 for invalid data through FluentFormRequest', function (): void {
 // Helper
 // =========================================================================
 
+/**
+ * @param array<string, mixed> $rules
+ * @param array<array-key, mixed> $data
+ */
 function createFluentFormRequest(array $rules, array $data): FormRequest
 {
     $formRequest = new class extends FluentFormRequest {
+        /** @var array<string, mixed> */
         public static array $testRules = [];
 
+        /** @return array<string, mixed> */
         public function rules(): array
         {
             return self::$testRules;

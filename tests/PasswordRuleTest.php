@@ -52,6 +52,7 @@ it('password uncompromised configures the Password rule', function (): void {
     $compiled = $passwordRule->compiledRules();
     $password = $compiled[1];
     expect($password)->toBeInstanceOf(Password::class);
+    /** @var Password $password */
     expect((new ReflectionProperty($password, 'uncompromised'))->getValue($password))->toBeTrue();
     expect((new ReflectionProperty($password, 'compromisedThreshold'))->getValue($password))->toBe(5);
 });

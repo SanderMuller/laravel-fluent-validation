@@ -235,21 +235,26 @@ trait SelfValidates
             return implode('|', $rules);
         }
 
-        // Object rules first (ExcludeIf, RequiredIf, etc.) so Laravel
-        // processes them before string constraints. This matches native
-        // Laravel ordering where Rule::excludeIf() comes before 'required'.
-        $objects = [];
+        // Presence modifiers (ExcludeIf, RequiredIf, etc.) must run before
+        // type constraints. Other object rules (closures, custom ValidationRule)
+        // run after constraints so bail/type checks can stop validation first.
+        $presenceRules = [];
         $strings = [];
+        $otherRules = [];
 
         foreach ($rules as $rule) {
             if (is_string($rule)) {
                 $strings[] = $rule;
+            } elseif ($rule instanceof ExcludeIf || $rule instanceof ExcludeUnless
+                || $rule instanceof RequiredIf || $rule instanceof RequiredUnless
+                || $rule instanceof ProhibitedIf || $rule instanceof ProhibitedUnless) {
+                $presenceRules[] = $rule;
             } else {
-                $objects[] = $rule;
+                $otherRules[] = $rule;
             }
         }
 
-        return [...$objects, ...$strings];
+        return [...$presenceRules, ...$strings, ...$otherRules];
     }
 
     /** @return list<string|object> */

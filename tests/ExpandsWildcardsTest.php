@@ -79,7 +79,7 @@ it('validates a real POST request through a FormRequest', function (): void {
         return response()->json($validator->validated());
     });
 
-    $response = $this->postJson('/test-expands-wildcards', [
+    $response = $this->postJson('/test-expands-wildcards', [ // @phpstan-ignore method.notFound
         'items' => [
             ['name' => 'John', 'email' => 'john@example.com'],
             ['name' => 'Jane', 'email' => 'jane@example.com'],
@@ -105,13 +105,13 @@ it('returns 422 with errors for invalid data through a FormRequest', function ()
         $validator = (fn () => $this->createDefaultValidator($factory))->call($formRequest);
 
         if ($validator->fails()) {
-            throw new ValidationException($validator);
+            throw new ValidationException($validator); // @phpstan-ignore argument.type
         }
 
         return response()->json($validator->validated());
     });
 
-    $response = $this->postJson('/test-expands-wildcards-fail', [
+    $response = $this->postJson('/test-expands-wildcards-fail', [ // @phpstan-ignore method.notFound
         'items' => [
             ['name' => 'Jo'],
         ],
@@ -171,13 +171,19 @@ it('works with nested each() rules', function (): void {
 // Helper
 // =========================================================================
 
+/**
+ * @param array<string, mixed> $rules
+ * @param array<array-key, mixed> $data
+ */
 function createFormRequest(array $rules, array $data): FormRequest
 {
     $formRequest = new class extends FormRequest {
         use HasFluentRules;
 
+        /** @var array<string, mixed> */
         public static array $testRules = [];
 
+        /** @return array<string, mixed> */
         public function rules(): array
         {
             return self::$testRules;
