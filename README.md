@@ -41,21 +41,21 @@ Write Laravel validation rules with IDE autocompletion instead of memorizing str
 
 `FluentRule` is intentionally named differently from `Illuminate\Validation\Rule` so both can be used without aliasing. You generally don't need Laravel's `Rule` at all:
 
-| Laravel's `Rule`                              | FluentRule equivalent                                      |
-|-----------------------------------------------|------------------------------------------------------------|
-| `Rule::forEach(fn () => ...)`                 | `FluentRule::array()->each(...)`                           |
-| `Rule::when($cond, $rules, $default)`         | `->when($cond, fn ($r) => ..., fn ($r) => ...)`            |
-| `Rule::unique('users')->where(...)` | `->unique('users', 'col', fn($r) => $r->where(...))` |
-| `Rule::exists('roles')->where(...)` | `->exists('roles', 'col', fn($r) => $r->where(...))` |
-| `Rule::in([...])`                             | `FluentRule::string()->in([...])`                          |
-| `Rule::enum(Status::class)`                   | `FluentRule::string()->enum(Status::class)`                |
-| `Rule::anyOf([...])`                          | `FluentRule::anyOf([...])`                                 |
-| No equivalent                                 | `->each([...])` co-locate wildcard child rules             |
-| No equivalent                                 | `->children([...])` co-locate fixed-key child rules        |
-| No equivalent                                 | `->label('Name')` / `->message('...')` inline messages     |
-| No equivalent                                 | `->whenInput(fn ($input) => ...)` data-dependent conditions|
-| No equivalent                                 | `HasFluentRules` automatic compile + expand optimization   |
-| No equivalent                                 | `FluentValidator` base class for custom Validators         |
+| Laravel's `Rule`                      | FluentRule equivalent                                       |
+|---------------------------------------|-------------------------------------------------------------|
+| `Rule::forEach(fn () => ...)`         | `FluentRule::array()->each(...)`                            |
+| `Rule::when($cond, $rules, $default)` | `->when($cond, fn ($r) => ..., fn ($r) => ...)`             |
+| `Rule::unique('users')->where(...)`   | `->unique('users', 'col', fn($r) => $r->where(...))`        |
+| `Rule::exists('roles')->where(...)`   | `->exists('roles', 'col', fn($r) => $r->where(...))`        |
+| `Rule::in([...])`                     | `FluentRule::string()->in([...])`                           |
+| `Rule::enum(Status::class)`           | `FluentRule::string()->enum(Status::class)`                 |
+| `Rule::anyOf([...])`                  | `FluentRule::anyOf([...])`                                  |
+| No equivalent                         | `->each([...])` co-locate wildcard child rules              |
+| No equivalent                         | `->children([...])` co-locate fixed-key child rules         |
+| No equivalent                         | `->label('Name')` / `->message('...')` inline messages      |
+| No equivalent                         | `->whenInput(fn ($input) => ...)` data-dependent conditions |
+| No equivalent                         | `HasFluentRules` automatic compile + expand optimization    |
+| No equivalent                         | `FluentValidator` base class for custom Validators          |
 
 ## Installation
 
@@ -157,13 +157,13 @@ FluentRule::file()->rule(['mimetypes', ...$types])     // array tuple
 
 **Tips for common patterns:**
 
-| Before | After |
-|---|---|
-| `'items.*.name' => 'required&#124;string'` | `FluentRule::array()->each(['name' => FluentRule::string()->required()])` |
-| `'search' => 'array'` + `'search.value' => '...'` | `FluentRule::array()->children(['value' => ...])` |
-| `Rule::in([...])` | `->in([...])` or `->in(MyEnum::class)` |
-| `Rule::unique('users')` | `->unique('users')` |
-| `Rule::forEach(fn () => ...)` | `FluentRule::array()->each(...)` |
+| Before                                            | After                                                                     |
+|---------------------------------------------------|---------------------------------------------------------------------------|
+| `'items.*.name' => 'required&#124;string'`        | `FluentRule::array()->each(['name' => FluentRule::string()->required()])` |
+| `'search' => 'array'` + `'search.value' => '...'` | `FluentRule::array()->children(['value' => ...])`                         |
+| `Rule::in([...])`                                 | `->in([...])` or `->in(MyEnum::class)`                                    |
+| `Rule::unique('users')`                           | `->unique('users')`                                                       |
+| `Rule::forEach(fn () => ...)`                     | `FluentRule::array()->each(...)`                                          |
 
 **Things to know:**
 
@@ -296,11 +296,11 @@ For large arrays with wildcard rules (`items.*.name`), the `HasFluentRules` trai
 
 ### Benchmarks
 
-| Scenario | Native Laravel | With HasFluentRules |
-|---|---|---|
-| 500 items, simple rules (string, numeric, in) | ~200ms | **~2ms** |
-| 500 items, mixed rules (string + date comparison) | ~200ms | **~20ms** |
-| 100 items, 47 conditional fields (exclude_unless) | ~3,200ms | **~83ms** |
+| Scenario                                          | Native Laravel | With HasFluentRules |
+|---------------------------------------------------|----------------|---------------------|
+| 500 items, simple rules (string, numeric, in)     | ~200ms         | **~2ms**            |
+| 500 items, mixed rules (string + date comparison) | ~200ms         | **~20ms**           |
+| 100 items, 47 conditional fields (exclude_unless) | ~3,200ms       | **~83ms**           |
 
 Simple type+size rules get the largest speedup (50-97x) because the PHP closures are trivially cheap. Mixed rule sets benefit from partial fast-checking. Conditional rules (`exclude_unless`, `required_if` with closures) can't be fast-checked but still benefit from per-item validation via `RuleSet::validate()`.
 
@@ -350,17 +350,17 @@ $validated = RuleSet::make()
 
 `when()` and `unless()` are available via Laravel's `Conditionable` trait. `merge()` accepts another `RuleSet` or a plain array.
 
-| Method | Returns | Description |
-|---|---|---|
-| `RuleSet::from([...])` | `RuleSet` | Create from a rules array |
-| `RuleSet::make()->field(...)` | `RuleSet` | Fluent builder |
-| `->merge($ruleSet)` | `RuleSet` | Merge another RuleSet or array into this one |
-| `->when($cond, $callback)` | `RuleSet` | Conditionally add fields (also: `unless`) |
-| `->toArray()` | `array` | Flat rules with `each()` expanded to wildcards |
-| `->validate($data)` | `array` | Validate with full optimization (see [Performance](#performance)) |
-| `->prepare($data)` | `PreparedRules` | Expand, extract metadata, compile. For custom Validators |
-| `->expandWildcards($data)` | `array` | Pre-expand wildcards without validating |
-| `RuleSet::compile($rules)` | `array` | Compile fluent rules to native Laravel format |
+| Method                        | Returns         | Description                                                       |
+|-------------------------------|-----------------|-------------------------------------------------------------------|
+| `RuleSet::from([...])`        | `RuleSet`       | Create from a rules array                                         |
+| `RuleSet::make()->field(...)` | `RuleSet`       | Fluent builder                                                    |
+| `->merge($ruleSet)`           | `RuleSet`       | Merge another RuleSet or array into this one                      |
+| `->when($cond, $callback)`    | `RuleSet`       | Conditionally add fields (also: `unless`)                         |
+| `->toArray()`                 | `array`         | Flat rules with `each()` expanded to wildcards                    |
+| `->validate($data)`           | `array`         | Validate with full optimization (see [Performance](#performance)) |
+| `->prepare($data)`            | `PreparedRules` | Expand, extract metadata, compile. For custom Validators          |
+| `->expandWildcards($data)`    | `array`         | Pre-expand wildcards without validating                           |
+| `RuleSet::compile($rules)`    | `array`         | Compile fluent rules to native Laravel format                     |
 
 ### Using with custom Validators
 
