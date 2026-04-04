@@ -118,11 +118,11 @@ for ($r = 0; $r < $rounds; $r++) {
     $factory->make($data, RuleSet::compile($topRules))->validate();
     foreach ($groupRules as $parent => $itemRulesRaw) {
         $itemRulesCompiled = RuleSet::compile($itemRulesRaw);
-        $checks = (new ReflectionMethod(RuleSet::class, 'buildFastChecks'))->invoke(new RuleSet(), $itemRulesCompiled);
+        [$checks, $slowRules] = (new ReflectionMethod(RuleSet::class, 'buildFastChecks'))->invoke(new RuleSet(), $itemRulesCompiled);
         $parentItems = data_get($data, $parent, []);
         $iv = null;
         foreach ($parentItems as $item) {
-            if ($checks !== null) {
+            if ($checks !== []) {
                 $pass = true;
                 foreach ($checks as $check) {
                     if (! $check($item)) {
