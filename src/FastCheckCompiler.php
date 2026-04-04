@@ -33,9 +33,9 @@ final class FastCheckCompiler
     private static function parse(string $ruleString): ?array
     {
         $config = [
-            'required' => false, 'filled' => false,
+            'required' => false,
             'string' => false, 'numeric' => false, 'integer' => false,
-            'boolean' => false, 'date' => false, 'email' => false,
+            'boolean' => false, 'email' => false,
             'url' => false, 'ip' => false, 'uuid' => false, 'ulid' => false,
             'accepted' => false, 'declined' => false,
             'alpha' => false, 'alphaDash' => false, 'alphaNum' => false,
@@ -68,8 +68,8 @@ final class FastCheckCompiler
     {
         // Simple boolean flags
         $boolFlags = [
-            'required', 'filled', 'string', 'numeric', 'boolean',
-            'date', 'email', 'url', 'ip', 'uuid', 'ulid',
+            'required', 'string', 'numeric', 'boolean',
+            'email', 'url', 'ip', 'uuid', 'ulid',
             'accepted', 'declined',
         ];
 
@@ -91,7 +91,7 @@ final class FastCheckCompiler
             str_starts_with($part, 'not_in:') => [...$config, 'notIn' => self::parseInValues(substr($part, 7))],
             str_starts_with($part, 'regex:') => [...$config, 'regex' => substr($part, 6)],
             str_starts_with($part, 'not_regex:') => [...$config, 'notRegex' => substr($part, 10)],
-            $part === 'array' || self::isDateComparison($part) => null,
+            in_array($part, ['array', 'date', 'filled'], true) || self::isDateComparison($part) => null,
             default => null,
         };
     }
@@ -130,7 +130,7 @@ final class FastCheckCompiler
     private static function buildClosure(array $c): \Closure
     {
         // Pre-extract typed values for the hot path closure.
-        $required = (bool) $c['required'] || (bool) $c['filled'];
+        $required = (bool) $c['required'];
         $isString = (bool) $c['string'];
         $isNumeric = (bool) $c['numeric'];
         $isInteger = (bool) $c['integer'];
@@ -212,10 +212,6 @@ final class FastCheckCompiler
             $checks[] = static fn (mixed $v): bool => in_array($v, [true, false, 0, 1, '0', '1'], true);
         }
 
-        if ($c['date']) {
-            $checks[] = static fn (mixed $v): bool => ! is_string($v) || strtotime($v) !== false;
-        }
-
         if ($c['string']) {
             $checks[] = static fn (mixed $v): bool => is_string($v);
         }
@@ -225,7 +221,7 @@ final class FastCheckCompiler
         }
 
         if ($c['integer']) {
-            $checks[] = static fn (mixed $v): bool => ! is_numeric($v) || (int) $v === $v;
+            $checks[] = static fn (mixed $v): bool => filter_var($v, FILTER_VALIDATE_INT) !== false;
         }
     }
 

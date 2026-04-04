@@ -1000,14 +1000,14 @@ it('works with sometimes() rules added after validator creation', function (): v
 // Edge cases: date fast check (fast-checkable without comparisons)
 // =========================================================================
 
-it('builds fast checks for plain date rules', function (): void {
+it('skips fast checks for date rules (strtotime diverges from Laravel)', function (): void {
     $checks = OptimizedValidator::buildFastChecks([
         'items.*.created_at' => 'required|date',
     ]);
 
-    expect($checks)->toHaveKey('items.*.created_at');
-    expect(($checks['items.*.created_at'])('2024-01-15'))->toBeTrue();
-    expect(($checks['items.*.created_at'])(null))->toBeFalse();
+    // date rules are not fast-checkable because strtotime() accepts values
+    // that Laravel's validateDate() rejects (e.g., "0", "1")
+    expect($checks)->not->toHaveKey('items.*.created_at');
 });
 
 // =========================================================================

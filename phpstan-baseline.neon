@@ -7,7 +7,7 @@ parameters:
 			path: src/FastCheckCompiler.php
 
 		-
-			rawMessage: 'Class cognitive complexity is 72, keep it under 50'
+			rawMessage: 'Class cognitive complexity is 71, keep it under 50'
 			identifier: complexity.classLike
 			count: 1
 			path: src/FastCheckCompiler.php
