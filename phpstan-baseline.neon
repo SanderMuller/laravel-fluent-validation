@@ -1,8 +1,26 @@
 parameters:
 	ignoreErrors:
 		-
-			rawMessage: 'Cognitive complexity for "SanderMuller\FluentValidation\FastCheckCompiler::buildClosure()" is 33, keep it under 12'
+			rawMessage: 'Class cognitive complexity is 56, keep it under 50'
+			identifier: complexity.classLike
+			count: 1
+			path: src/FastCheckCompiler.php
+
+		-
+			rawMessage: 'Cognitive complexity for "SanderMuller\FluentValidation\FastCheckCompiler::buildClosure()" is 52, keep it under 12'
 			identifier: complexity.functionLike
+			count: 1
+			path: src/FastCheckCompiler.php
+
+		-
+			rawMessage: 'Only booleans are allowed in &&, int|false given on the right side.'
+			identifier: booleanAnd.rightNotBoolean
+			count: 1
+			path: src/FastCheckCompiler.php
+
+		-
+			rawMessage: 'Only booleans are allowed in a negated boolean, int|false given.'
+			identifier: booleanNot.exprNotBoolean
 			count: 1
 			path: src/FastCheckCompiler.php
 

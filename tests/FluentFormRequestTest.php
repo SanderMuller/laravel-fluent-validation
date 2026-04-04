@@ -106,10 +106,10 @@ it('skips fast checks for array rules', function (): void {
 
 it('skips fast checks for unknown rules', function (): void {
     $checks = OptimizedValidator::buildFastChecks([
-        'items.*.email' => 'required|string|email',
+        'items.*.code' => 'required|string|starts_with:ABC',
     ]);
 
-    expect($checks)->not->toHaveKey('items.*.email');
+    expect($checks)->not->toHaveKey('items.*.code');
 });
 
 it('handles nullable values in fast checks', function (): void {
@@ -143,7 +143,7 @@ it('builds fast checks for multiple patterns independently', function (): void {
 
     expect($checks)->toHaveKey('items.*.name');
     expect($checks)->toHaveKey('items.*.qty');
-    expect($checks)->not->toHaveKey('items.*.email');
+    expect($checks)->toHaveKey('items.*.email');
 });
 
 // =========================================================================
@@ -1016,16 +1016,26 @@ it('builds fast checks for plain date rules', function (): void {
 // Edge cases: accepted/declined fast check
 // =========================================================================
 
-it('skips fast checks for accepted and declined rules', function (): void {
+it('fast checks accepted and declined rules', function (): void {
     $acceptedCheck = OptimizedValidator::buildFastChecks([
         'items.*.agreed' => 'required|accepted',
     ]);
-    expect($acceptedCheck)->not->toHaveKey('items.*.agreed');
+    expect($acceptedCheck)->toHaveKey('items.*.agreed');
+    expect(($acceptedCheck['items.*.agreed'])(true))->toBeTrue();
+    expect(($acceptedCheck['items.*.agreed'])('yes'))->toBeTrue();
+    expect(($acceptedCheck['items.*.agreed'])('on'))->toBeTrue();
+    expect(($acceptedCheck['items.*.agreed'])(false))->toBeFalse();
+    expect(($acceptedCheck['items.*.agreed'])('no'))->toBeFalse();
 
     $declinedCheck = OptimizedValidator::buildFastChecks([
         'items.*.declined' => 'required|declined',
     ]);
-    expect($declinedCheck)->not->toHaveKey('items.*.declined');
+    expect($declinedCheck)->toHaveKey('items.*.declined');
+    expect(($declinedCheck['items.*.declined'])(false))->toBeTrue();
+    expect(($declinedCheck['items.*.declined'])('no'))->toBeTrue();
+    expect(($declinedCheck['items.*.declined'])('off'))->toBeTrue();
+    expect(($declinedCheck['items.*.declined'])(true))->toBeFalse();
+    expect(($declinedCheck['items.*.declined'])('yes'))->toBeFalse();
 });
 
 // =========================================================================

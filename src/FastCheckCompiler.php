@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace SanderMuller\FluentValidation;
 
-use Carbon\Carbon;
-
 /**
  * Compiles pipe-delimited rule strings into fast PHP closures
  * that validate a single value without invoking Laravel's validator.
@@ -32,14 +30,17 @@ final class FastCheckCompiler
      * Parse a pipe-delimited rule string into a fast-check config.
      * Returns null if any rule part is not fast-checkable.
      *
-     * @return array{required: bool, string: bool, numeric: bool, integer: bool, boolean: bool, date: bool, min: ?int, max: ?int, in: ?list<string>}|null
+     * @return array{required: bool, filled: bool, string: bool, numeric: bool, integer: bool, boolean: bool, date: bool, email: bool, url: bool, accepted: bool, declined: bool, min: ?int, max: ?int, in: ?list<string>, notIn: ?list<string>, regex: ?string, notRegex: ?string}|null
      */
     private static function parse(string $ruleString): ?array
     {
         $config = [
-            'required' => false, 'string' => false, 'numeric' => false,
-            'integer' => false, 'boolean' => false, 'date' => false,
-            'min' => null, 'max' => null, 'in' => null,
+            'required' => false, 'filled' => false,
+            'string' => false, 'numeric' => false, 'integer' => false,
+            'boolean' => false, 'date' => false, 'email' => false,
+            'url' => false, 'accepted' => false, 'declined' => false,
+            'min' => null, 'max' => null, 'in' => null, 'notIn' => null,
+            'regex' => null, 'notRegex' => null,
         ];
 
         foreach (explode('|', $ruleString) as $part) {
@@ -58,36 +59,42 @@ final class FastCheckCompiler
     /**
      * Parse a single rule part and update the config. Returns null if unsupported.
      *
-     * @param  array{required: bool, string: bool, numeric: bool, integer: bool, boolean: bool, date: bool, min: ?int, max: ?int, in: ?list<string>}  $config
-     * @return array{required: bool, string: bool, numeric: bool, integer: bool, boolean: bool, date: bool, min: ?int, max: ?int, in: ?list<string>}|null
+     * @param  array{required: bool, filled: bool, string: bool, numeric: bool, integer: bool, boolean: bool, date: bool, email: bool, url: bool, accepted: bool, declined: bool, min: ?int, max: ?int, in: ?list<string>, notIn: ?list<string>, regex: ?string, notRegex: ?string}  $config
+     * @return array{required: bool, filled: bool, string: bool, numeric: bool, integer: bool, boolean: bool, date: bool, email: bool, url: bool, accepted: bool, declined: bool, min: ?int, max: ?int, in: ?list<string>, notIn: ?list<string>, regex: ?string, notRegex: ?string}|null
      */
     private static function parsePart(string $part, array $config): ?array
     {
         return match (true) {
             $part === 'required' => [...$config, 'required' => true],
+            $part === 'filled' => [...$config, 'filled' => true],
             $part === 'string' => [...$config, 'string' => true],
             $part === 'numeric' => [...$config, 'numeric' => true],
             $part === 'integer', $part === 'integer:strict' => [...$config, 'integer' => true],
             $part === 'boolean' => [...$config, 'boolean' => true],
             $part === 'date' => [...$config, 'date' => true],
+            $part === 'email' => [...$config, 'email' => true],
+            $part === 'url' => [...$config, 'url' => true],
+            $part === 'accepted' => [...$config, 'accepted' => true],
+            $part === 'declined' => [...$config, 'declined' => true],
             in_array($part, ['nullable', 'sometimes', 'bail'], true) => $config,
             str_starts_with($part, 'min:') => [...$config, 'min' => (int) substr($part, 4)],
             str_starts_with($part, 'max:') => [...$config, 'max' => (int) substr($part, 4)],
-            str_starts_with($part, 'in:') => [...$config, 'in' => array_map(
-                static fn (string $v): string => trim($v, '"'),
-                explode(',', substr($part, 3)),
-            )],
-            self::isUnsupported($part) => null,
+            str_starts_with($part, 'in:') => [...$config, 'in' => self::parseInValues(substr($part, 3))],
+            str_starts_with($part, 'not_in:') => [...$config, 'notIn' => self::parseInValues(substr($part, 7))],
+            str_starts_with($part, 'regex:') => [...$config, 'regex' => substr($part, 6)],
+            str_starts_with($part, 'not_regex:') => [...$config, 'notRegex' => substr($part, 10)],
+            $part === 'array' || self::isDateComparison($part) => null,
             default => null,
         };
     }
 
-    private static function isUnsupported(string $part): bool
+    /** @return list<string> */
+    private static function parseInValues(string $values): array
     {
-        return in_array($part, ['array', 'accepted', 'declined'], true)
-            || str_starts_with($part, 'size:')
-            || str_starts_with($part, 'between:')
-            || self::isDateComparison($part);
+        return array_map(
+            static fn (string $v): string => trim($v, '"'),
+            explode(',', $values),
+        );
     }
 
     private static function isDateComparison(string $part): bool
@@ -98,7 +105,7 @@ final class FastCheckCompiler
     }
 
     /**
-     * @param  array{required: bool, string: bool, numeric: bool, integer: bool, boolean: bool, date: bool, min: ?int, max: ?int, in: ?list<string>}  $c
+     * @param  array{required: bool, filled: bool, string: bool, numeric: bool, integer: bool, boolean: bool, date: bool, email: bool, url: bool, accepted: bool, declined: bool, min: ?int, max: ?int, in: ?list<string>, notIn: ?list<string>, regex: ?string, notRegex: ?string}  $c
      * @return \Closure(mixed): bool
      */
     private static function buildClosure(array $c): \Closure
@@ -108,15 +115,35 @@ final class FastCheckCompiler
                 return false;
             }
 
+            if ($c['filled'] && ($value === null || $value === '')) {
+                return false;
+            }
+
             if ($value === null) {
                 return true;
+            }
+
+            if ($c['accepted'] && ! in_array($value, ['yes', 'on', '1', 1, true, 'true'], true)) {
+                return false;
+            }
+
+            if ($c['declined'] && ! in_array($value, ['no', 'off', '0', 0, false, 'false'], true)) {
+                return false;
             }
 
             if ($c['boolean'] && ! in_array($value, [true, false, 0, 1, '0', '1'], true)) {
                 return false;
             }
 
-            if ($c['date'] && is_string($value) && Carbon::parse($value)->getTimestamp() === false) {
+            if ($c['date'] && is_string($value) && strtotime($value) === false) {
+                return false;
+            }
+
+            if ($c['email'] && (! is_string($value) || filter_var($value, FILTER_VALIDATE_EMAIL) === false)) {
+                return false;
+            }
+
+            if ($c['url'] && (! is_string($value) || filter_var($value, FILTER_VALIDATE_URL) === false)) {
                 return false;
             }
 
@@ -153,6 +180,18 @@ final class FastCheckCompiler
             }
 
             if ($c['in'] !== null && is_scalar($value) && ! in_array((string) $value, $c['in'], true)) {
+                return false;
+            }
+
+            if ($c['notIn'] !== null && is_scalar($value) && in_array((string) $value, $c['notIn'], true)) {
+                return false;
+            }
+
+            if ($c['regex'] !== null && is_string($value) && ! preg_match($c['regex'], $value)) {
+                return false;
+            }
+
+            if ($c['notRegex'] !== null && is_string($value) && preg_match($c['notRegex'], $value)) {
                 return false;
             }
 
