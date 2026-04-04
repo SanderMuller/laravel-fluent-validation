@@ -5,6 +5,7 @@ declare(strict_types=1);
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule as LaravelRule;
 use SanderMuller\FluentValidation\RuleSet;
+
 /**
  * Simulates a complex JSON import validator:
  * - 100 items with ~47 wildcard patterns
