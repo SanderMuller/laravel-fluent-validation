@@ -57,7 +57,7 @@ class OptimizedValidator extends Validator
         return parent::passes();
     }
 
-    protected function validateAttribute($attribute, $rule): void
+    protected function validateAttribute($attribute, $rule)
     {
         // Already fast-checked and passed — skip all remaining rules for this attribute.
         if (isset($this->fastPassedAttributes[$attribute])) {
