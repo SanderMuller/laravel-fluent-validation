@@ -68,7 +68,14 @@ Requires PHP 8.2+ and Laravel 11+.
 
 ### AI-assisted development
 
-This package ships with [Laravel Boost](https://github.com/laravel/boost) skills. If you use Boost, run `php artisan boost:update` to register them. AI assistants will automatically get the full FluentRule API reference when writing validation rules.
+This package ships with [Laravel Boost](https://github.com/laravel/boost) skills. If you use Boost:
+
+```bash
+php artisan boost:install    # adds the skills
+php artisan boost:update     # publishes updates after package upgrades
+```
+
+AI assistants will automatically get the full FluentRule API reference when writing validation rules.
 
 ## Quick start
 
