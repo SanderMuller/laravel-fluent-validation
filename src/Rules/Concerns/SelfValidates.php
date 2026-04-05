@@ -228,7 +228,7 @@ trait SelfValidates
         foreach ($rules as $rule) {
             if (is_string($rule)) {
                 $stringified[] = $rule;
-            } elseif ($rule instanceof \Stringable && ! $this->isPresenceModifier($rule)) {
+            } elseif ($this->isSafeToStringify($rule)) {
                 $stringified[] = (string) $rule;
             } else {
                 $hasNonStringable = true;
@@ -258,6 +258,17 @@ trait SelfValidates
         }
 
         return [...$presenceRules, ...$strings, ...$otherRules];
+    }
+
+    /**
+     * Only In and NotIn are safe to stringify — they hold scalar value lists.
+     * Exists, Unique, and Dimensions can have closure-based wheres or callbacks
+     * that are silently dropped by __toString().
+     */
+    private function isSafeToStringify(object $rule): bool
+    {
+        return $rule instanceof \Illuminate\Validation\Rules\In
+            || $rule instanceof \Illuminate\Validation\Rules\NotIn;
     }
 
     private function isPresenceModifier(object $rule): bool
