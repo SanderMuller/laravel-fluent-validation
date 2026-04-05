@@ -1687,8 +1687,8 @@ it('distinct() on each items rejects duplicate values via RuleSet', function ():
             'tags' => FluentRule::array()->required()->each(FluentRule::string()->distinct()),
         ])->validate(['tags' => ['php', 'laravel', 'php']]);
         test()->fail('Expected ValidationException'); // @phpstan-ignore method.notFound
-    } catch (ValidationException $e) {
-        expect($e->errors())->not->toBeEmpty();
+    } catch (ValidationException $validationException) {
+        expect($validationException->errors())->not->toBeEmpty();
     }
 });
 

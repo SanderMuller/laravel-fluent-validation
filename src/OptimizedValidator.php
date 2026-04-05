@@ -23,12 +23,6 @@ class OptimizedValidator extends Validator
     /** @var array<string, string> Expanded attribute → wildcard pattern lookup */
     private array $attributePatternMap = [];
 
-    /** @var array<string, true> Attributes that passed the fast check — skip all their rules */
-    private array $fastPassedAttributes = [];
-
-    /** @var array<string, true> Attributes already evaluated for fast-check eligibility */
-    private array $fastEvaluatedAttributes = [];
-
     /**
      * @param  array<string, \Closure(mixed): bool>  $fastChecks
      * @param  array<string, string>  $attributePatternMap
@@ -47,9 +41,6 @@ class OptimizedValidator extends Validator
      */
     public function passes(): bool
     {
-        $this->fastPassedAttributes = [];
-        $this->fastEvaluatedAttributes = [];
-
         if ($this->fastChecks !== []) {
             // Pre-validate fast-checkable attributes and remove passing ones
             // from $this->rules so the parent loop never sees them.
