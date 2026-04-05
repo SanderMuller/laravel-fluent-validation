@@ -458,6 +458,8 @@ Chainable strength requirements:
 FluentRule::password(min: 12)->letters()->mixedCase()->numbers()->symbols()->uncompromised()
 ```
 
+> `FluentRule::password()` creates a fresh `Password::min(8)` rule. To use your app's configured defaults (from `Password::defaults()` in AppServiceProvider), use `FluentRule::field()->required()->rule(Password::default())->confirmed()` instead.
+
 ### Numeric
 
 Type, size, digit, and comparison constraints:
