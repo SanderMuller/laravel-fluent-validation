@@ -28,6 +28,13 @@ class PasswordRule implements DataAwareRule, ValidationRule, ValidatorAwareRule
         $this->password = $min !== null ? Password::min($min) : Password::default();
     }
 
+    public function min(int $size): static
+    {
+        (new \ReflectionProperty($this->password, 'min'))->setValue($this->password, $size);
+
+        return $this;
+    }
+
     public function max(int $size): static
     {
         $this->password->max($size);
