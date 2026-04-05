@@ -2,6 +2,36 @@
 
 All notable changes to `laravel-fluent-validation` will be documented in this file.
 
+## 0.3.6 - 2026-04-05
+
+### Fixed
+
+- **Integer fast-check rejected valid integer strings** — `(int) $v === $v` with `strict_types` incorrectly rejects `"3"`. Replaced with `filter_var($v, FILTER_VALIDATE_INT)` to match Laravel's `validateInteger`.
+  
+- **Date and filled rules removed from fast-check** — `strtotime()` diverges from Laravel's `date_parse()`-based validation (accepts `"0"`, `"1"` which Laravel rejects). `filled` requires key-presence context the fast-check doesn't have. Both now fall through to Laravel.
+  
+- **Factory resolver always restored** — `HasFluentRules` wraps the `OptimizedValidator` factory resolver swap in try/finally, ensuring restoration even if `make()` throws.
+  
+- **WildcardExpander depth limit** — Added a depth limit of 50 levels to prevent stack overflow on deeply nested or circular data structures.
+  
+
+### Added
+
+- **`distinct()` on ArrayRule** — `FluentRule::array()->each(...)->distinct()` now works without the `->rule('distinct')` escape hatch.
+
+### Improved
+
+- **README troubleshooting section** — 5 common issues with solutions: missing `validated()` keys, labels not working, cross-field wildcards, `mergeRecursive` breaking rules, and missing methods.
+  
+- **Clone pattern documented** — Full before/after example for extending parent FormRequest rules via `(clone $rule)->rule(...)`.
+  
+- **`HasFluentRules` framed as required** — The trait is required for correct behavior with `each()`, `children()`, labels, messages, and cross-field wildcards. No longer framed as optional.
+  
+- **Benchmark updated** — Standalone benchmark now tests the `HasFluentRules` + `OptimizedValidator` path instead of manually reimplementing RuleSet internals.
+  
+
+**Full Changelog**: https://github.com/SanderMuller/laravel-fluent-validation/compare/0.3.5...0.3.6
+
 ## 0.3.5 - 2026-04-04
 
 ### Fixed
@@ -79,6 +109,7 @@ All notable changes to `laravel-fluent-validation` will be documented in this fi
   
   
   
+  
   ```
 - **PHPStan errors in OptimizedValidator** — Matched parent `Validator::validateAttribute()` signature.
   
@@ -127,6 +158,7 @@ All notable changes to `laravel-fluent-validation` will be documented in this fi
   
   
   
+  
   ```
 - FluentFormRequest base class — Combines HasFluentRules compilation with per-attribute
   fast-check optimization via OptimizedValidator. Eligible wildcard rules are fast-checked
@@ -159,6 +191,7 @@ All notable changes to `laravel-fluent-validation` will be documented in this fi
   ```php
   FluentRule::string()->unique('users', 'email', fn($r) => $r->ignore($this->user()->id))
   FluentRule::string()->exists('subjects', 'id', fn($r) => $r->where('video_id',          
+  
   
   
   
