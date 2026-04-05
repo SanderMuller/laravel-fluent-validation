@@ -7,6 +7,8 @@ use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rules\ExcludeIf;
 use Illuminate\Validation\Rules\ExcludeUnless;
+use Illuminate\Validation\Rules\In;
+use Illuminate\Validation\Rules\NotIn;
 use Illuminate\Validation\Rules\ProhibitedIf;
 use Illuminate\Validation\Rules\ProhibitedUnless;
 use Illuminate\Validation\Rules\RequiredIf;
@@ -267,8 +269,8 @@ trait SelfValidates
      */
     private function isSafeToStringify(object $rule): bool
     {
-        return $rule instanceof \Illuminate\Validation\Rules\In
-            || $rule instanceof \Illuminate\Validation\Rules\NotIn;
+        return $rule instanceof In
+            || $rule instanceof NotIn;
     }
 
     private function isPresenceModifier(object $rule): bool

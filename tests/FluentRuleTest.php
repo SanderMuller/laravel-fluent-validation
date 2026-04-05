@@ -6,6 +6,7 @@ use Illuminate\Validation\Rules\AnyOf;
 use Illuminate\Validation\Rules\Enum;
 use Illuminate\Validation\Rules\ExcludeIf;
 use Illuminate\Validation\Rules\Exists;
+use Illuminate\Validation\Rules\In;
 use Illuminate\Validation\Rules\Unique;
 use Illuminate\Validation\ValidationException;
 use SanderMuller\FluentValidation\FluentRule;
@@ -1153,7 +1154,7 @@ it('compiles Unique and In rules as stringified pipe-joined string', function ()
         if ($rule instanceof Unique) {
             $hasUnique = true;
         }
-        if ($rule instanceof \Illuminate\Validation\Rules\In) {
+        if ($rule instanceof In) {
             $hasIn = true;
         }
     }
