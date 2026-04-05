@@ -2,6 +2,21 @@
 
 All notable changes to `laravel-fluent-validation` will be documented in this file.
 
+## 0.4.2 - 2026-04-05
+
+### Added
+
+- **`confirmed()` on PasswordRule** — `FluentRule::password()->required()->confirmed()` now works without the `->rule('confirmed')` escape hatch.
+  
+- **`min()` on PasswordRule** — `FluentRule::password()->min(12)->max(128)` sets the minimum length via chain method. Previously only available via the constructor: `FluentRule::password(min: 12)`.
+  
+
+### Fixed
+
+- **Boost skill no longer prompts** — The fluent-validation skill now applies rules silently when loaded, matching the convention of other Boost skills.
+
+**Full Changelog**: https://github.com/SanderMuller/laravel-fluent-validation/compare/0.4.1...0.4.2
+
 ## 0.4.1 - 2026-04-05
 
 ### Fixed
@@ -171,6 +186,7 @@ Tested across two independent codebases:
   
   
   
+  
   ```
 - **PHPStan errors in OptimizedValidator** — Matched parent `Validator::validateAttribute()` signature.
   
@@ -222,6 +238,7 @@ Tested across two independent codebases:
   
   
   
+  
   ```
 - FluentFormRequest base class — Combines HasFluentRules compilation with per-attribute
   fast-check optimization via OptimizedValidator. Eligible wildcard rules are fast-checked
@@ -254,6 +271,7 @@ Tested across two independent codebases:
   ```php
   FluentRule::string()->unique('users', 'email', fn($r) => $r->ignore($this->user()->id))
   FluentRule::string()->exists('subjects', 'id', fn($r) => $r->where('video_id',          
+  
   
   
   
