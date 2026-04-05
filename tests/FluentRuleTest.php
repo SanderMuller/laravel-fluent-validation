@@ -1155,10 +1155,12 @@ it('compiles Unique and In rules as stringified pipe-joined string', function ()
         if ($rule instanceof Unique) {
             $hasUnique = true;
         }
+
         if ($rule instanceof In) {
             $hasIn = true;
         }
     }
+
     expect($hasUnique)->toBeTrue();
     expect($hasIn)->toBeTrue();
 });
