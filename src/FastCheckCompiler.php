@@ -185,11 +185,11 @@ final class FastCheckCompiler
                 return false;
             }
 
-            if ($regex !== null && is_string($value) && ! preg_match($regex, $value)) {
+            if ($regex !== null && is_string($value) && preg_match($regex, $value) === 0) {
                 return false;
             }
 
-            if ($notRegex !== null && is_string($value) && (bool) preg_match($notRegex, $value)) {
+            if ($notRegex !== null && is_string($value) && preg_match($notRegex, $value) === 1) {
                 return false;
             }
 
@@ -272,11 +272,23 @@ final class FastCheckCompiler
         $digitsMax = $c['digitsMax'];
 
         if ($digits !== null) {
-            $checks[] = static fn (mixed $v): bool => ctype_digit((string) $v) && strlen((string) $v) === $digits;
+            $checks[] = static function (mixed $v) use ($digits): bool {
+                if (! is_scalar($v)) {
+                    return false;
+                }
+
+                $s = (string) $v;
+
+                return ctype_digit($s) && strlen($s) === $digits;
+            };
         }
 
         if ($digitsMin !== null || $digitsMax !== null) {
             $checks[] = static function (mixed $v) use ($digitsMin, $digitsMax): bool {
+                if (! is_scalar($v)) {
+                    return false;
+                }
+
                 $s = (string) $v;
 
                 return ctype_digit($s)

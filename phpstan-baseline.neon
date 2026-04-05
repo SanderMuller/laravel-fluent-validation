@@ -1,13 +1,7 @@
 parameters:
 	ignoreErrors:
 		-
-			rawMessage: Cannot cast mixed to string.
-			identifier: cast.string
-			count: 2
-			path: src/FastCheckCompiler.php
-
-		-
-			rawMessage: 'Class cognitive complexity is 71, keep it under 50'
+			rawMessage: 'Class cognitive complexity is 76, keep it under 50'
 			identifier: complexity.classLike
 			count: 1
 			path: src/FastCheckCompiler.php
@@ -39,12 +33,6 @@ parameters:
 		-
 			rawMessage: 'Method SanderMuller\FluentValidation\FastCheckCompiler::addTypeChecks() has parameter $c with no value type specified in iterable type array.'
 			identifier: missingType.iterableValue
-			count: 1
-			path: src/FastCheckCompiler.php
-
-		-
-			rawMessage: 'Only booleans are allowed in a negated boolean, int|false given.'
-			identifier: booleanNot.exprNotBoolean
 			count: 1
 			path: src/FastCheckCompiler.php
 
