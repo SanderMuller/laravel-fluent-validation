@@ -149,7 +149,7 @@ it('uses Password::default() when no min specified', function (): void {
     expect($v->passes())->toBeTrue();
 
     // Reset defaults
-    Password::defaults(null);
+    Password::defaults();
 });
 
 it('overrides defaults when explicit min is passed', function (): void {
@@ -160,5 +160,5 @@ it('overrides defaults when explicit min is passed', function (): void {
     expect($v->passes())->toBeTrue(); // passes because min is 6, not 20
 
     // Reset defaults
-    Password::defaults(null);
+    Password::defaults();
 });
