@@ -2,6 +2,7 @@
 
 namespace SanderMuller\FluentValidation;
 
+use Illuminate\Support\MessageBag;
 use Illuminate\Validation\Validator;
 
 /**
@@ -99,7 +100,7 @@ class OptimizedValidator extends Validator
 
         if ($removedRules === [] && $this->rules === []) {
             // Everything was removed — skip parent entirely.
-            $this->messages = new \Illuminate\Support\MessageBag;
+            $this->messages = new MessageBag();
             $this->failedRules = [];
 
             foreach ($this->after as $after) {
