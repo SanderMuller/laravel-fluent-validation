@@ -24,6 +24,7 @@ Write Laravel validation rules with IDE autocompletion instead of memorizing str
 - [Performance](#performance) — O(n) wildcards, benchmarks, RuleSet::validate
 - [RuleSet](#ruleset) — builder, conditional fields, custom Validators
 - [Rule reference](#rule-reference) — string, email, password, numeric, date, boolean, array, file, image, field, anyOf, modifiers, conditionals, macros
+- [Troubleshooting](#troubleshooting) — common issues and solutions
 
 ## Why this package?
 
@@ -116,7 +117,7 @@ class StorePostRequest extends FormRequest
 }
 ```
 
-> **Tip:** Always add `HasFluentRules` when using FluentRule in a Form Request. Without it, labels, messages, and wildcard expansion won't be optimized.
+The `HasFluentRules` trait is required for correct behavior with `each()`, `children()`, labels, messages, and cross-field wildcard references.
 
 Alternatively, extend `FluentFormRequest` instead of `FormRequest` — it applies the trait automatically:
 
@@ -169,7 +170,35 @@ FluentRule::file()->rule(['mimetypes', ...$types])     // array tuple
 
 - All conditional methods (`requiredIf`, `excludeUnless`, etc.) accept `string|int|bool` values.
 - `each()` and `children()` nest naturally. Flat dot-notation keys like `columns.*.data.sort` become nested `each([...children([...])])` trees that mirror the data shape.
-- Child FormRequests that extend parent rules should use spread + key override or `(clone $parentRule)->rule(...)`, not `mergeRecursive` (which deconstructs objects).
+- FluentRule objects in rules arrays are objects, not arrays. Don't use `array_search`, `mergeRecursive`, or other structural array functions on them.
+
+### Extending parent rules in child FormRequests
+
+When a child class needs to add rules to fields defined by the parent, use clone + `rule()`:
+
+```php
+// Parent
+public function rules(): array
+{
+    return [
+        'type' => FluentRule::field()->required()->rule(new EnumValue(QuestionType::class)),
+        'name' => FluentRule::string()->required()->max(255),
+    ];
+}
+
+// Child — augment 'type' with extra validation
+public function rules(): array
+{
+    $rules = parent::rules();
+    $rules['type'] = (clone $rules['type'])->rule(function (string $attribute, mixed $value, Closure $fail): void {
+        // extra validation for updates
+    });
+
+    return $rules;
+}
+```
+
+To fully replace a field, use spread + override: `return [...parent::rules(), 'type' => FluentRule::string()->required()]`.
 
 ## Error messages
 
@@ -596,6 +625,23 @@ StringRule::macro('slug', fn () => $this->alpha(true)->lowercase());
 FluentRule::numeric()->percentage()
 FluentRule::string()->slug()
 ```
+
+## Troubleshooting
+
+**`validated()` is missing nested keys (children, each)**
+Add `use HasFluentRules` to your FormRequest. Without the trait, FluentRule objects self-validate in isolation and nested keys don't appear in `validated()` output.
+
+**Labels not working ("The name field" instead of "The Full Name field")**
+Add `use HasFluentRules`. The trait extracts labels from rule objects and passes them to the validator. Without it, labels are only used inside the rule's self-validation.
+
+**Cross-field wildcard references don't work (`requiredUnless('items.*.type', ...)`)**
+These require `HasFluentRules` or `FluentValidator` to resolve wildcard paths. Standalone FluentRule objects self-validate in isolation.
+
+**`mergeRecursive` breaks rules in child FormRequests**
+PHP's `mergeRecursive` deconstructs objects into arrays. Use `(clone $parentRule)->rule(...)` to augment or `[...parent::rules(), 'field' => ...]` to override. See [Extending parent rules](#extending-parent-rules-in-child-formrequests).
+
+**Method not found on a rule type**
+Use `->rule('method_name')` as an escape hatch for any Laravel rule not yet available as a fluent method. Accepts strings, objects, and `['rule', ...$params]` tuples.
 
 ## Testing
 
