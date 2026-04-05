@@ -1645,3 +1645,57 @@ it('partial fast-check catches single invalid item among many valid', function (
         expect($validationException->errors())->toHaveCount(1);
     }
 });
+
+// =========================================================================
+// in() / notIn() with Arrayable (Collections)
+// =========================================================================
+
+it('in() accepts Arrayable (Collection)', function (): void {
+    $collection = collect(['admin', 'editor', 'viewer']);
+    $rule = FluentRule::string()->required()->in($collection);
+    $compiled = $rule->compiledRules();
+
+    expect($compiled)->toBeString();
+    expect($compiled)->toContain('in:');
+    expect($compiled)->toContain('admin');
+
+    $validator = makeValidator(['role' => 'admin'], ['role' => $rule]);
+    expect($validator->passes())->toBeTrue();
+
+    $validator = makeValidator(['role' => 'hacker'], ['role' => $rule]);
+    expect($validator->passes())->toBeFalse();
+});
+
+it('notIn() accepts Arrayable (Collection)', function (): void {
+    $collection = collect(['banned', 'suspended']);
+    $rule = FluentRule::string()->required()->notIn($collection);
+
+    $validator = makeValidator(['status' => 'active'], ['status' => $rule]);
+    expect($validator->passes())->toBeTrue();
+
+    $validator = makeValidator(['status' => 'banned'], ['status' => $rule]);
+    expect($validator->passes())->toBeFalse();
+});
+
+// =========================================================================
+// ArrayRule distinct() validation
+// =========================================================================
+
+it('distinct() on each items rejects duplicate values via RuleSet', function (): void {
+    try {
+        RuleSet::from([
+            'tags' => FluentRule::array()->required()->each(FluentRule::string()->distinct()),
+        ])->validate(['tags' => ['php', 'laravel', 'php']]);
+        test()->fail('Expected ValidationException'); // @phpstan-ignore method.notFound
+    } catch (ValidationException $e) {
+        expect($e->errors())->not->toBeEmpty();
+    }
+});
+
+it('distinct() on each items passes with unique values', function (): void {
+    $validated = RuleSet::from([
+        'tags' => FluentRule::array()->required()->each(FluentRule::string()->distinct()),
+    ])->validate(['tags' => ['php', 'laravel', 'vue']]);
+
+    expect($validated['tags'])->toHaveCount(3);
+});
