@@ -236,8 +236,14 @@ final class RuleSet implements Arrayable
      */
     private function validateItems(array $items, array $itemRules, array $itemMessages, array $itemAttributes, string $parent, bool $isScalar): array
     {
-        // Pre-analyze conditional rules to enable per-item rule reduction.
         $conditionalFields = $this->analyzeConditionals($itemRules);
+
+        // Pre-compute reduced rule sets per unique dispatch value.
+        // If all conditionals reference the same field (e.g., "type"),
+        // we build one rule set per unique type value instead of per item.
+        $dispatchField = $this->findCommonDispatchField($conditionalFields);
+        /** @var array<string, array<string, mixed>> $rulesByDispatch */
+        $rulesByDispatch = [];
 
         [$fastChecks, $slowRules] = $this->buildFastChecks($itemRules);
         $allFast = $slowRules === [];
@@ -250,10 +256,20 @@ final class RuleSet implements Arrayable
             /** @var array<string, mixed> $itemData */
             $itemData = $isScalar ? ['_v' => $item] : (is_array($item) ? $item : []);
 
-            // Reduce rules by pre-evaluating exclude_unless/exclude_if conditions.
-            $effectiveRules = $conditionalFields !== []
-                ? $this->reduceRulesForItem($itemRules, $itemData, $conditionalFields)
-                : $itemRules;
+            // Get effective rules — use dispatch cache if available.
+            if ($dispatchField !== null) {
+                $dispatchValue = (string) ($itemData[$dispatchField] ?? '');
+
+                if (! isset($rulesByDispatch[$dispatchValue])) {
+                    $rulesByDispatch[$dispatchValue] = $this->reduceRulesForItem($itemRules, $itemData, $conditionalFields);
+                }
+
+                $effectiveRules = $rulesByDispatch[$dispatchValue];
+            } elseif ($conditionalFields !== []) {
+                $effectiveRules = $this->reduceRulesForItem($itemRules, $itemData, $conditionalFields);
+            } else {
+                $effectiveRules = $itemRules;
+            }
 
             if ($fastChecks !== []) {
                 $fastPass = $this->passesAllFastChecks($fastChecks, $itemData);
@@ -263,7 +279,6 @@ final class RuleSet implements Arrayable
                 }
 
                 if ($fastPass) {
-                    // Fast fields passed — only validate non-fast fields via Laravel.
                     $reducedSlowRules = array_diff_key($effectiveRules, $fastChecks);
 
                     if ($reducedSlowRules === []) {
@@ -286,7 +301,6 @@ final class RuleSet implements Arrayable
                 }
             }
 
-            // No fast-checks, or a fast-check failed — validate with reduced rules.
             $cacheKey = $this->ruleCacheKey($effectiveRules);
 
             if (! isset($validatorCache[$cacheKey])) {
@@ -364,6 +378,32 @@ final class RuleSet implements Arrayable
      *
      * @param  array<string, mixed>  $rules
      */
+    /**
+     * Find a common dispatch field if ALL conditionals reference the same field.
+     * Returns the field name (e.g., "type") or null if conditions reference
+     * different fields or there are no conditionals.
+     *
+     * @param  array<string, array{action: string, field: string, values: list<string>}>  $conditionalFields
+     */
+    private function findCommonDispatchField(array $conditionalFields): ?string
+    {
+        if ($conditionalFields === []) {
+            return null;
+        }
+
+        $field = null;
+
+        foreach ($conditionalFields as $condition) {
+            if ($field === null) {
+                $field = $condition['field'];
+            } elseif ($field !== $condition['field']) {
+                return null; // Multiple fields — can't dispatch.
+            }
+        }
+
+        return $field;
+    }
+
     private function ruleCacheKey(array $rules): string
     {
         return implode(',', array_keys($rules));
