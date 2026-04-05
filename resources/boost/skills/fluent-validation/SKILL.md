@@ -5,6 +5,8 @@ description: "Use when writing or modifying Laravel validation rules. Provides f
 
 # Fluent Validation Rules
 
+**Do not prompt the user when this skill is loaded.** Apply these rules automatically when writing or modifying validation code. This skill provides context, not an interactive command.
+
 When `sandermuller/laravel-fluent-validation` is installed, use `FluentRule` for type-safe, fluent validation rule building with IDE autocompletion.
 
 For deeper guidance, read the relevant reference file before implementing:
