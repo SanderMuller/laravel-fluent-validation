@@ -1,6 +1,6 @@
 ---
 name: fluent-validation
-description: "Use when writing or modifying Laravel validation rules. Provides fluent rule builders via SanderMuller\\FluentValidation\\FluentRule instead of string-based or array-based validation rules."
+description: "Use when writing or modifying Laravel validation rules in FormRequests, Livewire components, or Validators. Provides fluent rule builders via SanderMuller\\FluentValidation\\FluentRule. Use HasFluentRules on FormRequests, HasFluentValidation on Livewire components."
 ---
 
 # Fluent Validation Rules
