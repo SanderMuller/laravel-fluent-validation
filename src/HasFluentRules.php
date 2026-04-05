@@ -114,17 +114,19 @@ trait HasFluentRules
         /** @var Validator $base */
         $base = $factory->make($data, $rules, $messages, $attributes);
 
+        // Create with EMPTY rules to skip re-parsing the 3500+ expanded rules.
+        // The parsed rules are copied from the base validator below.
         $optimized = new OptimizedValidator(
             $base->getTranslator(),
             $data,
-            $rules,
+            [],
             $messages,
             $attributes,
         );
 
-        // Copy setup that the factory applied to the base validator.
+        // Copy parsed rules AND factory-applied configuration from the base.
         $ref = new \ReflectionObject($base);
-        foreach (['container', 'presenceVerifier', 'excludeUnvalidatedArrayKeys', 'extensions', 'implicitExtensions', 'dependentExtensions', 'replacers', 'fallbackMessages'] as $prop) {
+        foreach (['rules', 'initialRules', 'container', 'presenceVerifier', 'excludeUnvalidatedArrayKeys', 'extensions', 'implicitExtensions', 'dependentExtensions', 'replacers', 'fallbackMessages'] as $prop) {
             if ($ref->hasProperty($prop)) {
                 $p = $ref->getProperty($prop);
                 $value = $p->getValue($base);
