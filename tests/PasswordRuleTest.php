@@ -162,3 +162,53 @@ it('overrides defaults when explicit min is passed', function (): void {
         Password::$defaultCallback = null;
     }
 });
+
+it('min() sets minimum length via chain', function (): void {
+    $v = makeValidator(['password' => 'short'], ['password' => FluentRule::password()->min(8)->required()]);
+    expect($v->passes())->toBeFalse();
+
+    $v = makeValidator(['password' => 'longenough'], ['password' => FluentRule::password()->min(8)->required()]);
+    expect($v->passes())->toBeTrue();
+});
+
+it('min() and max() work together', function (): void {
+    $rule = FluentRule::password()->min(8)->max(20)->required();
+
+    $v = makeValidator(['password' => 'short'], ['password' => $rule]);
+    expect($v->passes())->toBeFalse(); // too short
+
+    $v = makeValidator(['password' => 'this_password_is_way_too_long_for_the_max'], ['password' => $rule]);
+    expect($v->passes())->toBeFalse(); // too long
+
+    $v = makeValidator(['password' => 'justright123'], ['password' => $rule]);
+    expect($v->passes())->toBeTrue();
+});
+
+it('min() preserves other password rules', function (): void {
+    $rule = FluentRule::password()->min(10)->letters()->numbers();
+
+    $v = makeValidator(['password' => '1234567890'], ['password' => $rule]);
+    expect($v->passes())->toBeFalse(); // no letters
+
+    $v = makeValidator(['password' => 'abcdefghij'], ['password' => $rule]);
+    expect($v->passes())->toBeFalse(); // no numbers
+
+    $v = makeValidator(['password' => 'HasLetters1'], ['password' => $rule]);
+    expect($v->passes())->toBeTrue();
+});
+
+it('confirmed() works on password rule', function (): void {
+    $rule = FluentRule::password()->required()->confirmed();
+
+    $v = makeValidator(
+        ['password' => 'MyPassword1', 'password_confirmation' => 'MyPassword1'],
+        ['password' => $rule],
+    );
+    expect($v->passes())->toBeTrue();
+
+    $v = makeValidator(
+        ['password' => 'MyPassword1', 'password_confirmation' => 'Different1'],
+        ['password' => $rule],
+    );
+    expect($v->passes())->toBeFalse();
+});
