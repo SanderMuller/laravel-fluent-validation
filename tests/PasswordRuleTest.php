@@ -138,27 +138,28 @@ it('password symbols requires at least one symbol', function (): void {
 });
 
 it('uses Password::default() when no min specified', function (): void {
-    // Configure app defaults to require letters + numbers + min 10
+
     Password::defaults(fn () => Password::min(10)->letters()->numbers());
 
-    // FluentRule::password() should use these defaults
-    $v = makeValidator(['password' => 'short1'], ['password' => FluentRule::password()->required()]);
-    expect($v->passes())->toBeFalse(); // too short (min 10)
+    try {
+        $v = makeValidator(['password' => 'short1'], ['password' => FluentRule::password()->required()]);
+        expect($v->passes())->toBeFalse(); // too short (min 10)
 
-    $v = makeValidator(['password' => 'LongEnough1'], ['password' => FluentRule::password()->required()]);
-    expect($v->passes())->toBeTrue();
-
-    // Reset defaults
-    Password::defaults();
+        $v = makeValidator(['password' => 'LongEnough1'], ['password' => FluentRule::password()->required()]);
+        expect($v->passes())->toBeTrue();
+    } finally {
+        Password::$defaultCallback = null;
+    }
 });
 
 it('overrides defaults when explicit min is passed', function (): void {
     Password::defaults(fn () => Password::min(20)->letters());
 
-    // Explicit min: 6 should override the default min: 20
-    $v = makeValidator(['password' => 'Short1'], ['password' => FluentRule::password(min: 6)->required()]);
-    expect($v->passes())->toBeTrue(); // passes because min is 6, not 20
 
-    // Reset defaults
-    Password::defaults();
+    try {
+        $v = makeValidator(['password' => 'Short1'], ['password' => FluentRule::password(min: 6)->required()]);
+        expect($v->passes())->toBeTrue();
+    } finally {
+        Password::$defaultCallback = null;
+    }
 });
