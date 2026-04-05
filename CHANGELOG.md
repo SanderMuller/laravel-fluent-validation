@@ -2,6 +2,34 @@
 
 All notable changes to `laravel-fluent-validation` will be documented in this file.
 
+## 0.4.1 - 2026-04-05
+
+### Fixed
+
+- **Compiled rule ordering** — Presence modifiers (`required`, `nullable`, `bail`, etc.) now come before the type constraint. `FluentRule::string()->required()` compiles to `required|string` instead of `string|required`, ensuring correct error messages ("is required" instead of "must be a string" for missing fields).
+
+### Performance
+
+- **Conditional pre-evaluation** — `OptimizedValidator` now pre-evaluates `exclude_unless` and `exclude_if` conditions before Laravel's validation loop, removing excluded attributes from the rule set entirely. For the hihaho-style benchmark (20 items × 45 conditional patterns): **72ms → 11ms (9.8x vs native)**.
+  
+- **Type-dispatch in RuleSet** — `RuleSet::validate()` pre-computes reduced rule sets per unique condition value (e.g., one rule set per interaction type). Validators are cached by rule set signature and reused across items of the same type. For the hihaho import benchmark (100 items × 47 patterns): **3200ms → 77ms (42x)**.
+  
+- **Fast-check after conditional evaluation** — After exclude conditions are evaluated, remaining rules are re-checked for fast-check eligibility. Rules that were previously blocked by conditional tuples can now be fast-checked.
+  
+
+### Added
+
+- **`FluentRule::password()` uses `Password::default()`** — Now respects app-configured password defaults from `Password::defaults()` in AppServiceProvider. Pass an explicit min to override: `FluentRule::password(min: 12)`.
+
+### Improved
+
+- **PHPStan baseline reduced to 19 entries** — Fixed type narrowing, cast guards, return types, and property types across OptimizedValidator, RuleSet, and HasFluentRules.
+  
+- **Test coverage** — 496 tests, 978 assertions. Added coverage for `Password::default()`, Arrayable `in()`/`notIn()`, `distinct()` validation, conditional pre-evaluation, and type-dispatch.
+  
+
+**Full Changelog**: https://github.com/SanderMuller/laravel-fluent-validation/compare/0.4.0...0.4.1
+
 ## 0.4.0 - 2026-04-05
 
 ### Added
@@ -142,6 +170,7 @@ Tested across two independent codebases:
   
   
   
+  
   ```
 - **PHPStan errors in OptimizedValidator** — Matched parent `Validator::validateAttribute()` signature.
   
@@ -192,6 +221,7 @@ Tested across two independent codebases:
   
   
   
+  
   ```
 - FluentFormRequest base class — Combines HasFluentRules compilation with per-attribute
   fast-check optimization via OptimizedValidator. Eligible wildcard rules are fast-checked
@@ -224,6 +254,7 @@ Tested across two independent codebases:
   ```php
   FluentRule::string()->unique('users', 'email', fn($r) => $r->ignore($this->user()->id))
   FluentRule::string()->exists('subjects', 'id', fn($r) => $r->where('video_id',          
+  
   
   
   
