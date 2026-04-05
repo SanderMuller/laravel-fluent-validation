@@ -165,13 +165,6 @@ final class RuleSet implements Arrayable
      * Validate all wildcard groups per-item with fast-check optimization.
      *
      * @param  array<string, array<string, mixed>>  $wildcardGroups
-     * @param  array<string, mixed>  $data
-     * @param  array<string, string>  $messages
-     * @param  array<string, string>  $attributes
-     * @return array<string, list<string>>
-     *
-     * @throws ValidationException
-     */
     /**
      * @param  array<string, array<string, mixed>>  $wildcardGroups
      * @param  array<string, mixed>  $data
@@ -244,8 +237,7 @@ final class RuleSet implements Arrayable
         /** @var array<string, array{0: array<string, \Closure(array<string, mixed>): bool>, 1: array<string, mixed>}> $fastChecksByDispatch */
         $fastChecksByDispatch = [];
 
-        [$fastChecks, $slowRules] = $this->buildFastChecks($itemRules);
-        $allFast = $slowRules === [];
+        [$fastChecks, $originalSlowRules] = $this->buildFastChecks($itemRules);
         /** @var array<string, \Illuminate\Validation\Validator> $validatorCache */
         $validatorCache = [];
         /** @var array<string, list<string>> $errors */
@@ -273,7 +265,7 @@ final class RuleSet implements Arrayable
             } else {
                 $effectiveRules = $itemRules;
                 $dispatchFastChecks = $fastChecks;
-                $dispatchSlowRules = $slowRules;
+                $dispatchSlowRules = $originalSlowRules;
             }
 
             if ($dispatchFastChecks !== []) {
