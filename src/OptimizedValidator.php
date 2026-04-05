@@ -65,10 +65,35 @@ class OptimizedValidator extends Validator
 
             // Conditional pre-evaluation: check exclude_unless/exclude_if
             // conditions without going through Laravel's validation loop.
-            if ($this->shouldPreExclude($attribute, $rules)) {
-                // Don't add to removedRules — excluded fields should NOT
-                // appear in validated() output.
+            $excludeResult = $this->evaluateConditionals($attribute, $rules);
+
+            if ($excludeResult === true) {
+                // Excluded — don't add to removedRules so it's absent from validated().
                 unset($this->rules[$attribute]);
+
+                continue;
+            }
+
+            // If condition was present but NOT excluded, try fast-checking the
+            // remaining non-conditional rules (e.g., the "string" part of
+            // ["exclude_unless:...", "string"]).
+            if ($excludeResult === false && $hasFastChecks) {
+                $remainingRule = $this->extractNonConditionalRule($rules);
+
+                if ($remainingRule !== null) {
+                    $check = FastCheckCompiler::compile($remainingRule);
+
+                    if ($check instanceof \Closure) {
+                        $value = $this->getValue($attribute);
+
+                        if ($check($value)) {
+                            $removedRules[$attribute] = $rules;
+                            unset($this->rules[$attribute]);
+
+                            continue;
+                        }
+                    }
+                }
             }
         }
 
@@ -105,10 +130,16 @@ class OptimizedValidator extends Validator
     private array $conditionValueCache = [];
 
     /**
+     * Evaluate exclude_unless/exclude_if conditions on an attribute's rules.
+     * Returns true if excluded, false if condition present but not excluded,
+     * null if no conditional rules found.
+     *
      * @param  list<mixed>  $rules
      */
-    private function shouldPreExclude(string $attribute, array $rules): bool
+    private function evaluateConditionals(string $attribute, array $rules): ?bool
     {
+        $hasCondition = false;
+
         foreach ($rules as $rule) {
             if (! is_array($rule) || count($rule) < 3) {
                 continue;
@@ -121,10 +152,9 @@ class OptimizedValidator extends Validator
                 continue;
             }
 
+            $hasCondition = true;
             $allowedValues = array_slice($rule, 2);
 
-            // Resolve wildcard and cache the result — same condition field
-            // is evaluated once per item, not once per rule.
             if (str_contains($conditionField, '*')) {
                 $conditionField = $this->resolveWildcard($attribute, $conditionField);
             }
@@ -135,18 +165,40 @@ class OptimizedValidator extends Validator
 
             $actualValue = $this->conditionValueCache[$conditionField];
 
-            if ($action === 'exclude_unless') {
-                if (! in_array($actualValue, $allowedValues, true)) {
-                    return true;
-                }
-            } elseif ($action === 'exclude_if') {
-                if (in_array($actualValue, $allowedValues, true)) {
-                    return true;
-                }
+            if ($action === 'exclude_unless' && ! in_array($actualValue, $allowedValues, true)) {
+                return true;
+            }
+
+            if ($action === 'exclude_if' && in_array($actualValue, $allowedValues, true)) {
+                return true;
             }
         }
 
-        return false;
+        return $hasCondition ? false : null;
+    }
+
+    /**
+     * Extract the non-conditional string rules from an attribute's rule array
+     * and join them into a pipe-delimited string for fast-check compilation.
+     *
+     * @param  list<mixed>  $rules
+     */
+    private function extractNonConditionalRule(array $rules): ?string
+    {
+        $stringParts = [];
+
+        foreach ($rules as $rule) {
+            if (is_string($rule)) {
+                $stringParts[] = $rule;
+            } elseif (is_array($rule) && isset($rule[0]) && is_string($rule[0])
+                && ! in_array($rule[0], ['exclude_unless', 'exclude_if', 'required_if', 'required_unless'], true)) {
+                // Non-conditional array rule — skip
+                return null;
+            }
+            // Skip conditional tuples and object rules
+        }
+
+        return $stringParts !== [] ? implode('|', $stringParts) : null;
     }
 
     /**
