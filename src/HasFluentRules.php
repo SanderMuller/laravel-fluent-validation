@@ -40,20 +40,24 @@ trait HasFluentRules
         $data = $this->validationData();
         $prepared = RuleSet::from($rules)->prepare($data);
 
-        [$fastChecks, $attributePatternMap] = $this->buildFastCheckMaps($prepared);
+        // Pre-exclude rules whose exclude_unless/exclude_if conditions
+        // don't match the actual data. This happens BEFORE the validator
+        // constructor, so excluded rules are never parsed.
+        $preparedRules = $this->preExcludeRules($prepared->rules, $data);
+
+        [$fastChecks, $attributePatternMap] = $this->buildFastCheckMaps($prepared, $preparedRules);
 
         $messages = $this->messages() + $prepared->messages;
         $attributes = $this->attributes() + $prepared->attributes;
 
         // Only use OptimizedValidator when there are fast-checkable wildcard
-        // rules. Otherwise return a plain Validator — zero overhead, zero
-        // behavior change for non-wildcard FormRequests.
-        if ($fastChecks !== []) {
-            $validator = $this->makeOptimizedValidator($factory, $data, $prepared->rules, $messages, $attributes);
+        // rules or conditional rules were pre-excluded.
+        if ($fastChecks !== [] || count($preparedRules) < count($prepared->rules)) {
+            $validator = $this->makeOptimizedValidator($factory, $data, $preparedRules, $messages, $attributes);
             $validator->withFastChecks($fastChecks, $attributePatternMap);
         } else {
             /** @var Validator $validator */
-            $validator = $factory->make($data, $prepared->rules, $messages, $attributes);
+            $validator = $factory->make($data, $preparedRules, $messages, $attributes);
         }
 
         if ($prepared->implicitAttributes !== []) {
@@ -67,14 +71,15 @@ trait HasFluentRules
     /**
      * Build fast-check closures and the attribute-to-pattern lookup map.
      *
+     * @param  array<string, mixed>  $preparedRules  Rules after pre-exclusion
      * @return array{0: array<string, \Closure(mixed): bool>, 1: array<string, string>}
      */
-    private function buildFastCheckMaps(PreparedRules $prepared): array
+    private function buildFastCheckMaps(PreparedRules $prepared, array $preparedRules): array
     {
         $wildcardRules = [];
         foreach ($prepared->implicitAttributes as $pattern => $expandedPaths) {
-            if (isset($prepared->rules[$expandedPaths[0] ?? ''])) {
-                $wildcardRules[$pattern] = $prepared->rules[$expandedPaths[0]];
+            if (isset($preparedRules[$expandedPaths[0] ?? ''])) {
+                $wildcardRules[$pattern] = $preparedRules[$expandedPaths[0]];
             }
         }
 
@@ -84,12 +89,76 @@ trait HasFluentRules
         foreach ($prepared->implicitAttributes as $pattern => $expandedPaths) {
             if (isset($fastChecks[$pattern])) {
                 foreach ($expandedPaths as $path) {
-                    $attributePatternMap[$path] = $pattern;
+                    if (isset($preparedRules[$path])) {
+                        $attributePatternMap[$path] = $pattern;
+                    }
                 }
             }
         }
 
         return [$fastChecks, $attributePatternMap];
+    }
+
+    /**
+     * Pre-exclude rules whose exclude_unless/exclude_if conditions
+     * don't match the actual data. Operates on expanded rules (concrete
+     * paths like interactions.5.style.top) before they reach the validator.
+     *
+     * @param  array<string, mixed>  $rules
+     * @param  array<string, mixed>  $data
+     * @return array<string, mixed>
+     */
+    private function preExcludeRules(array $rules, array $data): array
+    {
+        /** @var array<string, string> $cache */
+        $cache = [];
+
+        foreach ($rules as $attribute => $ruleSet) {
+            if (! is_array($ruleSet)) {
+                continue;
+            }
+
+            foreach ($ruleSet as $rule) {
+                if (! is_array($rule) || count($rule) < 3) {
+                    continue;
+                }
+
+                $action = $rule[0];
+
+                if ($action !== 'exclude_unless' && $action !== 'exclude_if') {
+                    continue;
+                }
+
+                $conditionField = $rule[1];
+                $allowedValues = array_slice($rule, 2);
+
+                // Resolve wildcard: interactions.*.type → interactions.5.type
+                if (str_contains($conditionField, '*')) {
+                    preg_match_all('/\.(\d+)(?:\.|$)/', $attribute, $m);
+                    $indices = $m[1];
+                    $idx = 0;
+                    $conditionField = (string) preg_replace_callback('/\*/', function () use ($indices, &$idx) {
+                        return $indices[$idx++] ?? '*';
+                    }, $conditionField);
+                }
+
+                if (! isset($cache[$conditionField])) {
+                    $cache[$conditionField] = (string) (data_get($data, $conditionField) ?? '');
+                }
+
+                $actual = $cache[$conditionField];
+
+                $shouldExclude = ($action === 'exclude_unless' && ! in_array($actual, $allowedValues, true))
+                    || ($action === 'exclude_if' && in_array($actual, $allowedValues, true));
+
+                if ($shouldExclude) {
+                    unset($rules[$attribute]);
+                    break;
+                }
+            }
+        }
+
+        return $rules;
     }
 
     /**
