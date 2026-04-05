@@ -70,6 +70,11 @@ class PasswordRule implements DataAwareRule, ValidationRule, ValidatorAwareRule
         return $this;
     }
 
+    public function confirmed(): static
+    {
+        return $this->addRule('confirmed');
+    }
+
     public function canCompile(): bool
     {
         return false;
