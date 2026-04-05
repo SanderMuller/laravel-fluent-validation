@@ -42,44 +42,44 @@ class OptimizedValidator extends Validator
     }
 
     /**
-     * Reset fast-check caches when validation restarts.
-     * Parent resets MessageBag and failedRules; we must reset our caches too
-     * so stale results from a previous passes() call don't leak through.
+     * Run fast checks before the main validation loop, removing passing
+     * attributes entirely so Laravel never iterates their rules.
      */
     public function passes(): bool
     {
         $this->fastPassedAttributes = [];
         $this->fastEvaluatedAttributes = [];
 
-        return parent::passes();
-    }
+        if ($this->fastChecks !== []) {
+            // Pre-validate fast-checkable attributes and remove passing ones
+            // from $this->rules so the parent loop never sees them.
+            $removedRules = [];
 
-    protected function validateAttribute(mixed $attribute, mixed $rule): void
-    {
-        // Already fast-checked and passed — skip all remaining rules for this attribute.
-        if (isset($this->fastPassedAttributes[$attribute])) {
-            return;
-        }
+            foreach ($this->rules as $attribute => $rules) {
+                $pattern = $this->attributePatternMap[$attribute] ?? null;
 
-        // First encounter for this attribute: try the fast check.
-        if (! isset($this->fastEvaluatedAttributes[$attribute])) {
-            $this->fastEvaluatedAttributes[$attribute] = true;
+                if ($pattern !== null && isset($this->fastChecks[$pattern])) {
+                    $value = $this->getValue($attribute);
 
-            $pattern = $this->attributePatternMap[$attribute] ?? null;
-
-            if ($pattern !== null && isset($this->fastChecks[$pattern])) {
-                $value = $this->getValue($attribute);
-
-                if (($this->fastChecks[$pattern])($value)) {
-                    $this->fastPassedAttributes[$attribute] = true;
-
-                    return;
+                    if (($this->fastChecks[$pattern])($value)) {
+                        $removedRules[$attribute] = $rules;
+                        unset($this->rules[$attribute]);
+                    }
                 }
             }
+
+            // Run parent passes() on the reduced rule set.
+            $result = parent::passes();
+
+            // Restore removed rules so validated() can still return their data.
+            foreach ($removedRules as $attribute => $rules) {
+                $this->rules[$attribute] = $rules;
+            }
+
+            return $result;
         }
 
-        // Ineligible or failed fast check — let Laravel handle it.
-        parent::validateAttribute($attribute, $rule);
+        return parent::passes();
     }
 
     /**
