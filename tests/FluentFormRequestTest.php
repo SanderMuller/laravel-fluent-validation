@@ -1,5 +1,6 @@
 <?php declare(strict_types=1);
 
+use Illuminate\Contracts\Translation\Translator;
 use Illuminate\Contracts\Validation\Factory;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Http\Request;
@@ -1072,43 +1073,14 @@ it('correctly identifies the specific invalid item among many valid ones', funct
 });
 
 // =========================================================================
-// Edge cases: factory resolver restoration
+// Octane safety: factory resolver is never mutated
 // =========================================================================
 
-it('restores the factory resolver even when make() throws', function (): void {
+it('does not mutate the shared factory resolver (Octane-safe)', function (): void {
     $factory = app(Factory::class);
-
-    // Temporarily register a resolver that we can detect.
     $resolverProp = new ReflectionProperty(Illuminate\Validation\Factory::class, 'resolver');
-    $originalResolver = $resolverProp->getValue($factory);
+    $resolverBefore = $resolverProp->getValue($factory);
 
-    // Use a FormRequest whose rules will cause an error during make().
-    // We pass invalid rule format to trigger an exception inside the factory.
-    try {
-        $formRequest = createFluentFormRequest(
-            rules: [
-                'items' => FluentRule::array()->required()->each([
-                    'name' => FluentRule::string()->required(),
-                ]),
-            ],
-            data: ['items' => [['name' => 'Test']]],
-        );
-
-        (fn () => $this->createDefaultValidator($factory))->call($formRequest);
-    } catch (Throwable) {
-        // Ignore any errors
-    }
-
-    // The resolver must be restored regardless of success/failure.
-    $currentResolver = $resolverProp->getValue($factory);
-    expect($currentResolver)->toBe($originalResolver);
-
-    // Factory should still produce standard Validators.
-    $standardValidator = $factory->make(['x' => 'y'], ['x' => 'required']);
-    expect($standardValidator)->not->toBeInstanceOf(OptimizedValidator::class);
-});
-
-it('restores the factory resolver after creating the validator', function (): void {
     $formRequest = createFluentFormRequest(
         rules: [
             'items' => FluentRule::array()->required()->each([
@@ -1118,13 +1090,94 @@ it('restores the factory resolver after creating the validator', function (): vo
         data: ['items' => [['name' => 'Test']]],
     );
 
-    $factory = app(Factory::class);
     (fn () => $this->createDefaultValidator($factory))->call($formRequest);
 
-    // The factory should still create standard Validators after FluentFormRequest is done.
+    // The factory's resolver must be untouched — no swap happened.
+    $resolverAfter = $resolverProp->getValue($factory);
+    expect($resolverAfter)->toBe($resolverBefore);
+
+    // Factory still creates standard Validators for non-FluentRule code.
     $standardValidator = $factory->make(['x' => 'y'], ['x' => 'required']);
     expect($standardValidator)->toBeInstanceOf(Validator::class);
     expect($standardValidator)->not->toBeInstanceOf(OptimizedValidator::class);
+});
+
+it('OptimizedValidator inherits factory extensions from base validator', function (): void {
+    $factory = app(Factory::class);
+
+    // Register a custom extension on the factory.
+    $factory->extend('test_custom_rule', fn () => true, 'Custom rule failed.');
+
+    $formRequest = createFluentFormRequest(
+        rules: [
+            'items' => FluentRule::array()->required()->each([
+                'name' => FluentRule::string()->required()->max(255),
+            ]),
+        ],
+        data: ['items' => [['name' => 'Test']]],
+    );
+
+    /** @var OptimizedValidator $validator */
+    $validator = (fn () => $this->createDefaultValidator($factory))->call($formRequest);
+
+    expect($validator)->toBeInstanceOf(OptimizedValidator::class);
+    expect($validator->passes())->toBeTrue();
+});
+
+it('OptimizedValidator copies container and excludeUnvalidatedArrayKeys from factory', function (): void {
+    $factory = app(Factory::class);
+
+    $formRequest = createFluentFormRequest(
+        rules: [
+            'items' => FluentRule::array()->required()->each([
+                'name' => FluentRule::string()->required()->max(255),
+            ]),
+        ],
+        data: ['items' => [['name' => 'Test']]],
+    );
+
+    /** @var OptimizedValidator $validator */
+    $validator = (fn () => $this->createDefaultValidator($factory))->call($formRequest);
+
+    // Container should be set (needed for class-based rule extensions).
+    $containerProp = new ReflectionProperty(Validator::class, 'container');
+    expect($containerProp->getValue($validator))->not->toBeNull();
+
+    // excludeUnvalidatedArrayKeys should be set on the OptimizedValidator.
+    $excludeProp = new ReflectionProperty(Validator::class, 'excludeUnvalidatedArrayKeys');
+    expect($excludeProp->getValue($validator))->toBeBool();
+});
+
+it('preserves a preconfigured custom factory resolver', function (): void {
+    $factory = app(Factory::class);
+
+    // Set a custom resolver on the factory (simulates app-level customization).
+    $customCalled = false;
+    $factory->resolver(function (Translator $translator, array $data, array $rules, array $messages, array $attributes) use (&$customCalled): Validator {
+        $customCalled = true;
+
+        return new Validator($translator, $data, $rules, $messages, $attributes);
+    });
+
+    $formRequest = createFluentFormRequest(
+        rules: [
+            'items' => FluentRule::array()->required()->each([
+                'name' => FluentRule::string()->required()->max(255),
+            ]),
+        ],
+        data: ['items' => [['name' => 'Test']]],
+    );
+
+    (fn () => $this->createDefaultValidator($factory))->call($formRequest);
+
+    // The custom resolver must still be active — not replaced or cleared.
+    $resolverProp = new ReflectionProperty(Illuminate\Validation\Factory::class, 'resolver');
+    expect($resolverProp->getValue($factory))->not->toBeNull();
+
+    // Creating a standard validator should still use the custom resolver.
+    $customCalled = false;
+    $factory->make(['x' => 'y'], ['x' => 'required']);
+    expect($customCalled)->toBeTrue();
 });
 
 // =========================================================================
