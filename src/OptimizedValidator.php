@@ -43,6 +43,7 @@ class OptimizedValidator extends Validator
     public function passes(): bool
     {
         $removedRules = [];
+        $this->conditionValueCache = [];
         $hasFastChecks = $this->fastChecks !== [];
 
         foreach ($this->rules as $attribute => $rules) {
@@ -100,6 +101,12 @@ class OptimizedValidator extends Validator
      *
      * @param  list<mixed>  $rules
      */
+    /** @var array<string, string> Cached resolved condition field values */
+    private array $conditionValueCache = [];
+
+    /**
+     * @param  list<mixed>  $rules
+     */
     private function shouldPreExclude(string $attribute, array $rules): bool
     {
         foreach ($rules as $rule) {
@@ -109,26 +116,30 @@ class OptimizedValidator extends Validator
 
             $action = $rule[0];
             $conditionField = $rule[1];
-            $allowedValues = array_slice($rule, 2);
 
             if ($action !== 'exclude_unless' && $action !== 'exclude_if') {
                 continue;
             }
 
-            // Resolve wildcard in condition field using attribute's concrete index.
+            $allowedValues = array_slice($rule, 2);
+
+            // Resolve wildcard and cache the result — same condition field
+            // is evaluated once per item, not once per rule.
             if (str_contains($conditionField, '*')) {
                 $conditionField = $this->resolveWildcard($attribute, $conditionField);
             }
 
-            $actualValue = (string) ($this->getValue($conditionField) ?? '');
+            if (! isset($this->conditionValueCache[$conditionField])) {
+                $this->conditionValueCache[$conditionField] = (string) ($this->getValue($conditionField) ?? '');
+            }
+
+            $actualValue = $this->conditionValueCache[$conditionField];
 
             if ($action === 'exclude_unless') {
-                // Exclude UNLESS value is in the allowed list.
                 if (! in_array($actualValue, $allowedValues, true)) {
                     return true;
                 }
             } elseif ($action === 'exclude_if') {
-                // Exclude IF value is in the list.
                 if (in_array($actualValue, $allowedValues, true)) {
                     return true;
                 }
