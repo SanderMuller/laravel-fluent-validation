@@ -401,7 +401,13 @@ final class RuleSet implements Arrayable
                 continue;
             }
 
-            $stripped[] = $rule;
+            // Stringify Stringable objects (Rule::in, Rule::notIn) so the
+            // result can be fast-checked as a pipe-joined string.
+            if (is_object($rule) && $rule instanceof \Stringable) {
+                $stripped[] = (string) $rule;
+            } else {
+                $stripped[] = $rule;
+            }
         }
 
         // If all remaining rules are strings, join them for faster parsing.
