@@ -79,7 +79,7 @@ class FluentRule
         return $label !== null ? $imageRule->label($label) : $imageRule;
     }
 
-    public static function password(int $min = 8, ?string $label = null): PasswordRule
+    public static function password(?int $min = null, ?string $label = null): PasswordRule
     {
         $passwordRule = new PasswordRule($min);
 

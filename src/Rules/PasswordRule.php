@@ -23,9 +23,9 @@ class PasswordRule implements DataAwareRule, ValidationRule, ValidatorAwareRule
 
     protected Password $password;
 
-    public function __construct(int $min = 8)
+    public function __construct(?int $min = null)
     {
-        $this->password = Password::min($min);
+        $this->password = $min !== null ? Password::min($min) : Password::default();
     }
 
     public function max(int $size): static

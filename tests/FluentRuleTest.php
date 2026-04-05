@@ -47,8 +47,11 @@ it('creates boolean accepted rule', function (): void {
 });
 
 it('creates boolean declined rule', function (): void {
-    $validator = makeValidator(['opt_out' => false], ['opt_out' => FluentRule::boolean()->declined()]);
-    expect($validator->passes())->toBeTrue();
+    $v = makeValidator(['opt_out' => false], ['opt_out' => FluentRule::boolean()->declined()]);
+    expect($v->passes())->toBeTrue();
+
+    $v = makeValidator(['opt_out' => true], ['opt_out' => FluentRule::boolean()->declined()]);
+    expect($v->passes())->toBeFalse();
 });
 
 // =========================================================================

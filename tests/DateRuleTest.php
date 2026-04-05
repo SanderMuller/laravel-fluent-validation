@@ -82,13 +82,19 @@ it('validates date with afterToday', function (): void {
 });
 
 it('validates date with todayOrBefore', function (): void {
-    $validator = makeValidator(['d' => '2000-01-01'], ['d' => FluentRule::date()->todayOrBefore()]);
-    expect($validator->passes())->toBeTrue();
+    $v = makeValidator(['d' => '2000-01-01'], ['d' => FluentRule::date()->todayOrBefore()]);
+    expect($v->passes())->toBeTrue();
+
+    $v = makeValidator(['d' => '2099-01-01'], ['d' => FluentRule::date()->todayOrBefore()]);
+    expect($v->passes())->toBeFalse();
 });
 
 it('validates date with todayOrAfter', function (): void {
-    $validator = makeValidator(['d' => '2099-01-01'], ['d' => FluentRule::date()->todayOrAfter()]);
-    expect($validator->passes())->toBeTrue();
+    $v = makeValidator(['d' => '2099-01-01'], ['d' => FluentRule::date()->todayOrAfter()]);
+    expect($v->passes())->toBeTrue();
+
+    $v = makeValidator(['d' => '2000-01-01'], ['d' => FluentRule::date()->todayOrAfter()]);
+    expect($v->passes())->toBeFalse();
 });
 
 // =========================================================================
@@ -112,13 +118,19 @@ it('validates date with future', function (): void {
 });
 
 it('validates date with nowOrPast', function (): void {
-    $validator = makeValidator(['d' => '2000-01-01 00:00:00'], ['d' => FluentRule::date()->nowOrPast()]);
-    expect($validator->passes())->toBeTrue();
+    $v = makeValidator(['d' => '2000-01-01 00:00:00'], ['d' => FluentRule::date()->nowOrPast()]);
+    expect($v->passes())->toBeTrue();
+
+    $v = makeValidator(['d' => '2099-01-01 00:00:00'], ['d' => FluentRule::date()->nowOrPast()]);
+    expect($v->passes())->toBeFalse();
 });
 
 it('validates date with nowOrFuture', function (): void {
-    $validator = makeValidator(['d' => '2099-01-01 00:00:00'], ['d' => FluentRule::date()->nowOrFuture()]);
-    expect($validator->passes())->toBeTrue();
+    $v = makeValidator(['d' => '2099-01-01 00:00:00'], ['d' => FluentRule::date()->nowOrFuture()]);
+    expect($v->passes())->toBeTrue();
+
+    $v = makeValidator(['d' => '2000-01-01 00:00:00'], ['d' => FluentRule::date()->nowOrFuture()]);
+    expect($v->passes())->toBeFalse();
 });
 
 // =========================================================================
