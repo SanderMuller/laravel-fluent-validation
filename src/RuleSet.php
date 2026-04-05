@@ -104,8 +104,8 @@ final class RuleSet implements Arrayable
         [$topRules, $wildcardGroups] = $this->separateRules();
 
         [$ruleMessages, $ruleAttributes] = self::extractMetadata($topRules);
-        $messages = array_merge($ruleMessages, $messages);
-        $attributes = array_merge($ruleAttributes, $attributes);
+        $messages += $ruleMessages;
+        $attributes += $ruleAttributes;
 
         if ($wildcardGroups === []) {
             /** @var array<string, mixed> */
@@ -208,8 +208,8 @@ final class RuleSet implements Arrayable
                 : $this->rewriteRulesForPerItem($groupRules, $parent);
 
             [$itemMessages, $itemAttributes] = self::extractMetadata($rawItemRules);
-            $itemMessages = array_merge($itemMessages, $messages);
-            $itemAttributes = array_merge($itemAttributes, $attributes);
+            $itemMessages = $messages + $itemMessages;
+            $itemAttributes = $attributes + $itemAttributes;
             $itemRules = self::compile($rawItemRules);
 
             if ($this->requiresFullExpansion($itemRules)) {
@@ -219,7 +219,7 @@ final class RuleSet implements Arrayable
             }
 
             $groupErrors = $this->validateItems($items, $itemRules, $itemMessages, $itemAttributes, $parent, $isScalar);
-            $allErrors = array_merge($allErrors, $groupErrors);
+            $allErrors += $groupErrors;
         }
 
         return $allErrors;
@@ -437,8 +437,8 @@ final class RuleSet implements Arrayable
         [$rules, $implicitAttributes] = $this->expand($data);
 
         [$ruleMessages, $ruleAttributes] = self::extractMetadata($rules);
-        $messages = array_merge($ruleMessages, $messages);
-        $attributes = array_merge($ruleAttributes, $attributes);
+        $messages += $ruleMessages;
+        $attributes += $ruleAttributes;
 
         $validator = Validator::make($data, self::compile($rules), $messages, $attributes);
 

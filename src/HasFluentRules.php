@@ -2,9 +2,7 @@
 
 namespace SanderMuller\FluentValidation;
 
-use Illuminate\Contracts\Translation\Translator;
 use Illuminate\Contracts\Validation\Factory as ValidationFactory;
-use Illuminate\Validation\Factory;
 use Illuminate\Validation\Validator;
 use ReflectionProperty;
 
@@ -44,8 +42,8 @@ trait HasFluentRules
 
         [$fastChecks, $attributePatternMap] = $this->buildFastCheckMaps($prepared);
 
-        $messages = array_merge($prepared->messages, $this->messages());
-        $attributes = array_merge($prepared->attributes, $this->attributes());
+        $messages = $this->messages() + $prepared->messages;
+        $attributes = $this->attributes() + $prepared->attributes;
 
         // Only use OptimizedValidator when there are fast-checkable wildcard
         // rules. Otherwise return a plain Validator — zero overhead, zero
@@ -95,8 +93,9 @@ trait HasFluentRules
     }
 
     /**
-     * Create an OptimizedValidator through the factory so it gets full setup
-     * (extensions, container, presence verifier, excludeUnvalidatedArrayKeys).
+     * Create an OptimizedValidator with the same setup the factory provides
+     * (extensions, container, presence verifier, excludeUnvalidatedArrayKeys)
+     * without mutating the shared factory's resolver. Octane-safe.
      *
      * @param  array<string, mixed>  $data
      * @param  array<string, mixed>  $rules
@@ -110,21 +109,31 @@ trait HasFluentRules
         array $messages,
         array $attributes,
     ): OptimizedValidator {
-        $resolverProp = new ReflectionProperty(Factory::class, 'resolver');
-        $originalResolver = $resolverProp->getValue($factory);
+        // Create a standard Validator through the factory to get full setup,
+        // then transfer its configuration to an OptimizedValidator.
+        /** @var Validator $base */
+        $base = $factory->make($data, $rules, $messages, $attributes);
 
-        /** @var Factory $factory */
-        $factory->resolver(
-            static fn (Translator $translator, array $data, array $rules, array $messages, array $attributes) => new OptimizedValidator($translator, $data, $rules, $messages, $attributes),
+        $optimized = new OptimizedValidator(
+            $base->getTranslator(),
+            $data,
+            $rules,
+            $messages,
+            $attributes,
         );
 
-        try {
-            /** @var OptimizedValidator $validator */
-            $validator = $factory->make($data, $rules, $messages, $attributes);
-        } finally {
-            $resolverProp->setValue($factory, $originalResolver);
+        // Copy setup that the factory applied to the base validator.
+        $ref = new \ReflectionObject($base);
+        foreach (['container', 'presenceVerifier', 'excludeUnvalidatedArrayKeys', 'extensions', 'implicitExtensions', 'dependentExtensions', 'replacers', 'fallbackMessages'] as $prop) {
+            if ($ref->hasProperty($prop)) {
+                $p = $ref->getProperty($prop);
+                $value = $p->getValue($base);
+                if (! in_array($value, [null, [], false], true)) {
+                    $p->setValue($optimized, $value);
+                }
+            }
         }
 
-        return $validator;
+        return $optimized;
     }
 }

@@ -39,8 +39,8 @@ abstract class FluentValidator extends Validator
             app('translator'),
             $data,
             $prepared->rules,
-            array_merge($prepared->messages, $messages),
-            array_merge($prepared->attributes, $attributes),
+            $messages + $prepared->messages,
+            $attributes + $prepared->attributes,
         );
 
         if ($prepared->implicitAttributes !== []) {
