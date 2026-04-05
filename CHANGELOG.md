@@ -2,6 +2,37 @@
 
 All notable changes to `laravel-fluent-validation` will be documented in this file.
 
+## 0.4.0 - 2026-04-05
+
+### Added
+
+- **`HasFluentValidation` trait for Livewire components** — Overrides `validate()` and `validateOnly()` to compile FluentRule objects, extract labels/messages, and expand wildcards before Livewire's validator sees them. Uses Livewire's `getDataForValidation()` and `unwrapDataForValidation()` for correct model-bound property handling. Note: use flat wildcard keys (`items.*`) instead of `each()` for Livewire array fields.
+  
+- **`in()` and `notIn()` accept `Arrayable`** — Collections can now be passed directly without calling `->all()`.
+  
+
+### Fixed
+
+- **Exists/Unique with closure-based `->where()` preserved** — Only `In` and `NotIn` objects are stringified during compilation. `Exists`, `Unique`, and `Dimensions` stay as objects to prevent closure-based `where()` constraints from being silently dropped by `__toString()`.
+  
+- **File sizes use decimal conversion** — `toKilobytes()` now uses 1000 (decimal) matching Laravel's `File` rule, not 1024 (binary). `'5mb'` produces 5000 KB, not 5120 KB.
+  
+- **Octane-safe OptimizedValidator** — Factory resolver restored via try/finally and array union replaces array_merge for performance.
+  
+
+### Improved
+
+- **PHPStan baseline reduced to 8 entries** — Fixed `preg_match` boolean comparisons, added `is_scalar` guards for digit casts, typed test closures.
+
+### Validated
+
+Tested across two independent codebases:
+
+- hihaho: 50+ files (FormRequests, custom Validators, Livewire), 481 tests
+- mijntp: 31 files, confirmed API is intuitive and conversion is smooth
+
+**Full Changelog**: https://github.com/SanderMuller/laravel-fluent-validation/compare/0.3.6...0.4.0
+
 ## 0.3.6 - 2026-04-05
 
 ### Fixed
@@ -110,6 +141,7 @@ All notable changes to `laravel-fluent-validation` will be documented in this fi
   
   
   
+  
   ```
 - **PHPStan errors in OptimizedValidator** — Matched parent `Validator::validateAttribute()` signature.
   
@@ -159,6 +191,7 @@ All notable changes to `laravel-fluent-validation` will be documented in this fi
   
   
   
+  
   ```
 - FluentFormRequest base class — Combines HasFluentRules compilation with per-attribute
   fast-check optimization via OptimizedValidator. Eligible wildcard rules are fast-checked
@@ -191,6 +224,7 @@ All notable changes to `laravel-fluent-validation` will be documented in this fi
   ```php
   FluentRule::string()->unique('users', 'email', fn($r) => $r->ignore($this->user()->id))
   FluentRule::string()->exists('subjects', 'id', fn($r) => $r->where('video_id',          
+  
   
   
   
