@@ -36,17 +36,18 @@ class OptimizedValidator extends Validator
     }
 
     /**
-     * Run fast checks before the main validation loop, removing passing
-     * attributes entirely so Laravel never iterates their rules.
+     * Pre-validate fast-checkable attributes and pre-evaluate conditional
+     * rules (exclude_unless/exclude_if) before the main validation loop,
+     * removing passing/excluded attributes so Laravel never iterates them.
      */
     public function passes(): bool
     {
-        if ($this->fastChecks !== []) {
-            // Pre-validate fast-checkable attributes and remove passing ones
-            // from $this->rules so the parent loop never sees them.
-            $removedRules = [];
+        $removedRules = [];
+        $hasFastChecks = $this->fastChecks !== [];
 
-            foreach ($this->rules as $attribute => $rules) {
+        foreach ($this->rules as $attribute => $rules) {
+            // Fast-check: skip eligible wildcard attributes that pass PHP checks.
+            if ($hasFastChecks) {
                 $pattern = $this->attributePatternMap[$attribute] ?? null;
 
                 if ($pattern !== null && isset($this->fastChecks[$pattern])) {
@@ -55,22 +56,105 @@ class OptimizedValidator extends Validator
                     if (($this->fastChecks[$pattern])($value)) {
                         $removedRules[$attribute] = $rules;
                         unset($this->rules[$attribute]);
+
+                        continue;
                     }
                 }
             }
 
-            // Run parent passes() on the reduced rule set.
-            $result = parent::passes();
-
-            // Restore removed rules so validated() can still return their data.
-            foreach ($removedRules as $attribute => $rules) {
-                $this->rules[$attribute] = $rules;
+            // Conditional pre-evaluation: check exclude_unless/exclude_if
+            // conditions without going through Laravel's validation loop.
+            if ($this->shouldPreExclude($attribute, $rules)) {
+                // Don't add to removedRules — excluded fields should NOT
+                // appear in validated() output.
+                unset($this->rules[$attribute]);
             }
-
-            return $result;
         }
 
-        return parent::passes();
+        if ($removedRules === [] && $this->rules === []) {
+            // Everything was removed — skip parent entirely.
+            $this->messages = new \Illuminate\Support\MessageBag;
+            $this->failedRules = [];
+
+            foreach ($this->after as $after) {
+                $after();
+            }
+
+            return $this->messages->isEmpty();
+        }
+
+        $result = parent::passes();
+
+        // Restore fast-checked rules so validated() returns their data.
+        // (Excluded rules are intentionally NOT restored.)
+        foreach ($removedRules as $attribute => $rules) {
+            $this->rules[$attribute] = $rules;
+        }
+
+        return $result;
+    }
+
+    /**
+     * Check if an attribute should be excluded based on its exclude_unless
+     * or exclude_if condition, without invoking Laravel's validator.
+     *
+     * @param  list<mixed>  $rules
+     */
+    private function shouldPreExclude(string $attribute, array $rules): bool
+    {
+        foreach ($rules as $rule) {
+            if (! is_array($rule) || count($rule) < 3) {
+                continue;
+            }
+
+            $action = $rule[0];
+            $conditionField = $rule[1];
+            $allowedValues = array_slice($rule, 2);
+
+            if ($action !== 'exclude_unless' && $action !== 'exclude_if') {
+                continue;
+            }
+
+            // Resolve wildcard in condition field using attribute's concrete index.
+            if (str_contains($conditionField, '*')) {
+                $conditionField = $this->resolveWildcard($attribute, $conditionField);
+            }
+
+            $actualValue = (string) ($this->getValue($conditionField) ?? '');
+
+            if ($action === 'exclude_unless') {
+                // Exclude UNLESS value is in the allowed list.
+                if (! in_array($actualValue, $allowedValues, true)) {
+                    return true;
+                }
+            } elseif ($action === 'exclude_if') {
+                // Exclude IF value is in the list.
+                if (in_array($actualValue, $allowedValues, true)) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Replace wildcards in a condition field reference with concrete indices
+     * from the attribute name. E.g., for attribute "interactions.5.style.top"
+     * and condition field "interactions.*.type", returns "interactions.5.type".
+     */
+    private function resolveWildcard(string $attribute, string $conditionField): string
+    {
+        // Extract all concrete indices from the attribute path.
+        preg_match_all('/\.(\d+)(?:\.|$)/', $attribute, $matches);
+        $indices = $matches[1];
+
+        // Replace each * in the condition field with the corresponding index.
+        $i = 0;
+
+        return (string) preg_replace_callback('/\*/', function () use ($indices, &$i) {
+            return $indices[$i++] ?? '*';
+        }, $conditionField);
     }
 
     /**
