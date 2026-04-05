@@ -165,11 +165,11 @@ FluentRule::file()->rule(['mimetypes', ...$types])     // array tuple
 | `Rule::unique('users')`                           | `->unique('users')`                                                       |
 | `Rule::forEach(fn () => ...)`                     | `FluentRule::array()->each(...)`                                          |
 
-**Things to know:**
+**Tips:**
 
 - All conditional methods (`requiredIf`, `excludeUnless`, etc.) accept `string|int|bool` values.
-- Cross-field wildcard references (`requiredUnless('items.*.type', ...)`) require `HasFluentRules` or `FluentValidator`. They don't work in standalone self-validation mode.
 - `each()` and `children()` nest naturally. Flat dot-notation keys like `columns.*.data.sort` become nested `each([...children([...])])` trees that mirror the data shape.
+- Child FormRequests that extend parent rules should use spread + key override or `(clone $parentRule)->rule(...)`, not `mergeRecursive` (which deconstructs objects).
 
 ## Error messages
 
@@ -388,21 +388,7 @@ class JsonImportValidator extends FluentValidator
 }
 ```
 
-`FluentValidator` resolves the translator and presence verifier from the container, calls `prepare()` on the rules, and sets implicit attributes.
-
-> **Note:** Cross-field wildcard references (e.g., `requiredUnless('*.type', ...)`) only work through `FluentValidator` or `HasFluentRules`. Standalone FluentRule objects self-validate in isolation and can't resolve them.
-
-> **Tip:** For validators with many cross-field references using a dynamic prefix, a simple helper reduces repetition:
->
-> ```php
-> protected function ref(string ...$parts): string
-> {
->     return $this->prefix . '*.' . implode('.', $parts);
-> }
->
-> // Then: ->excludeUnless($this->ref('type'), ...) instead of
-> //       ->excludeUnless($this->prefix . '*.' . ExternalInteraction::TYPE, ...)
-> ```
+`FluentValidator` resolves the translator and presence verifier from the container, calls `prepare()` on the rules, and sets implicit attributes. Cross-field wildcard references (`requiredUnless('*.type', ...)`) work automatically.
 
 ---
 
@@ -565,7 +551,7 @@ Shared by all rule types:
 ->bail()  ->rule($stringOrObjectOrArray)  ->whenInput($condition, $then, $else?)
 ```
 
-> **Note:** `exclude` rules only affect `validated()` output when placed at the outer validator level. To exclude a field from validated data, place `exclude` alongside the fluent rule: `'field' => ['exclude', FluentRule::string()]`
+> To exclude a field from `validated()` output, place `exclude` alongside the fluent rule: `'field' => ['exclude', FluentRule::string()]`
 
 ### Conditional rules
 
