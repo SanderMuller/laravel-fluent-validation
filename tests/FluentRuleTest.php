@@ -1523,6 +1523,43 @@ it('deduplicates constraints when compiling', function (): void {
 });
 
 // =========================================================================
+// Failed rule identifiers (assertHasErrors compatibility)
+// =========================================================================
+
+it('exposes individual rule identifiers in failed() for self-validation', function (): void {
+    $validator = makeValidator(['title' => ''], [
+        'title' => FluentRule::string()->required()->min(6)->max(200),
+    ]);
+
+    expect($validator->passes())->toBeFalse();
+
+    $failed = $validator->failed();
+    expect($failed)->toHaveKey('title');
+    expect($failed['title'])->toHaveKey('Required');
+});
+
+it('exposes min rule identifier in failed() when value is too short', function (): void {
+    $validator = makeValidator(['title' => 'ab'], [
+        'title' => FluentRule::string()->required()->min(6)->max(200),
+    ]);
+
+    expect($validator->passes())->toBeFalse();
+
+    $failed = $validator->failed();
+    expect($failed)->toHaveKey('title');
+    expect($failed['title'])->toHaveKey('Min');
+});
+
+it('failed() is empty when validation passes', function (): void {
+    $validator = makeValidator(['title' => 'Valid Title'], [
+        'title' => FluentRule::string()->required()->min(6)->max(200),
+    ]);
+
+    expect($validator->passes())->toBeTrue();
+    expect($validator->failed())->toBe([]);
+});
+
+// =========================================================================
 // Enums for testing
 // =========================================================================
 
