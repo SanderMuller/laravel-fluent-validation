@@ -155,7 +155,6 @@ it('uses Password::default() when no min specified', function (): void {
 it('overrides defaults when explicit min is passed', function (): void {
     Password::defaults(fn () => Password::min(20)->letters());
 
-
     try {
         $v = makeValidator(['password' => 'Short1'], ['password' => FluentRule::password(min: 6)->required()]);
         expect($v->passes())->toBeTrue();
