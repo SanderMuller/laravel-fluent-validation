@@ -67,7 +67,7 @@ parameters:
 			path: src/OptimizedValidator.php
 
 		-
-			rawMessage: 'Class cognitive complexity is 161, keep it under 50'
+			rawMessage: 'Class cognitive complexity is 160, keep it under 50'
 			identifier: complexity.classLike
 			count: 1
 			path: src/RuleSet.php
@@ -79,7 +79,7 @@ parameters:
 			path: src/RuleSet.php
 
 		-
-			rawMessage: 'Cognitive complexity for "SanderMuller\FluentValidation\RuleSet::stripConditionalTuples()" is 16, keep it under 12'
+			rawMessage: 'Cognitive complexity for "SanderMuller\FluentValidation\RuleSet::stripConditionalTuples()" is 15, keep it under 12'
 			identifier: complexity.functionLike
 			count: 1
 			path: src/RuleSet.php
