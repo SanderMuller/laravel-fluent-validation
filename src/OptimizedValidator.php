@@ -190,12 +190,22 @@ class OptimizedValidator extends Validator
         foreach ($rules as $rule) {
             if (is_string($rule)) {
                 $stringParts[] = $rule;
-            } elseif (is_array($rule) && isset($rule[0]) && is_string($rule[0])
-                && ! in_array($rule[0], ['exclude_unless', 'exclude_if', 'required_if', 'required_unless'], true)) {
-                // Non-conditional array rule — skip
+            } elseif (is_array($rule) && isset($rule[0]) && is_string($rule[0])) {
+                // Conditional tuple — skip it (already evaluated).
+                if (in_array($rule[0], ['exclude_unless', 'exclude_if', 'required_if', 'required_unless'], true)) {
+                    continue;
+                }
+
+                // Other array tuple — can't fast-check.
+                return null;
+            } elseif (is_object($rule) && $rule instanceof \Stringable) {
+                // Stringable objects like Rule::in(), Rule::notIn() — stringify
+                // them so FastCheckCompiler can handle them.
+                $stringParts[] = (string) $rule;
+            } else {
+                // Non-stringable object (Closure, custom ValidationRule) — bail.
                 return null;
             }
-            // Skip conditional tuples and object rules
         }
 
         return $stringParts !== [] ? implode('|', $stringParts) : null;
