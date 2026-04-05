@@ -18,7 +18,7 @@ Write Laravel validation rules with IDE autocompletion instead of memorizing str
 
 - [Why this package?](#why-this-package) — DX, type safety, structure, performance
 - [Installation](#installation)
-- [Quick start](#quick-start) — Validator::make, Form Requests, migrating existing rules
+- [Quick start](#quick-start) — Validator::make, Form Requests, Livewire, migrating existing rules
 - [Error messages](#error-messages) — labels, per-rule messages
 - [Array validation](#array-validation-with-each-and-children) — each, children, nesting
 - [Performance](#performance) — O(n) wildcards, benchmarks, RuleSet::validate
