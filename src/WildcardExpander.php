@@ -31,6 +31,10 @@ class WildcardExpander
      */
     private static function resolve(array $segments, mixed $current, array $path, bool $afterWildcard = false): array
     {
+        if (count($path) > 50) {
+            return [];
+        }
+
         if ($segments === []) {
             return [implode('.', $path)];
         }

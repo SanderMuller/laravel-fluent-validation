@@ -118,10 +118,12 @@ trait HasFluentRules
             static fn (Translator $translator, array $data, array $rules, array $messages, array $attributes) => new OptimizedValidator($translator, $data, $rules, $messages, $attributes),
         );
 
-        /** @var OptimizedValidator $validator */
-        $validator = $factory->make($data, $rules, $messages, $attributes);
-
-        $resolverProp->setValue($factory, $originalResolver);
+        try {
+            /** @var OptimizedValidator $validator */
+            $validator = $factory->make($data, $rules, $messages, $attributes);
+        } finally {
+            $resolverProp->setValue($factory, $originalResolver);
+        }
 
         return $validator;
     }
