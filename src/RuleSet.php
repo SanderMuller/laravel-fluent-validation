@@ -238,12 +238,11 @@ final class RuleSet implements Arrayable
     {
         $conditionalFields = $this->analyzeConditionals($itemRules);
 
-        // Pre-compute reduced rule sets per unique dispatch value.
-        // If all conditionals reference the same field (e.g., "type"),
-        // we build one rule set per unique type value instead of per item.
         $dispatchField = $this->findCommonDispatchField($conditionalFields);
         /** @var array<string, array<string, mixed>> $rulesByDispatch */
         $rulesByDispatch = [];
+        /** @var array<string, array{0: array<string, \Closure(array<string, mixed>): bool>, 1: array<string, mixed>}> $fastChecksByDispatch */
+        $fastChecksByDispatch = [];
 
         [$fastChecks, $slowRules] = $this->buildFastChecks($itemRules);
         $allFast = $slowRules === [];
@@ -262,24 +261,30 @@ final class RuleSet implements Arrayable
 
                 if (! isset($rulesByDispatch[$dispatchValue])) {
                     $rulesByDispatch[$dispatchValue] = $this->reduceRulesForItem($itemRules, $itemData, $conditionalFields);
+                    // Build fast checks for the stripped (conditional-free) rules.
+                    $fastChecksByDispatch[$dispatchValue] = $this->buildFastChecks($rulesByDispatch[$dispatchValue]);
                 }
 
                 $effectiveRules = $rulesByDispatch[$dispatchValue];
+                [$dispatchFastChecks, $dispatchSlowRules] = $fastChecksByDispatch[$dispatchValue];
             } elseif ($conditionalFields !== []) {
                 $effectiveRules = $this->reduceRulesForItem($itemRules, $itemData, $conditionalFields);
+                [$dispatchFastChecks, $dispatchSlowRules] = $this->buildFastChecks($effectiveRules);
             } else {
                 $effectiveRules = $itemRules;
+                $dispatchFastChecks = $fastChecks;
+                $dispatchSlowRules = $slowRules;
             }
 
-            if ($fastChecks !== []) {
-                $fastPass = $this->passesAllFastChecks($fastChecks, $itemData);
+            if ($dispatchFastChecks !== []) {
+                $fastPass = $this->passesAllFastChecks($dispatchFastChecks, $itemData);
 
-                if ($fastPass && ($allFast || $effectiveRules === [])) {
+                if ($fastPass && $dispatchSlowRules === []) {
                     continue;
                 }
 
                 if ($fastPass) {
-                    $reducedSlowRules = array_diff_key($effectiveRules, $fastChecks);
+                    $reducedSlowRules = $dispatchSlowRules;
 
                     if ($reducedSlowRules === []) {
                         continue;
@@ -367,10 +372,52 @@ final class RuleSet implements Arrayable
 
             if ($shouldExclude) {
                 unset($itemRules[$field]);
+            } else {
+                // Condition matched — strip the conditional tuple so only the
+                // actual validation rules remain. This enables fast-checking.
+                $itemRules[$field] = $this->stripConditionalTuples($itemRules[$field]);
             }
         }
 
         return $itemRules;
+    }
+
+    /**
+     * Strip exclude_unless/exclude_if tuples from a rule array, leaving
+     * only the actual validation rules. Joins remaining strings into a
+     * pipe-delimited string when possible.
+     */
+    private function stripConditionalTuples(mixed $rules): mixed
+    {
+        if (! is_array($rules)) {
+            return $rules;
+        }
+
+        $stripped = [];
+
+        foreach ($rules as $rule) {
+            if (is_array($rule) && isset($rule[0]) && is_string($rule[0])
+                && in_array($rule[0], ['exclude_unless', 'exclude_if', 'required_if', 'required_unless'], true)) {
+                continue;
+            }
+
+            $stripped[] = $rule;
+        }
+
+        // If all remaining rules are strings, join them for faster parsing.
+        $allStrings = true;
+        foreach ($stripped as $rule) {
+            if (! is_string($rule)) {
+                $allStrings = false;
+                break;
+            }
+        }
+
+        if ($allStrings && $stripped !== []) {
+            return implode('|', $stripped);
+        }
+
+        return $stripped;
     }
 
     /**
