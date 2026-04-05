@@ -236,10 +236,13 @@ final class RuleSet implements Arrayable
      */
     private function validateItems(array $items, array $itemRules, array $itemMessages, array $itemAttributes, string $parent, bool $isScalar): array
     {
+        // Pre-analyze conditional rules to enable per-item rule reduction.
+        $conditionalFields = $this->analyzeConditionals($itemRules);
+
         [$fastChecks, $slowRules] = $this->buildFastChecks($itemRules);
         $allFast = $slowRules === [];
-        $itemValidator = null;
-        $slowValidator = null;
+        /** @var array<string, \Illuminate\Validation\Validator> $validatorCache */
+        $validatorCache = [];
         /** @var array<string, list<string>> $errors */
         $errors = [];
 
@@ -247,42 +250,123 @@ final class RuleSet implements Arrayable
             /** @var array<string, mixed> $itemData */
             $itemData = $isScalar ? ['_v' => $item] : (is_array($item) ? $item : []);
 
+            // Reduce rules by pre-evaluating exclude_unless/exclude_if conditions.
+            $effectiveRules = $conditionalFields !== []
+                ? $this->reduceRulesForItem($itemRules, $itemData, $conditionalFields)
+                : $itemRules;
+
             if ($fastChecks !== []) {
                 $fastPass = $this->passesAllFastChecks($fastChecks, $itemData);
 
-                if ($fastPass && $allFast) {
-                    continue; // All fields fast-checked and passed — skip Laravel entirely.
+                if ($fastPass && ($allFast || $effectiveRules === [])) {
+                    continue;
                 }
 
-                if ($fastPass && $slowRules !== []) {
-                    // Fast fields passed — only validate slow fields via Laravel.
-                    if ($slowValidator === null) {
-                        $slowValidator = Validator::make($itemData, $slowRules, $itemMessages, $itemAttributes);
-                    } else {
-                        $slowValidator->setData($itemData);
+                if ($fastPass) {
+                    // Fast fields passed — only validate non-fast fields via Laravel.
+                    $reducedSlowRules = array_diff_key($effectiveRules, $fastChecks);
+
+                    if ($reducedSlowRules === []) {
+                        continue;
                     }
 
-                    if (! $slowValidator->passes()) {
-                        $this->collectErrors($slowValidator, $parent, $index, $isScalar, $errors);
+                    $cacheKey = $this->ruleCacheKey($reducedSlowRules);
+
+                    if (! isset($validatorCache[$cacheKey])) {
+                        $validatorCache[$cacheKey] = Validator::make($itemData, $reducedSlowRules, $itemMessages, $itemAttributes);
+                    } else {
+                        $validatorCache[$cacheKey]->setData($itemData);
+                    }
+
+                    if (! $validatorCache[$cacheKey]->passes()) {
+                        $this->collectErrors($validatorCache[$cacheKey], $parent, $index, $isScalar, $errors);
                     }
 
                     continue;
                 }
             }
 
-            // No fast-checks, or a fast-check failed — validate all fields for proper error messages.
-            if ($itemValidator === null) {
-                $itemValidator = Validator::make($itemData, $itemRules, $itemMessages, $itemAttributes);
+            // No fast-checks, or a fast-check failed — validate with reduced rules.
+            $cacheKey = $this->ruleCacheKey($effectiveRules);
+
+            if (! isset($validatorCache[$cacheKey])) {
+                $validatorCache[$cacheKey] = Validator::make($itemData, $effectiveRules, $itemMessages, $itemAttributes);
             } else {
-                $itemValidator->setData($itemData);
+                $validatorCache[$cacheKey]->setData($itemData);
             }
 
-            if (! $itemValidator->passes()) {
-                $this->collectErrors($itemValidator, $parent, $index, $isScalar, $errors);
+            if (! $validatorCache[$cacheKey]->passes()) {
+                $this->collectErrors($validatorCache[$cacheKey], $parent, $index, $isScalar, $errors);
             }
         }
 
         return $errors;
+    }
+
+    /**
+     * Analyze conditional rules (exclude_unless/exclude_if) in item rules.
+     * Returns a map of field → condition info for fast per-item evaluation.
+     *
+     * @param  array<string, mixed>  $itemRules
+     * @return array<string, array{action: string, field: string, values: list<string>}>
+     */
+    private function analyzeConditionals(array $itemRules): array
+    {
+        $conditionals = [];
+
+        foreach ($itemRules as $field => $rules) {
+            if (! is_array($rules)) {
+                continue;
+            }
+
+            foreach ($rules as $rule) {
+                if (is_array($rule) && count($rule) >= 3
+                    && ($rule[0] === 'exclude_unless' || $rule[0] === 'exclude_if')) {
+                    $conditionals[$field] = [
+                        'action' => $rule[0],
+                        'field' => $rule[1],
+                        'values' => array_slice($rule, 2),
+                    ];
+                    break;
+                }
+            }
+        }
+
+        return $conditionals;
+    }
+
+    /**
+     * Reduce item rules by evaluating conditional exclusions against the item data.
+     *
+     * @param  array<string, mixed>  $itemRules
+     * @param  array<string, mixed>  $itemData
+     * @param  array<string, array{action: string, field: string, values: list<string>}>  $conditionalFields
+     * @return array<string, mixed>
+     */
+    private function reduceRulesForItem(array $itemRules, array $itemData, array $conditionalFields): array
+    {
+        foreach ($conditionalFields as $field => $condition) {
+            $actualValue = (string) ($itemData[$condition['field']] ?? '');
+
+            $shouldExclude = ($condition['action'] === 'exclude_unless' && ! in_array($actualValue, $condition['values'], true))
+                || ($condition['action'] === 'exclude_if' && in_array($actualValue, $condition['values'], true));
+
+            if ($shouldExclude) {
+                unset($itemRules[$field]);
+            }
+        }
+
+        return $itemRules;
+    }
+
+    /**
+     * Generate a cache key for a rule set to reuse validators.
+     *
+     * @param  array<string, mixed>  $rules
+     */
+    private function ruleCacheKey(array $rules): string
+    {
+        return implode(',', array_keys($rules));
     }
 
     /**
