@@ -137,6 +137,27 @@ All rule types support macros via `Macroable`.
 
 `HasFluentRules` automatically applies O(n) wildcard expansion and per-attribute fast-checks (25 rules supported). Up to **97x faster** for simple rules, **10x** for mixed rule sets. Use `RuleSet::validate()` for inline validation outside FormRequests. See `references/performance.md` for details.
 
+## Livewire Components
+
+Use `HasFluentValidation` trait on Livewire components:
+```php
+use SanderMuller\FluentValidation\HasFluentValidation;
+
+class EditUser extends Component
+{
+    use HasFluentValidation;
+
+    public function rules(): array
+    {
+        return [
+            'name' => FluentRule::string('Name')->required()->max(255),
+        ];
+    }
+}
+```
+
+Note: Use flat wildcard keys (`items.*`) instead of `each()` for Livewire array fields.
+
 ## Custom Validator Subclasses
 
 Extend `FluentValidator` instead of `Validator`. Handles the full pipeline automatically:

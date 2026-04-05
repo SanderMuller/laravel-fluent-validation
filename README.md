@@ -139,6 +139,40 @@ class StorePostRequest extends FluentFormRequest
 
 FluentRule objects implement Laravel's `ValidationRule` interface. They also work in `Validator::make()`, `Rule::forEach()`, and `Rule::when()`.
 
+### In a Livewire component
+
+Add the `HasFluentValidation` trait to Livewire components. It compiles FluentRule objects before Livewire's validator sees them:
+
+```php
+use Livewire\Component;
+use SanderMuller\FluentValidation\FluentRule;
+use SanderMuller\FluentValidation\HasFluentValidation;
+
+class EditUser extends Component
+{
+    use HasFluentValidation;
+
+    public string $name = '';
+    public string $email = '';
+
+    public function rules(): array
+    {
+        return [
+            'name'  => FluentRule::string('Name')->required()->max(255),
+            'email' => FluentRule::email('Email')->required(),
+        ];
+    }
+
+    public function save(): void
+    {
+        $validated = $this->validate();
+        // ...
+    }
+}
+```
+
+> Livewire reads wildcard keys from `rules()` before compilation. Use flat wildcard keys instead of `each()` for array fields: `'items.*' => FluentRule::string()`, not `FluentRule::array()->each(...)`.
+
 ### Migrating existing rules
 
 You don't need to convert all your rules at once. Fluent rules mix freely with string rules and native rule objects in the same array:
@@ -353,7 +387,7 @@ $validated = RuleSet::from([
 ])->validate($request->all());
 ```
 
-Benchmarks run automatically on PRs via GitHub Actions.
+Benchmarks run automatically on PRs via GitHub Actions. All optimizations are Octane-safe (factory resolver restored via try/finally, no static state leakage).
 
 ## RuleSet
 
