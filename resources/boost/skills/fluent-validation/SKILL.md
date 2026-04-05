@@ -139,24 +139,7 @@ All rule types support macros via `Macroable`.
 
 ## Livewire Components
 
-Use `HasFluentValidation` trait on Livewire components:
-```php
-use SanderMuller\FluentValidation\HasFluentValidation;
-
-class EditUser extends Component
-{
-    use HasFluentValidation;
-
-    public function rules(): array
-    {
-        return [
-            'name' => FluentRule::string('Name')->required()->max(255),
-        ];
-    }
-}
-```
-
-Note: Use flat wildcard keys (`items.*`) instead of `each()` for Livewire array fields.
+See the `fluent-validation-livewire` skill for full Livewire guidance. Key point: add `use HasFluentValidation` to Livewire components and use flat wildcard keys (`items.*`) instead of `each()`.
 
 ## Custom Validator Subclasses
 
