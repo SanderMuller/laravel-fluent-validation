@@ -4,9 +4,8 @@ namespace SanderMuller\FluentValidation;
 
 /**
  * Add this trait to Livewire components to enable FluentRule support.
- * Compiles FluentRule objects to native Laravel format, expands
- * each()/children() into wildcard paths, and extracts labels and
- * messages before Livewire's validator sees them.
+ * Compiles FluentRule objects to native Laravel format, extracts
+ * labels and messages before Livewire's validator sees them.
  *
  *     class EditUser extends Component
  *     {
@@ -20,6 +19,14 @@ namespace SanderMuller\FluentValidation;
  *             ];
  *         }
  *     }
+ *
+ * Note: Livewire reads wildcard keys from rules() before compilation.
+ * Use flat wildcard keys instead of each() for array fields:
+ *
+ *     'items'   => FluentRule::array()->required(),
+ *     'items.*' => FluentRule::string()->max(255),
+ *
+ * Not: FluentRule::array()->each(FluentRule::string()->max(255))
  */
 trait HasFluentValidation
 {
@@ -68,11 +75,16 @@ trait HasFluentValidation
             return [$rules, $messages, $attributes];
         }
 
-        // Use Livewire's getDataForValidation() when available — it correctly
+        // Use Livewire's data resolution when available — it correctly
         // handles model-bound properties and nested data for wildcard expansion.
         $data = method_exists($this, 'getDataForValidation')
             ? $this->getDataForValidation($resolvedRules)
             : (method_exists($this, 'all') ? $this->all() : []);
+
+        // Unwrap Eloquent models to arrays so WildcardExpander can traverse them.
+        if (method_exists($this, 'unwrapDataForValidation')) {
+            $data = $this->unwrapDataForValidation($data);
+        }
 
         $prepared = RuleSet::from($resolvedRules)->prepare($data);
 
