@@ -67,9 +67,9 @@ class FileRule implements DataAwareRule, ValidationRule, ValidatorAwareRule
 
             return (int) round(match ($unit) {
                 'kb' => $value,
-                'mb' => $value * 1_024,
-                'gb' => $value * 1_048_576,
-                'tb' => $value * 1_073_741_824,
+                'mb' => $value * 1_000,
+                'gb' => $value * 1_000_000,
+                'tb' => $value * 1_000_000_000,
                 default => $value,
             });
         }

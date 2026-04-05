@@ -1589,7 +1589,7 @@ it('reports errors from slow-only path when fast-checks pass', function (): void
         ])->validate(['items' => [
             ['name' => 'Valid', 'starts_at' => '2020-01-01'],
         ]]);
-        test()->fail('Expected ValidationException');
+        test()->fail('Expected ValidationException'); // @phpstan-ignore method.notFound
     } catch (ValidationException $validationException) {
         expect($validationException->errors())->toHaveKey('items.0.starts_at');
         expect($validationException->errors())->not->toHaveKey('items.0.name');
@@ -1606,7 +1606,7 @@ it('reports errors from full path when fast-check fails', function (): void {
         ])->validate(['items' => [
             ['name' => 'X', 'starts_at' => '2020-01-01'],
         ]]);
-        test()->fail('Expected ValidationException');
+        test()->fail('Expected ValidationException'); // @phpstan-ignore method.notFound
     } catch (ValidationException $validationException) {
         expect($validationException->errors())->toHaveKey('items.0.name');
         expect($validationException->errors())->toHaveKey('items.0.starts_at');
@@ -1639,7 +1639,7 @@ it('partial fast-check catches single invalid item among many valid', function (
                 'starts_at' => FluentRule::date()->required()->after('2025-01-01'),
             ]),
         ])->validate(['items' => $items]);
-        test()->fail('Expected ValidationException');
+        test()->fail('Expected ValidationException'); // @phpstan-ignore method.notFound
     } catch (ValidationException $validationException) {
         expect($validationException->errors())->toHaveKey('items.24.starts_at');
         expect($validationException->errors())->toHaveCount(1);

@@ -15,16 +15,16 @@ it('compiles file rule with min and max', function (): void {
 });
 
 it('converts decimal and whitespace sizes to kilobytes', function (): void {
-    expect(FluentRule::file()->max('1.5mb')->compiledRules())->toBe('file|max:1536');
-    expect(FluentRule::file()->max(' 5mb ')->compiledRules())->toBe('file|max:5120');
+    expect(FluentRule::file()->max('1.5mb')->compiledRules())->toBe('file|max:1500');
+    expect(FluentRule::file()->max(' 5mb ')->compiledRules())->toBe('file|max:5000');
 });
 
 it('compiles file rule with human-readable sizes', function (): void {
-    expect(FluentRule::file()->max('5mb')->compiledRules())->toBe('file|max:5120');
-    expect(FluentRule::file()->max('1gb')->compiledRules())->toBe('file|max:1048576');
-    expect(FluentRule::file()->max('1tb')->compiledRules())->toBe('file|max:1073741824');
+    expect(FluentRule::file()->max('5mb')->compiledRules())->toBe('file|max:5000');
+    expect(FluentRule::file()->max('1gb')->compiledRules())->toBe('file|max:1000000');
+    expect(FluentRule::file()->max('1tb')->compiledRules())->toBe('file|max:1000000000');
     expect(FluentRule::file()->max('512kb')->compiledRules())->toBe('file|max:512');
-    expect(FluentRule::file()->between('1mb', '10mb')->compiledRules())->toBe('file|between:1024,10240');
+    expect(FluentRule::file()->between('1mb', '10mb')->compiledRules())->toBe('file|between:1000,10000');
 });
 
 it('file rule accepts plain numeric string as kilobytes', function (): void {

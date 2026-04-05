@@ -222,23 +222,25 @@ trait SelfValidates
         $rules = $this->buildValidationRules();
 
         // Try to produce a pipe-joined string for fastest Laravel parsing.
-        // Stringify Stringable objects (In, NotIn, Exists, Unique) but keep
-        // non-stringable objects (closures, ExcludeIf, RequiredIf) as-is.
+        // Only In and NotIn are safe to stringify — Exists/Unique/Dimensions
+        // can have closure-based wheres that are silently dropped by __toString().
+        /** @var list<string> $stringified */
         $stringified = [];
-        $hasNonStringable = false;
+        $allStringifiable = true;
 
         foreach ($rules as $rule) {
             if (is_string($rule)) {
                 $stringified[] = $rule;
-            } elseif ($this->isSafeToStringify($rule)) {
+            } elseif ($rule instanceof \Stringable && $this->isSafeToStringify($rule)) {
                 $stringified[] = (string) $rule;
             } else {
-                $hasNonStringable = true;
+                $allStringifiable = false;
                 break;
             }
         }
 
-        if (! $hasNonStringable) {
+        if ($allStringifiable) {
+            /** @var list<string> $stringified — all elements are strings (either originally or via __toString) */
             return implode('|', $stringified);
         }
 
