@@ -68,7 +68,12 @@ trait HasFluentValidation
             return [$rules, $messages, $attributes];
         }
 
-        $data = method_exists($this, 'all') ? $this->all() : [];
+        // Use Livewire's getDataForValidation() when available — it correctly
+        // handles model-bound properties and nested data for wildcard expansion.
+        $data = method_exists($this, 'getDataForValidation')
+            ? $this->getDataForValidation($resolvedRules)
+            : (method_exists($this, 'all') ? $this->all() : []);
+
         $prepared = RuleSet::from($resolvedRules)->prepare($data);
 
         return [

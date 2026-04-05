@@ -3,6 +3,7 @@
 namespace SanderMuller\FluentValidation\Rules\Concerns;
 
 use Closure;
+use Illuminate\Contracts\Support\Arrayable;
 use Illuminate\Validation\Rule;
 
 trait HasEmbeddedRules
@@ -41,23 +42,23 @@ trait HasEmbeddedRules
         return $this->addRule($enum);
     }
 
-    /** @param  array<int, mixed>|class-string<\BackedEnum>  $values */
-    public function in(array|string $values): static
+    /** @param  Arrayable<array-key, mixed>|array<int, mixed>|class-string<\BackedEnum>  $values */
+    public function in(Arrayable|array|string $values): static
     {
         if (is_string($values) && enum_exists($values)) {
             $values = $values::cases();
         }
 
-        return $this->addRule(Rule::in($values));
+        return $this->addRule(Rule::in($values instanceof Arrayable ? $values->toArray() : $values));
     }
 
-    /** @param  array<int, mixed>|class-string<\BackedEnum>  $values */
-    public function notIn(array|string $values): static
+    /** @param  Arrayable<array-key, mixed>|array<int, mixed>|class-string<\BackedEnum>  $values */
+    public function notIn(Arrayable|array|string $values): static
     {
         if (is_string($values) && enum_exists($values)) {
             $values = $values::cases();
         }
 
-        return $this->addRule(Rule::notIn($values));
+        return $this->addRule(Rule::notIn($values instanceof Arrayable ? $values->toArray() : $values));
     }
 }
