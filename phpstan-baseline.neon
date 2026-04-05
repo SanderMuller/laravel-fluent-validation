@@ -37,13 +37,79 @@ parameters:
 			path: src/FastCheckCompiler.php
 
 		-
-			rawMessage: 'Class cognitive complexity is 111, keep it under 50'
+			rawMessage: 'Cognitive complexity for "SanderMuller\FluentValidation\FluentFormRequest::buildFastCheckMaps()" is 13, keep it under 12'
+			identifier: complexity.functionLike
+			count: 1
+			path: src/FluentFormRequest.php
+
+		-
+			rawMessage: 'Cognitive complexity for "SanderMuller\FluentValidation\FluentFormRequest::preExcludeRules()" is 21, keep it under 12'
+			identifier: complexity.functionLike
+			count: 1
+			path: src/FluentFormRequest.php
+
+		-
+			rawMessage: 'Class cognitive complexity is 68, keep it under 50'
+			identifier: complexity.classLike
+			count: 1
+			path: src/OptimizedValidator.php
+
+		-
+			rawMessage: 'Cognitive complexity for "SanderMuller\FluentValidation\OptimizedValidator::evaluateConditionals()" is 17, keep it under 12'
+			identifier: complexity.functionLike
+			count: 1
+			path: src/OptimizedValidator.php
+
+		-
+			rawMessage: 'Cognitive complexity for "SanderMuller\FluentValidation\OptimizedValidator::passes()" is 35, keep it under 12'
+			identifier: complexity.functionLike
+			count: 1
+			path: src/OptimizedValidator.php
+
+		-
+			rawMessage: 'Class cognitive complexity is 161, keep it under 50'
 			identifier: complexity.classLike
 			count: 1
 			path: src/RuleSet.php
 
 		-
-			rawMessage: 'Cognitive complexity for "SanderMuller\FluentValidation\RuleSet::validateItems()" is 22, keep it under 12'
+			rawMessage: 'Cognitive complexity for "SanderMuller\FluentValidation\RuleSet::analyzeConditionals()" is 14, keep it under 12'
 			identifier: complexity.functionLike
 			count: 1
 			path: src/RuleSet.php
+
+		-
+			rawMessage: 'Cognitive complexity for "SanderMuller\FluentValidation\RuleSet::stripConditionalTuples()" is 16, keep it under 12'
+			identifier: complexity.functionLike
+			count: 1
+			path: src/RuleSet.php
+
+		-
+			rawMessage: 'Cognitive complexity for "SanderMuller\FluentValidation\RuleSet::validateItems()" is 29, keep it under 12'
+			identifier: complexity.functionLike
+			count: 1
+			path: src/RuleSet.php
+
+		-
+			rawMessage: 'Cognitive complexity for "AnonymousClass8e30e02d5ceb57e77a2bd300ffd76c80::buildFastCheckMaps()" is 13, keep it under 12'
+			identifier: complexity.functionLike
+			count: 1
+			path: tests/ExpandsWildcardsTest.php
+
+		-
+			rawMessage: 'Cognitive complexity for "AnonymousClass8e30e02d5ceb57e77a2bd300ffd76c80::preExcludeRules()" is 21, keep it under 12'
+			identifier: complexity.functionLike
+			count: 1
+			path: tests/ExpandsWildcardsTest.php
+
+		-
+			rawMessage: 'Parameter #1 $values of method SanderMuller\FluentValidation\Rules\StringRule::in() expects array<int, mixed>|class-string<BackedEnum>|Illuminate\Contracts\Support\Arrayable<(int|string), mixed>, Illuminate\Support\Collection<int, string> given.'
+			identifier: argument.type
+			count: 1
+			path: tests/RuleSetTest.php
+
+		-
+			rawMessage: 'Parameter #1 $values of method SanderMuller\FluentValidation\Rules\StringRule::notIn() expects array<int, mixed>|class-string<BackedEnum>|Illuminate\Contracts\Support\Arrayable<(int|string), mixed>, Illuminate\Support\Collection<int, string> given.'
+			identifier: argument.type
+			count: 1
+			path: tests/RuleSetTest.php

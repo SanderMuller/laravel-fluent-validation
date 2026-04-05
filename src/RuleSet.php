@@ -249,7 +249,8 @@ final class RuleSet implements Arrayable
 
             // Get effective rules — use dispatch cache if available.
             if ($dispatchField !== null) {
-                $dispatchValue = (string) ($itemData[$dispatchField] ?? '');
+                $rawDispatch = $itemData[$dispatchField] ?? '';
+                $dispatchValue = is_scalar($rawDispatch) ? (string) $rawDispatch : '';
 
                 if (! isset($rulesByDispatch[$dispatchValue])) {
                     $rulesByDispatch[$dispatchValue] = $this->reduceRulesForItem($itemRules, $itemData, $conditionalFields);
@@ -269,7 +270,7 @@ final class RuleSet implements Arrayable
             }
 
             if ($dispatchFastChecks !== []) {
-                $fastPass = $this->passesAllFastChecks($dispatchFastChecks, $itemData);
+                $fastPass = $this->passesAllFastChecks(array_values($dispatchFastChecks), $itemData);
 
                 if ($fastPass && $dispatchSlowRules === []) {
                     continue;
@@ -332,11 +333,12 @@ final class RuleSet implements Arrayable
 
             foreach ($rules as $rule) {
                 if (is_array($rule) && count($rule) >= 3
-                    && ($rule[0] === 'exclude_unless' || $rule[0] === 'exclude_if')) {
+                    && ($rule[0] === 'exclude_unless' || $rule[0] === 'exclude_if')
+                    && is_string($rule[1])) {
                     $conditionals[$field] = [
                         'action' => $rule[0],
                         'field' => $rule[1],
-                        'values' => array_slice($rule, 2),
+                        'values' => array_map(static fn (mixed $v): string => is_scalar($v) ? (string) $v : '', array_values(array_slice($rule, 2))),
                     ];
                     break;
                 }
@@ -357,7 +359,8 @@ final class RuleSet implements Arrayable
     private function reduceRulesForItem(array $itemRules, array $itemData, array $conditionalFields): array
     {
         foreach ($conditionalFields as $field => $condition) {
-            $actualValue = (string) ($itemData[$condition['field']] ?? '');
+            $rawValue = $itemData[$condition['field']] ?? '';
+            $actualValue = is_scalar($rawValue) ? (string) $rawValue : '';
 
             $shouldExclude = ($condition['action'] === 'exclude_unless' && ! in_array($actualValue, $condition['values'], true))
                 || ($condition['action'] === 'exclude_if' && in_array($actualValue, $condition['values'], true));
@@ -395,11 +398,7 @@ final class RuleSet implements Arrayable
 
             // Stringify Stringable objects (Rule::in, Rule::notIn) so the
             // result can be fast-checked as a pipe-joined string.
-            if (is_object($rule) && $rule instanceof \Stringable) {
-                $stripped[] = (string) $rule;
-            } else {
-                $stripped[] = $rule;
-            }
+            $stripped[] = $rule instanceof \Stringable ? (string) $rule : $rule;
         }
 
         // If all remaining rules are strings, join them for faster parsing.
@@ -412,17 +411,12 @@ final class RuleSet implements Arrayable
         }
 
         if ($allStrings && $stripped !== []) {
-            return implode('|', $stripped);
+            return implode('|', array_map(static fn (mixed $v): string => is_scalar($v) ? (string) $v : '', $stripped));
         }
 
         return $stripped;
     }
 
-    /**
-     * Generate a cache key for a rule set to reuse validators.
-     *
-     * @param  array<string, mixed>  $rules
-     */
     /**
      * Find a common dispatch field if ALL conditionals reference the same field.
      * Returns the field name (e.g., "type") or null if conditions reference
@@ -449,6 +443,11 @@ final class RuleSet implements Arrayable
         return $field;
     }
 
+    /**
+     * Generate a cache key for a rule set to reuse validators.
+     *
+     * @param  array<string, mixed>  $rules
+     */
     private function ruleCacheKey(array $rules): string
     {
         return implode(',', array_keys($rules));

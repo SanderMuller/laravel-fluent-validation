@@ -47,7 +47,14 @@ class OptimizedValidator extends Validator
         $this->conditionValueCache = [];
         $hasFastChecks = $this->fastChecks !== [];
 
-        foreach ($this->rules as $attribute => $rules) {
+        foreach ($this->rules as $attribute => $attributeRules) {
+            if (! is_array($attributeRules)) {
+                continue;
+            }
+
+            /** @var list<mixed> $rules */
+            $rules = $attributeRules;
+
             // Fast-check: skip eligible wildcard attributes that pass PHP checks.
             if ($hasFastChecks) {
                 $pattern = $this->attributePatternMap[$attribute] ?? null;
@@ -104,7 +111,9 @@ class OptimizedValidator extends Validator
             $this->failedRules = [];
 
             foreach ($this->after as $after) {
-                $after();
+                if (is_callable($after)) {
+                    $after();
+                }
             }
 
             return $this->messages->isEmpty();
@@ -127,7 +136,7 @@ class OptimizedValidator extends Validator
      *
      * @param  list<mixed>  $rules
      */
-    /** @var array<string, string> Cached resolved condition field values */
+    /** @var array<string, string> */
     private array $conditionValueCache = [];
 
     /**
@@ -142,7 +151,11 @@ class OptimizedValidator extends Validator
         $hasCondition = false;
 
         foreach ($rules as $rule) {
-            if (! is_array($rule) || count($rule) < 3) {
+            if (! is_array($rule)) {
+                continue;
+            }
+
+            if (count($rule) < 3) {
                 continue;
             }
 
@@ -150,6 +163,10 @@ class OptimizedValidator extends Validator
             $conditionField = $rule[1];
 
             if ($action !== 'exclude_unless' && $action !== 'exclude_if') {
+                continue;
+            }
+
+            if (! is_string($conditionField)) {
                 continue;
             }
 
@@ -161,7 +178,8 @@ class OptimizedValidator extends Validator
             }
 
             if (! isset($this->conditionValueCache[$conditionField])) {
-                $this->conditionValueCache[$conditionField] = (string) ($this->getValue($conditionField) ?? '');
+                $rawValue = $this->getValue($conditionField);
+                $this->conditionValueCache[$conditionField] = is_scalar($rawValue) ? (string) $rawValue : '';
             }
 
             $actualValue = $this->conditionValueCache[$conditionField];
@@ -199,7 +217,7 @@ class OptimizedValidator extends Validator
 
                 // Other array tuple — can't fast-check.
                 return null;
-            } elseif (is_object($rule) && $rule instanceof \Stringable) {
+            } elseif ($rule instanceof \Stringable) {
                 // Stringable objects like Rule::in(), Rule::notIn() — stringify
                 // them so FastCheckCompiler can handle them.
                 $stringParts[] = (string) $rule;

@@ -119,7 +119,11 @@ trait HasFluentRules
             }
 
             foreach ($ruleSet as $rule) {
-                if (! is_array($rule) || count($rule) < 3) {
+                if (! is_array($rule)) {
+                    continue;
+                }
+
+                if (count($rule) < 3) {
                     continue;
                 }
 
@@ -129,21 +133,25 @@ trait HasFluentRules
                     continue;
                 }
 
+                /** @var string $conditionField */
                 $conditionField = $rule[1];
+                /** @var list<string> $allowedValues */
                 $allowedValues = array_slice($rule, 2);
 
                 // Resolve wildcard: interactions.*.type → interactions.5.type
                 if (str_contains($conditionField, '*')) {
-                    preg_match_all('/\.(\d+)(?:\.|$)/', $attribute, $m);
+                    preg_match_all('/\.(\d+)(?:\.|$)/', (string) $attribute, $m);
+                    /** @var list<numeric-string> $indices */
                     $indices = $m[1];
                     $idx = 0;
-                    $conditionField = (string) preg_replace_callback('/\*/', function () use ($indices, &$idx) {
+                    $conditionField = (string) preg_replace_callback('/\*/', function () use ($indices, &$idx): string {
                         return $indices[$idx++] ?? '*';
                     }, $conditionField);
                 }
 
                 if (! isset($cache[$conditionField])) {
-                    $cache[$conditionField] = (string) (data_get($data, $conditionField) ?? '');
+                    $rawValue = data_get($data, $conditionField);
+                    $cache[$conditionField] = is_scalar($rawValue) ? (string) $rawValue : '';
                 }
 
                 $actual = $cache[$conditionField];
