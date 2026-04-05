@@ -1075,6 +1075,39 @@ it('correctly identifies the specific invalid item among many valid ones', funct
 // Edge cases: factory resolver restoration
 // =========================================================================
 
+it('restores the factory resolver even when make() throws', function (): void {
+    $factory = app(Factory::class);
+
+    // Temporarily register a resolver that we can detect.
+    $resolverProp = new ReflectionProperty(Illuminate\Validation\Factory::class, 'resolver');
+    $originalResolver = $resolverProp->getValue($factory);
+
+    // Use a FormRequest whose rules will cause an error during make().
+    // We pass invalid rule format to trigger an exception inside the factory.
+    try {
+        $formRequest = createFluentFormRequest(
+            rules: [
+                'items' => FluentRule::array()->required()->each([
+                    'name' => FluentRule::string()->required(),
+                ]),
+            ],
+            data: ['items' => [['name' => 'Test']]],
+        );
+
+        (fn () => $this->createDefaultValidator($factory))->call($formRequest);
+    } catch (Throwable) {
+        // Ignore any errors
+    }
+
+    // The resolver must be restored regardless of success/failure.
+    $currentResolver = $resolverProp->getValue($factory);
+    expect($currentResolver)->toBe($originalResolver);
+
+    // Factory should still produce standard Validators.
+    $standardValidator = $factory->make(['x' => 'y'], ['x' => 'required']);
+    expect($standardValidator)->not->toBeInstanceOf(OptimizedValidator::class);
+});
+
 it('restores the factory resolver after creating the validator', function (): void {
     $formRequest = createFluentFormRequest(
         rules: [

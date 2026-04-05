@@ -106,6 +106,39 @@ it('produces paths for missing nested keys after wildcard', function (): void {
         ->toBe(['items.0.style.color', 'items.1.style.color']);
 });
 
+it('stops expanding at recursion depth limit', function (): void {
+    // Build data nested 60 levels deep with wildcards at each level.
+    $data = [];
+    $current = &$data;
+    for ($i = 0; $i < 60; ++$i) {
+        $current['a'] = [[]];
+        $current = &$current['a'][0];
+    }
+
+    $current['value'] = 'deep';
+
+    // Pattern: a.*.a.*.a.*... (60 levels of a.*)
+    $pattern = implode('.', array_fill(0, 60, 'a.*')) . '.value';
+
+    // Should return empty — depth limit (50) prevents stack overflow.
+    $result = WildcardExpander::expand($pattern, $data);
+    expect($result)->toBe([]);
+});
+
+it('expands normally within depth limit', function (): void {
+    // 3 levels deep — well within the 50-level limit.
+    $data = [
+        'a' => [
+            ['b' => [
+                ['c' => 'x'],
+            ]],
+        ],
+    ];
+
+    $result = WildcardExpander::expand('a.*.b.*.c', $data);
+    expect($result)->toBe(['a.0.b.0.c']);
+});
+
 it('does not emit paths with unresolved wildcards for missing nested arrays', function (): void {
     // items.*.style.* where style is missing — can't resolve the inner *
     expect(WildcardExpander::expand('items.*.style.*', ['items' => [[]]]))->toBe([]);
