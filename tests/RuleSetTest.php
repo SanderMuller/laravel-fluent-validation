@@ -1442,14 +1442,14 @@ it('RuleSet::validate() with compiled rules matches native Laravel performance',
 
 it('ArrayRule compiledRules includes array type', function (): void {
     expect(FluentRule::array()->compiledRules())->toBe('array');
-    expect(FluentRule::array()->nullable()->compiledRules())->toBe('array|nullable');
-    expect(FluentRule::array()->required()->compiledRules())->toBe('array|required');
-    expect(FluentRule::array()->required()->min(1)->compiledRules())->toBe('array|required|min:1');
+    expect(FluentRule::array()->nullable()->compiledRules())->toBe('nullable|array');
+    expect(FluentRule::array()->required()->compiledRules())->toBe('required|array');
+    expect(FluentRule::array()->required()->min(1)->compiledRules())->toBe('required|array|min:1');
 });
 
 it('ArrayRule compiledRules includes keys', function (): void {
     expect(FluentRule::array(['name', 'email'])->compiledRules())->toBe('array:name,email');
-    expect(FluentRule::array(['name'])->required()->compiledRules())->toBe('array:name|required');
+    expect(FluentRule::array(['name'])->required()->compiledRules())->toBe('required|array:name');
 });
 
 it('ArrayRule with each() compiles parent without children', function (): void {
@@ -1458,14 +1458,14 @@ it('ArrayRule with each() compiles parent without children', function (): void {
     ]);
 
     // compiledRules() on the parent should not include child rules
-    expect($rule->compiledRules())->toBe('array|required');
+    expect($rule->compiledRules())->toBe('required|array');
 });
 
 it('ArrayRule supports distinct()', function (): void {
     expect(FluentRule::array()->distinct()->compiledRules())->toBe('array|distinct');
     expect(FluentRule::array()->distinct('strict')->compiledRules())->toBe('array|distinct:strict');
     expect(FluentRule::array()->required()->each(FluentRule::numeric()->integer())->distinct()->compiledRules())
-        ->toBe('array|required|distinct');
+        ->toBe('required|array|distinct');
 });
 
 // =========================================================================

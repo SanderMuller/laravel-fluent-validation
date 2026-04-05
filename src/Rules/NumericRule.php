@@ -135,6 +135,6 @@ class NumericRule implements DataAwareRule, ValidationRule, ValidatorAwareRule
     /** @return list<string|object> */
     protected function buildValidationRules(): array
     {
-        return [...$this->constraints, ...$this->rules];
+        return [...$this->reorderConstraints($this->constraints), ...$this->rules];
     }
 }

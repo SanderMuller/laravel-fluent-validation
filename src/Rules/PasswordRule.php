@@ -84,6 +84,6 @@ class PasswordRule implements DataAwareRule, ValidationRule, ValidatorAwareRule
     /** @return list<string|object> */
     protected function buildValidationRules(): array
     {
-        return [...$this->constraints, $this->password, ...$this->rules];
+        return [...$this->reorderConstraints($this->constraints), $this->password, ...$this->rules];
     }
 }

@@ -1088,7 +1088,7 @@ it('reports canCompile false when object rules present', function (): void {
 
 it('compiles to pipe-joined string when no object rules', function (): void {
     $stringRule = FluentRule::string()->required()->min(2)->max(255);
-    expect($stringRule->compiledRules())->toBe('string|required|min:2|max:255');
+    expect($stringRule->compiledRules())->toBe('required|string|min:2|max:255');
 });
 
 it('compiles object rules to string when all rules are stringable', function (): void {
@@ -1314,7 +1314,7 @@ it('compiles fluent rules to native format', function (): void {
         'age' => FluentRule::numeric()->integer(),
     ]);
 
-    expect($compiled['name'])->toBe('string|required|min:2');
+    expect($compiled['name'])->toBe('required|string|min:2');
     expect($compiled['age'])->toBe('numeric|integer');
 });
 
@@ -1398,7 +1398,7 @@ it('compiledRules returns array when rule contains non-stringable object', funct
 
 it('exclude adds the exclude constraint', function (): void {
     $stringRule = FluentRule::string()->exclude();
-    expect($stringRule->compiledRules())->toBe('string|exclude');
+    expect($stringRule->compiledRules())->toBe('exclude|string');
 });
 
 it('exclude removes field from validated data', function (): void {

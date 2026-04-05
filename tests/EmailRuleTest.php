@@ -26,7 +26,7 @@ it('compiles EmailRule with modes', function (): void {
 });
 
 it('compiles EmailRule with field modifiers', function (): void {
-    expect(FluentRule::email()->required()->max(255)->compiledRules())->toBe('string|required|max:255|email');
+    expect(FluentRule::email()->required()->max(255)->compiledRules())->toBe('required|string|max:255|email');
 });
 
 it('validates EmailRule rejects non-string', function (): void {
@@ -37,14 +37,14 @@ it('validates EmailRule rejects non-string', function (): void {
 it('EmailRule compiles unique', function (): void {
     $compiled = FluentRule::email()->required()->unique('users', 'email')->compiledRules();
     expect($compiled)->toBeString();
-    expect($compiled)->toStartWith('string|required|email|');
+    expect($compiled)->toStartWith('required|string|email|');
     expect($compiled)->toContain('unique:');
 });
 
 it('EmailRule compiles exists', function (): void {
     $compiled = FluentRule::email()->required()->exists('users', 'email')->compiledRules();
     expect($compiled)->toBeString();
-    expect($compiled)->toStartWith('string|required|email|');
+    expect($compiled)->toStartWith('required|string|email|');
     expect($compiled)->toContain('exists:');
 });
 
@@ -73,7 +73,7 @@ it('EmailRule with modes validates and compiles correctly', function (): void {
     $emailRule = FluentRule::email()->rfcCompliant()->preventSpoofing()->required();
 
     // Modes are included in compiled output
-    expect($emailRule->compiledRules())->toBe('string|required|email:rfc,spoof');
+    expect($emailRule->compiledRules())->toBe('required|string|email:rfc,spoof');
 
     // Basic validation still works with modes active
     $v = makeValidator(['email' => 'user@example.com'], ['email' => $emailRule]);

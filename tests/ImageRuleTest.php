@@ -11,7 +11,7 @@ use SanderMuller\FluentValidation\FluentRule;
 it('compiles image rule', function (): void {
     expect(FluentRule::image()->compiledRules())->toBe('image');
     expect(FluentRule::image()->max(5120)->compiledRules())->toBe('image|max:5120');
-    expect(FluentRule::image()->required()->max('5mb')->compiledRules())->toBe('image|required|max:5000');
+    expect(FluentRule::image()->required()->max('5mb')->compiledRules())->toBe('required|image|max:5000');
 });
 
 it('compiles image rule with allowSvg', function (): void {
@@ -20,7 +20,7 @@ it('compiles image rule with allowSvg', function (): void {
 
 it('allowSvg preserves field modifiers set before it', function (): void {
     $compiled = FluentRule::image()->required()->allowSvg()->compiledRules();
-    expect($compiled)->toBe('image:allow_svg|required');
+    expect($compiled)->toBe('required|image:allow_svg');
 });
 
 it('compiles image rule with minWidth and maxWidth', function (): void {

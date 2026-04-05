@@ -63,8 +63,8 @@ it('password canCompile returns false', function (): void {
 it('password compiledRules includes Password object', function (): void {
     $compiled = FluentRule::password()->required()->compiledRules();
     expect($compiled)->toBeArray();
-    expect($compiled[0])->toBe('string');
-    expect($compiled[1])->toBe('required');
+    expect($compiled[0])->toBe('required');
+    expect($compiled[1])->toBe('string');
     expect($compiled[2])->toBeInstanceOf(Password::class);
 });
 

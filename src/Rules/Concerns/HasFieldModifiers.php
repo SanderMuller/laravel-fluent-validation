@@ -298,6 +298,39 @@ trait HasFieldModifiers
     }
 
     /**
+     * Reorder constraints so that presence modifiers (required, nullable, bail, etc.)
+     * appear before type and size constraints ("required" must come
+     * before "must be a string").
+     *
+     * @param  list<string>  $constraints
+     * @return list<string>
+     */
+    protected function reorderConstraints(array $constraints): array
+    {
+        $presence = [];
+        $rest = [];
+
+        foreach ($constraints as $constraint) {
+            if ($this->isPresenceConstraint($constraint)) {
+                $presence[] = $constraint;
+            } else {
+                $rest[] = $constraint;
+            }
+        }
+
+        return [...$presence, ...$rest];
+    }
+
+    private function isPresenceConstraint(string $constraint): bool
+    {
+        return in_array($constraint, ['required', 'nullable', 'sometimes', 'filled', 'present', 'missing', 'bail', 'exclude', 'prohibited'], true)
+            || str_starts_with($constraint, 'required_')
+            || str_starts_with($constraint, 'missing_')
+            || str_starts_with($constraint, 'exclude_')
+            || str_starts_with($constraint, 'prohibited_');
+    }
+
+    /**
      * Add any Laravel validation rule — string, object, or array tuple.
      *
      * Array tuples like ['mimetypes', 'image/jpeg', 'application/pdf'] are

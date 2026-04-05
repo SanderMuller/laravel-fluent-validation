@@ -128,8 +128,7 @@ class DateRule implements DataAwareRule, ValidationRule, ValidatorAwareRule
     protected function buildValidationRules(): array
     {
         return [
-            $this->format === null ? 'date' : 'date_format:' . $this->format,
-            ...$this->constraints,
+            ...$this->reorderConstraints([$this->format === null ? 'date' : 'date_format:' . $this->format, ...$this->constraints]),
             ...$this->rules,
         ];
     }

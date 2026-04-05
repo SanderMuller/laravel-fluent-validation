@@ -100,6 +100,6 @@ class EmailRule implements DataAwareRule, ValidationRule, ValidatorAwareRule
     {
         $emailRule = $this->modes === [] ? 'email' : 'email:' . implode(',', $this->modes);
 
-        return [...$this->constraints, $emailRule, ...$this->rules];
+        return [...$this->reorderConstraints($this->constraints), $emailRule, ...$this->rules];
     }
 }

@@ -199,8 +199,7 @@ class ArrayRule implements DataAwareRule, ValidationRule, ValidatorAwareRule
     {
         return [
             ...$this->rules,
-            $this->buildArrayRule(),
-            ...$this->constraints,
+            ...$this->reorderConstraints([$this->buildArrayRule(), ...$this->constraints]),
         ];
     }
 }

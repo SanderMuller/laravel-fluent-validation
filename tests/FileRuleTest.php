@@ -49,8 +49,8 @@ it('compiles file rule with mimetypes', function (): void {
 });
 
 it('compiles file rule with field modifiers', function (): void {
-    expect(FluentRule::file()->required()->max(2048)->compiledRules())->toBe('file|required|max:2048');
-    expect(FluentRule::file()->nullable()->compiledRules())->toBe('file|nullable');
+    expect(FluentRule::file()->required()->max(2048)->compiledRules())->toBe('required|file|max:2048');
+    expect(FluentRule::file()->nullable()->compiledRules())->toBe('nullable|file');
 });
 
 it('validates file upload', function (): void {
