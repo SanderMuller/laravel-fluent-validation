@@ -89,7 +89,7 @@ it('EmailRule with modes validates and compiles correctly', function (): void {
 // =========================================================================
 
 it('uses Email::default() when app defaults are configured', function (): void {
-    Email::defaults(fn () => (new Email)->rfcCompliant());
+    Email::defaults(fn () => (new Email())->rfcCompliant());
 
     try {
         $compiled = FluentRule::email()->compiledRules();
@@ -106,7 +106,7 @@ it('uses basic email when no app defaults configured', function (): void {
 });
 
 it('defaults: false ignores app defaults', function (): void {
-    Email::defaults(fn () => (new Email)->rfcCompliant()->validateMxRecord());
+    Email::defaults(fn () => (new Email())->rfcCompliant()->validateMxRecord());
 
     try {
         expect(FluentRule::email(defaults: false)->compiledRules())->toBe('string|email');
@@ -116,7 +116,7 @@ it('defaults: false ignores app defaults', function (): void {
 });
 
 it('explicit modes override app defaults', function (): void {
-    Email::defaults(fn () => (new Email)->validateMxRecord());
+    Email::defaults(fn () => (new Email())->validateMxRecord());
 
     try {
         // Explicit strict() should use modes, not Email::default()
@@ -127,7 +127,7 @@ it('explicit modes override app defaults', function (): void {
 });
 
 it('defaults: false with label works', function (): void {
-    Email::defaults(fn () => (new Email)->validateMxRecord());
+    Email::defaults(fn () => (new Email())->validateMxRecord());
 
     try {
         $rule = FluentRule::email('Email Address', defaults: false)->required();
