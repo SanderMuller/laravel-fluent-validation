@@ -685,7 +685,6 @@ final class RuleSet implements Arrayable
             }
         }
 
-        /** @var array<string, array<mixed>> */
         return $compiled;
     }
 
