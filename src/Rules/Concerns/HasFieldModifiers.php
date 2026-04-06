@@ -63,6 +63,20 @@ trait HasFieldModifiers
     }
 
     /**
+     * Set a custom error message for a specific rule by name.
+     * Unlike message() which attaches to the preceding rule,
+     * this can be called at any point in the chain.
+     *
+     *     ->required()->min(2)->messageFor('required', 'We need your name!')
+     */
+    public function messageFor(string $rule, string $message): static
+    {
+        $this->customMessages[$rule] = $message;
+
+        return $this;
+    }
+
+    /**
      * Set a fallback error message for this field, used when no
      * rule-specific message matches. Equivalent to 'field' => 'message'
      * in Laravel's messages array (without a .rule suffix).

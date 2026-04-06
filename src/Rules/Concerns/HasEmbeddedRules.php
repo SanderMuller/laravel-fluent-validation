@@ -52,11 +52,13 @@ trait HasEmbeddedRules
         return $this->addRule(Rule::in($values instanceof Arrayable ? $values->toArray() : $values));
     }
 
-    /** @param  Arrayable<array-key, mixed>|array<int, mixed>|class-string<\BackedEnum>  $values */
-    public function notIn(Arrayable|array|string $values): static
+    /** @param  Arrayable<array-key, mixed>|array<int, mixed>|class-string<\BackedEnum>|string|int  $values */
+    public function notIn(Arrayable|array|string|int $values): static
     {
         if (is_string($values) && enum_exists($values)) {
             $values = $values::cases();
+        } elseif (is_string($values) || is_int($values)) {
+            $values = [$values];
         }
 
         return $this->addRule(Rule::notIn($values instanceof Arrayable ? $values->toArray() : $values));

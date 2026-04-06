@@ -7,6 +7,7 @@ use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Contracts\Validation\ValidatorAwareRule;
 use Illuminate\Support\Traits\Conditionable;
 use Illuminate\Support\Traits\Macroable;
+use Illuminate\Validation\Rules\Email;
 use SanderMuller\FluentValidation\Rules\Concerns\HasEmbeddedRules;
 use SanderMuller\FluentValidation\Rules\Concerns\HasFieldModifiers;
 use SanderMuller\FluentValidation\Rules\Concerns\SelfValidates;
@@ -98,6 +99,12 @@ class EmailRule implements DataAwareRule, ValidationRule, ValidatorAwareRule
     /** @return list<string|object> */
     protected function buildValidationRules(): array
     {
+        // When no modes are explicitly set, use Email::default() if the app
+        // has configured email defaults (via Email::defaults() in AppServiceProvider).
+        if ($this->modes === [] && Email::$defaultCallback !== null) {
+            return [...$this->reorderConstraints($this->constraints), Email::default(), ...$this->rules];
+        }
+
         $emailRule = $this->modes === [] ? 'email' : 'email:' . implode(',', $this->modes);
 
         return [...$this->reorderConstraints($this->constraints), $emailRule, ...$this->rules];

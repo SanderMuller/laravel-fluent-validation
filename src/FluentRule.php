@@ -31,6 +31,11 @@ class FluentRule
         return $label !== null ? $numericRule->label($label) : $numericRule;
     }
 
+    public static function integer(?string $label = null): NumericRule
+    {
+        return self::numeric($label)->integer();
+    }
+
     public static function date(?string $label = null): DateRule
     {
         $dateRule = new DateRule();
