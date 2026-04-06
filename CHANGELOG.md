@@ -2,6 +2,17 @@
 
 All notable changes to `laravel-fluent-validation` will be documented in this file.
 
+## 0.5.3 - 2026-04-06
+
+### Added
+
+- **AI-assisted development tooling** — Added [`sandermuller/package-boost`](https://github.com/SanderMuller/package-boost) for AI skills and guidelines management. Contributors get Claude Code, GitHub Copilot, and Codex context out of the box.
+- **`.ai/` directory** — Source of truth for AI skills (code-review, backend-quality, bug-fixing, evaluate, write-spec, implement-spec, pr-review-feedback, autoresearch) and guidelines (verification, exploration budget, parallel agents).
+- **`.mcp.json`** — Laravel Boost MCP server config for doc search and tinker via Testbench.
+- **`CONTRIBUTING.md`** — Setup instructions for AI tooling with `vendor/bin/testbench`.
+
+**Full Changelog**: https://github.com/SanderMuller/laravel-fluent-validation/compare/0.5.2...0.5.3
+
 ## 0.5.2 - 2026-04-06
 
 ### Added
@@ -14,6 +25,7 @@ All notable changes to `laravel-fluent-validation` will be documented in this fi
   
   // After (honest return type, zero baseline entries)
   $this->validate(RuleSet::compileToArrays($this->rules()));
+  
   
   ```
 
@@ -39,6 +51,7 @@ All notable changes to `laravel-fluent-validation` will be documented in this fi
   $this->validate(RuleSet::compileToArrays($this->rules()));
   
   
+  
   ```
 
 ### Documentation
@@ -61,6 +74,7 @@ All notable changes to `laravel-fluent-validation` will be documented in this fi
   ```php
   FluentRule::email(defaults: false)    // basic 'email' validation
   FluentRule::password(defaults: false) // Password::min(8), ignores app config
+  
   
   
   
@@ -324,6 +338,7 @@ Tested across two independent codebases:
   
   
   
+  
   ```
 - **PHPStan errors in OptimizedValidator** — Matched parent `Validator::validateAttribute()` signature.
   
@@ -382,6 +397,7 @@ Tested across two independent codebases:
   
   
   
+  
   ```
 - FluentFormRequest base class — Combines HasFluentRules compilation with per-attribute
   fast-check optimization via OptimizedValidator. Eligible wildcard rules are fast-checked
@@ -414,6 +430,7 @@ Tested across two independent codebases:
   ```php
   FluentRule::string()->unique('users', 'email', fn($r) => $r->ignore($this->user()->id))
   FluentRule::string()->exists('subjects', 'id', fn($r) => $r->where('video_id',          
+  
   
   
   
