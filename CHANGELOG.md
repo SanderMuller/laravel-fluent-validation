@@ -2,17 +2,6 @@
 
 All notable changes to `laravel-fluent-validation` will be documented in this file.
 
-## 0.5.3 - 2026-04-06
-
-### Added
-
-- **AI-assisted development tooling** — Added [`sandermuller/package-boost`](https://github.com/SanderMuller/package-boost) for AI skills and guidelines management. Contributors get Claude Code, GitHub Copilot, and Codex context out of the box.
-- **`.ai/` directory** — Source of truth for AI skills (code-review, backend-quality, bug-fixing, evaluate, write-spec, implement-spec, pr-review-feedback, autoresearch) and guidelines (verification, exploration budget, parallel agents).
-- **`.mcp.json`** — Laravel Boost MCP server config for doc search and tinker via Testbench.
-- **`CONTRIBUTING.md`** — Setup instructions for AI tooling with `vendor/bin/testbench`.
-
-**Full Changelog**: https://github.com/SanderMuller/laravel-fluent-validation/compare/0.5.2...0.5.3
-
 ## 0.5.2 - 2026-04-06
 
 ### Added
