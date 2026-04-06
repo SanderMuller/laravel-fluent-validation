@@ -21,9 +21,11 @@
 
 ## Password
 
-- Length: `FluentRule::password(12)` (min via constructor, default 8), `max($n)`
+- `FluentRule::password()` uses `Password::default()` from AppServiceProvider. Pass explicit min to override: `FluentRule::password(min: 12)`
+- Length: `min($n)`, `max($n)` — `min()` overrides the default minimum
 - Strength: `letters()`, `mixedCase()`, `numbers()`, `symbols()`
 - Security: `uncompromised($threshold?)` — check against breached password databases
+- Comparison: `confirmed()`
 
 ## Numeric
 
@@ -74,6 +76,7 @@ All comparison methods accept `DateTimeInterface|string`:
 - No base type constraint — use for fields that need modifiers without a type
 - Supports `children([...])` for fixed-key child rules
 - Supports all field modifiers and embedded rules
+- Comparison: `same($field)`, `different($field)`, `confirmed()`
 
 ## Embedded Rules (string, numeric, date, email)
 

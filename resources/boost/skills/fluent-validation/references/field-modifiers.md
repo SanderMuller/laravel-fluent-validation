@@ -35,6 +35,21 @@ All variadic `$values` parameters accept `string|int|bool`.
 
 **Caveat:** `exclude` rules only affect `validated()` output when placed at the outer validator level. To exclude a field, place `exclude` alongside the fluent rule: `'field' => ['exclude', FluentRule::string()]`
 
+### Closure/bool examples for conditional modifiers
+
+All conditional modifiers (`requiredIf`, `excludeIf`, `prohibitedIf`, etc.) accept BOTH forms:
+
+```php
+// Field + value form:
+->excludeIf('type', 'guest')
+->requiredIf('role', 'admin', 'editor')
+
+// Closure/bool form (DO NOT use ->rule(Rule::excludeIf(...)) — use this directly):
+->excludeIf(fn () => $this->user()->isGuest())
+->excludeIf(true)
+->requiredIf(fn () => $someCondition)
+```
+
 ## Flow Control
 
 - `bail()` — stop on first failure

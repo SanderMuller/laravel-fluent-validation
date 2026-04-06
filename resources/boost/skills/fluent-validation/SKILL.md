@@ -13,6 +13,7 @@ For deeper guidance, read the relevant reference file before implementing:
 
 - `references/rule-types.md` — complete method reference for all rule types (string, numeric, date, boolean, array, file, image, email, password, field)
 - `references/field-modifiers.md` — shared modifiers: presence, prohibition, exclusion, labels, messages, conditionals, escape hatch
+- `references/migration-patterns.md` — common before/after patterns when converting from string rules. Read this to avoid unnecessary `->rule()` escape hatches
 - `references/performance.md` — wildcard optimization, RuleSet API, benchmarks, custom Validator integration
 
 ## Entry Point
