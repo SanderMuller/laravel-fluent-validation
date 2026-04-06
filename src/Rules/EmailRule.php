@@ -7,6 +7,7 @@ use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Contracts\Validation\ValidatorAwareRule;
 use Illuminate\Support\Traits\Conditionable;
 use Illuminate\Support\Traits\Macroable;
+use Illuminate\Validation\Rules\Email;
 use SanderMuller\FluentValidation\Rules\Concerns\HasEmbeddedRules;
 use SanderMuller\FluentValidation\Rules\Concerns\HasFieldModifiers;
 use SanderMuller\FluentValidation\Rules\Concerns\SelfValidates;
@@ -24,6 +25,13 @@ class EmailRule implements DataAwareRule, ValidationRule, ValidatorAwareRule
 
     /** @var list<string> */
     protected array $modes = [];
+
+    protected bool $useDefaults;
+
+    public function __construct(bool $defaults = true)
+    {
+        $this->useDefaults = $defaults;
+    }
 
     public function rfcCompliant(bool $strict = false): static
     {
@@ -98,8 +106,16 @@ class EmailRule implements DataAwareRule, ValidationRule, ValidatorAwareRule
     /** @return list<string|object> */
     protected function buildValidationRules(): array
     {
-        $emailRule = $this->modes === [] ? 'email' : 'email:' . implode(',', $this->modes);
+        // Explicit modes always take precedence.
+        if ($this->modes !== []) {
+            return [...$this->reorderConstraints($this->constraints), 'email:' . implode(',', $this->modes), ...$this->rules];
+        }
 
-        return [...$this->reorderConstraints($this->constraints), $emailRule, ...$this->rules];
+        // Use Email::default() when defaults are enabled and the app has configured them.
+        if ($this->useDefaults && Email::$defaultCallback !== null) {
+            return [...$this->reorderConstraints($this->constraints), Email::default(), ...$this->rules];
+        }
+
+        return [...$this->reorderConstraints($this->constraints), 'email', ...$this->rules];
     }
 }

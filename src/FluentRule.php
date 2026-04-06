@@ -70,9 +70,9 @@ class FluentRule
         return $label !== null ? $fileRule->label($label) : $fileRule;
     }
 
-    public static function email(?string $label = null): EmailRule
+    public static function email(?string $label = null, bool $defaults = true): EmailRule
     {
-        $emailRule = new EmailRule();
+        $emailRule = new EmailRule($defaults);
 
         return $label !== null ? $emailRule->label($label) : $emailRule;
     }
@@ -84,9 +84,9 @@ class FluentRule
         return $label !== null ? $imageRule->label($label) : $imageRule;
     }
 
-    public static function password(?int $min = null, ?string $label = null): PasswordRule
+    public static function password(?int $min = null, ?string $label = null, bool $defaults = true): PasswordRule
     {
-        $passwordRule = new PasswordRule($min);
+        $passwordRule = new PasswordRule($min, $defaults);
 
         return $label !== null ? $passwordRule->label($label) : $passwordRule;
     }
