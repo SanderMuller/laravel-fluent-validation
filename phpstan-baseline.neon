@@ -97,7 +97,7 @@ parameters:
 			path: tests/RuleSetTest.php
 
 		-
-			rawMessage: 'Parameter #1 $values of method SanderMuller\FluentValidation\Rules\StringRule::notIn() expects array<int, mixed>|class-string<BackedEnum>|Illuminate\Contracts\Support\Arrayable<(int|string), mixed>, Illuminate\Support\Collection<int, string> given.'
+			rawMessage: 'Parameter #1 $values of method SanderMuller\FluentValidation\Rules\StringRule::notIn() expects array<int, mixed>|Illuminate\Contracts\Support\Arrayable<(int|string), mixed>|int|string, Illuminate\Support\Collection<int, string> given.'
 			identifier: argument.type
 			count: 1
 			path: tests/RuleSetTest.php

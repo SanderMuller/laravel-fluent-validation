@@ -50,11 +50,14 @@ FluentRule::password(min: 12)->required()->confirmed()
 ### Email
 
 ```php
-// FluentRule::email() uses Email::default() when app defaults are configured:
-FluentRule::email()->required()
+// FluentRule::email() is basic email validation:
+FluentRule::email()->required()  // compiles to 'string|email'
 
 // For explicit modes:
 FluentRule::email()->rfcCompliant()->strict()
+
+// For app-configured defaults (Email::defaults() in AppServiceProvider):
+FluentRule::field()->required()->rule(Email::default())
 ```
 
 ### In/notIn
