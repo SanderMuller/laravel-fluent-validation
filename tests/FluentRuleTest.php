@@ -1329,6 +1329,63 @@ it('compile passes through non-fluent rules unchanged', function (): void {
 });
 
 // =========================================================================
+// RuleSet::compileToArrays()
+// =========================================================================
+
+it('compileToArrays returns arrays for fluent rules', function (): void {
+    $compiled = RuleSet::compileToArrays([
+        'name' => FluentRule::string()->required()->min(2),
+        'age' => FluentRule::numeric()->integer(),
+    ]);
+
+    expect($compiled['name'])->toBe(['required', 'string', 'min:2']);
+    expect($compiled['age'])->toBe(['numeric', 'integer']);
+});
+
+it('compileToArrays explodes string rules into arrays', function (): void {
+    $compiled = RuleSet::compileToArrays([
+        'name' => 'required|string|max:255',
+        'email' => 'required|email',
+    ]);
+
+    expect($compiled['name'])->toBe(['required', 'string', 'max:255']);
+    expect($compiled['email'])->toBe(['required', 'email']);
+});
+
+it('compileToArrays passes through array rules unchanged', function (): void {
+    $compiled = RuleSet::compileToArrays([
+        'tags' => ['required', 'array'],
+    ]);
+
+    expect($compiled['tags'])->toBe(['required', 'array']);
+});
+
+it('compileToArrays wraps standalone objects in arrays', function (): void {
+    $rule = new class implements ValidationRule {
+        public function validate(string $attribute, mixed $value, Closure $fail): void {}
+    };
+
+    $compiled = RuleSet::compileToArrays([
+        'field' => $rule,
+    ]);
+
+    expect($compiled['field'])->toBeArray();
+    expect($compiled['field'][0])->toBe($rule);
+});
+
+it('compileToArrays handles mixed fluent and string rules', function (): void {
+    $compiled = RuleSet::compileToArrays([
+        'name' => FluentRule::string()->required(),
+        'email' => 'required|email',
+        'tags' => ['required', 'array'],
+    ]);
+
+    expect($compiled['name'])->toBe(['required', 'string']);
+    expect($compiled['email'])->toBe(['required', 'email']);
+    expect($compiled['tags'])->toBe(['required', 'array']);
+});
+
+// =========================================================================
 // ArrayRule — getEachRules / withoutEachRules
 // =========================================================================
 

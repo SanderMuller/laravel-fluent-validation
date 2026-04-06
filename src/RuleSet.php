@@ -666,6 +666,30 @@ final class RuleSet implements Arrayable
     }
 
     /**
+     * Compile rules to array format, guaranteed to return arrays per field.
+     * Useful when passing rules to APIs that expect array<string, array<mixed>>
+     * (e.g., Livewire's $this->validate()).
+     *
+     * @param  array<string, mixed>  $rules
+     * @return array<string, array<mixed>>
+     */
+    public static function compileToArrays(array $rules): array
+    {
+        $compiled = self::compile($rules);
+
+        foreach ($compiled as $field => $rule) {
+            if (is_string($rule)) {
+                $compiled[$field] = explode('|', $rule);
+            } elseif (! is_array($rule)) {
+                $compiled[$field] = [$rule];
+            }
+        }
+
+        /** @var array<string, array<mixed>> */
+        return $compiled;
+    }
+
+    /**
      * Extract labels and per-rule messages from rule objects before compilation.
      *
      * @param  array<string, mixed>  $rules

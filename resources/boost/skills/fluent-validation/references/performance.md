@@ -77,3 +77,4 @@ Resolves translator, presence verifier, calls `prepare()`, sets implicit attribu
 - `->validate($data, $messages?, $attributes?)` — validate with full optimization
 - `->expandWildcards($data)` — pre-expand without validating
 - `RuleSet::compile($rules)` — compile to native Laravel format
+- `RuleSet::compileToArrays($rules)` — compile to array format (`array<string, array<mixed>>`), useful for Livewire's `$this->validate()`

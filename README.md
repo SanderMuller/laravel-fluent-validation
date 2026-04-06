@@ -215,6 +215,8 @@ FluentRule::file()->rule(['mimetypes', ...$types])     // array tuple
 - `each()` and `children()` nest naturally. Flat dot-notation keys like `columns.*.data.sort` become nested `each([...children([...])])` trees that mirror the data shape.
 - FluentRule objects in rules arrays are objects, not arrays. Don't use `array_search`, `mergeRecursive`, or other structural array functions on them.
 
+**Migrating an existing codebase?** If you have [Laravel Boost](https://github.com/laravel/boost) installed, ask your AI assistant to run the `optimize-validation` skill — it scans your codebase for convertible rules, prioritizes by impact, and applies changes file by file with test verification.
+
 ### Extending parent rules in child FormRequests
 
 When a child class needs to add rules to fields defined by the parent, use clone + `rule()`:
@@ -422,17 +424,18 @@ $validated = RuleSet::make()
 
 `when()` and `unless()` are available via Laravel's `Conditionable` trait. `merge()` accepts another `RuleSet` or a plain array.
 
-| Method                        | Returns         | Description                                                       |
-|-------------------------------|-----------------|-------------------------------------------------------------------|
-| `RuleSet::from([...])`        | `RuleSet`       | Create from a rules array                                         |
-| `RuleSet::make()->field(...)` | `RuleSet`       | Fluent builder                                                    |
-| `->merge($ruleSet)`           | `RuleSet`       | Merge another RuleSet or array into this one                      |
-| `->when($cond, $callback)`    | `RuleSet`       | Conditionally add fields (also: `unless`)                         |
-| `->toArray()`                 | `array`         | Flat rules with `each()` expanded to wildcards                    |
-| `->validate($data)`           | `array`         | Validate with full optimization (see [Performance](#performance)) |
-| `->prepare($data)`            | `PreparedRules` | Expand, extract metadata, compile. For custom Validators          |
-| `->expandWildcards($data)`    | `array`         | Pre-expand wildcards without validating                           |
-| `RuleSet::compile($rules)`    | `array`         | Compile fluent rules to native Laravel format                     |
+| Method                              | Returns         | Description                                                       |
+|-------------------------------------|-----------------|-------------------------------------------------------------------|
+| `RuleSet::from([...])`              | `RuleSet`       | Create from a rules array                                         |
+| `RuleSet::make()->field(...)`       | `RuleSet`       | Fluent builder                                                    |
+| `->merge($ruleSet)`                 | `RuleSet`       | Merge another RuleSet or array into this one                      |
+| `->when($cond, $callback)`          | `RuleSet`       | Conditionally add fields (also: `unless`)                         |
+| `->toArray()`                       | `array`         | Flat rules with `each()` expanded to wildcards                    |
+| `->validate($data)`                 | `array`         | Validate with full optimization (see [Performance](#performance)) |
+| `->prepare($data)`                  | `PreparedRules` | Expand, extract metadata, compile. For custom Validators          |
+| `->expandWildcards($data)`          | `array`         | Pre-expand wildcards without validating                           |
+| `RuleSet::compile($rules)`          | `array`         | Compile fluent rules to native Laravel format                     |
+| `RuleSet::compileToArrays($rules)`  | `array`         | Compile to array format — for Livewire's `$this->validate()`     |
 
 ### Using with `validateWithBag` or custom Validator instances
 
@@ -708,7 +711,7 @@ PHP's `mergeRecursive` deconstructs objects into arrays. Use `(clone $parentRule
 Use `->rule('method_name')` as an escape hatch for any Laravel rule not yet available as a fluent method. Accepts strings, objects, and `['rule', ...$params]` tuples.
 
 **`HasFluentValidation` conflicts with Filament's `InteractsWithSchemas`**
-Both traits define `validate()`. For Filament components, use `RuleSet::compile()` instead of the trait: `$this->validate(RuleSet::compile($this->rules()))`. FluentRule works correctly without the trait for simple rules.
+Both traits define `validate()`. For Filament components, use `RuleSet::compileToArrays()` instead of the trait: `$this->validate(RuleSet::compileToArrays($this->rules()))`. This returns `array<string, array<mixed>>` matching Livewire's expected type, so PHPStan is happy. FluentRule works correctly without the trait for simple rules.
 
 ## Testing
 
