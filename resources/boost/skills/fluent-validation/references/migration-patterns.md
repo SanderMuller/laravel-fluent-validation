@@ -105,6 +105,47 @@ Rule::when($condition, ['bail', Rule::numeric(), $closure])
 ->rule(Rule::when($condition, ['bail', Rule::numeric(), $closure]))
 ```
 
+## Choosing the right FluentRule type
+
+| Original rule | FluentRule type | Why |
+|---|---|---|
+| `'required\|string\|max:255'` | `FluentRule::string()->required()->max(255)` | Has `string` type |
+| `'required\|integer'` | `FluentRule::numeric()->required()->integer()` | Has numeric type |
+| `'required\|email'` | `FluentRule::email()->required()` | Has `email` type |
+| `'required\|boolean'` | `FluentRule::boolean()->required()` | Has `boolean` type |
+| `'required\|date'` | `FluentRule::date()->required()` | Has `date` type |
+| `'required'` (no type) | `FluentRule::field()->required()` | No type constraint |
+| `'email'` (no required) | `FluentRule::email()` | Validates as email when present |
+| `'sometimes\|bool'` | `FluentRule::boolean()->sometimes()` | Chain order doesn't matter — compiled output is always `sometimes\|boolean` |
+
+## Checkbox values (0/1)
+
+```php
+// BEFORE:
+['required', Rule::in([0, 1])]
+
+// WRONG (verbose):
+FluentRule::field()->required()->in([0, 1])
+
+// CORRECT (boolean() accepts 0, 1, "0", "1", true, false):
+FluentRule::boolean()->required()
+```
+
+## Mixing fluent methods with custom rules
+
+`->rule()` appends to the same chain. You can mix freely:
+
+```php
+// This works — no need to wrap Rule::file() inside FluentRule::file()
+FluentRule::file()->sometimes()->max('8mb')
+    ->rule(new FormAttachmentExtensions())
+    ->rule(new BlockCodeFiles())
+```
+
+## FluentRule::image() vs Rule::imageFile()
+
+`FluentRule::image()` compiles to `image|...` (string rules + Dimensions objects). `Rule::imageFile()` is Laravel's `File` rule builder. For simple cases they're equivalent. Use `->rule(Rule::imageFile()->...)` only when you need `File`-specific builder methods.
+
 ## Custom app rules and third-party rules
 
 These are correct uses of `->rule()`:
