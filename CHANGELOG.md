@@ -2,6 +2,28 @@
 
 All notable changes to `laravel-fluent-validation` will be documented in this file.
 
+## 0.5.1 - 2026-04-06
+
+### Added
+
+- **`RuleSet::compileToArrays()`** — Compiles FluentRule objects to native Laravel format with a guaranteed `array<string, array<mixed>>` return type. Designed for Livewire's `$this->validate()` in Filament components where `HasFluentValidation` can't be used due to trait collision with `InteractsWithSchemas`. Eliminates PHPStan baseline entries caused by `RuleSet::compile()` returning mixed types.
+  
+  ```php
+  // Before (PHPStan complains about type mismatch)
+  $this->validate(RuleSet::compile($this->rules()));
+  
+  // After (honest return type, zero baseline entries)
+  $this->validate(RuleSet::compileToArrays($this->rules()));
+  
+  ```
+
+### Documentation
+
+- Updated Filament troubleshooting in README and Livewire skill to recommend `compileToArrays()` over `compile()`.
+- Added `compileToArrays()` to RuleSet API tables in README and performance reference.
+
+**Full Changelog**: https://github.com/SanderMuller/laravel-fluent-validation/compare/0.5.0...0.5.1
+
 ## 0.5.0 - 2026-04-06
 
 ### Breaking
@@ -15,6 +37,7 @@ All notable changes to `laravel-fluent-validation` will be documented in this fi
   ```php
   FluentRule::email(defaults: false)    // basic 'email' validation
   FluentRule::password(defaults: false) // Password::min(8), ignores app config
+  
   
   ```
 - **Boost guidelines file** — always-on agent context that ensures every agent and sub-process knows to use FluentRule native methods instead of string escape hatches. Addresses the finding that agent sub-processes don't inherit skill context.
@@ -274,6 +297,7 @@ Tested across two independent codebases:
   
   
   
+  
   ```
 - **PHPStan errors in OptimizedValidator** — Matched parent `Validator::validateAttribute()` signature.
   
@@ -330,6 +354,7 @@ Tested across two independent codebases:
   
   
   
+  
   ```
 - FluentFormRequest base class — Combines HasFluentRules compilation with per-attribute
   fast-check optimization via OptimizedValidator. Eligible wildcard rules are fast-checked
@@ -362,6 +387,7 @@ Tested across two independent codebases:
   ```php
   FluentRule::string()->unique('users', 'email', fn($r) => $r->ignore($this->user()->id))
   FluentRule::string()->exists('subjects', 'id', fn($r) => $r->where('video_id',          
+  
   
   
   
