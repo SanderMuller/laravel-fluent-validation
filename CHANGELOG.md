@@ -2,6 +2,14 @@
 
 All notable changes to `laravel-fluent-validation` will be documented in this file.
 
+## 0.4.5 - 2026-04-06
+
+### Fixed
+
+- **Reverted `Email::default()` auto-application** — `FluentRule::email()` in 0.4.4 automatically applied app-configured email defaults (`Email::defaults()` from AppServiceProvider), which broke apps with strict email validation (MX record checks, spoofing prevention). `FluentRule::email()` now returns to basic `'email'` validation. Use `->rule(Email::default())` explicitly for app-configured email defaults.
+
+**Full Changelog**: https://github.com/SanderMuller/laravel-fluent-validation/compare/0.4.4...0.4.5
+
 ## 0.4.4 - 2026-04-06
 
 ### Added
@@ -235,6 +243,7 @@ Tested across two independent codebases:
   
   
   
+  
   ```
 - **PHPStan errors in OptimizedValidator** — Matched parent `Validator::validateAttribute()` signature.
   
@@ -289,6 +298,7 @@ Tested across two independent codebases:
   
   
   
+  
   ```
 - FluentFormRequest base class — Combines HasFluentRules compilation with per-attribute
   fast-check optimization via OptimizedValidator. Eligible wildcard rules are fast-checked
@@ -321,6 +331,7 @@ Tested across two independent codebases:
   ```php
   FluentRule::string()->unique('users', 'email', fn($r) => $r->ignore($this->user()->id))
   FluentRule::string()->exists('subjects', 'id', fn($r) => $r->where('video_id',          
+  
   
   
   
