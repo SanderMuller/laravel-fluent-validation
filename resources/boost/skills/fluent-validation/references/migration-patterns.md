@@ -142,6 +142,47 @@ FluentRule::file()->sometimes()->max('8mb')
     ->rule(new BlockCodeFiles())
 ```
 
+## File sizes — human-readable strings
+
+`FileRule` and `ImageRule` accept human-readable size strings on `max()`, `min()`, `between()`, and `exactly()`:
+
+```php
+// BEFORE:
+['file', 'max:5120']
+Rule::file()->max('5mb')
+
+// WRONG (unnecessary escape hatch):
+->rule(File::types('png')->max('5mb'))
+
+// CORRECT:
+FluentRule::file()->max('5mb')
+FluentRule::image()->max('2mb')->mimes('jpg', 'png')
+FluentRule::file()->between('500kb', '10mb')
+
+// Raw kilobytes still work:
+FluentRule::file()->max(5000)
+```
+
+Units: `kb`, `mb`, `gb`, `tb`. Uses decimal (1 MB = 1000 KB), matching Laravel's `File` rule.
+
+## Integer enum values — use field(), not string()
+
+```php
+// BEFORE:
+['required', Rule::in([1, 3, 2, 4])]
+
+// WRONG (string type rejects integer values from forms):
+FluentRule::string()->required()->in([1, 3, 2, 4])
+
+// WRONG (unnecessary escape hatch):
+FluentRule::field()->required()->rule('in:1,3,2,4')
+
+// CORRECT (field() has in() via HasEmbeddedRules):
+FluentRule::field()->required()->in([1, 3, 2, 4])
+```
+
+Use `field()` when the values are integers or mixed types. Use `string()` only when the `string` type constraint is needed.
+
 ## FluentRule::image() vs Rule::imageFile()
 
 `FluentRule::image()` compiles to `image|...` (string rules + Dimensions objects). `Rule::imageFile()` is Laravel's `File` rule builder. For simple cases they're equivalent. Use `->rule(Rule::imageFile()->...)` only when you need `File`-specific builder methods.
@@ -248,3 +289,24 @@ These are correct uses of `->rule()`:
 ->rule('custom_string_rule')        // registered via Validator::extend()
 ->rule(fn ($attr, $val, $fail) => ...) // inline closure
 ```
+
+## Testing FluentRule validation
+
+Three approaches, depending on what you need:
+
+```php
+// 1. Quick compilation check (no actual validation):
+$compiled = RuleSet::compile(['name' => FluentRule::string()->required()]);
+// Returns: ['name' => 'required|string']
+
+// 2. Full validation with nested rules (each/children expansion):
+$validated = RuleSet::from($rules)->validate($data);
+// Throws ValidationException on failure, returns validated data on success
+
+// 3. Validator instance for inspection (failed(), errors(), passes()):
+$prepared = RuleSet::from($rules)->prepare($data);
+$validator = Validator::make($data, $prepared->rules, $prepared->messages, $prepared->attributes);
+$validator->passes(); // or ->fails(), ->errors(), ->failed()
+```
+
+`RuleSet::compile()` does NOT expand `each()`/`children()` wildcards. Use `prepare()` or `validate()` for nested rules.
