@@ -2,6 +2,26 @@
 
 All notable changes to `laravel-fluent-validation` will be documented in this file.
 
+## 0.4.3 - 2026-04-06
+
+### Fixed
+
+- **Failed rule identifiers forwarded from self-validation** — FluentRule objects now expose individual rule identifiers (`Required`, `Min`, `Max`, etc.) in `$validator->failed()`. This fixes Livewire's `assertHasErrors(['field' => 'rule'])` when using FluentRule without the `HasFluentValidation` trait.
+
+### Added
+
+- **Dedicated Livewire Boost skill** — `fluent-validation-livewire` activates when working on Livewire components. Covers `HasFluentValidation` trait usage, flat wildcard key requirement, Filament trait collision workaround, and common mistakes.
+
+### Documentation
+
+- **Livewire support section in README** — full example with `HasFluentValidation` trait, flat wildcard key note, and `$rules` property → `rules()` method migration note
+- **Filament collision workaround** — documented in README troubleshooting and Livewire skill. Use `RuleSet::compile()` when `HasFluentValidation` conflicts with `InteractsWithSchemas`.
+- **`validateWithBag` pattern** — documented `RuleSet::prepare()` + `Validator::make()` for custom error bags
+- **Octane safety note** — all optimizations are Octane-safe (factory resolver restored via try/finally)
+- **Boost install/update commands** — clarified `boost:install` vs `boost:update`
+
+**Full Changelog**: https://github.com/SanderMuller/laravel-fluent-validation/compare/0.4.2...0.4.3
+
 ## 0.4.2 - 2026-04-05
 
 ### Added
@@ -187,6 +207,7 @@ Tested across two independent codebases:
   
   
   
+  
   ```
 - **PHPStan errors in OptimizedValidator** — Matched parent `Validator::validateAttribute()` signature.
   
@@ -239,6 +260,7 @@ Tested across two independent codebases:
   
   
   
+  
   ```
 - FluentFormRequest base class — Combines HasFluentRules compilation with per-attribute
   fast-check optimization via OptimizedValidator. Eligible wildcard rules are fast-checked
@@ -271,6 +293,7 @@ Tested across two independent codebases:
   ```php
   FluentRule::string()->unique('users', 'email', fn($r) => $r->ignore($this->user()->id))
   FluentRule::string()->exists('subjects', 'id', fn($r) => $r->where('video_id',          
+  
   
   
   
