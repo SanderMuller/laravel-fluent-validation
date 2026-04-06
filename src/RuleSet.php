@@ -677,15 +677,20 @@ final class RuleSet implements Arrayable
     {
         $compiled = self::compile($rules);
 
+        /** @var array<string, array<mixed>> $result */
+        $result = [];
+
         foreach ($compiled as $field => $rule) {
             if (is_string($rule)) {
-                $compiled[$field] = explode('|', $rule);
-            } elseif (! is_array($rule)) {
-                $compiled[$field] = [$rule];
+                $result[$field] = explode('|', $rule);
+            } elseif (is_array($rule)) {
+                $result[$field] = $rule;
+            } else {
+                $result[$field] = [$rule];
             }
         }
 
-        return $compiled;
+        return $result;
     }
 
     /**

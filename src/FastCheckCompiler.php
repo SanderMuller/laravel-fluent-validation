@@ -197,71 +197,80 @@ final class FastCheckCompiler
         };
     }
 
-    /** @param  list<\Closure(mixed): bool>  $checks */
+    /**
+     * @param  array<string, mixed>  $c
+     * @param  list<\Closure(mixed): bool>  $checks
+     */
     private static function addTypeChecks(array $c, array &$checks): void
     {
-        if ($c['accepted']) {
+        if (($c['accepted'] ?? false) === true) {
             $checks[] = static fn (mixed $v): bool => in_array($v, ['yes', 'on', '1', 1, true, 'true'], true);
         }
 
-        if ($c['declined']) {
+        if (($c['declined'] ?? false) === true) {
             $checks[] = static fn (mixed $v): bool => in_array($v, ['no', 'off', '0', 0, false, 'false'], true);
         }
 
-        if ($c['boolean']) {
+        if (($c['boolean'] ?? false) === true) {
             $checks[] = static fn (mixed $v): bool => in_array($v, [true, false, 0, 1, '0', '1'], true);
         }
 
-        if ($c['string']) {
+        if (($c['string'] ?? false) === true) {
             $checks[] = static fn (mixed $v): bool => is_string($v);
         }
 
-        if ($c['numeric']) {
+        if (($c['numeric'] ?? false) === true) {
             $checks[] = static fn (mixed $v): bool => is_numeric($v);
         }
 
-        if ($c['integer']) {
+        if (($c['integer'] ?? false) === true) {
             $checks[] = static fn (mixed $v): bool => filter_var($v, FILTER_VALIDATE_INT) !== false;
         }
     }
 
-    /** @param  list<\Closure(mixed): bool>  $checks */
+    /**
+     * @param  array<string, mixed>  $c
+     * @param  list<\Closure(mixed): bool>  $checks
+     */
     private static function addFormatChecks(array $c, array &$checks): void
     {
-        if ($c['email']) {
+        if (($c['email'] ?? false) === true) {
             $checks[] = static fn (mixed $v): bool => is_string($v) && filter_var($v, FILTER_VALIDATE_EMAIL) !== false;
         }
 
-        if ($c['url']) {
+        if (($c['url'] ?? false) === true) {
             $checks[] = static fn (mixed $v): bool => is_string($v) && filter_var($v, FILTER_VALIDATE_URL) !== false;
         }
 
-        if ($c['ip']) {
+        if (($c['ip'] ?? false) === true) {
             $checks[] = static fn (mixed $v): bool => is_string($v) && filter_var($v, FILTER_VALIDATE_IP) !== false;
         }
 
-        if ($c['uuid']) {
+        if (($c['uuid'] ?? false) === true) {
             $checks[] = static fn (mixed $v): bool => is_string($v) && (bool) preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/iD', $v);
         }
 
-        if ($c['ulid']) {
+        if (($c['ulid'] ?? false) === true) {
             $checks[] = static fn (mixed $v): bool => is_string($v) && (bool) preg_match('/^[0-7][0-9A-HJKMNP-TV-Z]{25}$/D', $v);
         }
 
-        if ($c['alpha']) {
+        if (($c['alpha'] ?? false) === true) {
             $checks[] = static fn (mixed $v): bool => is_string($v) && (bool) preg_match('/\A[a-zA-Z]+\z/u', $v);
         }
 
-        if ($c['alphaDash']) {
+        if (($c['alphaDash'] ?? false) === true) {
             $checks[] = static fn (mixed $v): bool => is_string($v) && (bool) preg_match('/\A[a-zA-Z0-9_-]+\z/u', $v);
         }
 
-        if ($c['alphaNum']) {
+        if (($c['alphaNum'] ?? false) === true) {
             $checks[] = static fn (mixed $v): bool => is_string($v) && (bool) preg_match('/\A[a-zA-Z0-9]+\z/u', $v);
         }
     }
 
-    /** @param  list<\Closure(mixed): bool>  $checks */
+    /**
+     * @param  array<string, mixed>  $c
+     * @param  list<\Closure(mixed): bool>  $checks
+     */
     private static function addDigitChecks(array $c, array &$checks): void
     {
         /** @var ?int $digits */

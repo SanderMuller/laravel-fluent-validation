@@ -18,23 +18,7 @@ parameters:
 			count: 1
 			path: src/FastCheckCompiler.php
 
-		-
-			rawMessage: 'Method SanderMuller\FluentValidation\FastCheckCompiler::addDigitChecks() has parameter $c with no value type specified in iterable type array.'
-			identifier: missingType.iterableValue
-			count: 1
-			path: src/FastCheckCompiler.php
 
-		-
-			rawMessage: 'Method SanderMuller\FluentValidation\FastCheckCompiler::addFormatChecks() has parameter $c with no value type specified in iterable type array.'
-			identifier: missingType.iterableValue
-			count: 1
-			path: src/FastCheckCompiler.php
-
-		-
-			rawMessage: 'Method SanderMuller\FluentValidation\FastCheckCompiler::addTypeChecks() has parameter $c with no value type specified in iterable type array.'
-			identifier: missingType.iterableValue
-			count: 1
-			path: src/FastCheckCompiler.php
 
 		-
 			rawMessage: 'Cognitive complexity for "SanderMuller\FluentValidation\FluentFormRequest::preExcludeRules()" is 21, keep it under 12'
@@ -61,7 +45,7 @@ parameters:
 			path: src/OptimizedValidator.php
 
 		-
-			rawMessage: 'Class cognitive complexity is 164, keep it under 50'
+			rawMessage: 'Class cognitive complexity is 165, keep it under 50'
 			identifier: complexity.classLike
 			count: 1
 			path: src/RuleSet.php
