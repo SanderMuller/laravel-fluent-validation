@@ -56,8 +56,9 @@ FluentRule::email()->required()  // compiles to 'string|email'
 // For explicit modes:
 FluentRule::email()->rfcCompliant()->strict()
 
-// For app-configured defaults (Email::defaults() in AppServiceProvider):
-FluentRule::field()->required()->rule(Email::default())
+// FluentRule::email() uses Email::default() automatically when configured.
+// For basic validation without app defaults:
+FluentRule::email(defaults: false)->required()
 ```
 
 ### In/notIn
@@ -204,6 +205,6 @@ These are appropriate uses of `->rule()`:
 ->rule(new EnumValue(Status::class)) // bensampo/enum
 ->rule('custom_string_rule')        // registered via Validator::extend()
 ->rule(fn ($attr, $val, $fail) => ...) // inline closure
-->rule(Email::default())            // app-configured email (if Email::defaults() is set)
+->rule(Email::default())            // only if you need Email::default() alongside other escape-hatch rules
 ->rule(Rule::when($cond, [...]))    // mixed-array conditional blocks
 ```

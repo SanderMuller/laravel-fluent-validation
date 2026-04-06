@@ -1,6 +1,7 @@
 <?php declare(strict_types=1);
 
 use Illuminate\Contracts\Validation\ValidationRule;
+use Illuminate\Validation\Rules\Email;
 use SanderMuller\FluentValidation\FluentRule;
 
 // =========================================================================
@@ -81,4 +82,58 @@ it('EmailRule with modes validates and compiles correctly', function (): void {
 
     $v = makeValidator(['email' => 'not-an-email'], ['email' => $emailRule]);
     expect($v->passes())->toBeFalse();
+});
+
+// =========================================================================
+// Email::default() integration
+// =========================================================================
+
+it('uses Email::default() when app defaults are configured', function (): void {
+    Email::defaults(fn () => (new Email)->rfcCompliant());
+
+    try {
+        $compiled = FluentRule::email()->compiledRules();
+        expect($compiled)->toBeArray();
+        expect($compiled[0])->toBe('string');
+        expect($compiled[1])->toBeInstanceOf(Email::class);
+    } finally {
+        Email::$defaultCallback = null;
+    }
+});
+
+it('uses basic email when no app defaults configured', function (): void {
+    expect(FluentRule::email()->compiledRules())->toBe('string|email');
+});
+
+it('defaults: false ignores app defaults', function (): void {
+    Email::defaults(fn () => (new Email)->rfcCompliant()->validateMxRecord());
+
+    try {
+        expect(FluentRule::email(defaults: false)->compiledRules())->toBe('string|email');
+    } finally {
+        Email::$defaultCallback = null;
+    }
+});
+
+it('explicit modes override app defaults', function (): void {
+    Email::defaults(fn () => (new Email)->validateMxRecord());
+
+    try {
+        // Explicit strict() should use modes, not Email::default()
+        expect(FluentRule::email()->strict()->compiledRules())->toBe('string|email:strict');
+    } finally {
+        Email::$defaultCallback = null;
+    }
+});
+
+it('defaults: false with label works', function (): void {
+    Email::defaults(fn () => (new Email)->validateMxRecord());
+
+    try {
+        $rule = FluentRule::email('Email Address', defaults: false)->required();
+        expect($rule->compiledRules())->toBe('required|string|email');
+        expect($rule->getLabel())->toBe('Email Address');
+    } finally {
+        Email::$defaultCallback = null;
+    }
 });

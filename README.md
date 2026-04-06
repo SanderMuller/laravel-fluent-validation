@@ -500,11 +500,13 @@ FluentRule::string()->inArray('values.*')->inArrayKeys('values.*')->distinct()
 
 ### Email
 
-Configurable strictness levels:
+`FluentRule::email()` uses your app's `Email::default()` configuration when set. Pass `defaults: false` for basic validation:
 
 ```php
-FluentRule::email()->rfcCompliant()->strict()->validateMxRecord()->preventSpoofing()
-FluentRule::email()->withNativeValidation(allowUnicode: true)
+FluentRule::email()->required()                     // uses Email::default() if configured
+FluentRule::email(defaults: false)->required()       // basic 'email' validation
+FluentRule::email()->rfcCompliant()->strict()         // explicit modes override defaults
+FluentRule::email()->validateMxRecord()->preventSpoofing()
 FluentRule::email()->required()->unique('users', 'email')
 ```
 
@@ -518,7 +520,7 @@ Chainable strength requirements:
 FluentRule::password(min: 12)->letters()->mixedCase()->numbers()->symbols()->uncompromised()
 ```
 
-> `FluentRule::password()` uses your app's `Password::default()` configuration (set via `Password::defaults()` in AppServiceProvider). Pass an explicit min to override: `FluentRule::password(min: 12)`.
+> `FluentRule::password()` uses your app's `Password::default()` configuration (set via `Password::defaults()` in AppServiceProvider). Pass `defaults: false` for a plain `Password::min(8)`: `FluentRule::password(defaults: false)`.
 
 ### Numeric
 

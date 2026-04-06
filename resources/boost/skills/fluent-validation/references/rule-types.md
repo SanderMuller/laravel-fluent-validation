@@ -14,14 +14,15 @@
 
 ## Email
 
-- Modes: `rfcCompliant(strict?)`, `strict()`, `validateMxRecord()`, `preventSpoofing()`, `withNativeValidation(allowUnicode?)`
+- `FluentRule::email()` uses `Email::default()` when app defaults are configured. Pass `defaults: false` for basic validation: `FluentRule::email(defaults: false)`
+- Explicit modes override defaults: `rfcCompliant(strict?)`, `strict()`, `validateMxRecord()`, `preventSpoofing()`, `withNativeValidation(allowUnicode?)`
 - Constraints: `max($n)`, `confirmed()`, `same($field)`, `different($field)`
 - Embedded: `in($values)`, `notIn($values)`, `enum($class, $callback?)`, `unique($table, $column?)`, `exists($table, $column?)`
 - Also available as `FluentRule::string()->email(...$modes)` for inline use
 
 ## Password
 
-- `FluentRule::password()` uses `Password::default()` from AppServiceProvider. Pass explicit min to override: `FluentRule::password(min: 12)`
+- `FluentRule::password()` uses `Password::default()` from AppServiceProvider. Pass `defaults: false` for plain `Password::min(8)`: `FluentRule::password(defaults: false)`
 - Length: `min($n)`, `max($n)` — `min()` overrides the default minimum
 - Strength: `letters()`, `mixedCase()`, `numbers()`, `symbols()`
 - Security: `uncompromised($threshold?)` — check against breached password databases

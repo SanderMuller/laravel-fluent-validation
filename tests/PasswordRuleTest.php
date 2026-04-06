@@ -163,6 +163,22 @@ it('overrides defaults when explicit min is passed', function (): void {
     }
 });
 
+it('defaults: false ignores app password defaults', function (): void {
+    Password::defaults(fn () => Password::min(20)->letters()->numbers());
+
+    try {
+        // defaults: false → Password::min(8), ignores the configured min:20 + letters + numbers
+        $v = makeValidator(['password' => 'simplepassword'], ['password' => FluentRule::password(defaults: false)->required()]);
+        expect($v->passes())->toBeTrue(); // passes with min:8, no letters/numbers requirement
+
+        // With defaults: true (default) → applies min:20 + letters + numbers
+        $v = makeValidator(['password' => 'simplepassword'], ['password' => FluentRule::password()->required()]);
+        expect($v->passes())->toBeFalse(); // fails: too short (min:20) and no numbers
+    } finally {
+        Password::$defaultCallback = null;
+    }
+});
+
 it('min() sets minimum length via chain', function (): void {
     $v = makeValidator(['password' => 'short'], ['password' => FluentRule::password()->min(8)->required()]);
     expect($v->passes())->toBeFalse();
