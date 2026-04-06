@@ -39,8 +39,25 @@ class EditUser extends Component
 }
 ```
 
+The trait also works on Livewire Form objects:
+
+```php
+class UserForm extends Form
+{
+    use HasFluentValidation;
+
+    public string $name = '';
+
+    public function rules(): array
+    {
+        return ['name' => FluentRule::string('Name')->required()->max(255)];
+    }
+}
+```
+
 ## What the trait does
 
+- Overrides `validate()` AND `validateOnly()` (works with `wire:model.blur` real-time validation)
 - Compiles FluentRule objects to native Laravel format before Livewire's validator sees them
 - Extracts labels (`->label()`) and custom messages (`->message()`)
 - Expands `children()` into flat dot-notation keys
@@ -91,6 +108,15 @@ $this->validate(RuleSet::compile($rules), $messages, $attributes);
 ```
 
 Self-validation mode works correctly for Filament: rule identifiers are forwarded, error messages work, `assertHasErrors` works.
+
+Alternatively, if you need the full trait benefits, use PHP's `insteadof` resolution:
+
+```php
+use HasFluentValidation, InteractsWithForms {
+    HasFluentValidation::validate insteadof InteractsWithForms;
+    HasFluentValidation::validateOnly insteadof InteractsWithForms;
+}
+```
 
 ## Common mistakes
 
