@@ -146,6 +146,97 @@ FluentRule::file()->sometimes()->max('8mb')
 
 `FluentRule::image()` compiles to `image|...` (string rules + Dimensions objects). `Rule::imageFile()` is Laravel's `File` rule builder. For simple cases they're equivalent. Use `->rule(Rule::imageFile()->...)` only when you need `File`-specific builder methods.
 
+## Untyped fields with max/min — use string(), not field()
+
+```php
+// WRONG — field() has no max():
+FluentRule::field()->nullable()->rule(['max', '65535'])
+
+// CORRECT — if it has a length constraint, it's a string:
+FluentRule::string()->nullable()->max(65535)
+```
+
+If a field has `max`, `min`, `between`, or `exactly`, use the appropriate typed rule (`string()` for character count, `numeric()` for value).
+
+## exists() column parameter
+
+```php
+// Omitting column defaults to the field name (Laravel behavior):
+->exists('articles')  // checks articles.articleId (if field is 'articleId')
+
+// Always pass the column explicitly when it differs from the field name:
+->exists('articles', 'id')
+->exists('articles', 'slug')
+```
+
+## Integer fields (IDs, counts)
+
+`FluentRule::numeric()->integer()` is correct for integer fields. It's more explicit than `'integer'` but provides type safety — `numeric()` won't let you chain `alpha()` or `email()`.
+
+```php
+// IDs:
+FluentRule::numeric()->required()->integer()->exists('users', 'id')
+
+// Counts:
+FluentRule::numeric()->required()->integer()->min(0)->max(100)
+```
+
+## Cross-field references with constants
+
+Field references in `requiredIf`, `excludeUnless`, etc. are strings. Use class constants for maintainability:
+
+```php
+class StoreInteractionRequest extends FormRequest
+{
+    private const TYPE = 'interactions.*.type';
+
+    public function rules(): array
+    {
+        return [
+            self::TYPE => FluentRule::string()->required()->in($types),
+            'interactions.*.text' => FluentRule::string()->nullable()
+                ->excludeUnless(self::TYPE, 'button', 'hotspot', 'text'),
+        ];
+    }
+}
+```
+
+## Password rules trait (Fortify/Breeze)
+
+When a trait returns a mixed rule array, keep it as-is and spread it:
+
+```php
+// The trait returns a mixed array — don't convert:
+protected function passwordRules(): array
+{
+    return ['required', 'string', Password::default(), 'confirmed'];
+}
+
+// Consumers spread it:
+'password' => $this->passwordRules(),
+```
+
+For new code, use FluentRule instead:
+
+```php
+'password' => FluentRule::password()->required()->confirmed(),
+```
+
+## message() binds to the preceding rule
+
+`->message()` attaches to the rule method called immediately before it. This is position-sensitive:
+
+```php
+// "We need your name" applies to 'required':
+FluentRule::string()->required()->message('We need your name!')->min(2)
+
+// "Too short" applies to 'min':
+FluentRule::string()->required()->min(2)->message('Too short!')
+
+// WRONG — message() before any rule throws LogicException:
+FluentRule::string()->message('...')  // throws!
+```
+
 ## Custom app rules and third-party rules
 
 These are correct uses of `->rule()`:
