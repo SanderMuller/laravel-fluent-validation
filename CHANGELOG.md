@@ -2,6 +2,66 @@
 
 All notable changes to `laravel-fluent-validation` will be documented in this file.
 
+## 1.0.0 - 2026-04-06
+
+### 1.0.0 — Stable Release
+
+The API is stable. This release signals a commitment to semantic versioning — no breaking changes without a major version bump.
+
+#### What's in 1.0.0
+
+Fluent validation rule builders for Laravel with IDE autocompletion, type safety, and up to 97x faster wildcard validation.
+
+**12 rule types:** `string`, `integer`, `numeric`, `email`, `password`, `date`, `dateTime`, `boolean`, `array`, `file`, `image`, `field`, plus `anyOf` (Laravel 13+).
+
+**3 integration paths:**
+
+- `HasFluentRules` trait for Form Requests — automatic compilation, wildcard optimization, per-attribute fast-checks
+- `HasFluentValidation` trait for Livewire — compiles before Livewire's validator, works with `wire:model.blur`
+- `FluentValidator` base class for custom Validators — full pipeline with cross-field wildcard support
+
+**Performance:** The `HasFluentRules` trait replaces Laravel's O(n²) wildcard expansion with O(n) and applies per-attribute fast-checks that skip Laravel entirely for valid items. 25 rules are fast-checked in pure PHP. Partial fast-check handles mixed rule sets transparently.
+
+| Scenario | Native Laravel | With HasFluentRules |
+|----------|----------------|---------------------|
+| 500 items, simple rules | ~200ms | **~2ms** (97x) |
+| 500 items, mixed rules | ~200ms | **~20ms** (10x) |
+| 100 items, 47 conditional fields | ~3,200ms | **~83ms** (39x) |
+
+**Key features:**
+
+- `each()` and `children()` co-locate parent and child rules
+- `->label()` and `->message()` inline error customization
+- `->messageFor('rule', 'msg')` position-independent messages
+- Email and Password app defaults integration (`Email::default()`, `Password::default()`)
+- `RuleSet` for inline validation, conditional fields, and merging
+- `RuleSet::compileToArrays()` for PHPStan-clean Livewire/Filament usage
+- `whenInput()` for validation-time conditions
+- Macros for reusable rule chains
+- Octane-safe (factory resolver restored via try/finally)
+- [Laravel Boost](https://github.com/laravel/boost) skills for AI-assisted migration and development
+
+#### Since 0.5.2
+
+- Fixed PHPStan CI failure in `compileToArrays()` return type
+- Reduced PHPStan baseline from 17 to 14 entries
+- Removed `minimum-stability: dev` from composer.json
+- Improved README structure for newcomers (collapsible rule reference, split TOC, Livewire section)
+
+#### Requirements
+
+- PHP 8.2+
+- Laravel 11, 12, or 13
+
+#### Tested across
+
+- 6 independent production codebases
+- 514 tests, 1016 assertions
+- PHP 8.2, 8.3, 8.4 on Ubuntu and Windows
+- Laravel 11, 12, 13 with `prefer-lowest` and `prefer-stable`
+
+**Full Changelog**: https://github.com/SanderMuller/laravel-fluent-validation/compare/0.5.3...1.0.0
+
 ## 0.5.3 - 2026-04-06
 
 ### Added
@@ -25,6 +85,7 @@ All notable changes to `laravel-fluent-validation` will be documented in this fi
   
   // After (honest return type, zero baseline entries)
   $this->validate(RuleSet::compileToArrays($this->rules()));
+  
   
   
   ```
@@ -52,6 +113,7 @@ All notable changes to `laravel-fluent-validation` will be documented in this fi
   
   
   
+  
   ```
 
 ### Documentation
@@ -74,6 +136,7 @@ All notable changes to `laravel-fluent-validation` will be documented in this fi
   ```php
   FluentRule::email(defaults: false)    // basic 'email' validation
   FluentRule::password(defaults: false) // Password::min(8), ignores app config
+  
   
   
   
@@ -339,6 +402,7 @@ Tested across two independent codebases:
   
   
   
+  
   ```
 - **PHPStan errors in OptimizedValidator** — Matched parent `Validator::validateAttribute()` signature.
   
@@ -398,6 +462,7 @@ Tested across two independent codebases:
   
   
   
+  
   ```
 - FluentFormRequest base class — Combines HasFluentRules compilation with per-attribute
   fast-check optimization via OptimizedValidator. Eligible wildcard rules are fast-checked
@@ -430,6 +495,7 @@ Tested across two independent codebases:
   ```php
   FluentRule::string()->unique('users', 'email', fn($r) => $r->ignore($this->user()->id))
   FluentRule::string()->exists('subjects', 'id', fn($r) => $r->where('video_id',          
+  
   
   
   
