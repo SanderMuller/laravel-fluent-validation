@@ -57,6 +57,21 @@ class FieldRule implements DataAwareRule, ValidationRule, ValidatorAwareRule
         return $this->childRules;
     }
 
+    public function same(string $field): static
+    {
+        return $this->addRule('same:' . $field);
+    }
+
+    public function different(string $field): static
+    {
+        return $this->addRule('different:' . $field);
+    }
+
+    public function confirmed(): static
+    {
+        return $this->addRule('confirmed');
+    }
+
     /** @return array<string, mixed> */
     public function buildNestedRules(string $attribute): array
     {
