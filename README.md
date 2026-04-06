@@ -686,6 +686,9 @@ PHP's `mergeRecursive` deconstructs objects into arrays. Use `(clone $parentRule
 **Method not found on a rule type**
 Use `->rule('method_name')` as an escape hatch for any Laravel rule not yet available as a fluent method. Accepts strings, objects, and `['rule', ...$params]` tuples.
 
+**`HasFluentValidation` conflicts with Filament's `InteractsWithSchemas`**
+Both traits define `validate()`. For Filament components, use `RuleSet::compile()` instead of the trait: `$this->validate(RuleSet::compile($this->rules()))`. FluentRule works correctly without the trait for simple rules.
+
 ## Testing
 
 ```bash

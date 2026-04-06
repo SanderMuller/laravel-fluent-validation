@@ -72,12 +72,33 @@ Livewire::test(EditUser::class)
     ->assertHasErrors(['name' => 'required']);
 ```
 
+## Filament components (trait collision)
+
+`HasFluentValidation` conflicts with Filament's `InteractsWithSchemas` because both define `validate()`. For Filament components, FluentRule works without the trait — use `RuleSet::compile()`:
+
+```php
+// Filament component — no trait needed
+use SanderMuller\FluentValidation\RuleSet;
+
+$this->validate(RuleSet::compile($this->rules()));
+```
+
+For labels, extract metadata first:
+```php
+$rules = $this->rules();
+[$messages, $attributes] = RuleSet::extractMetadata($rules);
+$this->validate(RuleSet::compile($rules), $messages, $attributes);
+```
+
+Self-validation mode works correctly for Filament: rule identifiers are forwarded, error messages work, `assertHasErrors` works.
+
 ## Common mistakes
 
 | Mistake | Fix |
 |---------|-----|
 | Missing `HasFluentValidation` trait | Add `use HasFluentValidation` to the component |
-| `assertHasErrors` can't find rule identifiers | Add `HasFluentValidation` trait — it compiles to native rules |
+| Trait collision with Filament | Don't use the trait — use `RuleSet::compile()` instead |
+| `assertHasErrors` can't find rule identifiers | Works automatically since 0.4.2 (self-validation forwards identifiers) |
 | Wrapping FluentRule in arrays `[FluentRule::string()]` | Don't wrap — put FluentRule directly as the value |
 | Using `each()` for wildcard arrays | Use flat keys: `'items.*' => FluentRule::string()` |
 | PHPStan errors on `$this->validate()` | The trait overrides `validate()` with correct types |
