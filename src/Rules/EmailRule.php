@@ -26,11 +26,8 @@ class EmailRule implements DataAwareRule, ValidationRule, ValidatorAwareRule
     /** @var list<string> */
     protected array $modes = [];
 
-    protected bool $useDefaults;
-
-    public function __construct(bool $defaults = true)
+    public function __construct(protected bool $useDefaults = true)
     {
-        $this->useDefaults = $defaults;
     }
 
     public function rfcCompliant(bool $strict = false): static
