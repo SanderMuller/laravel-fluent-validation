@@ -30,4 +30,3 @@ testbench.yaml
 /coverage
 /autoresearch
 benchmark-snapshot.json
-.mcp.json
