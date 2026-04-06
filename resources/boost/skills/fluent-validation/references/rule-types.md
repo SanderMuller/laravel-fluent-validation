@@ -28,8 +28,9 @@
 - Security: `uncompromised($threshold?)` — check against breached password databases
 - Comparison: `confirmed()`
 
-## Numeric
+## Numeric / Integer
 
+- `FluentRule::integer()` — shorthand for `FluentRule::numeric()->integer()`, common for ID fields
 - Type: `integer(strict?)`, `decimal($min, $max?)`
 - Size: `min($n)`, `max($n)`, `between($min, $max)`, `exactly($n)` — `exactly()` implicitly adds `integer()`
 - Digits: `digits($n)`, `digitsBetween($min, $max)`, `minDigits($n)`, `maxDigits($n)`
@@ -81,8 +82,9 @@ All comparison methods accept `DateTimeInterface|string`:
 
 ## Embedded Rules (string, numeric, date, email)
 
-- `in($values)`, `notIn($values)` — accepts an array or a `BackedEnum` class string: `in(StatusEnum::class)`
-- `unique($table, $column?)`, `exists($table, $column?)`
+- `in($values)` — accepts array, `BackedEnum` class string, Arrayable (Collection): `in(StatusEnum::class)`, `in([1, 2, 3])`, `in($collection)`
+- `notIn($values)` — same as `in()`, also accepts scalar: `notIn('admin')`, `notIn(42)`
+- `unique($table, $column?, $callback?)`, `exists($table, $column?, $callback?)` — callback for `->where()`, `->ignore()`, `->withoutTrashed()`
 - `enum($class, $callback?)` — callback receives the `Illuminate\Validation\Rules\Enum` instance
 
 ## Combinators

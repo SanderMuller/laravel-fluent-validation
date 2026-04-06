@@ -5,8 +5,9 @@ All rule types share these modifiers.
 ## Labels and Messages
 
 - `label($label)` — set the `:attribute` name used in error messages. Also available as factory argument: `FluentRule::string('Full Name')`
-- `message($msg)` — custom error message for the most recently added rule. Must be called AFTER the rule it applies to. Works with all rules including custom `ValidationRule` objects via `->rule()`.
-- `fieldMessage($msg)` — fallback error message for ANY rule failure on this field. Rule-specific `->message()` takes priority.
+- `message($msg)` — custom error message for the most recently added rule. Must be called AFTER the rule it applies to.
+- `messageFor($rule, $msg)` — custom error message by rule name. Can be called at any point in the chain: `->messageFor('required', 'We need this!')`
+- `fieldMessage($msg)` — fallback error message for ANY rule failure on this field. Rule-specific messages take priority.
 
 ## Presence
 

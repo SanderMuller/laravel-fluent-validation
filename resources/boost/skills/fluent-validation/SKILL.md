@@ -29,6 +29,7 @@ use SanderMuller\FluentValidation\RuleSet;
 |---|---|---|
 | `FluentRule::string('Label?')` | `StringRule` | `'string'` |
 | `FluentRule::numeric('Label?')` | `NumericRule` | `'numeric'` |
+| `FluentRule::integer('Label?')` | `NumericRule` | `'numeric\|integer'` (shorthand) |
 | `FluentRule::date('Label?')` | `DateRule` | `'date'` |
 | `FluentRule::dateTime('Label?')` | `DateRule` | `'date_format:Y-m-d H:i:s'` |
 | `FluentRule::boolean('Label?')` | `BooleanRule` | `'boolean'` |

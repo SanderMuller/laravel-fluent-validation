@@ -32,6 +32,14 @@ class ImportRequest extends FormRequest
 }
 ```
 
+### Benchmarks
+
+| Scenario | Native Laravel | With HasFluentRules |
+|---|---|---|
+| 500 items, simple rules (string, numeric, in) | ~200ms | **~2ms** |
+| 500 items, mixed rules (string + date) | ~200ms | **~20ms** |
+| 100 items, 47 conditional fields (exclude_unless) | ~3,200ms | **~83ms** |
+
 ### RuleSet::validate() (inline validation)
 
 For validation outside FormRequests. Applies the same optimizations with an additional per-item approach (reuses one small validator per item instead of one giant validator).
