@@ -174,6 +174,52 @@ Then convert one field at a time:
 | `['required', Rule::unique('t')->ignore($id)]` | `FluentRule::string()->required()->unique('t', 'col', fn($r) => $r->ignore($id))` |
 | `['present']` (no type) | `FluentRule::field()->present()` |
 
+**IMPORTANT: Do NOT use `->rule('string_rule')` when a native method exists. Check this list FIRST.**
+
+**All available constraint methods (do not escape-hatch these):**
+
+| String rule | Native method |
+|---|---|
+| `'between:1,10'` | `->between(1, 10)` |
+| `'before_or_equal:today'` | `->beforeOrEqual('today')` |
+| `'after_or_equal:field'` | `->afterOrEqual('field')` |
+| `'required_unless:f,v'` | `->requiredUnless('f', 'v')` — also accepts `Closure\|bool` |
+| `'required_with:f'` | `->requiredWith('f')` |
+| `'required_with_all:a,b'` | `->requiredWithAll('a', 'b')` |
+| `'required_without:f'` | `->requiredWithout('f')` |
+| `'different:field'` | `->different('field')` |
+| `'same:field'` | `->same('field')` |
+| `'confirmed'` | `->confirmed()` |
+| `'json'` | `->json()` |
+| `'url'` | `->url()` |
+| `'uuid'` | `->uuid()` |
+| `'ulid'` | `->ulid()` |
+| `'ip'` | `->ip()` |
+| `'alpha'` | `->alpha()` |
+| `'alpha_dash'` | `->alphaDash()` |
+| `'alpha_num'` | `->alphaNumeric()` |
+| `'timezone'` | `->timezone()` |
+| `'lowercase'` | `->lowercase()` |
+| `'uppercase'` | `->uppercase()` |
+| `'hex_color'` | `->hexColor()` |
+| `'active_url'` | `->activeUrl()` |
+| `'starts_with:x'` | `->startsWith('x')` |
+| `'ends_with:x'` | `->endsWith('x')` |
+| `'digits:5'` | `->digits(5)` |
+| `'digits_between:4,6'` | `->digitsBetween(4, 6)` |
+| `'multiple_of:5'` | `->multipleOf(5)` |
+| `'gt:field'` | `->greaterThan('field')` |
+| `'gte:field'` | `->greaterThanOrEqualTo('field')` |
+| `'lt:field'` | `->lessThan('field')` |
+| `'lte:field'` | `->lessThanOrEqualTo('field')` |
+| `'date_format:H:i'` | `FluentRule::date()->format('H:i')` (replaces base date type) |
+| `'max:5mb'` (file) | `FluentRule::file()->max('5mb')` |
+| `Rule::excludeIf(fn)` | `->excludeIf(fn () => ...)` (NOT `->rule(Rule::excludeIf(...))`) |
+| `Rule::requiredIf(fn)` | `->requiredIf(fn () => ...)` (NOT `->rule(Rule::requiredIf(...))`) |
+| `Rule::prohibitedIf(fn)` | `->prohibitedIf(fn () => ...)` |
+| `Rule::unique(...)->ignore()` | `->unique('t', 'col', fn($r) => $r->ignore($id))` |
+| `Rule::exists(...)->where()` | `->exists('t', 'col', fn($r) => $r->where(...))` |
+
 **Conditional rules:**
 
 | Laravel pattern | Fluent equivalent |
