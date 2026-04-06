@@ -38,7 +38,7 @@
 
 All comparison methods accept `DateTimeInterface|string`:
 
-- Format: `format($format)`
+- Format: `format($format)` — REPLACES the `date` base type with `date_format:$format`. Use for time-only: `FluentRule::date()->format('H:i')` → `date_format:H:i`
 - Today: `beforeToday()`, `afterToday()`, `todayOrBefore()`, `todayOrAfter()`
 - Now: `past()`, `future()`, `nowOrPast()`, `nowOrFuture()`
 - Compare: `before($date)`, `after($date)`, `beforeOrEqual($date)`, `afterOrEqual($date)`, `between($from, $to)`, `betweenOrEqual($from, $to)`, `dateEquals($date)`, `same($field)`, `different($field)`
