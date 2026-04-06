@@ -2,6 +2,35 @@
 
 All notable changes to `laravel-fluent-validation` will be documented in this file.
 
+## 0.5.0 - 2026-04-06
+
+### Breaking
+
+- **`FluentRule::email()` now uses `Email::default()`** when app defaults are configured via `Email::defaults()` in AppServiceProvider. Apps with strict email defaults (MX validation, spoofing prevention) will see stricter email validation. Opt out with `FluentRule::email(defaults: false)`.
+
+### Added
+
+- **`defaults: false` parameter** on both `FluentRule::email()` and `FluentRule::password()` for opting out of app-configured defaults:
+  
+  ```php
+  FluentRule::email(defaults: false)    // basic 'email' validation
+  FluentRule::password(defaults: false) // Password::min(8), ignores app config
+  
+  ```
+- **Boost guidelines file** — always-on agent context that ensures every agent and sub-process knows to use FluentRule native methods instead of string escape hatches. Addresses the finding that agent sub-processes don't inherit skill context.
+  
+- **Complete method cheatsheet** in optimize-validation skill — inline reference of all 40+ native methods to prevent agents from defaulting to `->rule()` escape hatches.
+  
+
+### Migration from 0.4.x
+
+If `FluentRule::email()` breaks your tests after upgrading (e.g., `test@example.com` rejected due to MX checks), either:
+
+1. Use `FluentRule::email(defaults: false)` for fields that need basic validation
+2. Update test data to use domains with valid MX records
+
+**Full Changelog**: https://github.com/SanderMuller/laravel-fluent-validation/compare/0.4.5...0.5.0
+
 ## 0.4.5 - 2026-04-06
 
 ### Fixed
@@ -244,6 +273,7 @@ Tested across two independent codebases:
   
   
   
+  
   ```
 - **PHPStan errors in OptimizedValidator** — Matched parent `Validator::validateAttribute()` signature.
   
@@ -299,6 +329,7 @@ Tested across two independent codebases:
   
   
   
+  
   ```
 - FluentFormRequest base class — Combines HasFluentRules compilation with per-attribute
   fast-check optimization via OptimizedValidator. Eligible wildcard rules are fast-checked
@@ -331,6 +362,7 @@ Tested across two independent codebases:
   ```php
   FluentRule::string()->unique('users', 'email', fn($r) => $r->ignore($this->user()->id))
   FluentRule::string()->exists('subjects', 'id', fn($r) => $r->where('video_id',          
+  
   
   
   
