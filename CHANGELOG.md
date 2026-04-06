@@ -2,6 +2,32 @@
 
 All notable changes to `laravel-fluent-validation` will be documented in this file.
 
+## 0.4.4 - 2026-04-06
+
+### Added
+
+- **`FluentRule::integer()`** — shorthand for `numeric()->integer()`. The most common pattern for ID fields: `FluentRule::integer()->required()->exists('users', 'id')`.
+  
+- **`FluentRule::email()` uses `Email::default()`** — automatically applies app-configured email defaults (from `Email::defaults()` in AppServiceProvider) when no modes are explicitly set.
+  
+- **`->messageFor('rule', 'msg')`** — position-independent alternative to `->message()`. Attach a custom error message by rule name instead of relying on chain position.
+  
+- **`->notIn()` accepts scalars** — `->notIn('admin')` instead of `->notIn(['admin'])`.
+  
+- **`same()`, `different()`, `confirmed()` on FieldRule** — field comparison methods were available on StringRule and NumericRule but missing from FieldRule.
+  
+
+### Improved
+
+- **Migration patterns reference** — new reference file with before/after patterns for the most common conversion mistakes. Covers: type decisions, conditional closures, Password/Email defaults, file sizes, integer enums, exists/unique callbacks, testing patterns, and correct escape hatches. Restructured into 5 logical groups.
+  
+- **Skill discoverability** — updated all reference files based on feedback from 6 independent codebases (~305 files). Every discoverability miss found is now documented.
+  
+- **PHPStan baseline reduced to 17 entries.**
+  
+
+**Full Changelog**: https://github.com/SanderMuller/laravel-fluent-validation/compare/0.4.3...0.4.4
+
 ## 0.4.3 - 2026-04-06
 
 ### Fixed
@@ -208,6 +234,7 @@ Tested across two independent codebases:
   
   
   
+  
   ```
 - **PHPStan errors in OptimizedValidator** — Matched parent `Validator::validateAttribute()` signature.
   
@@ -261,6 +288,7 @@ Tested across two independent codebases:
   
   
   
+  
   ```
 - FluentFormRequest base class — Combines HasFluentRules compilation with per-attribute
   fast-check optimization via OptimizedValidator. Eligible wildcard rules are fast-checked
@@ -293,6 +321,7 @@ Tested across two independent codebases:
   ```php
   FluentRule::string()->unique('users', 'email', fn($r) => $r->ignore($this->user()->id))
   FluentRule::string()->exists('subjects', 'id', fn($r) => $r->where('video_id',          
+  
   
   
   
