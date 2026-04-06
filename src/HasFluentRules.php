@@ -85,18 +85,30 @@ trait HasFluentRules
 
         $fastChecks = OptimizedValidator::buildFastChecks($wildcardRules);
 
-        $attributePatternMap = [];
-        foreach ($prepared->implicitAttributes as $pattern => $expandedPaths) {
+        return [$fastChecks, $this->buildAttributePatternMap($fastChecks, $prepared->implicitAttributes, $preparedRules)];
+    }
+
+    /**
+     * @param  array<string, \Closure(mixed): bool>  $fastChecks
+     * @param  array<string, list<string>>  $implicitAttributes
+     * @param  array<string, mixed>  $preparedRules
+     * @return array<string, string>
+     */
+    private function buildAttributePatternMap(array $fastChecks, array $implicitAttributes, array $preparedRules): array
+    {
+        $map = [];
+
+        foreach ($implicitAttributes as $pattern => $expandedPaths) {
             if (isset($fastChecks[$pattern])) {
                 foreach ($expandedPaths as $path) {
                     if (isset($preparedRules[$path])) {
-                        $attributePatternMap[$path] = $pattern;
+                        $map[$path] = $pattern;
                     }
                 }
             }
         }
 
-        return [$fastChecks, $attributePatternMap];
+        return $map;
     }
 
     /**

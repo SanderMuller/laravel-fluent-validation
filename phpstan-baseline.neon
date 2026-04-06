@@ -37,12 +37,6 @@ parameters:
 			path: src/FastCheckCompiler.php
 
 		-
-			rawMessage: 'Cognitive complexity for "SanderMuller\FluentValidation\FluentFormRequest::buildFastCheckMaps()" is 13, keep it under 12'
-			identifier: complexity.functionLike
-			count: 1
-			path: src/FluentFormRequest.php
-
-		-
 			rawMessage: 'Cognitive complexity for "SanderMuller\FluentValidation\FluentFormRequest::preExcludeRules()" is 21, keep it under 12'
 			identifier: complexity.functionLike
 			count: 1
@@ -89,12 +83,6 @@ parameters:
 			identifier: complexity.functionLike
 			count: 1
 			path: src/RuleSet.php
-
-		-
-			rawMessage: 'Cognitive complexity for "AnonymousClass8e30e02d5ceb57e77a2bd300ffd76c80::buildFastCheckMaps()" is 13, keep it under 12'
-			identifier: complexity.functionLike
-			count: 1
-			path: tests/ExpandsWildcardsTest.php
 
 		-
 			rawMessage: 'Cognitive complexity for "AnonymousClass8e30e02d5ceb57e77a2bd300ffd76c80::preExcludeRules()" is 21, keep it under 12'

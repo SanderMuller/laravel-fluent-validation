@@ -100,7 +100,6 @@ trait SelfValidates
         /** @var array<string, list<string>> $errors */
         $errors = $innerValidator->errors()->toArray();
 
-        // Forward error messages from the inner validator (preserves labels/custom messages).
         foreach ($errors as $errorAttribute => $errorMessages) {
             foreach ($errorMessages as $errorMessage) {
                 if ($hasNestedRules && $errorAttribute !== $attribute) {
@@ -111,22 +110,35 @@ trait SelfValidates
             }
         }
 
-        // Forward failed rule identifiers so assertHasErrors(['field' => 'rule']) works.
-        // Without this, the outer validator only records the FluentRule class name.
+        $this->forwardFailedRuleIdentifiers($innerValidator);
+    }
+
+    /**
+     * Copy failed rule identifiers from the inner validator to the outer
+     * so assertHasErrors(['field' => 'rule']) and $validator->failed() work.
+     */
+    private function forwardFailedRuleIdentifiers(\Illuminate\Validation\Validator $innerValidator): void
+    {
+        /** @var array<string, array<string, list<mixed>>> $failedRules */
         $failedRules = $innerValidator->failed();
-        if ($failedRules !== []) {
-            $prop = new \ReflectionProperty($this->validator, 'failedRules');
-            /** @var array<string, array<string, list<mixed>>> $existing */
-            $existing = $prop->getValue($this->validator);
 
-            foreach ($failedRules as $failedAttribute => $rules) {
-                foreach ($rules as $rule => $params) {
-                    $existing[$failedAttribute][$rule] = $params;
-                }
-            }
-
-            $prop->setValue($this->validator, $existing);
+        if ($failedRules === []) {
+            return;
         }
+
+        $prop = new \ReflectionProperty($this->validator, 'failedRules');
+
+        /** @var array<string, array<string, list<mixed>>> $existing */
+        $existing = $prop->getValue($this->validator);
+
+        foreach ($failedRules as $failedAttribute => $rules) {
+            /** @var array<string, list<mixed>> $rules */
+            foreach ($rules as $rule => $params) {
+                $existing[$failedAttribute][$rule] = $params;
+            }
+        }
+
+        $prop->setValue($this->validator, $existing);
     }
 
     private function isNullable(mixed $value): bool
