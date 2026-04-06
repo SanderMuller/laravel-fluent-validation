@@ -159,7 +159,8 @@ Then convert one field at a time:
 | String rule | Fluent equivalent |
 |---|---|
 | `'required\|string\|min:2\|max:255'` | `FluentRule::string()->required()->min(2)->max(255)` |
-| `'required\|numeric\|integer\|min:0'` | `FluentRule::numeric()->required()->integer()->min(0)` |
+| `'required\|numeric\|integer\|min:0'` | `FluentRule::integer()->required()->min(0)` |
+| `'required\|integer'` | `FluentRule::integer()->required()` |
 | `'required\|date\|after:today'` | `FluentRule::date()->required()->afterToday()` |
 | `'required\|boolean'` | `FluentRule::boolean()->required()` |
 | `'required\|email\|unique:users'` | `FluentRule::email()->required()->unique('users')` |
