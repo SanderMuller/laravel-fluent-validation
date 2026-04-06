@@ -173,6 +173,8 @@ class EditUser extends Component
 
 > Livewire reads wildcard keys from `rules()` before compilation. Use flat wildcard keys instead of `each()` for array fields: `'items.*' => FluentRule::string()`, not `FluentRule::array()->each(...)`.
 
+> If your component uses a `public array $rules` property, switch to a `rules()` method. FluentRule objects can't be declared in property defaults.
+
 ### Migrating existing rules
 
 You don't need to convert all your rules at once. Fluent rules mix freely with string rules and native rule objects in the same array:
@@ -431,6 +433,23 @@ $validated = RuleSet::make()
 | `->prepare($data)`            | `PreparedRules` | Expand, extract metadata, compile. For custom Validators          |
 | `->expandWildcards($data)`    | `array`         | Pre-expand wildcards without validating                           |
 | `RuleSet::compile($rules)`    | `array`         | Compile fluent rules to native Laravel format                     |
+
+### Using with `validateWithBag` or custom Validator instances
+
+When you need a Validator instance (for `validateWithBag`, custom error bags, or manual inspection), use `prepare()`:
+
+```php
+$prepared = RuleSet::from($rules)->prepare($request->all());
+
+$validator = Validator::make(
+    $request->all(),
+    $prepared->rules,
+    array_merge($prepared->messages, $customMessages),
+    $prepared->attributes,
+);
+
+$validator->validateWithBag('myBag');
+```
 
 ### Using with custom Validators
 
