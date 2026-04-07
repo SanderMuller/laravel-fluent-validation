@@ -65,6 +65,14 @@ trait HasFluentRules
                 ->setValue($validator, $prepared->implicitAttributes);
         }
 
+        $validator->stopOnFirstFailure($this->stopOnFirstFailure);
+
+        if ($this->isPrecognitive()) {
+            $validator->setRules(
+                $this->filterPrecognitiveRules($validator->getRulesWithoutPlaceholders())
+            );
+        }
+
         return $validator;
     }
 

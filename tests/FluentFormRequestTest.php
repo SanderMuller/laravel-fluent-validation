@@ -1244,6 +1244,59 @@ it('returns 422 for invalid data through FluentFormRequest', function (): void {
 });
 
 // =========================================================================
+// stopOnFirstFailure and precognitive support
+// =========================================================================
+
+it('respects stopOnFirstFailure on the FormRequest', function (): void {
+    $formRequest = new class extends FluentFormRequest {
+        protected $stopOnFirstFailure = true;
+
+        /** @return array<string, mixed> */
+        public function rules(): array
+        {
+            return [
+                'name' => FluentRule::string()->required()->max(255),
+                'email' => FluentRule::email()->required(),
+            ];
+        }
+
+        public function authorize(): bool
+        {
+            return true;
+        }
+    };
+
+    $request = Request::create('/test', 'POST', []);
+    $instance = $formRequest::createFrom($request);
+    $instance->setContainer(app());
+    $instance->setRedirector(app('redirect'));
+
+    $factory = app(Factory::class);
+    $validator = (fn () => $this->createDefaultValidator($factory))->call($instance);
+
+    expect($validator->passes())->toBeFalse();
+    // With stopOnFirstFailure, only the first failing field should have errors
+    expect($validator->errors()->keys())->toHaveCount(1);
+});
+
+it('does not stop on first failure by default', function (): void {
+    $formRequest = createFluentFormRequest(
+        rules: [
+            'name' => FluentRule::string()->required()->max(255),
+            'email' => FluentRule::email()->required(),
+        ],
+        data: [],
+    );
+
+    $factory = app(Factory::class);
+    $validator = (fn () => $this->createDefaultValidator($factory))->call($formRequest);
+
+    expect($validator->passes())->toBeFalse();
+    // Without stopOnFirstFailure, both fields should have errors
+    expect($validator->errors()->keys())->toHaveCount(2);
+});
+
+// =========================================================================
 // Helper
 // =========================================================================
 
