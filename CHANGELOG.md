@@ -2,6 +2,24 @@
 
 All notable changes to `laravel-fluent-validation` will be documented in this file.
 
+## 1.0.1 - 2026-04-07
+
+### Fixed
+
+- **`stopOnFirstFailure` respected on FormRequest** — `$stopOnFirstFailure = true` on a FormRequest class was silently ignored when using `HasFluentRules`. The trait's `createDefaultValidator()` now calls `stopOnFirstFailure()` matching Laravel's base behavior.
+  
+- **Precognitive request support** — `HasFluentRules` now handles `isPrecognitive()` requests, filtering rules to only the submitted fields via `filterPrecognitiveRules()`. Previously, precognitive requests validated all fields regardless.
+  
+
+### Documentation
+
+- Restructured README for newcomers: split TOC into "Getting started" / "Deep dive", collapsible rule reference, GitHub alert syntax (`[!NOTE]`, `[!WARNING]`, `[!CAUTION]`, etc.), custom anchors for deep-linking into collapsed sections.
+- Added create/update branching pattern with `->when($this->isMethod('POST'), ...)`.
+- Added precognitive validation mention to FormRequest section.
+- Improved intro before/after comparison with real-world patterns (conditionals, wildcards, unique with ignore).
+
+**Full Changelog**: https://github.com/SanderMuller/laravel-fluent-validation/compare/1.0.0...1.0.1
+
 ## 1.0.0 - 2026-04-06
 
 ### 1.0.0 — Stable Release
@@ -88,6 +106,7 @@ Fluent validation rule builders for Laravel with IDE autocompletion, type safety
   
   
   
+  
   ```
 
 ### Documentation
@@ -114,6 +133,7 @@ Fluent validation rule builders for Laravel with IDE autocompletion, type safety
   
   
   
+  
   ```
 
 ### Documentation
@@ -136,6 +156,7 @@ Fluent validation rule builders for Laravel with IDE autocompletion, type safety
   ```php
   FluentRule::email(defaults: false)    // basic 'email' validation
   FluentRule::password(defaults: false) // Password::min(8), ignores app config
+  
   
   
   
@@ -403,6 +424,7 @@ Tested across two independent codebases:
   
   
   
+  
   ```
 - **PHPStan errors in OptimizedValidator** — Matched parent `Validator::validateAttribute()` signature.
   
@@ -463,6 +485,7 @@ Tested across two independent codebases:
   
   
   
+  
   ```
 - FluentFormRequest base class — Combines HasFluentRules compilation with per-attribute
   fast-check optimization via OptimizedValidator. Eligible wildcard rules are fast-checked
@@ -495,6 +518,7 @@ Tested across two independent codebases:
   ```php
   FluentRule::string()->unique('users', 'email', fn($r) => $r->ignore($this->user()->id))
   FluentRule::string()->exists('subjects', 'id', fn($r) => $r->where('video_id',          
+  
   
   
   
