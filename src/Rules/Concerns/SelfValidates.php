@@ -260,7 +260,7 @@ trait SelfValidates
             return $compiled;
         }
 
-        return $compiled === '' ? [] : explode('|', (string) $compiled);
+        return $compiled === '' ? [] : explode('|', $compiled);
     }
 
     /**
