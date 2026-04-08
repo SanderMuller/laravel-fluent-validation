@@ -46,7 +46,9 @@ jobs:
         run: vendor/bin/rector process --no-diffs
 
       - name: Pull latest changes
-        run: git stash && git pull --rebase origin ${{ github.head_ref || github.ref_name }} && git stash pop || true
+        run: git stash && git pull --rebase origin "$BRANCH" && git stash pop || true
+        env:
+          BRANCH: ${{ github.head_ref || github.ref_name }}
 
       - name: Commit changes
         uses: stefanzweifel/git-auto-commit-action@v7
