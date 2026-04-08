@@ -91,6 +91,26 @@ class FluentRule
         return $label !== null ? $passwordRule->label($label) : $passwordRule;
     }
 
+    public static function url(?string $label = null): StringRule
+    {
+        return self::string($label)->url();
+    }
+
+    public static function uuid(?string $label = null): StringRule
+    {
+        return self::string($label)->uuid();
+    }
+
+    public static function ulid(?string $label = null): StringRule
+    {
+        return self::string($label)->ulid();
+    }
+
+    public static function ip(?string $label = null): StringRule
+    {
+        return self::string($label)->ip();
+    }
+
     public static function field(?string $label = null): FieldRule
     {
         $fieldRule = new FieldRule();

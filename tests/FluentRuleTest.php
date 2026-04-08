@@ -1617,6 +1617,338 @@ it('failed() is empty when validation passes', function (): void {
 });
 
 // =========================================================================
+// Field modifiers: presentIf, presentUnless, presentWith, presentWithAll
+// =========================================================================
+
+it('validates presentIf', function (): void {
+    $v = makeValidator(
+        ['type' => 'admin', 'role' => 'editor'],
+        ['role' => FluentRule::string()->presentIf('type', 'admin')]
+    );
+    expect($v->passes())->toBeTrue();
+
+    $v = makeValidator(
+        ['type' => 'admin'],
+        ['role' => FluentRule::string()->presentIf('type', 'admin')]
+    );
+    expect($v->passes())->toBeFalse();
+
+    // When condition doesn't match, field doesn't need to be present
+    $v = makeValidator(
+        ['type' => 'guest'],
+        ['role' => FluentRule::string()->presentIf('type', 'admin')]
+    );
+    expect($v->passes())->toBeTrue();
+});
+
+it('validates presentUnless', function (): void {
+    $v = makeValidator(
+        ['type' => 'admin'],
+        ['role' => FluentRule::string()->presentUnless('type', 'guest')]
+    );
+    expect($v->passes())->toBeFalse();
+
+    $v = makeValidator(
+        ['type' => 'admin', 'role' => 'editor'],
+        ['role' => FluentRule::string()->presentUnless('type', 'guest')]
+    );
+    expect($v->passes())->toBeTrue();
+
+    $v = makeValidator(
+        ['type' => 'guest'],
+        ['role' => FluentRule::string()->presentUnless('type', 'guest')]
+    );
+    expect($v->passes())->toBeTrue();
+});
+
+it('validates presentWith', function (): void {
+    $v = makeValidator(
+        ['email' => 'test@test.com'],
+        ['name' => FluentRule::string()->presentWith('email')]
+    );
+    expect($v->passes())->toBeFalse();
+
+    $v = makeValidator(
+        ['email' => 'test@test.com', 'name' => 'John'],
+        ['name' => FluentRule::string()->presentWith('email')]
+    );
+    expect($v->passes())->toBeTrue();
+
+    $v = makeValidator(
+        [],
+        ['name' => FluentRule::string()->presentWith('email')]
+    );
+    expect($v->passes())->toBeTrue();
+});
+
+it('validates presentWithAll', function (): void {
+    $v = makeValidator(
+        ['first' => 'a', 'last' => 'b'],
+        ['full' => FluentRule::string()->presentWithAll('first', 'last')]
+    );
+    expect($v->passes())->toBeFalse();
+
+    $v = makeValidator(
+        ['first' => 'a', 'last' => 'b', 'full' => 'a b'],
+        ['full' => FluentRule::string()->presentWithAll('first', 'last')]
+    );
+    expect($v->passes())->toBeTrue();
+
+    // Only one field present — not required
+    $v = makeValidator(
+        ['first' => 'a'],
+        ['full' => FluentRule::string()->presentWithAll('first', 'last')]
+    );
+    expect($v->passes())->toBeTrue();
+});
+
+// =========================================================================
+// Field modifiers: requiredIfAccepted, requiredIfDeclined
+// =========================================================================
+
+it('validates requiredIfAccepted', function (): void {
+    $v = makeValidator(
+        ['terms' => 'yes'],
+        ['signature' => FluentRule::string()->requiredIfAccepted('terms')]
+    );
+    expect($v->passes())->toBeFalse();
+
+    $v = makeValidator(
+        ['terms' => 'yes', 'signature' => 'John Doe'],
+        ['signature' => FluentRule::string()->requiredIfAccepted('terms')]
+    );
+    expect($v->passes())->toBeTrue();
+
+    $v = makeValidator(
+        ['terms' => 'no'],
+        ['signature' => FluentRule::string()->requiredIfAccepted('terms')]
+    );
+    expect($v->passes())->toBeTrue();
+});
+
+it('validates requiredIfDeclined', function (): void {
+    $v = makeValidator(
+        ['terms' => 'no'],
+        ['reason' => FluentRule::string()->requiredIfDeclined('terms')]
+    );
+    expect($v->passes())->toBeFalse();
+
+    $v = makeValidator(
+        ['terms' => 'no', 'reason' => 'I disagree'],
+        ['reason' => FluentRule::string()->requiredIfDeclined('terms')]
+    );
+    expect($v->passes())->toBeTrue();
+
+    $v = makeValidator(
+        ['terms' => 'yes'],
+        ['reason' => FluentRule::string()->requiredIfDeclined('terms')]
+    );
+    expect($v->passes())->toBeTrue();
+});
+
+// =========================================================================
+// ArrayRule: contains / doesntContain
+// =========================================================================
+
+it('validates contains on array', function (): void {
+    $v = makeValidator(
+        ['tags' => ['php', 'laravel']],
+        ['tags' => FluentRule::array()->contains('php')]
+    );
+    expect($v->passes())->toBeTrue();
+
+    $v = makeValidator(
+        ['tags' => ['php', 'laravel']],
+        ['tags' => FluentRule::array()->contains('python')]
+    );
+    expect($v->passes())->toBeFalse();
+});
+
+it('validates doesntContain on array', function (): void {
+    $v = makeValidator(
+        ['tags' => ['php', 'laravel']],
+        ['tags' => FluentRule::array()->doesntContain('python')]
+    );
+    expect($v->passes())->toBeTrue();
+
+    $v = makeValidator(
+        ['tags' => ['php', 'laravel']],
+        ['tags' => FluentRule::array()->doesntContain('php')]
+    );
+    expect($v->passes())->toBeFalse();
+});
+
+// =========================================================================
+// Convenience factory shortcuts
+// =========================================================================
+
+it('validates url shortcut', function (): void {
+    $v = makeValidator(
+        ['website' => 'https://example.com'],
+        ['website' => FluentRule::url()->required()]
+    );
+    expect($v->passes())->toBeTrue();
+
+    $v = makeValidator(
+        ['website' => 'not-a-url'],
+        ['website' => FluentRule::url()->required()]
+    );
+    expect($v->passes())->toBeFalse();
+});
+
+it('validates uuid shortcut', function (): void {
+    $v = makeValidator(
+        ['id' => '550e8400-e29b-41d4-a716-446655440000'],
+        ['id' => FluentRule::uuid()->required()]
+    );
+    expect($v->passes())->toBeTrue();
+
+    $v = makeValidator(
+        ['id' => 'not-a-uuid'],
+        ['id' => FluentRule::uuid()->required()]
+    );
+    expect($v->passes())->toBeFalse();
+});
+
+it('validates ulid shortcut', function (): void {
+    $v = makeValidator(
+        ['id' => '01ARZ3NDEKTSV4RRFFQ69G5FAV'],
+        ['id' => FluentRule::ulid()->required()]
+    );
+    expect($v->passes())->toBeTrue();
+
+    $v = makeValidator(
+        ['id' => 'not-a-ulid'],
+        ['id' => FluentRule::ulid()->required()]
+    );
+    expect($v->passes())->toBeFalse();
+});
+
+it('validates ip shortcut', function (): void {
+    $v = makeValidator(
+        ['address' => '192.168.1.1'],
+        ['address' => FluentRule::ip()->required()]
+    );
+    expect($v->passes())->toBeTrue();
+
+    $v = makeValidator(
+        ['address' => 'not-an-ip'],
+        ['address' => FluentRule::ip()->required()]
+    );
+    expect($v->passes())->toBeFalse();
+});
+
+it('passes label through convenience shortcuts', function (): void {
+    expect(FluentRule::url('Website')->getLabel())->toBe('Website');
+    expect(FluentRule::uuid('ID')->getLabel())->toBe('ID');
+    expect(FluentRule::ulid('ID')->getLabel())->toBe('ID');
+    expect(FluentRule::ip('Address')->getLabel())->toBe('Address');
+});
+
+// =========================================================================
+// prohibitedIfAccepted, prohibitedIfDeclined
+// =========================================================================
+
+it('validates prohibitedIfAccepted', function (): void {
+    $v = makeValidator(
+        ['terms' => 'yes', 'waiver' => 'some value'],
+        ['waiver' => FluentRule::string()->prohibitedIfAccepted('terms')]
+    );
+    expect($v->passes())->toBeFalse();
+
+    $v = makeValidator(
+        ['terms' => 'yes'],
+        ['waiver' => FluentRule::string()->prohibitedIfAccepted('terms')]
+    );
+    expect($v->passes())->toBeTrue();
+
+    $v = makeValidator(
+        ['terms' => 'no', 'waiver' => 'some value'],
+        ['waiver' => FluentRule::string()->prohibitedIfAccepted('terms')]
+    );
+    expect($v->passes())->toBeTrue();
+});
+
+it('validates prohibitedIfDeclined', function (): void {
+    $v = makeValidator(
+        ['terms' => 'no', 'reason' => 'I disagree'],
+        ['reason' => FluentRule::string()->prohibitedIfDeclined('terms')]
+    );
+    expect($v->passes())->toBeFalse();
+
+    $v = makeValidator(
+        ['terms' => 'no'],
+        ['reason' => FluentRule::string()->prohibitedIfDeclined('terms')]
+    );
+    expect($v->passes())->toBeTrue();
+
+    $v = makeValidator(
+        ['terms' => 'yes', 'reason' => 'whatever'],
+        ['reason' => FluentRule::string()->prohibitedIfDeclined('terms')]
+    );
+    expect($v->passes())->toBeTrue();
+});
+
+// =========================================================================
+// StringRule: encoding
+// =========================================================================
+
+it('validates encoding', function (): void {
+    $v = makeValidator(
+        ['name' => 'hello'],
+        ['name' => FluentRule::string()->encoding('UTF-8')]
+    );
+    expect($v->passes())->toBeTrue();
+});
+
+it('compiles encoding', function (): void {
+    expect(FluentRule::string()->encoding('UTF-8')->toArray())
+        ->toContain('encoding:UTF-8');
+});
+
+// =========================================================================
+// Debugging: toArray(), dump(), dd()
+// =========================================================================
+
+it('toArray returns empty array for untyped field rule', function (): void {
+    expect(FluentRule::field()->toArray())->toBe([]);
+});
+
+it('toArray returns array from string-compiled rules', function (): void {
+    $rule = FluentRule::string()->required()->max(255);
+    expect($rule->toArray())->toBe(['required', 'string', 'max:255']);
+});
+
+it('toArray returns array from object-compiled rules', function (): void {
+    $rule = FluentRule::string()->required()->rule(new class implements ValidationRule {
+        public function validate(string $attribute, mixed $value, Closure $fail): void {}
+    });
+    expect($rule->toArray())->toBeArray();
+    expect($rule->toArray()[0])->toBe('required');
+    expect($rule->toArray()[1])->toBe('string');
+});
+
+it('RuleSet dump returns rules messages and attributes', function (): void {
+    $dump = RuleSet::from([
+        'name' => FluentRule::string('Full Name')->required()->max(255),
+        'email' => FluentRule::email()->required(),
+    ])->dump();
+
+    expect($dump)->toHaveKeys(['rules', 'messages', 'attributes']);
+    expect($dump['rules'])->toHaveKeys(['name', 'email']);
+    expect($dump['attributes']['name'])->toBe('Full Name');
+});
+
+it('dump is chainable on rules', function (): void {
+    // dump() should return $this for chaining
+    $rule = FluentRule::string()->required();
+    ob_start();
+    $result = $rule->dump();
+    ob_end_clean();
+    expect($result)->toBe($rule);
+});
+
+// =========================================================================
 // Enums for testing
 // =========================================================================
 

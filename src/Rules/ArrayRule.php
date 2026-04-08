@@ -123,6 +123,16 @@ class ArrayRule implements DataAwareRule, ValidationRule, ValidatorAwareRule
         return $this->addRule($mode ? 'distinct:' . $mode : 'distinct');
     }
 
+    public function contains(string|int ...$values): static
+    {
+        return $this->addRule('contains:' . implode(',', $values));
+    }
+
+    public function doesntContain(string|int ...$values): static
+    {
+        return $this->addRule('doesnt_contain:' . implode(',', $values));
+    }
+
     protected function buildArrayRule(): string
     {
         if ($this->keys === []) {

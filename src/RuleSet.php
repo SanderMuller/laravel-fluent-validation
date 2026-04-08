@@ -59,6 +59,31 @@ final class RuleSet implements Arrayable
     }
 
     /**
+     * Dump the compiled rules for debugging and terminate execution.
+     */
+    public function dd(mixed ...$args): never
+    {
+        dd($this->dump(), ...$args);
+    }
+
+    /**
+     * Dump the compiled rules for debugging.
+     *
+     * @return array{rules: array<string, array<mixed>>, messages: array<string, string>, attributes: array<string, string>}
+     */
+    public function dump(): array
+    {
+        $flat = $this->flatten();
+        [$messages, $attributes] = self::extractMetadata($flat);
+
+        return [
+            'rules' => self::compileToArrays($flat),
+            'messages' => $messages,
+            'attributes' => $attributes,
+        ];
+    }
+
+    /**
      * Prepare rules for a Validator in one call. Handles flatten, expand,
      * extract metadata, and compile in the correct order.
      *

@@ -42,6 +42,11 @@ class StringRule implements DataAwareRule, ValidationRule, ValidatorAwareRule
         return $this->addRule('ascii');
     }
 
+    public function encoding(string $encoding): static
+    {
+        return $this->addRule('encoding:' . $encoding);
+    }
+
     public function between(int $min, int $max): static
     {
         return $this->addRule('between:' . $min . ',' . $max);

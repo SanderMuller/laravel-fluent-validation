@@ -167,6 +167,26 @@ trait HasFieldModifiers
         return $this->addRule('present');
     }
 
+    public function presentIf(string $field, string|int|bool ...$values): static
+    {
+        return $this->addRule('present_if:' . $field . ',' . self::serializeValues($values));
+    }
+
+    public function presentUnless(string $field, string|int|bool ...$values): static
+    {
+        return $this->addRule('present_unless:' . $field . ',' . self::serializeValues($values));
+    }
+
+    public function presentWith(string ...$fields): static
+    {
+        return $this->addRule('present_with:' . implode(',', $fields));
+    }
+
+    public function presentWithAll(string ...$fields): static
+    {
+        return $this->addRule('present_with_all:' . implode(',', $fields));
+    }
+
     public function prohibited(): static
     {
         return $this->addRule('prohibited');
@@ -243,6 +263,16 @@ trait HasFieldModifiers
         return $this->addRule('required_without_all:' . implode(',', $fields));
     }
 
+    public function requiredIfAccepted(string $field): static
+    {
+        return $this->addRule('required_if_accepted:' . $field);
+    }
+
+    public function requiredIfDeclined(string $field): static
+    {
+        return $this->addRule('required_if_declined:' . $field);
+    }
+
     public function excludeIf(Closure|bool|string $field, string|int|bool ...$values): static
     {
         if ($field instanceof Closure || is_bool($field)) {
@@ -309,6 +339,16 @@ trait HasFieldModifiers
     public function prohibits(string ...$fields): static
     {
         return $this->addRule('prohibits:' . implode(',', $fields));
+    }
+
+    public function prohibitedIfAccepted(string $field): static
+    {
+        return $this->addRule('prohibited_if_accepted:' . $field);
+    }
+
+    public function prohibitedIfDeclined(string $field): static
+    {
+        return $this->addRule('prohibited_if_declined:' . $field);
     }
 
     /**

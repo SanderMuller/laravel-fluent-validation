@@ -165,6 +165,7 @@ trait SelfValidates
     {
         foreach ($this->constraints as $constraint) {
             if (str_starts_with((string) $constraint, 'required_')
+                || str_starts_with((string) $constraint, 'present_')
                 || str_starts_with((string) $constraint, 'exclude')
                 || str_starts_with((string) $constraint, 'prohibited')
                 || str_starts_with((string) $constraint, 'missing')
@@ -244,6 +245,42 @@ trait SelfValidates
     public function compiledRules(): string|array
     {
         return $this->compiledCache ??= $this->buildCompiledRules();
+    }
+
+    /**
+     * Get the compiled rules as an array. Useful for debugging and testing.
+     *
+     * @return list<string|object>
+     */
+    public function toArray(): array
+    {
+        $compiled = $this->compiledRules();
+
+        if (is_array($compiled)) {
+            return $compiled;
+        }
+
+        return $compiled === '' ? [] : explode('|', $compiled);
+    }
+
+    /**
+     * Dump the compiled rules and terminate execution.
+     */
+    public function dd(mixed ...$args): never
+    {
+        dd($this->toArray(), ...$args);
+    }
+
+    /**
+     * Dump the compiled rules.
+     *
+     * @return $this
+     */
+    public function dump(mixed ...$args): static
+    {
+        dump($this->toArray(), ...$args);
+
+        return $this;
     }
 
     /** @return string|list<string|object> */
