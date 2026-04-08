@@ -105,7 +105,7 @@ class StorePostRequest extends FormRequest
 
 The label `'Title'` replaces `:attribute` in error messages. You get "The Title field is required" instead of "The title field is required", without a separate `attributes()` array.
 
-Without the trait, FluentRule objects still work (they implement `ValidationRule`), but [`each()`/`children()`](#array-validation-with-each-and-children), [labels](#error-messages), [wildcard optimization](#performance), and [precognitive requests](https://laravel.com/docs/precognition) all require it.
+Without the trait, FluentRule objects still work (they implement `ValidationRule`), but [`each()`/`children()`](#array-validation-with-each-and-children), [labels](#error-messages), [wildcard optimization](#performance), and [precognitive requests](https://laravel.com/docs/precognition) all require it for correct error messages and `validated()` output.
 
 If you prefer, you may extend `FluentFormRequest` instead of adding the trait manually:
 
@@ -118,7 +118,7 @@ class StorePostRequest extends FluentFormRequest
 }
 ```
 
-Since FluentRule objects implement Laravel's `ValidationRule` interface, they also work in `Validator::make()`, `Rule::forEach()`, and `Rule::when()`. Use [`->when()`](#conditional-rules) to toggle rules by context — a single form request can handle both create and update. For Livewire components, see [Livewire](#livewire).
+Since FluentRule objects implement Laravel's `ValidationRule` interface, they also work in `Validator::make()`, `Rule::forEach()`, and `Rule::when()`. Use [`->when()`](#conditional-rules) to toggle rules by context. A single form request can handle both create and update. For Livewire components, see [Livewire](#livewire).
 
 ### Migrating existing rules
 
@@ -144,10 +144,10 @@ $rules = [
 | `Rule::unique('users')`                           | `->unique('users')`                                                       |
 | `Rule::forEach(fn () => ...)`                     | `FluentRule::array()->each(...)`                                          |
 
-All conditional methods (`requiredIf`, `excludeUnless`, etc.) accept `Closure|bool` in addition to field references. `each()` and `children()` nest naturally — flat dot-notation keys like `columns.*.data.sort` become nested `each([...children([...])])` trees that mirror the data shape.
+All conditional methods (`requiredIf`, `excludeUnless`, etc.) accept `Closure|bool` in addition to field references. `each()` and `children()` nest naturally. Flat dot-notation keys like `columns.*.data.sort` become nested `each([...children([...])])` trees that mirror the data shape.
 
 > [!TIP]
-> **Using Boost?** If you have [Laravel Boost](https://github.com/laravel/boost) installed, ask your AI assistant to run the `optimize-validation` skill — it scans your codebase for convertible rules, prioritizes by impact, and applies changes file by file.
+> **Using Boost?** If you have [Laravel Boost](https://github.com/laravel/boost) installed, ask your AI assistant to run the `optimize-validation` skill. It scans your codebase for convertible rules, prioritizes by impact, and applies changes file by file.
 
 **Step 3:** For rules without a direct fluent method, use the `rule()` escape hatch:
 
@@ -318,7 +318,7 @@ class EditUser extends Component
 }
 ```
 
-The trait overrides `validate()` and `validateOnly()`, so `wire:model.blur` real-time validation works automatically. It also works on Livewire Form objects. If your component uses a `public array $rules` property, switch to a `rules()` method — FluentRule objects can't be declared in property defaults.
+The trait overrides `validate()` and `validateOnly()`, so `wire:model.blur` real-time validation works automatically. It also works on Livewire Form objects. If your component uses a `public array $rules` property, switch to a `rules()` method. FluentRule objects can't be declared in property defaults.
 
 > [!CAUTION]
 > Wildcard keys with Livewire  
@@ -332,11 +332,11 @@ If you use [Laravel Boost](https://github.com/laravel/boost), the `fluent-valida
 
 ## Why this package?
 
-Is it `required_with` or `required_with_all`? `digits_between` or `digitsBetween`? With fluent rules your IDE tells you — and `FluentRule::string()` won't offer `digits()` because that doesn't make sense on a string.
+If you've ever had to look up whether it's `required_with` or `required_with_all`, or whether the method is `digits_between` or `digitsBetween`, you know the frustration. Fluent rules let your IDE answer that for you. And because each type has its own class, `FluentRule::string()` won't even offer `digits()`.
 
-`each()` and `children()` keep parent and child rules together instead of spreading 20 flat dot-notation keys across the file. Labels and messages live on the rule itself, so there's no separate `messages()` array to keep in sync.
+Beyond autocompletion, `each()` and `children()` let you group parent and child rules together instead of scattering 20 flat dot-notation keys across the file. Labels and messages go right on the rule, so you don't end up maintaining a separate `messages()` array that slowly drifts out of date.
 
-For large arrays, the `HasFluentRules` trait replaces Laravel's O(n²) wildcard expansion with O(n) and runs fast-checks in plain PHP. [Up to 97x faster](#benchmarks) for simple rules.
+There's also a performance side. Laravel's wildcard validation is O(n²) for large arrays. The `HasFluentRules` trait fixes that, making it [up to 97x faster](#benchmarks) for simple rules.
 
 <details>
 <summary><a name="compared-to-rule"></a>Compared to Laravel's <code>Rule</code> class</summary>
@@ -447,7 +447,7 @@ $validated = RuleSet::make()
 | `->prepare($data)`                 | `PreparedRules` | Expand, extract metadata, compile. For custom Validators          |
 | `->expandWildcards($data)`         | `array`         | Pre-expand wildcards without validating                           |
 | `RuleSet::compile($rules)`         | `array`         | Compile fluent rules to native Laravel format                     |
-| `RuleSet::compileToArrays($rules)` | `array`         | Compile to array format — for Livewire's `$this->validate()`      |
+| `RuleSet::compileToArrays($rules)` | `array`         | Compile to array format for Livewire's `$this->validate()`        |
 
 ### Using with `validateWithBag` or custom Validator instances
 
@@ -737,6 +737,7 @@ PHP's `mergeRecursive` deconstructs objects into arrays. Use `(clone $parentRule
 
 **Method not found on a rule type**
 Use `->rule('method_name')` as an escape hatch for any Laravel rule not yet available as a fluent method. Accepts strings, objects, and `['rule', ...$params]` tuples.
+If you think it should be a native method, [open an issue](https://github.com/SanderMuller/laravel-fluent-validation/issues) and we'll add it.
 
 **`HasFluentValidation` conflicts with Filament's `InteractsWithSchemas`**
 Both traits define `validate()`. For Filament components, use `RuleSet::compileToArrays()` instead of the trait: `$this->validate(RuleSet::compileToArrays($this->rules()))`. This returns `array<string, array<mixed>>` matching Livewire's expected type, so PHPStan is happy. FluentRule works correctly without the trait for simple rules.
