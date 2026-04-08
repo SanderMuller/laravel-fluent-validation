@@ -6,7 +6,26 @@ user_invocable: true
 
 # Codex Code Review
 
-Run an independent code review using OpenAI Codex CLI, then critically evaluate and apply warranted findings.
+Run an independent code review using OpenAI Codex, then critically evaluate and apply warranted findings.
+
+## Prerequisites
+
+Both the codex-plugin-cc and the global Codex CLI must be installed.
+
+Plugin — if `/codex:review` is not available:
+```
+/plugin marketplace add openai/codex-plugin-cc
+/plugin install codex@openai-codex
+/reload-plugins
+/codex:setup
+```
+
+Codex CLI — if the companion script reports "Codex CLI is not installed":
+```bash
+npm install -g @openai/codex
+```
+
+Auth: `!codex login` if not authenticated.
 
 ## Step 1: Determine what to review
 
@@ -17,26 +36,60 @@ git diff --stat HEAD
 git diff --stat --staged
 ```
 
-If there are uncommitted changes, review those (`--uncommitted`). If the working tree is clean, review the latest commit (`--commit HEAD`).
+Decide the review scope:
+- **Uncommitted changes** — use `--scope working-tree`
+- **Feature branch vs main** — use `--base main`
 
 ## Step 2: Run Codex review
 
-Run the appropriate command:
+Find the companion script:
+```bash
+COMPANION=$(ls ~/.claude/plugins/cache/openai-codex/codex/*/scripts/codex-companion.mjs 2>/dev/null | sort -V | tail -1)
+```
 
 **For uncommitted changes:**
 ```bash
-codex exec review --full-auto --uncommitted "Review for correctness, security, edge cases, and test coverage gaps. This is a Laravel validation package. Focus on: rule compilation ordering, fast-check correctness, FormRequest lifecycle compatibility, and cross-field wildcard handling. Be concise — only report real issues, not style preferences."
+node "$COMPANION" review --scope working-tree --background
 ```
 
-**For the latest commit:**
+**For uncommitted changes with focus:**
 ```bash
-codex exec review --full-auto --commit HEAD "Review for correctness, security, edge cases, and test coverage gaps. This is a Laravel validation package. Focus on: rule compilation ordering, fast-check correctness, FormRequest lifecycle compatibility, and cross-field wildcard handling. Be concise — only report real issues, not style preferences."
+FOCUS="focus on rule compilation ordering and fast-check correctness"
+node "$COMPANION" adversarial-review --scope working-tree --background "$FOCUS"
 ```
 
-**For changes against main:**
+**For feature branch vs main:**
 ```bash
-codex exec review --full-auto --base main "Review for correctness, security, edge cases, and test coverage gaps. This is a Laravel validation package. Focus on: rule compilation ordering, fast-check correctness, FormRequest lifecycle compatibility, and cross-field wildcard handling. Be concise — only report real issues, not style preferences."
+node "$COMPANION" review --base main --background
 ```
+
+**For feature branch with focus:**
+```bash
+FOCUS="<user argument>"
+node "$COMPANION" adversarial-review --base main --background "$FOCUS"
+```
+
+**Poll for completion:**
+```bash
+TIMED_OUT=true
+for i in $(seq 1 15); do
+  sleep 20
+  STATUS=$(node "$COMPANION" status 2>&1)
+  if ! echo "$STATUS" | grep -qE "\| running \||\| queued \|"; then
+    TIMED_OUT=false
+    break
+  fi
+  echo "Still running... ($i)"
+done
+
+if [ "$TIMED_OUT" = "true" ]; then
+  echo "Timed out — check manually: node \"$COMPANION\" status"
+else
+  node "$COMPANION" result
+fi
+```
+
+The `result` command without a job ID returns the latest finished job.
 
 ## Step 3: Critically evaluate findings
 
