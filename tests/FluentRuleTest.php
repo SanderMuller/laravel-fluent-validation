@@ -9,6 +9,7 @@ use Illuminate\Validation\Rules\Exists;
 use Illuminate\Validation\Rules\In;
 use Illuminate\Validation\Rules\Unique;
 use Illuminate\Validation\ValidationException;
+use Illuminate\Validation\Validator;
 use SanderMuller\FluentValidation\FluentRule;
 use SanderMuller\FluentValidation\Rules\ArrayRule;
 use SanderMuller\FluentValidation\Rules\BooleanRule;
@@ -1776,7 +1777,7 @@ it('validates doesntContain on array', function (): void {
         ['tags' => FluentRule::array()->doesntContain('php')]
     );
     expect($v->passes())->toBeFalse();
-})->skip(! method_exists(\Illuminate\Validation\Validator::class, 'validateDoesntContain'), 'doesnt_contain requires Laravel 12+');
+})->skip(! method_exists(Validator::class, 'validateDoesntContain'), 'doesnt_contain requires Laravel 12+'); // @phpstan-ignore function.alreadyNarrowedType
 
 // =========================================================================
 // Convenience factory shortcuts
@@ -1899,7 +1900,7 @@ it('validates encoding', function (): void {
         ['name' => FluentRule::string()->encoding('UTF-8')]
     );
     expect($v->passes())->toBeTrue();
-})->skip(! method_exists(\Illuminate\Validation\Validator::class, 'validateEncoding'), 'encoding requires Laravel 12+');
+})->skip(! method_exists(Validator::class, 'validateEncoding'), 'encoding requires Laravel 12+'); // @phpstan-ignore function.alreadyNarrowedType
 
 it('compiles encoding', function (): void {
     expect(FluentRule::string()->encoding('UTF-8')->toArray())
