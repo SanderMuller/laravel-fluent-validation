@@ -2,6 +2,41 @@
 
 All notable changes to `laravel-fluent-validation` will be documented in this file.
 
+## 1.1.0 - 2026-04-08
+
+### Added
+
+- **Complete Laravel 13 rule coverage** — every validation rule in Laravel now has a native fluent method. No more `->rule()` escape hatches for built-in rules.
+  
+- **New field modifiers** (available on all rule types):
+  
+  - `presentIf($field, ...$values)`, `presentUnless($field, ...$values)`, `presentWith(...$fields)`, `presentWithAll(...$fields)`
+  - `requiredIfAccepted($field)`, `requiredIfDeclined($field)`
+  - `prohibitedIfAccepted($field)`, `prohibitedIfDeclined($field)`
+  
+- **New array methods:** `contains(...$values)` and `doesntContain(...$values)`.
+  
+- **New string method:** `encoding($encoding)` for validating string encoding (UTF-8, ASCII, etc.).
+  
+- **Convenience factory shortcuts:** `FluentRule::url()`, `FluentRule::uuid()`, `FluentRule::ulid()`, `FluentRule::ip()` — shorthand for `FluentRule::string()->url()`, etc.
+  
+- **Debugging tools:**
+  
+  - `->toArray()` on any rule — returns the compiled rules as an array
+  - `->dump()` / `->dd()` on any rule — dumps the compiled rules
+  - `RuleSet::from([...])->dump()` — returns `{rules, messages, attributes}` for inspection
+  - `RuleSet::from([...])->dd()` — dumps and dies
+  
+
+### Fixed
+
+- **`present_*` rules in self-validation** — `presentIf`, `presentUnless`, `presentWith`, and `presentWithAll` now correctly trigger validation for absent fields. Previously, self-validation would silently skip absent fields when these rules were used.
+  
+- **`toArray()` on untyped field rules** — `FluentRule::field()->toArray()` now returns `[]` instead of `['']`.
+  
+
+**Full Changelog**: https://github.com/SanderMuller/laravel-fluent-validation/compare/1.0.1...1.1.0
+
 ## 1.0.1 - 2026-04-07
 
 ### Fixed
@@ -107,6 +142,7 @@ Fluent validation rule builders for Laravel with IDE autocompletion, type safety
   
   
   
+  
   ```
 
 ### Documentation
@@ -134,6 +170,7 @@ Fluent validation rule builders for Laravel with IDE autocompletion, type safety
   
   
   
+  
   ```
 
 ### Documentation
@@ -156,6 +193,7 @@ Fluent validation rule builders for Laravel with IDE autocompletion, type safety
   ```php
   FluentRule::email(defaults: false)    // basic 'email' validation
   FluentRule::password(defaults: false) // Password::min(8), ignores app config
+  
   
   
   
@@ -425,6 +463,7 @@ Tested across two independent codebases:
   
   
   
+  
   ```
 - **PHPStan errors in OptimizedValidator** — Matched parent `Validator::validateAttribute()` signature.
   
@@ -486,6 +525,7 @@ Tested across two independent codebases:
   
   
   
+  
   ```
 - FluentFormRequest base class — Combines HasFluentRules compilation with per-attribute
   fast-check optimization via OptimizedValidator. Eligible wildcard rules are fast-checked
@@ -518,6 +558,7 @@ Tested across two independent codebases:
   ```php
   FluentRule::string()->unique('users', 'email', fn($r) => $r->ignore($this->user()->id))
   FluentRule::string()->exists('subjects', 'id', fn($r) => $r->where('video_id',          
+  
   
   
   
