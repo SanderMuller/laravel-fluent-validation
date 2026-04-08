@@ -31,7 +31,7 @@ jobs:
           verboseMode: true
 
       - name: Pull latest changes
-        run: git pull --rebase origin ${{ github.head_ref || github.ref_name }}
+        run: git stash && git pull --rebase origin ${{ github.head_ref || github.ref_name }} && git stash pop || true
 
       - name: Commit changes
         uses: stefanzweifel/git-auto-commit-action@v7
