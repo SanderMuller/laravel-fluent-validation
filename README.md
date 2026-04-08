@@ -448,6 +448,8 @@ $validated = RuleSet::make()
 | `->expandWildcards($data)`         | `array`         | Pre-expand wildcards without validating                           |
 | `RuleSet::compile($rules)`         | `array`         | Compile fluent rules to native Laravel format                     |
 | `RuleSet::compileToArrays($rules)` | `array`         | Compile to array format for Livewire's `$this->validate()`        |
+| `->dump()`                         | `array`         | Returns `{rules, messages, attributes}` for debugging             |
+| `->dd()`                           | `never`         | Dumps and terminates                                              |
 
 ### Using with `validateWithBag` or custom Validator instances
 
@@ -498,7 +500,7 @@ class JsonImportValidator extends FluentValidator
 
 ## Rule reference
 
-Available types: `FluentRule::string()`, `integer()`, `numeric()`, `email()`, `password()`, `date()`, `dateTime()`, `boolean()`, `array()`, `file()`, `image()`, `field()`, `anyOf()`.
+Available types: `FluentRule::string()`, `integer()`, `numeric()`, `email()`, `password()`, `date()`, `dateTime()`, `boolean()`, `array()`, `file()`, `image()`, `field()`, `anyOf()`. Shortcuts: `url()`, `uuid()`, `ulid()`, `ip()`.
 
 <details>
 <summary><a name="rule-string"></a><strong>String</strong> — length, pattern, format, comparison</summary>
@@ -509,7 +511,7 @@ FluentRule::string()->alpha()->alphaDash()->alphaNumeric()  // also: alpha(ascii
 FluentRule::string()->regex('/^[A-Z]+$/')->notRegex('/\d/')
 FluentRule::string()->startsWith('prefix_')->endsWith('.txt')  // also: doesntStartWith(), doesntEndWith()
 FluentRule::string()->lowercase()->uppercase()
-FluentRule::string()->url()->uuid()->ulid()->json()->ip()->macAddress()->timezone()->hexColor()
+FluentRule::string()->url()->uuid()->ulid()->json()->ip()->macAddress()->timezone()->hexColor()->encoding('UTF-8')
 FluentRule::string()->confirmed()->currentPassword()->same('field')->different('field')
 FluentRule::string()->inArray('values.*')->inArrayKeys('values.*')->distinct()
 ```
@@ -585,7 +587,7 @@ FluentRule::boolean()->acceptedIf('role', 'admin')->declinedIf('type', 'free')
 
 ```php
 FluentRule::array()->min(1)->max(10)->between(1, 5)->exactly(3)->list()
-FluentRule::array()->requiredArrayKeys('name', 'email')
+FluentRule::array()->requiredArrayKeys('name', 'email')->contains('required_value')
 FluentRule::array(['name', 'email'])  // restrict allowed keys
 FluentRule::array(MyEnum::cases())    // BackedEnum keys
 ```
@@ -657,13 +659,19 @@ Shared by all rule types:
 // Conditional presence: accepts field references or Closure|bool
 ->requiredIf('role', 'admin')  ->requiredUnless('type', 'guest')  ->requiredIf(fn () => $cond)
 ->requiredWith('field')  ->requiredWithAll('a', 'b')  ->requiredWithout('field')  ->requiredWithoutAll('a', 'b')
+->requiredIfAccepted('terms')  ->requiredIfDeclined('terms')
+->presentIf('type', 'admin')  ->presentUnless('type', 'guest')  ->presentWith('field')  ->presentWithAll('a', 'b')
 
 // Prohibition & exclusion
 ->prohibited()  ->prohibitedIf('field', 'val')  ->prohibitedUnless('field', 'val')  ->prohibits('other')
+->prohibitedIfAccepted('terms')  ->prohibitedIfDeclined('terms')
 ->exclude()  ->excludeIf('field', 'val')  ->excludeUnless('field', 'val')  ->excludeWith('f')  ->excludeWithout('f')
 
 // Messages
 ->label('Name')  ->message('Rule-specific error')  ->messageFor('required', 'Custom msg')  ->fieldMessage('Field-level fallback')
+
+// Debugging
+->toArray()  ->dump()  ->dd()
 
 // Other
 ->bail()  ->rule($stringOrObjectOrArray)  ->whenInput($condition, $then, $else?)

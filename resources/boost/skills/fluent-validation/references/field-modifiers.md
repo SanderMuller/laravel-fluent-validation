@@ -16,6 +16,9 @@ All rule types share these modifiers.
 - `requiredUnless($field, ...$values)` — also accepts `Closure|bool`
 - `requiredWith(...$fields)`, `requiredWithAll(...$fields)`
 - `requiredWithout(...$fields)`, `requiredWithoutAll(...$fields)`
+- `requiredIfAccepted($field)`, `requiredIfDeclined($field)`
+- `presentIf($field, ...$values)`, `presentUnless($field, ...$values)`
+- `presentWith(...$fields)`, `presentWithAll(...$fields)`
 - `missingIf($field, ...$values)`, `missingUnless($field, ...$values)`
 - `missingWith(...$fields)`, `missingWithAll(...$fields)`
 
@@ -26,6 +29,7 @@ All variadic `$values` parameters accept `string|int|bool`.
 - `prohibited()`, `prohibits(...$fields)`
 - `prohibitedIf($field, ...$values)` — also accepts `Closure|bool`
 - `prohibitedUnless($field, ...$values)` — also accepts `Closure|bool`
+- `prohibitedIfAccepted($field)`, `prohibitedIfDeclined($field)`
 
 ## Exclusion
 
@@ -55,6 +59,12 @@ All conditional modifiers (`requiredIf`, `excludeIf`, `prohibitedIf`, etc.) acce
 
 - `bail()` — stop on first failure
 - `rule($rule)` — escape hatch for any Laravel rule: string, `ValidationRule` object, `Closure`, or array tuple `['mimetypes', ...$types]`
+
+## Debugging
+
+- `toArray()` — returns compiled rules as an array (e.g., `['required', 'string', 'max:255']`)
+- `dd(...$args)` — dumps compiled rules and terminates
+- `dump(...$args)` — dumps compiled rules and continues (chainable)
 
 ## Conditional Rules
 

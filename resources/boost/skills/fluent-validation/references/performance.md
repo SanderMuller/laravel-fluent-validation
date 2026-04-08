@@ -78,3 +78,5 @@ Resolves translator, presence verifier, calls `prepare()`, sets implicit attribu
 - `->expandWildcards($data)` — pre-expand without validating
 - `RuleSet::compile($rules)` — compile to native Laravel format
 - `RuleSet::compileToArrays($rules)` — compile to array format (`array<string, array<mixed>>`), useful for Livewire's `$this->validate()`
+- `->dump()` — returns `{rules, messages, attributes}` for debugging
+- `->dd()` — dumps and terminates

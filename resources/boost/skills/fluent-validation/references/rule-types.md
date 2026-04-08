@@ -8,6 +8,7 @@
 - Case: `lowercase()`, `uppercase()`
 - Email: `email(...$modes)` — e.g. `email()`, `email('rfc', 'dns')`
 - Format: `url()`, `activeUrl()`, `uuid()`, `ulid()`, `json()`, `ip()`, `ipv4()`, `ipv6()`, `macAddress()`, `timezone()`, `hexColor()`
+- Encoding: `encoding($encoding)` — validates string encoding (e.g., `encoding('UTF-8')`)
 - Date: `date()`, `dateFormat($format)`
 - Auth: `currentPassword($guard?)`
 - Comparison: `confirmed()`, `same($field)`, `different($field)`, `inArray($field)`, `inArrayKeys($field)`, `distinct($mode?)`
@@ -53,7 +54,7 @@ All comparison methods accept `DateTimeInterface|string`:
 ## Array
 
 - Size: `min($n)`, `max($n)`, `between($min, $max)`, `exactly($n)`
-- Structure: `list()`, `requiredArrayKeys(...$keys)`
+- Structure: `list()`, `requiredArrayKeys(...$keys)`, `contains(...$values)`, `doesntContain(...$values)`
 - Wildcard children: `each($rule)` for scalar items, `each([...])` for object items → produces `items.*.name`
 - Fixed-key children: `children([...])` for known-key objects → produces `search.value` (no wildcard). Also available on `FluentRule::field()`
 - Polymorphic fields: `FluentRule::field()->rule(FluentRule::anyOf([...]))->children([...])` for fields that can be different types with optional child keys
@@ -86,6 +87,14 @@ All comparison methods accept `DateTimeInterface|string`:
 - `notIn($values)` — same as `in()`, also accepts scalar: `notIn('admin')`, `notIn(42)`
 - `unique($table, $column?, $callback?)`, `exists($table, $column?, $callback?)` — callback for `->where()`, `->ignore()`, `->withoutTrashed()`
 - `enum($class, $callback?)` — callback receives the `Illuminate\Validation\Rules\Enum` instance
+
+## Convenience Shortcuts
+
+- `FluentRule::url()` — shorthand for `FluentRule::string()->url()`
+- `FluentRule::uuid()` — shorthand for `FluentRule::string()->uuid()`
+- `FluentRule::ulid()` — shorthand for `FluentRule::string()->ulid()`
+- `FluentRule::ip()` — shorthand for `FluentRule::string()->ip()`
+- All accept an optional `?string $label` parameter
 
 ## Combinators
 

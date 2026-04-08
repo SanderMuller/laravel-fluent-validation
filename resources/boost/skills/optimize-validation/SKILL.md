@@ -219,6 +219,17 @@ Then convert one field at a time:
 | `Rule::prohibitedIf(fn)` | `->prohibitedIf(fn () => ...)` |
 | `Rule::unique(...)->ignore()` | `->unique('t', 'col', fn($r) => $r->ignore($id))` |
 | `Rule::exists(...)->where()` | `->exists('t', 'col', fn($r) => $r->where(...))` |
+| `'present_if:f,v'` | `->presentIf('f', 'v')` |
+| `'present_unless:f,v'` | `->presentUnless('f', 'v')` |
+| `'present_with:f'` | `->presentWith('f')` |
+| `'present_with_all:a,b'` | `->presentWithAll('a', 'b')` |
+| `'required_if_accepted:f'` | `->requiredIfAccepted('f')` |
+| `'required_if_declined:f'` | `->requiredIfDeclined('f')` |
+| `'prohibited_if_accepted:f'` | `->prohibitedIfAccepted('f')` |
+| `'prohibited_if_declined:f'` | `->prohibitedIfDeclined('f')` |
+| `'contains:a,b'` | `->contains('a', 'b')` (on ArrayRule) |
+| `'doesnt_contain:a'` | `->doesntContain('a')` (on ArrayRule) |
+| `'encoding:UTF-8'` | `->encoding('UTF-8')` (on StringRule) |
 
 **Conditional rules:**
 
