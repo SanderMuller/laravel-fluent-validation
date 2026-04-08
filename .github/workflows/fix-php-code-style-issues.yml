@@ -36,7 +36,7 @@ jobs:
         run: |
           git stash
           git pull --rebase origin "$BRANCH"
-          git stash pop
+          git stash pop || true
 
       - name: Commit changes
         uses: stefanzweifel/git-auto-commit-action@v7
