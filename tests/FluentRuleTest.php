@@ -1776,7 +1776,7 @@ it('validates doesntContain on array', function (): void {
         ['tags' => FluentRule::array()->doesntContain('php')]
     );
     expect($v->passes())->toBeFalse();
-});
+})->skip(! method_exists(\Illuminate\Validation\Validator::class, 'validateDoesntContain'), 'doesnt_contain requires Laravel 12+');
 
 // =========================================================================
 // Convenience factory shortcuts
@@ -1899,7 +1899,7 @@ it('validates encoding', function (): void {
         ['name' => FluentRule::string()->encoding('UTF-8')]
     );
     expect($v->passes())->toBeTrue();
-});
+})->skip(! method_exists(\Illuminate\Validation\Validator::class, 'validateEncoding'), 'encoding requires Laravel 12+');
 
 it('compiles encoding', function (): void {
     expect(FluentRule::string()->encoding('UTF-8')->toArray())
