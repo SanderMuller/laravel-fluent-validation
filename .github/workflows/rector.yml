@@ -45,6 +45,9 @@ jobs:
       - name: Run Rector
         run: vendor/bin/rector process --no-diffs
 
+      - name: Pull latest changes
+        run: git pull --rebase origin ${{ github.head_ref || github.ref_name }}
+
       - name: Commit changes
         uses: stefanzweifel/git-auto-commit-action@v7
         with:
