@@ -11,8 +11,8 @@ use SanderMuller\FluentValidation\Rules\StringRule;
 it('creates a string rule with bail', function (): void {
     $validator = makeValidator(['name' => 123], ['name' => FluentRule::string()->bail()->min(2)->max(255)]);
 
-    expect($validator->passes())->toBeFalse();
-    expect($validator->errors()->get('name'))->toHaveCount(1);
+    expect($validator->passes())->toBeFalse()
+        ->and($validator->errors()->get('name'))->toHaveCount(1);
 });
 
 it('creates a string rule with nullable', function (): void {
@@ -532,7 +532,7 @@ it('validates email on string rule', function (): void {
 });
 
 it('compiles email on string rule', function (): void {
-    expect(FluentRule::string()->email()->compiledRules())->toBe('string|email');
-    expect(FluentRule::string()->email('rfc')->compiledRules())->toBe('string|email:rfc');
-    expect(FluentRule::string()->email('rfc', 'spoof')->compiledRules())->toBe('string|email:rfc,spoof');
+    expect(FluentRule::string()->email()->compiledRules())->toBe('string|email')
+        ->and(FluentRule::string()->email('rfc')->compiledRules())->toBe('string|email:rfc')
+        ->and(FluentRule::string()->email('rfc', 'spoof')->compiledRules())->toBe('string|email:rfc,spoof');
 });

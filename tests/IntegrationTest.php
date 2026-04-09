@@ -105,8 +105,8 @@ it('uses custom error messages from the validator', function (): void {
         ['name.required' => 'Please enter your name.']
     );
 
-    expect($v->passes())->toBeFalse();
-    expect($v->errors()->first('name'))->toBe('Please enter your name.');
+    expect($v->passes())->toBeFalse()
+        ->and($v->errors()->first('name'))->toBe('Please enter your name.');
 });
 
 it('uses custom attribute names', function (): void {
@@ -146,8 +146,7 @@ it('excludes absent optional fields from validated data', function (): void {
 
     expect($validator->passes())->toBeTrue();
     $validated = $validator->validated();
-    expect($validated)->toHaveKey('name');
-    expect($validated)->not->toHaveKey('nickname');
+    expect($validated)->toHaveKey('name')->not->toHaveKey('nickname');
 });
 
 // =========================================================================
@@ -228,6 +227,5 @@ it('exclude modifier works when used as a native rule alongside the fluent rule'
 
     expect($validator->passes())->toBeTrue();
     $validated = $validator->validated();
-    expect($validated)->toHaveKey('name');
-    expect($validated)->not->toHaveKey('internal_id');
+    expect($validated)->toHaveKey('name')->not->toHaveKey('internal_id');
 });

@@ -51,13 +51,11 @@ it('expands deeply nested wildcards', function (): void {
 });
 
 it('returns empty when data is missing', function (): void {
-    expect(WildcardExpander::expand('items.*.name', ['other' => 'data']))
-        ->toBe([]);
+    expect(WildcardExpander::expand('items.*.name', ['other' => 'data']))->toBeEmpty();
 });
 
 it('returns empty when wildcard target is not an array', function (): void {
-    expect(WildcardExpander::expand('items.*', ['items' => 'not-an-array']))
-        ->toBe([]);
+    expect(WildcardExpander::expand('items.*', ['items' => 'not-an-array']))->toBeEmpty();
 });
 
 it('handles associative array keys', function (): void {
@@ -73,8 +71,7 @@ it('handles associative array keys', function (): void {
 });
 
 it('handles empty arrays', function (): void {
-    expect(WildcardExpander::expand('items.*', ['items' => []]))
-        ->toBe([]);
+    expect(WildcardExpander::expand('items.*', ['items' => []]))->toBeEmpty();
 });
 
 it('handles wildcard at end without sub-field', function (): void {
@@ -122,7 +119,7 @@ it('stops expanding at recursion depth limit', function (): void {
 
     // Should return empty — depth limit (50) prevents stack overflow.
     $result = WildcardExpander::expand($pattern, $data);
-    expect($result)->toBe([]);
+    expect($result)->toBeEmpty();
 });
 
 it('expands normally within depth limit', function (): void {
@@ -141,8 +138,8 @@ it('expands normally within depth limit', function (): void {
 
 it('does not emit paths with unresolved wildcards for missing nested arrays', function (): void {
     // items.*.style.* where style is missing — can't resolve the inner *
-    expect(WildcardExpander::expand('items.*.style.*', ['items' => [[]]]))->toBe([]);
+    expect(WildcardExpander::expand('items.*.style.*', ['items' => [[]]]))->toBeEmpty();
 
     // items.*.chapters.*.title where chapters is missing
-    expect(WildcardExpander::expand('items.*.chapters.*.title', ['items' => [['name' => 'test']]]))->toBe([]);
+    expect(WildcardExpander::expand('items.*.chapters.*.title', ['items' => [['name' => 'test']]]))->toBeEmpty();
 });

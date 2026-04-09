@@ -9,9 +9,9 @@ use SanderMuller\FluentValidation\FluentRule;
 // =========================================================================
 
 it('compiles image rule', function (): void {
-    expect(FluentRule::image()->compiledRules())->toBe('image');
-    expect(FluentRule::image()->max(5120)->compiledRules())->toBe('image|max:5120');
-    expect(FluentRule::image()->required()->max('5mb')->compiledRules())->toBe('required|image|max:5000');
+    expect(FluentRule::image()->compiledRules())->toBe('image')
+        ->and(FluentRule::image()->max(5120)->compiledRules())->toBe('image|max:5120')
+        ->and(FluentRule::image()->required()->max('5mb')->compiledRules())->toBe('required|image|max:5000');
 });
 
 it('compiles image rule with allowSvg', function (): void {
@@ -25,8 +25,8 @@ it('allowSvg preserves field modifiers set before it', function (): void {
 
 it('compiles image rule with minWidth and maxWidth', function (): void {
     $compiled = FluentRule::image()->minWidth(100)->maxWidth(1920)->compiledRules();
-    expect($compiled)->toBeArray();
-    expect($compiled)->toContain('image');
+    expect($compiled)->toBeArray()
+        ->toContain('image');
 
     /** @var list<object|string> $compiled */
     $dims = collect($compiled)->filter(fn (object|string $r): bool => $r instanceof Dimensions)->values();
@@ -35,8 +35,8 @@ it('compiles image rule with minWidth and maxWidth', function (): void {
 
 it('compiles image rule with width and height', function (): void {
     $compiled = FluentRule::image()->width(800)->height(600)->compiledRules();
-    expect($compiled)->toBeArray();
-    expect($compiled)->toContain('image');
+    expect($compiled)->toBeArray()
+        ->toContain('image');
 
     /** @var list<object|string> $compiled */
     $dims = collect($compiled)->filter(fn (object|string $r): bool => $r instanceof Dimensions)->values();
@@ -45,8 +45,8 @@ it('compiles image rule with width and height', function (): void {
 
 it('compiles image rule with minHeight and maxHeight', function (): void {
     $compiled = FluentRule::image()->minHeight(100)->maxHeight(1080)->compiledRules();
-    expect($compiled)->toBeArray();
-    expect($compiled)->toContain('image');
+    expect($compiled)->toBeArray()
+        ->toContain('image');
 
     /** @var list<object|string> $compiled */
     $dims = collect($compiled)->filter(fn (object|string $r): bool => $r instanceof Dimensions)->values();
@@ -55,8 +55,8 @@ it('compiles image rule with minHeight and maxHeight', function (): void {
 
 it('compiles image rule with string ratio', function (): void {
     $compiled = FluentRule::image()->ratio('16/9')->compiledRules();
-    expect($compiled)->toBeArray();
-    expect($compiled)->toContain('image');
+    expect($compiled)->toBeArray()
+        ->toContain('image');
 
     /** @var list<object|string> $compiled */
     $dim = collect($compiled)->first(fn (object|string $r): bool => $r instanceof Dimensions);
@@ -66,8 +66,8 @@ it('compiles image rule with string ratio', function (): void {
 
 it('compiles image rule with float ratio', function (): void {
     $compiled = FluentRule::image()->ratio(1.5)->compiledRules();
-    expect($compiled)->toBeArray();
-    expect($compiled)->toContain('image');
+    expect($compiled)->toBeArray()
+        ->toContain('image');
 
     /** @var list<object|string> $compiled */
     $dim = collect($compiled)->first(fn (object|string $r): bool => $r instanceof Dimensions);

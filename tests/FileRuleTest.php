@@ -8,23 +8,23 @@ use SanderMuller\FluentValidation\FluentRule;
 // =========================================================================
 
 it('compiles file rule with min and max', function (): void {
-    expect(FluentRule::file()->compiledRules())->toBe('file');
-    expect(FluentRule::file()->min(100)->compiledRules())->toBe('file|min:100');
-    expect(FluentRule::file()->max(2048)->compiledRules())->toBe('file|max:2048');
-    expect(FluentRule::file()->min(100)->max(2048)->compiledRules())->toBe('file|min:100|max:2048');
+    expect(FluentRule::file()->compiledRules())->toBe('file')
+        ->and(FluentRule::file()->min(100)->compiledRules())->toBe('file|min:100')
+        ->and(FluentRule::file()->max(2048)->compiledRules())->toBe('file|max:2048')
+        ->and(FluentRule::file()->min(100)->max(2048)->compiledRules())->toBe('file|min:100|max:2048');
 });
 
 it('converts decimal and whitespace sizes to kilobytes', function (): void {
-    expect(FluentRule::file()->max('1.5mb')->compiledRules())->toBe('file|max:1500');
-    expect(FluentRule::file()->max(' 5mb ')->compiledRules())->toBe('file|max:5000');
+    expect(FluentRule::file()->max('1.5mb')->compiledRules())->toBe('file|max:1500')
+        ->and(FluentRule::file()->max(' 5mb ')->compiledRules())->toBe('file|max:5000');
 });
 
 it('compiles file rule with human-readable sizes', function (): void {
-    expect(FluentRule::file()->max('5mb')->compiledRules())->toBe('file|max:5000');
-    expect(FluentRule::file()->max('1gb')->compiledRules())->toBe('file|max:1000000');
-    expect(FluentRule::file()->max('1tb')->compiledRules())->toBe('file|max:1000000000');
-    expect(FluentRule::file()->max('512kb')->compiledRules())->toBe('file|max:512');
-    expect(FluentRule::file()->between('1mb', '10mb')->compiledRules())->toBe('file|between:1000,10000');
+    expect(FluentRule::file()->max('5mb')->compiledRules())->toBe('file|max:5000')
+        ->and(FluentRule::file()->max('1gb')->compiledRules())->toBe('file|max:1000000')
+        ->and(FluentRule::file()->max('1tb')->compiledRules())->toBe('file|max:1000000000')
+        ->and(FluentRule::file()->max('512kb')->compiledRules())->toBe('file|max:512')
+        ->and(FluentRule::file()->between('1mb', '10mb')->compiledRules())->toBe('file|between:1000,10000');
 });
 
 it('file rule accepts plain numeric string as kilobytes', function (): void {
@@ -32,8 +32,8 @@ it('file rule accepts plain numeric string as kilobytes', function (): void {
 });
 
 it('compiles file rule with between and exactly', function (): void {
-    expect(FluentRule::file()->between(100, 2048)->compiledRules())->toBe('file|between:100,2048');
-    expect(FluentRule::file()->exactly(512)->compiledRules())->toBe('file|size:512');
+    expect(FluentRule::file()->between(100, 2048)->compiledRules())->toBe('file|between:100,2048')
+        ->and(FluentRule::file()->exactly(512)->compiledRules())->toBe('file|size:512');
 });
 
 it('compiles file rule with extensions', function (): void {
@@ -49,8 +49,8 @@ it('compiles file rule with mimetypes', function (): void {
 });
 
 it('compiles file rule with field modifiers', function (): void {
-    expect(FluentRule::file()->required()->max(2048)->compiledRules())->toBe('required|file|max:2048');
-    expect(FluentRule::file()->nullable()->compiledRules())->toBe('nullable|file');
+    expect(FluentRule::file()->required()->max(2048)->compiledRules())->toBe('required|file|max:2048')
+        ->and(FluentRule::file()->nullable()->compiledRules())->toBe('nullable|file');
 });
 
 it('validates file upload', function (): void {
@@ -112,6 +112,6 @@ it('file bail stops on first failure', function (): void {
         ['doc' => 'not-a-file'],
         ['doc' => FluentRule::file()->bail()->max(2048)]
     );
-    expect($validator->passes())->toBeFalse();
-    expect($validator->errors()->get('doc'))->toHaveCount(1);
+    expect($validator->passes())->toBeFalse()
+        ->and($validator->errors()->get('doc'))->toHaveCount(1);
 });

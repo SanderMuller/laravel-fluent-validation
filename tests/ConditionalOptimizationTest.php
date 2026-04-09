@@ -79,8 +79,8 @@ it('handles multiple types in exclude_unless condition', function (): void {
         ],
     ]);
 
-    expect($validated['items'][0]['style_top'])->toBe('10%');
-    expect($validated['items'][2]['style_top'])->toBe('30%');
+    expect($validated['items'][0]['style_top'])->toBe('10%')
+        ->and($validated['items'][2]['style_top'])->toBe('30%');
 });
 
 // =========================================================================
@@ -122,7 +122,7 @@ it('validates conditional fields with fast-checkable rules after stripping', fun
     ]);
 
     // Both pass — collapsed validated for chapter, text validated for button.
-    expect($validated['items'][0]['collapsed'])->toBe(false);
+    expect($validated['items'][0]['collapsed'])->toBeFalse();
     expect($validated['items'][1]['text'])->toBe('<p>Hello</p>');
 });
 
@@ -170,8 +170,8 @@ it('handles mix of conditional and unconditional rules', function (): void {
         ],
     ]);
 
-    expect($validated['items'][0]['name'])->toBe('Btn');
-    expect($validated['items'][1]['name'])->toBe('Ch');
+    expect($validated['items'][0]['name'])->toBe('Btn')
+        ->and($validated['items'][1]['name'])->toBe('Ch');
 });
 
 it('handles items with no conditional rules', function (): void {
@@ -186,8 +186,8 @@ it('handles items with no conditional rules', function (): void {
         ],
     ]);
 
-    expect($validated['items'])->toHaveCount(2);
-    expect($validated['items'][0]['name'])->toBe('Alice');
+    expect($validated['items'])->toHaveCount(2)
+        ->and($validated['items'][0]['name'])->toBe('Alice');
 });
 
 it('all items excluded for a conditional field still pass validation', function (): void {

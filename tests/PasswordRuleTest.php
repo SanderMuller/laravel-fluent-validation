@@ -56,16 +56,15 @@ it('password uncompromised configures the Password rule', function (): void {
 });
 
 it('password canCompile returns false', function (): void {
-    expect(FluentRule::password()->canCompile())->toBeFalse();
-    expect(FluentRule::password()->required()->canCompile())->toBeFalse();
+    expect(FluentRule::password()->canCompile())->toBeFalse()
+        ->and(FluentRule::password()->required()->canCompile())->toBeFalse();
 });
 
 it('password compiledRules includes Password object', function (): void {
     $compiled = FluentRule::password()->required()->compiledRules();
-    expect($compiled)->toBeArray();
-    expect($compiled[0])->toBe('required');
-    expect($compiled[1])->toBe('string');
-    expect($compiled[2])->toBeInstanceOf(Password::class);
+    expect($compiled)->toBeArray()
+        ->toMatchArray([0 => 'required', 1 => 'string'])
+        ->and($compiled[2])->toBeInstanceOf(Password::class);
 });
 
 it('password supports field modifiers', function (): void {

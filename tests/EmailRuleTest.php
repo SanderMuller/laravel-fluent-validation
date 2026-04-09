@@ -17,13 +17,13 @@ it('validates email with EmailRule', function (): void {
 });
 
 it('compiles EmailRule with modes', function (): void {
-    expect(FluentRule::email()->compiledRules())->toBe('string|email');
-    expect(FluentRule::email()->rfcCompliant()->compiledRules())->toBe('string|email:rfc');
-    expect(FluentRule::email()->strict()->compiledRules())->toBe('string|email:strict');
-    expect(FluentRule::email()->rfcCompliant()->preventSpoofing()->compiledRules())->toBe('string|email:rfc,spoof');
-    expect(FluentRule::email()->validateMxRecord()->compiledRules())->toBe('string|email:dns');
-    expect(FluentRule::email()->withNativeValidation()->compiledRules())->toBe('string|email:filter');
-    expect(FluentRule::email()->withNativeValidation(allowUnicode: true)->compiledRules())->toBe('string|email:filter_unicode');
+    expect(FluentRule::email()->compiledRules())->toBe('string|email')
+        ->and(FluentRule::email()->rfcCompliant()->compiledRules())->toBe('string|email:rfc')
+        ->and(FluentRule::email()->strict()->compiledRules())->toBe('string|email:strict')
+        ->and(FluentRule::email()->rfcCompliant()->preventSpoofing()->compiledRules())->toBe('string|email:rfc,spoof')
+        ->and(FluentRule::email()->validateMxRecord()->compiledRules())->toBe('string|email:dns')
+        ->and(FluentRule::email()->withNativeValidation()->compiledRules())->toBe('string|email:filter')
+        ->and(FluentRule::email()->withNativeValidation(allowUnicode: true)->compiledRules())->toBe('string|email:filter_unicode');
 });
 
 it('compiles EmailRule with field modifiers', function (): void {
@@ -37,16 +37,16 @@ it('validates EmailRule rejects non-string', function (): void {
 
 it('EmailRule compiles unique', function (): void {
     $compiled = FluentRule::email()->required()->unique('users', 'email')->compiledRules();
-    expect($compiled)->toBeString();
-    expect($compiled)->toStartWith('required|string|email|');
-    expect($compiled)->toContain('unique:');
+    expect($compiled)->toBeString()
+        ->toStartWith('required|string|email|')
+        ->toContain('unique:');
 });
 
 it('EmailRule compiles exists', function (): void {
     $compiled = FluentRule::email()->required()->exists('users', 'email')->compiledRules();
-    expect($compiled)->toBeString();
-    expect($compiled)->toStartWith('required|string|email|');
-    expect($compiled)->toContain('exists:');
+    expect($compiled)->toBeString()
+        ->toStartWith('required|string|email|')
+        ->toContain('exists:');
 });
 
 it('EmailRule compiles confirmed', function (): void {
@@ -54,8 +54,8 @@ it('EmailRule compiles confirmed', function (): void {
 });
 
 it('EmailRule compiles same and different', function (): void {
-    expect(FluentRule::email()->same('backup_email')->compiledRules())->toBe('string|same:backup_email|email');
-    expect(FluentRule::email()->different('old_email')->compiledRules())->toBe('string|different:old_email|email');
+    expect(FluentRule::email()->same('backup_email')->compiledRules())->toBe('string|same:backup_email|email')
+        ->and(FluentRule::email()->different('old_email')->compiledRules())->toBe('string|different:old_email|email');
 });
 
 it('EmailRule compiledRules returns array for non-Stringable rule', function (): void {
@@ -64,10 +64,8 @@ it('EmailRule compiledRules returns array for non-Stringable rule', function ():
     };
 
     $compiled = FluentRule::email()->rule($nonStringable)->compiledRules();
-    expect($compiled)->toBeArray();
-    expect($compiled[0])->toBe('string');
-    expect($compiled[1])->toBe('email');
-    expect($compiled[2])->toBe($nonStringable);
+    expect($compiled)->toBeArray()
+        ->toMatchArray([0 => 'string', 1 => 'email', 2 => $nonStringable]);
 });
 
 it('EmailRule with modes validates and compiles correctly', function (): void {
@@ -93,9 +91,9 @@ it('uses Email::default() when app defaults are configured', function (): void {
 
     try {
         $compiled = FluentRule::email()->compiledRules();
-        expect($compiled)->toBeArray();
-        expect($compiled[0])->toBe('string');
-        expect($compiled[1])->toBeInstanceOf(Email::class);
+        expect($compiled)->toBeArray()
+            ->and($compiled[0])->toBe('string')
+            ->and($compiled[1])->toBeInstanceOf(Email::class);
     } finally {
         Email::$defaultCallback = null;
     }
@@ -131,8 +129,8 @@ it('defaults: false with label works', function (): void {
 
     try {
         $rule = FluentRule::email('Email Address', defaults: false)->required();
-        expect($rule->compiledRules())->toBe('required|string|email');
-        expect($rule->getLabel())->toBe('Email Address');
+        expect($rule->compiledRules())->toBe('required|string|email')
+            ->and($rule->getLabel())->toBe('Email Address');
     } finally {
         Email::$defaultCallback = null;
     }

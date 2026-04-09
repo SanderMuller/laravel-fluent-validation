@@ -24,9 +24,9 @@ it('builds a rule set from fluent fields', function (): void {
         ->field('age', FluentRule::numeric()->nullable()->integer()->min(0))
         ->toArray();
 
-    expect($rules)->toHaveKeys(['name', 'age']);
-    expect($rules['name'])->toBeInstanceOf(StringRule::class);
-    expect($rules['age'])->toBeInstanceOf(NumericRule::class);
+    expect($rules)->toHaveKeys(['name', 'age'])
+        ->and($rules['name'])->toBeInstanceOf(StringRule::class)
+        ->and($rules['age'])->toBeInstanceOf(NumericRule::class);
 });
 
 it('builds a rule set from an array via from()', function (): void {
@@ -44,10 +44,8 @@ it('handles mixed rule types via from()', function (): void {
         'age' => ['required', 'integer'],
         'email' => FluentRule::string()->required()->rule('email'),
     ])->toArray();
-
-    expect($rules['name'])->toBe('required|string|max:255');
-    expect($rules['age'])->toBe(['required', 'integer']);
-    expect($rules['email'])->toBeInstanceOf(StringRule::class);
+    expect($rules)->toMatchArray(['name' => 'required|string|max:255', 'age' => ['required', 'integer']])
+        ->and($rules['email'])->toBeInstanceOf(StringRule::class);
 });
 
 // =========================================================================
@@ -59,9 +57,9 @@ it('flattens each() with a single rule to wildcard path', function (): void {
         'tags' => FluentRule::array()->required()->each(FluentRule::string()->max(50)),
     ])->toArray();
 
-    expect($rules)->toHaveKeys(['tags', 'tags.*']);
-    expect($rules['tags'])->toBeInstanceOf(ArrayRule::class);
-    expect($rules['tags.*'])->toBeInstanceOf(StringRule::class);
+    expect($rules)->toHaveKeys(['tags', 'tags.*'])
+        ->and($rules['tags'])->toBeInstanceOf(ArrayRule::class)
+        ->and($rules['tags.*'])->toBeInstanceOf(StringRule::class);
 });
 
 it('flattens each() with field mappings to wildcard paths', function (): void {
@@ -72,9 +70,9 @@ it('flattens each() with field mappings to wildcard paths', function (): void {
         ]),
     ])->toArray();
 
-    expect($rules)->toHaveKeys(['items', 'items.*.name', 'items.*.qty']);
-    expect($rules['items.*.name'])->toBeInstanceOf(StringRule::class);
-    expect($rules['items.*.qty'])->toBeInstanceOf(NumericRule::class);
+    expect($rules)->toHaveKeys(['items', 'items.*.name', 'items.*.qty'])
+        ->and($rules['items.*.name'])->toBeInstanceOf(StringRule::class)
+        ->and($rules['items.*.qty'])->toBeInstanceOf(NumericRule::class);
 });
 
 it('flattens nested each() recursively', function (): void {
@@ -98,8 +96,7 @@ it('does not flatten array without each()', function (): void {
         'tags' => FluentRule::array()->required(),
     ])->toArray();
 
-    expect($rules)->toHaveKeys(['tags']);
-    expect($rules)->not->toHaveKey('tags.*');
+    expect($rules)->toHaveKeys(['tags'])->not->toHaveKey('tags.*');
 });
 
 // =========================================================================
@@ -117,8 +114,7 @@ it('expands wildcard fields against data', function (): void {
         ],
     ]);
 
-    expect($rules)->toHaveKeys(['items', 'items.0.name', 'items.1.name']);
-    expect($rules)->not->toHaveKey('items.*.name');
+    expect($rules)->toHaveKeys(['items', 'items.0.name', 'items.1.name'])->not->toHaveKey('items.*.name');
 });
 
 it('expands each() rules against data', function (): void {
@@ -134,8 +130,7 @@ it('expands each() rules against data', function (): void {
         ],
     ]);
 
-    expect($rules)->toHaveKeys(['items', 'items.0.name', 'items.1.name', 'items.2.name']);
-    expect($rules)->not->toHaveKey('items.*.name');
+    expect($rules)->toHaveKeys(['items', 'items.0.name', 'items.1.name', 'items.2.name'])->not->toHaveKey('items.*.name');
 });
 
 it('leaves non-wildcard fields unchanged during expansion', function (): void {
@@ -155,8 +150,7 @@ it('handles empty array during wildcard expansion', function (): void {
         'items' => FluentRule::array()->each(FluentRule::string()),
     ])->expandWildcards(['items' => []]);
 
-    expect($rules)->toHaveKey('items');
-    expect($rules)->not->toHaveKey('items.0');
+    expect($rules)->toHaveKey('items')->not->toHaveKey('items.0');
 });
 
 // =========================================================================
@@ -201,8 +195,8 @@ it('validates nested each() rules', function (): void {
         ],
     ]);
 
-    expect($validated['orders'])->toHaveCount(2);
-    expect($validated['orders'][0]['items'])->toHaveCount(2);
+    expect($validated['orders'])->toHaveCount(2)
+        ->and($validated['orders'][0]['items'])->toHaveCount(2);
 });
 
 it('validates scalar each() rules', function (): void {
@@ -311,8 +305,8 @@ it('reports correct field paths for scalar each item failures', function (): voi
         ]);
     } catch (ValidationException $validationException) {
         $errorKeys = array_keys($validationException->errors());
-        expect($errorKeys)->toContain('tags.0');
-        expect($errorKeys)->toContain('tags.1');
+        expect($errorKeys)->toContain('tags.0')
+            ->toContain('tags.1');
 
         return;
     }
@@ -507,8 +501,8 @@ it('slow path reuses validator across multiple failing items', function (): void
         ]);
     } catch (ValidationException $validationException) {
         $errorKeys = array_keys($validationException->errors());
-        expect($errorKeys)->toContain('items.1.name');
-        expect($errorKeys)->toContain('items.2.name');
+        expect($errorKeys)->toContain('items.1.name')
+            ->toContain('items.2.name');
 
         return;
     }
@@ -612,8 +606,7 @@ it('does not include unvalidated fields in validated output', function (): void 
         'name' => FluentRule::string()->required(),
     ])->validate(['name' => 'John', 'evil' => 'payload']);
 
-    expect($validated)->toHaveKey('name');
-    expect($validated)->not->toHaveKey('evil');
+    expect($validated)->toHaveKey('name')->not->toHaveKey('evil');
 });
 
 // =========================================================================
@@ -859,8 +852,7 @@ it('flattens children() to fixed paths', function (): void {
         ]),
     ])->toArray();
 
-    expect($rules)->toHaveKeys(['search', 'search.value', 'search.regex']);
-    expect($rules)->not->toHaveKey('search.*.value');
+    expect($rules)->toHaveKeys(['search', 'search.value', 'search.regex'])->not->toHaveKey('search.*.value');
 });
 
 it('validates children() rules', function (): void {
@@ -936,8 +928,7 @@ it('skips fields when condition is false', function (): void {
         )
         ->toArray();
 
-    expect($rules)->toHaveKey('name');
-    expect($rules)->not->toHaveKey('role');
+    expect($rules)->toHaveKey('name')->not->toHaveKey('role');
 });
 
 it('supports unless()', function (): void {
@@ -969,8 +960,8 @@ it('merges a plain array', function (): void {
         ->merge(['age' => 'required|integer'])
         ->toArray();
 
-    expect($rules)->toHaveKeys(['name', 'age']);
-    expect($rules['age'])->toBe('required|integer');
+    expect($rules)->toHaveKeys(['name', 'age'])
+        ->and($rules['age'])->toBe('required|integer');
 });
 
 it('later merge overwrites earlier fields', function (): void {
@@ -1009,8 +1000,8 @@ it('field rule with label', function (): void {
         ['answer' => FluentRule::field('Your Answer')->required()]
     );
 
-    expect($validator->passes())->toBeFalse();
-    expect($validator->errors()->first('answer'))->toContain('Your Answer');
+    expect($validator->passes())->toBeFalse()
+        ->and($validator->errors()->first('answer'))->toContain('Your Answer');
 });
 
 it('field rule with in() and no type constraint', function (): void {
@@ -1146,8 +1137,8 @@ it('prepare works with a real Validator', function (): void {
         $preparedRules->attributes,
     );
 
-    expect($validator->passes())->toBeFalse();
-    expect($validator->errors()->first('name'))->toContain('Full Name');
+    expect($validator->passes())->toBeFalse()
+        ->and($validator->errors()->first('name'))->toContain('Full Name');
 });
 
 it('prepare returns implicitAttributes for wildcard rules', function (): void {
@@ -1159,9 +1150,8 @@ it('prepare returns implicitAttributes for wildcard rules', function (): void {
         'items' => [['name' => 'a'], ['name' => 'b'], ['name' => 'c']],
     ]);
 
-    expect($prepared->implicitAttributes)->toHaveKey('items.*.name');
-    expect($prepared->implicitAttributes['items.*.name'])->toHaveCount(3);
-    expect($prepared->implicitAttributes['items.*.name'])->toBe(['items.0.name', 'items.1.name', 'items.2.name']);
+    expect($prepared->implicitAttributes)->toHaveKey('items.*.name')
+        ->toMatchArray(['items.*.name' => ['items.0.name', 'items.1.name', 'items.2.name']]);
 });
 
 it('prepare implicitAttributes enables correct validation when applied', function (): void {
@@ -1186,8 +1176,8 @@ it('prepare implicitAttributes enables correct validation when applied', functio
             ->setValue($validator, $prepared->implicitAttributes);
     }
 
-    expect($validator->passes())->toBeFalse();
-    expect($validator->errors()->keys())->toContain('items.1.id');
+    expect($validator->passes())->toBeFalse()
+        ->and($validator->errors()->keys())->toContain('items.1.id');
 });
 
 it('prepare returns empty implicitAttributes for non-wildcard rules', function (): void {
@@ -1196,7 +1186,7 @@ it('prepare returns empty implicitAttributes for non-wildcard rules', function (
         'email' => FluentRule::email()->required(),
     ])->prepare([]);
 
-    expect($prepared->implicitAttributes)->toBe([]);
+    expect($prepared->implicitAttributes)->toBeEmpty();
 });
 
 it('prepare extracts fieldMessage as field-level fallback', function (): void {
@@ -1204,8 +1194,8 @@ it('prepare extracts fieldMessage as field-level fallback', function (): void {
         'name' => FluentRule::string()->required()->min(10)->fieldMessage('Check the name.'),
     ])->prepare([]);
 
-    expect($prepared->messages)->toHaveKey('name');
-    expect($prepared->messages['name'])->toBe('Check the name.');
+    expect($prepared->messages)->toHaveKey('name')
+        ->and($prepared->messages['name'])->toBe('Check the name.');
 });
 
 // =========================================================================
@@ -1217,8 +1207,8 @@ it('FluentValidator validates with compiled rules and labels', function (): void
         'name' => FluentRule::string('Full Name')->required()->min(5),
     ]) extends FluentValidator {};
 
-    expect($validator->passes())->toBeFalse();
-    expect($validator->errors()->first('name'))->toContain('Full Name');
+    expect($validator->passes())->toBeFalse()
+        ->and($validator->errors()->first('name'))->toContain('Full Name');
 });
 
 it('FluentValidator passes valid data', function (): void {
@@ -1240,8 +1230,8 @@ it('FluentValidator expands each() rules', function (): void {
         ]
     ) extends FluentValidator {};
 
-    expect($validator->passes())->toBeFalse();
-    expect($validator->errors()->keys())->toContain('items.0.name');
+    expect($validator->passes())->toBeFalse()
+        ->and($validator->errors()->keys())->toContain('items.0.name');
 });
 
 it('FluentValidator merges custom messages with rule messages', function (): void {
@@ -1251,8 +1241,8 @@ it('FluentValidator merges custom messages with rule messages', function (): voi
         ['name.required' => 'Custom override.'],
     ) extends FluentValidator {};
 
-    expect($validator->passes())->toBeFalse();
-    expect($validator->errors()->first('name'))->toBe('Custom override.');
+    expect($validator->passes())->toBeFalse()
+        ->and($validator->errors()->first('name'))->toBe('Custom override.');
 });
 
 it('FluentValidator handles cross-field wildcard references', function (): void {
@@ -1292,8 +1282,8 @@ it('FluentValidator fails cross-field wildcard references correctly', function (
         ]
     ) extends FluentValidator {};
 
-    expect($validator->passes())->toBeFalse();
-    expect($validator->errors()->keys())->toContain('items.0.end_time');
+    expect($validator->passes())->toBeFalse()
+        ->and($validator->errors()->keys())->toContain('items.0.end_time');
 });
 
 it('HasFluentRules handles cross-field wildcard references', function (): void {
@@ -1312,7 +1302,7 @@ it('HasFluentRules handles cross-field wildcard references', function (): void {
         ],
     );
 
-    $factory = app(Factory::class);
+    $factory = resolve(Factory::class);
     $validator = (fn () => $this->createDefaultValidator($factory))->call($formRequest);
 
     expect($validator->passes())->toBeTrue();
@@ -1411,10 +1401,10 @@ it('RuleSet::validate() with compiled rules matches native Laravel performance',
     // Native Laravel with string rules
     $nativeStart = microtime(true);
     Validator::make($data, [
-        'items' => 'required|array',
-        'items.*.name' => 'required|string|min:2|max:255',
-        'items.*.email' => 'required|string|max:255',
-        'items.*.age' => 'required|numeric|integer|min:0|max:150',
+        'items' => ['required', 'array'],
+        'items.*.name' => ['required', 'string', 'min:2', 'max:255'],
+        'items.*.email' => ['required', 'string', 'max:255'],
+        'items.*.age' => ['required', 'numeric', 'integer', 'min:0', 'max:150'],
         'items.*.role' => ['required', 'string', Rule::in(['admin', 'editor', 'viewer'])],
     ])->validate();
     $nativeElapsed = microtime(true) - $nativeStart;
@@ -1441,15 +1431,15 @@ it('RuleSet::validate() with compiled rules matches native Laravel performance',
 // =========================================================================
 
 it('ArrayRule compiledRules includes array type', function (): void {
-    expect(FluentRule::array()->compiledRules())->toBe('array');
-    expect(FluentRule::array()->nullable()->compiledRules())->toBe('nullable|array');
-    expect(FluentRule::array()->required()->compiledRules())->toBe('required|array');
-    expect(FluentRule::array()->required()->min(1)->compiledRules())->toBe('required|array|min:1');
+    expect(FluentRule::array()->compiledRules())->toBe('array')
+        ->and(FluentRule::array()->nullable()->compiledRules())->toBe('nullable|array')
+        ->and(FluentRule::array()->required()->compiledRules())->toBe('required|array')
+        ->and(FluentRule::array()->required()->min(1)->compiledRules())->toBe('required|array|min:1');
 });
 
 it('ArrayRule compiledRules includes keys', function (): void {
-    expect(FluentRule::array(['name', 'email'])->compiledRules())->toBe('array:name,email');
-    expect(FluentRule::array(['name'])->required()->compiledRules())->toBe('required|array:name');
+    expect(FluentRule::array(['name', 'email'])->compiledRules())->toBe('array:name,email')
+        ->and(FluentRule::array(['name'])->required()->compiledRules())->toBe('required|array:name');
 });
 
 it('ArrayRule with each() compiles parent without children', function (): void {
@@ -1462,10 +1452,9 @@ it('ArrayRule with each() compiles parent without children', function (): void {
 });
 
 it('ArrayRule supports distinct()', function (): void {
-    expect(FluentRule::array()->distinct()->compiledRules())->toBe('array|distinct');
-    expect(FluentRule::array()->distinct('strict')->compiledRules())->toBe('array|distinct:strict');
-    expect(FluentRule::array()->required()->each(FluentRule::numeric()->integer())->distinct()->compiledRules())
-        ->toBe('required|array|distinct');
+    expect(FluentRule::array()->distinct()->compiledRules())->toBe('array|distinct')
+        ->and(FluentRule::array()->distinct('strict')->compiledRules())->toBe('array|distinct:strict')
+        ->and(FluentRule::array()->required()->each(FluentRule::numeric()->integer())->distinct()->compiledRules())->toBe('required|array|distinct');
 });
 
 // =========================================================================
@@ -1488,8 +1477,7 @@ it('validated() includes children keys via HasFluentRules prepare path', functio
 
     // All keys should be present in compiled rules
     expect($prepared->rules)->toHaveKey('search');
-    expect($prepared->rules)->toHaveKey('search.value');
-    expect($prepared->rules)->toHaveKey('search.regex');
+    expect($prepared->rules)->toHaveKeys(['search.value', 'search.regex']);
 
     // The search key should compile with 'array' type
     expect($prepared->rules['search'])->toContain('array');
@@ -1498,9 +1486,8 @@ it('validated() includes children keys via HasFluentRules prepare path', functio
     $validator = Validator::make($data, $prepared->rules);
     expect($validator->passes())->toBeTrue();
     $validated = $validator->validated();
-    expect($validated)->toHaveKey('search');
-    expect($validated['search'])->toHaveKey('value');
-    expect($validated['search'])->toHaveKey('regex');
+    expect($validated)->toHaveKey('search')
+        ->and($validated['search'])->toHaveKeys(['value', 'regex']);
 });
 
 it('validated() includes nested each+children keys via prepare path', function (): void {
@@ -1523,10 +1510,7 @@ it('validated() includes nested each+children keys via prepare path', function (
 
     // All expanded keys should be present
     expect($prepared->rules)->toHaveKey('answers');
-    expect($prepared->rules)->toHaveKey('answers.0.action');
-    expect($prepared->rules)->toHaveKey('answers.0.action.type');
-    expect($prepared->rules)->toHaveKey('answers.1.action');
-    expect($prepared->rules)->toHaveKey('answers.1.action.type');
+    expect($prepared->rules)->toHaveKeys(['answers.0.action', 'answers.0.action.type', 'answers.1.action', 'answers.1.action.type']);
 
     // Parent keys should include 'array' type
     expect($prepared->rules['answers'])->toContain('array');
@@ -1542,8 +1526,8 @@ it('validated() includes nested each+children keys via prepare path', function (
 
     expect($validator->passes())->toBeTrue();
     $validated = $validator->validated();
-    expect($validated['answers'][0]['action']['type'])->toBe(1);
-    expect($validated['answers'][1]['action']['type'])->toBe(2);
+    expect($validated['answers'][0]['action']['type'])->toBe(1)
+        ->and($validated['answers'][1]['action']['type'])->toBe(2);
 });
 
 it('validated() includes children keys in self-validation mode', function (): void {
@@ -1591,8 +1575,7 @@ it('reports errors from slow-only path when fast-checks pass', function (): void
         ]]);
         test()->fail('Expected ValidationException'); // @phpstan-ignore method.notFound
     } catch (ValidationException $validationException) {
-        expect($validationException->errors())->toHaveKey('items.0.starts_at');
-        expect($validationException->errors())->not->toHaveKey('items.0.name');
+        expect($validationException->errors())->toHaveKey('items.0.starts_at')->not->toHaveKey('items.0.name');
     }
 });
 
@@ -1608,8 +1591,7 @@ it('reports errors from full path when fast-check fails', function (): void {
         ]]);
         test()->fail('Expected ValidationException'); // @phpstan-ignore method.notFound
     } catch (ValidationException $validationException) {
-        expect($validationException->errors())->toHaveKey('items.0.name');
-        expect($validationException->errors())->toHaveKey('items.0.starts_at');
+        expect($validationException->errors())->toHaveKeys(['items.0.name', 'items.0.starts_at']);
     }
 });
 
@@ -1641,8 +1623,8 @@ it('partial fast-check catches single invalid item among many valid', function (
         ])->validate(['items' => $items]);
         test()->fail('Expected ValidationException'); // @phpstan-ignore method.notFound
     } catch (ValidationException $validationException) {
-        expect($validationException->errors())->toHaveKey('items.24.starts_at');
-        expect($validationException->errors())->toHaveCount(1);
+        expect($validationException->errors())->toHaveKey('items.24.starts_at')
+            ->toHaveCount(1);
     }
 });
 
@@ -1655,9 +1637,9 @@ it('in() accepts Arrayable (Collection)', function (): void {
     $rule = FluentRule::string()->required()->in($collection);
     $compiled = $rule->compiledRules();
 
-    expect($compiled)->toBeString();
-    expect($compiled)->toContain('in:');
-    expect($compiled)->toContain('admin');
+    expect($compiled)->toBeString()
+        ->toContain('in:')
+        ->toContain('admin');
 
     $validator = makeValidator(['role' => 'admin'], ['role' => $rule]);
     expect($validator->passes())->toBeTrue();

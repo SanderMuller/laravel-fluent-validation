@@ -143,9 +143,8 @@ it('validates array each() with scalar rule standalone', function (): void {
         ['tags' => FluentRule::array()->required()->each(FluentRule::string()->max(50))]
     );
 
-    expect($v->passes())->toBeFalse();
-    expect($v->errors()->keys())->toContain('tags.1');
-    expect($v->errors()->keys())->not->toContain('tags');
+    expect($v->passes())->toBeFalse()
+        ->and($v->errors()->keys())->toContain('tags.1')->not->toContain('tags');
 });
 
 it('validates array each() with field mappings standalone', function (): void {
@@ -167,9 +166,8 @@ it('validates array each() with field mappings standalone', function (): void {
         ])]
     );
 
-    expect($v->passes())->toBeFalse();
-    expect($v->errors()->keys())->toContain('items.0.name');
-    expect($v->errors()->keys())->not->toContain('items');
+    expect($v->passes())->toBeFalse()
+        ->and($v->errors()->keys())->toContain('items.0.name')->not->toContain('items');
 });
 
 it('produces indexed error keys for standalone each() scalar', function (): void {
@@ -178,8 +176,8 @@ it('produces indexed error keys for standalone each() scalar', function (): void
         ['tags' => FluentRule::array()->required()->each(FluentRule::string())]
     );
 
-    expect($validator->passes())->toBeFalse();
-    expect($validator->errors()->keys())->toContain('tags.1');
+    expect($validator->passes())->toBeFalse()
+        ->and($validator->errors()->keys())->toContain('tags.1');
 });
 
 it('produces indexed error keys for standalone each() with fields', function (): void {
@@ -190,9 +188,8 @@ it('produces indexed error keys for standalone each() with fields', function ():
         ])]
     );
 
-    expect($validator->passes())->toBeFalse();
-    expect($validator->errors()->keys())->toContain('items.1.name');
-    expect($validator->errors()->keys())->not->toContain('items');
+    expect($validator->passes())->toBeFalse()
+        ->and($validator->errors()->keys())->toContain('items.1.name')->not->toContain('items');
 });
 
 it('validates nested array each() standalone', function (): void {
@@ -220,16 +217,16 @@ it('validates nested array each() standalone', function (): void {
 // =========================================================================
 
 it('returns correct rule types from factory', function (): void {
-    expect(FluentRule::string())->toBeInstanceOf(StringRule::class);
-    expect(FluentRule::numeric())->toBeInstanceOf(NumericRule::class);
-    expect(FluentRule::date())->toBeInstanceOf(DateRule::class);
-    expect(FluentRule::dateTime())->toBeInstanceOf(DateRule::class);
-    expect(FluentRule::boolean())->toBeInstanceOf(BooleanRule::class);
-    expect(FluentRule::array())->toBeInstanceOf(ArrayRule::class);
-    expect(FluentRule::email())->toBeInstanceOf(EmailRule::class);
-    expect(FluentRule::file())->toBeInstanceOf(FileRule::class);
-    expect(FluentRule::image())->toBeInstanceOf(ImageRule::class);
-    expect(FluentRule::password())->toBeInstanceOf(PasswordRule::class);
+    expect(FluentRule::string())->toBeInstanceOf(StringRule::class)
+        ->and(FluentRule::numeric())->toBeInstanceOf(NumericRule::class)
+        ->and(FluentRule::date())->toBeInstanceOf(DateRule::class)
+        ->and(FluentRule::dateTime())->toBeInstanceOf(DateRule::class)
+        ->and(FluentRule::boolean())->toBeInstanceOf(BooleanRule::class)
+        ->and(FluentRule::array())->toBeInstanceOf(ArrayRule::class)
+        ->and(FluentRule::email())->toBeInstanceOf(EmailRule::class)
+        ->and(FluentRule::file())->toBeInstanceOf(FileRule::class)
+        ->and(FluentRule::image())->toBeInstanceOf(ImageRule::class)
+        ->and(FluentRule::password())->toBeInstanceOf(PasswordRule::class);
 
     if (class_exists(AnyOf::class)) {
         expect(FluentRule::anyOf(['string', 'integer']))->toBeInstanceOf(AnyOf::class);
@@ -459,8 +456,8 @@ it('message works on custom ValidationRule via class name fallback', function ()
     // The message is keyed by the class basename
     [$messages] = RuleSet::extractMetadata(['field' => $stringRule]);
     $key = array_key_first($messages);
-    expect($key)->not->toBeNull();
-    expect($key)->toStartWith('field.');
+    expect($key)->not->toBeNull()
+        ->toStartWith('field.');
     /** @var string $key */
     expect($messages[$key])->toBe('Custom message!');
 });
@@ -552,8 +549,8 @@ it('propagates error messages from sub-validator', function (): void {
         ['name' => FluentRule::string()->required()->min(2)]
     );
 
-    expect($validator->passes())->toBeFalse();
-    expect($validator->errors()->get('name'))->not->toBeEmpty();
+    expect($validator->passes())->toBeFalse()
+        ->and($validator->errors()->get('name'))->not->toBeEmpty();
 });
 
 it('has no errors when validation passes', function (): void {
@@ -562,8 +559,8 @@ it('has no errors when validation passes', function (): void {
         ['name' => FluentRule::string()->required()->min(2)]
     );
 
-    expect($validator->passes())->toBeTrue();
-    expect($validator->errors()->get('name'))->toBeEmpty();
+    expect($validator->passes())->toBeTrue()
+        ->and($validator->errors()->get('name'))->toBeEmpty();
 });
 
 // =========================================================================
@@ -576,8 +573,8 @@ it('uses label in error messages via SelfValidates', function (): void {
         ['name' => FluentRule::string('Full Name')->required()]
     );
 
-    expect($validator->passes())->toBeFalse();
-    expect($validator->errors()->first('name'))->toContain('Full Name');
+    expect($validator->passes())->toBeFalse()
+        ->and($validator->errors()->first('name'))->toContain('Full Name');
 });
 
 it('uses per-rule message via SelfValidates', function (): void {
@@ -586,8 +583,8 @@ it('uses per-rule message via SelfValidates', function (): void {
         ['name' => FluentRule::string()->required()->message('We need your name!')]
     );
 
-    expect($validator->passes())->toBeFalse();
-    expect($validator->errors()->first('name'))->toBe('We need your name!');
+    expect($validator->passes())->toBeFalse()
+        ->and($validator->errors()->first('name'))->toBe('We need your name!');
 });
 
 it('uses label on numeric rule', function (): void {
@@ -596,8 +593,8 @@ it('uses label on numeric rule', function (): void {
         ['age' => FluentRule::numeric('Your age')->required()]
     );
 
-    expect($validator->passes())->toBeFalse();
-    expect($validator->errors()->first('age'))->toContain('Your age');
+    expect($validator->passes())->toBeFalse()
+        ->and($validator->errors()->first('age'))->toContain('Your age');
 });
 
 it('uses label on date rule', function (): void {
@@ -606,8 +603,8 @@ it('uses label on date rule', function (): void {
         ['starts_at' => FluentRule::date('Start Date')->required()]
     );
 
-    expect($validator->passes())->toBeFalse();
-    expect($validator->errors()->first('starts_at'))->toContain('Start Date');
+    expect($validator->passes())->toBeFalse()
+        ->and($validator->errors()->first('starts_at'))->toContain('Start Date');
 });
 
 it('uses label on boolean rule', function (): void {
@@ -616,8 +613,8 @@ it('uses label on boolean rule', function (): void {
         ['agree' => FluentRule::boolean('Terms Agreement')->required()]
     );
 
-    expect($validator->passes())->toBeFalse();
-    expect($validator->errors()->first('agree'))->toContain('Terms Agreement');
+    expect($validator->passes())->toBeFalse()
+        ->and($validator->errors()->first('agree'))->toContain('Terms Agreement');
 });
 
 it('uses message after in() rule', function (): void {
@@ -626,8 +623,8 @@ it('uses message after in() rule', function (): void {
         ['role' => FluentRule::string()->required()->in(['admin', 'user'])->message('Pick a valid role.')]
     );
 
-    expect($validator->passes())->toBeFalse();
-    expect($validator->errors()->first('role'))->toBe('Pick a valid role.');
+    expect($validator->passes())->toBeFalse()
+        ->and($validator->errors()->first('role'))->toBe('Pick a valid role.');
 });
 
 it('uses message after requiredIf with closure', function (): void {
@@ -636,8 +633,8 @@ it('uses message after requiredIf with closure', function (): void {
         ['name' => FluentRule::string()->requiredIf(fn (): true => true)->message('Conditionally required!')]
     );
 
-    expect($validator->passes())->toBeFalse();
-    expect($validator->errors()->first('name'))->toBe('Conditionally required!');
+    expect($validator->passes())->toBeFalse()
+        ->and($validator->errors()->first('name'))->toBe('Conditionally required!');
 });
 
 it('throws when message is called before any rule', function (): void {
@@ -652,8 +649,8 @@ it('supports multiple messages on different rules', function (): void {
             ->min(2)->message('Name too short.')]
     );
 
-    expect($validator->passes())->toBeFalse();
-    expect($validator->errors()->first('name'))->toBe('Name is required.');
+    expect($validator->passes())->toBeFalse()
+        ->and($validator->errors()->first('name'))->toBe('Name is required.');
 });
 
 it('uses message inside when() conditional', function (): void {
@@ -662,8 +659,8 @@ it('uses message inside when() conditional', function (): void {
         ['password' => FluentRule::string()->required()->when(true, fn (StringRule $r): StringRule => $r->min(12)->message('Admin passwords need 12+ chars.'))]
     );
 
-    expect($validator->passes())->toBeFalse();
-    expect($validator->errors()->first('password'))->toBe('Admin passwords need 12+ chars.');
+    expect($validator->passes())->toBeFalse()
+        ->and($validator->errors()->first('password'))->toBe('Admin passwords need 12+ chars.');
 });
 
 // =========================================================================
@@ -932,13 +929,13 @@ it('validates excludeIf with bool excludes from validated', function (): void {
         'field' => FluentRule::string()->excludeIf(true),
         'other' => FluentRule::string(),
     ]);
-    expect($v->passes())->toBeTrue();
-    expect($v->validated())->not->toHaveKey('field');
-    expect($v->validated())->toHaveKey('other');
+    expect($v->passes())->toBeTrue()
+        ->and($v->validated())->not->toHaveKey('field')
+        ->toHaveKey('other');
 
     $v = makeValidator(['field' => 'val'], ['field' => FluentRule::string()->excludeIf(false)]);
-    expect($v->passes())->toBeTrue();
-    expect($v->validated())->toHaveKey('field');
+    expect($v->passes())->toBeTrue()
+        ->and($v->validated())->toHaveKey('field');
 });
 
 it('validates excludeIf with closure excludes from validated', function (): void {
@@ -946,21 +943,21 @@ it('validates excludeIf with closure excludes from validated', function (): void
         'field' => FluentRule::string()->excludeIf(fn (): true => true),
         'other' => FluentRule::string(),
     ]);
-    expect($validator->passes())->toBeTrue();
-    expect($validator->validated())->not->toHaveKey('field');
+    expect($validator->passes())->toBeTrue()
+        ->and($validator->validated())->not->toHaveKey('field');
 });
 
 it('validates excludeUnless with bool excludes from validated', function (): void {
     $v = makeValidator(['field' => 'val'], ['field' => FluentRule::string()->excludeUnless(true)]);
-    expect($v->passes())->toBeTrue();
-    expect($v->validated())->toHaveKey('field');
+    expect($v->passes())->toBeTrue()
+        ->and($v->validated())->toHaveKey('field');
 
     $v = makeValidator(['field' => 'val', 'other' => 'keep'], [
         'field' => FluentRule::string()->excludeUnless(false),
         'other' => FluentRule::string(),
     ]);
-    expect($v->passes())->toBeTrue();
-    expect($v->validated())->not->toHaveKey('field');
+    expect($v->passes())->toBeTrue()
+        ->and($v->validated())->not->toHaveKey('field');
 });
 
 it('validates excludeUnless with closure excludes from validated', function (): void {
@@ -968,8 +965,8 @@ it('validates excludeUnless with closure excludes from validated', function (): 
         'field' => FluentRule::string()->excludeUnless(fn (): false => false),
         'other' => FluentRule::string(),
     ]);
-    expect($validator->passes())->toBeTrue();
-    expect($validator->validated())->not->toHaveKey('field');
+    expect($validator->passes())->toBeTrue()
+        ->and($validator->validated())->not->toHaveKey('field');
 });
 
 it('validates excludeWith', function (): void {
@@ -1094,10 +1091,10 @@ it('compiles to pipe-joined string when no object rules', function (): void {
 
 it('compiles object rules to string when all rules are stringable', function (): void {
     $compiled = FluentRule::string()->required()->in(['a', 'b'])->compiledRules();
-    expect($compiled)->toBeString();
-    expect($compiled)->toContain('string');
-    expect($compiled)->toContain('required');
-    expect($compiled)->toContain('in:');
+    expect($compiled)->toBeString()
+        ->toContain('string')
+        ->toContain('required')
+        ->toContain('in:');
 });
 
 it('compiles presence modifiers before string constraints and closures after', function (): void {
@@ -1131,9 +1128,9 @@ it('compiles presence modifiers before string constraints and closures after', f
         }
     }
 
-    expect($excludeIdx)->not->toBeNull();
-    expect($closureIdx)->not->toBeNull();
-    expect($bailIdx)->not->toBeNull();
+    expect($excludeIdx)->not->toBeNull()
+        ->and($closureIdx)->not->toBeNull()
+        ->and($bailIdx)->not->toBeNull();
     // ExcludeIf before bail, bail before closure.
     expect($excludeIdx)->toBeLessThan($bailIdx); // @phpstan-ignore argument.type
     expect($bailIdx)->toBeLessThan($closureIdx); // @phpstan-ignore argument.type
@@ -1147,10 +1144,10 @@ it('compiles Unique and In rules as stringified pipe-joined string', function ()
         ->in(['a', 'b'])
         ->compiledRules();
 
-    expect($compiled)->toBeArray();
-    expect($compiled)->toContain('string');
-    expect($compiled)->toContain('required');
-    expect($compiled)->toContain('bail');
+    expect($compiled)->toBeArray()
+        ->toContain('string')
+        ->toContain('required')
+        ->toContain('bail');
 
     $hasUnique = false;
     $hasIn = false;
@@ -1165,8 +1162,8 @@ it('compiles Unique and In rules as stringified pipe-joined string', function ()
         }
     }
 
-    expect($hasUnique)->toBeTrue();
-    expect($hasIn)->toBeTrue();
+    expect($hasUnique)->toBeTrue()
+        ->and($hasIn)->toBeTrue();
 });
 
 // =========================================================================
@@ -1175,8 +1172,8 @@ it('compiles Unique and In rules as stringified pipe-joined string', function ()
 
 it('compiles unique rule to string', function (): void {
     $compiled = FluentRule::string()->unique('users', 'email')->compiledRules();
-    expect($compiled)->toBeArray();
-    expect($compiled)->toContain('string');
+    expect($compiled)->toBeArray()
+        ->toContain('string');
 
     /** @var list<object|string> $compiled */
     $unique = collect($compiled)->first(fn (object|string $r): bool => $r instanceof Unique);
@@ -1185,8 +1182,8 @@ it('compiles unique rule to string', function (): void {
 
 it('compiles exists rule to string', function (): void {
     $compiled = FluentRule::string()->exists('users', 'email')->compiledRules();
-    expect($compiled)->toBeArray();
-    expect($compiled)->toContain('string');
+    expect($compiled)->toBeArray()
+        ->toContain('string');
 
     /** @var list<object|string> $compiled */
     $exists = collect($compiled)->first(fn (object|string $r): bool => $r instanceof Exists);
@@ -1280,9 +1277,9 @@ it('clone clears compiled cache so new rules take effect', function (): void {
     $child = (clone $parent)->in(['a', 'b']);
     $compiled = $child->compiledRules();
 
-    expect($compiled)->toBeString();
-    expect($compiled)->toContain('required');
-    expect($compiled)->toContain('in:');
+    expect($compiled)->toBeString()
+        ->toContain('required')
+        ->toContain('in:');
 
     // Parent should be unaffected
     expect($parent->compiledRules())->toBe('required');
@@ -1299,10 +1296,10 @@ it('clone allows extending rules for FormRequest inheritance', function (): void
     });
     $compiled = $child->compiledRules();
 
-    expect($compiled)->toBeArray();
-    expect($compiled)->toContain('string');
-    expect($compiled)->toContain('required');
-    expect($compiled)->toContain('max:255');
+    expect($compiled)->toBeArray()
+        ->toContain('string')
+        ->toContain('required')
+        ->toContain('max:255');
 });
 
 // =========================================================================
@@ -1314,9 +1311,7 @@ it('compiles fluent rules to native format', function (): void {
         'name' => FluentRule::string()->required()->min(2),
         'age' => FluentRule::numeric()->integer(),
     ]);
-
-    expect($compiled['name'])->toBe('required|string|min:2');
-    expect($compiled['age'])->toBe('numeric|integer');
+    expect($compiled)->toMatchArray(['name' => 'required|string|min:2', 'age' => 'numeric|integer']);
 });
 
 it('compile passes through non-fluent rules unchanged', function (): void {
@@ -1324,9 +1319,7 @@ it('compile passes through non-fluent rules unchanged', function (): void {
         'name' => 'required|string',
         'tags' => ['required', 'array'],
     ]);
-
-    expect($compiled['name'])->toBe('required|string');
-    expect($compiled['tags'])->toBe(['required', 'array']);
+    expect($compiled)->toMatchArray(['name' => 'required|string', 'tags' => ['required', 'array']]);
 });
 
 // =========================================================================
@@ -1338,9 +1331,7 @@ it('compileToArrays returns arrays for fluent rules', function (): void {
         'name' => FluentRule::string()->required()->min(2),
         'age' => FluentRule::numeric()->integer(),
     ]);
-
-    expect($compiled['name'])->toBe(['required', 'string', 'min:2']);
-    expect($compiled['age'])->toBe(['numeric', 'integer']);
+    expect($compiled)->toMatchArray(['name' => ['required', 'string', 'min:2'], 'age' => ['numeric', 'integer']]);
 });
 
 it('compileToArrays explodes string rules into arrays', function (): void {
@@ -1348,9 +1339,7 @@ it('compileToArrays explodes string rules into arrays', function (): void {
         'name' => 'required|string|max:255',
         'email' => 'required|email',
     ]);
-
-    expect($compiled['name'])->toBe(['required', 'string', 'max:255']);
-    expect($compiled['email'])->toBe(['required', 'email']);
+    expect($compiled)->toMatchArray(['name' => ['required', 'string', 'max:255'], 'email' => ['required', 'email']]);
 });
 
 it('compileToArrays passes through array rules unchanged', function (): void {
@@ -1370,8 +1359,8 @@ it('compileToArrays wraps standalone objects in arrays', function (): void {
         'field' => $rule,
     ]);
 
-    expect($compiled['field'])->toBeArray();
-    expect($compiled['field'][0])->toBe($rule);
+    expect($compiled['field'])->toBeArray()
+        ->and($compiled['field'][0])->toBe($rule);
 });
 
 it('compileToArrays handles mixed fluent and string rules', function (): void {
@@ -1380,10 +1369,7 @@ it('compileToArrays handles mixed fluent and string rules', function (): void {
         'email' => 'required|email',
         'tags' => ['required', 'array'],
     ]);
-
-    expect($compiled['name'])->toBe(['required', 'string']);
-    expect($compiled['email'])->toBe(['required', 'email']);
-    expect($compiled['tags'])->toBe(['required', 'array']);
+    expect($compiled)->toMatchArray(['name' => ['required', 'string'], 'email' => ['required', 'email'], 'tags' => ['required', 'array']]);
 });
 
 // =========================================================================
@@ -1405,8 +1391,8 @@ it('withoutEachRules returns clone without each rules', function (): void {
     $arrayRule = FluentRule::array()->required()->each(FluentRule::string());
     $without = $arrayRule->withoutEachRules();
 
-    expect($without->getEachRules())->toBeNull();
-    expect($arrayRule->getEachRules())->not->toBeNull();
+    expect($without->getEachRules())->toBeNull()
+        ->and($arrayRule->getEachRules())->not->toBeNull();
 });
 
 // =========================================================================
@@ -1444,10 +1430,10 @@ it('compiledRules returns array when rule contains non-stringable object', funct
     expect($stringRule->canCompile())->toBeFalse();
 
     $compiled = $stringRule->compiledRules();
-    expect($compiled)->toBeArray();
-    expect($compiled)->toContain('string');
-    expect($compiled)->toContain('required');
-    expect($compiled)->toContain($nonStringable);
+    expect($compiled)->toBeArray()
+        ->toContain('string')
+        ->toContain('required')
+        ->toContain($nonStringable);
 });
 
 // =========================================================================
@@ -1464,9 +1450,9 @@ it('exclude removes field from validated data', function (): void {
         'field' => FluentRule::string()->exclude(),
         'other' => FluentRule::string(),
     ]);
-    expect($validator->passes())->toBeTrue();
-    expect($validator->validated())->not->toHaveKey('field');
-    expect($validator->validated())->toHaveKey('other');
+    expect($validator->passes())->toBeTrue()
+        ->and($validator->validated())->not->toHaveKey('field')
+        ->toHaveKey('other');
 });
 
 // =========================================================================
@@ -1482,9 +1468,7 @@ it('buildNestedRules handles nested ArrayRule in field mapping each()', function
 
     $nested = $outer->buildNestedRules('items');
 
-    expect($nested)->toHaveKey('items.*.tags');
-    expect($nested)->toHaveKey('items.*.tags.*');
-    expect($nested)->toHaveKey('items.*.name');
+    expect($nested)->toHaveKeys(['items.*.tags', 'items.*.tags.*', 'items.*.name']);
 });
 
 // =========================================================================
@@ -1592,8 +1576,8 @@ it('exposes individual rule identifiers in failed() for self-validation', functi
     expect($validator->passes())->toBeFalse();
 
     $failed = $validator->failed();
-    expect($failed)->toHaveKey('title');
-    expect($failed['title'])->toHaveKey('Required');
+    expect($failed)->toHaveKey('title')
+        ->and($failed['title'])->toHaveKey('Required');
 });
 
 it('exposes min rule identifier in failed() when value is too short', function (): void {
@@ -1604,8 +1588,8 @@ it('exposes min rule identifier in failed() when value is too short', function (
     expect($validator->passes())->toBeFalse();
 
     $failed = $validator->failed();
-    expect($failed)->toHaveKey('title');
-    expect($failed['title'])->toHaveKey('Min');
+    expect($failed)->toHaveKey('title')
+        ->and($failed['title'])->toHaveKey('Min');
 });
 
 it('failed() is empty when validation passes', function (): void {
@@ -1613,8 +1597,8 @@ it('failed() is empty when validation passes', function (): void {
         'title' => FluentRule::string()->required()->min(6)->max(200),
     ]);
 
-    expect($validator->passes())->toBeTrue();
-    expect($validator->failed())->toBe([]);
+    expect($validator->passes())->toBeTrue()
+        ->and($validator->failed())->toBeEmpty();
 });
 
 // =========================================================================
@@ -1840,10 +1824,10 @@ it('validates ip shortcut', function (): void {
 });
 
 it('passes label through convenience shortcuts', function (): void {
-    expect(FluentRule::url('Website')->getLabel())->toBe('Website');
-    expect(FluentRule::uuid('ID')->getLabel())->toBe('ID');
-    expect(FluentRule::ulid('ID')->getLabel())->toBe('ID');
-    expect(FluentRule::ip('Address')->getLabel())->toBe('Address');
+    expect(FluentRule::url('Website')->getLabel())->toBe('Website')
+        ->and(FluentRule::uuid('ID')->getLabel())->toBe('ID')
+        ->and(FluentRule::ulid('ID')->getLabel())->toBe('ID')
+        ->and(FluentRule::ip('Address')->getLabel())->toBe('Address');
 });
 
 // =========================================================================
@@ -1912,7 +1896,7 @@ it('compiles encoding', function (): void {
 // =========================================================================
 
 it('toArray returns empty array for untyped field rule', function (): void {
-    expect(FluentRule::field()->toArray())->toBe([]);
+    expect(FluentRule::field()->toArray())->toBeEmpty();
 });
 
 it('toArray returns array from string-compiled rules', function (): void {
@@ -1924,9 +1908,8 @@ it('toArray returns array from object-compiled rules', function (): void {
     $rule = FluentRule::string()->required()->rule(new class implements ValidationRule {
         public function validate(string $attribute, mixed $value, Closure $fail): void {}
     });
-    expect($rule->toArray())->toBeArray();
-    expect($rule->toArray()[0])->toBe('required');
-    expect($rule->toArray()[1])->toBe('string');
+    expect($rule->toArray())->toBeArray()
+        ->toMatchArray([0 => 'required', 1 => 'string']);
 });
 
 it('RuleSet dump returns rules messages and attributes', function (): void {
@@ -1935,9 +1918,9 @@ it('RuleSet dump returns rules messages and attributes', function (): void {
         'email' => FluentRule::email()->required(),
     ])->dump();
 
-    expect($dump)->toHaveKeys(['rules', 'messages', 'attributes']);
-    expect($dump['rules'])->toHaveKeys(['name', 'email']);
-    expect($dump['attributes']['name'])->toBe('Full Name');
+    expect($dump)->toHaveKeys(['rules', 'messages', 'attributes'])
+        ->and($dump['rules'])->toHaveKeys(['name', 'email'])
+        ->and($dump['attributes']['name'])->toBe('Full Name');
 });
 
 it('dump is chainable on rules', function (): void {
@@ -1947,6 +1930,30 @@ it('dump is chainable on rules', function (): void {
     $result = $rule->dump();
     ob_end_clean();
     expect($result)->toBe($rule);
+});
+
+// =========================================================================
+// FluentRule::macro() — custom factory methods
+// =========================================================================
+
+it('supports macros on FluentRule', function (): void {
+    FluentRule::macro('phone', fn (?string $label = null) => FluentRule::string($label)->rule('phone'));
+
+    $rule = FluentRule::phone('Phone'); // @phpstan-ignore staticMethod.notFound
+    expect($rule)->toBeInstanceOf(StringRule::class) // @phpstan-ignore argument.templateType
+        ->and($rule->getLabel())->toBe('Phone')
+        ->and($rule->toArray())->toContain('phone');
+});
+
+// =========================================================================
+// RuleSet::macro() — custom methods
+// =========================================================================
+
+it('supports macros on RuleSet', function (): void {
+    RuleSet::macro('withName', fn () => $this->field('name', FluentRule::string()->required()->max(255)));
+
+    $validated = RuleSet::make()->withName()->validate(['name' => 'John']); // @phpstan-ignore method.notFound
+    expect($validated['name'])->toBe('John');
 });
 
 // =========================================================================

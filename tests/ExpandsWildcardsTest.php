@@ -3,6 +3,7 @@
 use Illuminate\Contracts\Validation\Factory;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Http\Request;
+use Illuminate\Routing\Redirector;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Validation\ValidationException;
 use SanderMuller\FluentValidation\FluentRule;
@@ -27,11 +28,11 @@ it('expands wildcards via createDefaultValidator', function (): void {
         ],
     );
 
-    $factory = app(Factory::class);
+    $factory = resolve(Factory::class);
     $validator = (fn () => $this->createDefaultValidator($factory))->call($formRequest);
 
-    expect($validator->passes())->toBeTrue();
-    expect($validator->validated())->toHaveKeys(['items']);
+    expect($validator->passes())->toBeTrue()
+        ->and($validator->validated())->toHaveKeys(['items']);
 });
 
 it('reports errors with correct paths via createDefaultValidator', function (): void {
@@ -48,11 +49,11 @@ it('reports errors with correct paths via createDefaultValidator', function (): 
         ],
     );
 
-    $factory = app(Factory::class);
+    $factory = resolve(Factory::class);
     $validator = (fn () => $this->createDefaultValidator($factory))->call($formRequest);
 
-    expect($validator->passes())->toBeFalse();
-    expect($validator->errors()->keys())->toContain('items.0.name');
+    expect($validator->passes())->toBeFalse()
+        ->and($validator->errors()->keys())->toContain('items.0.name');
 });
 
 // =========================================================================
@@ -71,7 +72,7 @@ it('validates a real POST request through a FormRequest', function (): void {
             data: $request->all(),
         );
 
-        $factory = app(Factory::class);
+        $factory = resolve(Factory::class);
         $validator = (fn () => $this->createDefaultValidator($factory))->call($formRequest);
 
         return response()->json($validator->validated());
@@ -99,7 +100,7 @@ it('returns 422 with errors for invalid data through a FormRequest', function ()
             data: $request->all(),
         );
 
-        $factory = app(Factory::class);
+        $factory = resolve(Factory::class);
         $validator = (fn () => $this->createDefaultValidator($factory))->call($formRequest);
 
         if ($validator->fails()) {
@@ -135,11 +136,11 @@ it('works with mixed fluent and string rules', function (): void {
         ],
     );
 
-    $factory = app(Factory::class);
+    $factory = resolve(Factory::class);
     $validator = (fn () => $this->createDefaultValidator($factory))->call($formRequest);
 
-    expect($validator->passes())->toBeTrue();
-    expect($validator->validated())->toHaveKeys(['title', 'items']);
+    expect($validator->passes())->toBeTrue()
+        ->and($validator->validated())->toHaveKeys(['title', 'items']);
 });
 
 it('works with nested each() rules', function (): void {
@@ -159,7 +160,7 @@ it('works with nested each() rules', function (): void {
         ],
     );
 
-    $factory = app(Factory::class);
+    $factory = resolve(Factory::class);
     $validator = (fn () => $this->createDefaultValidator($factory))->call($formRequest);
 
     expect($validator->passes())->toBeTrue();
@@ -198,7 +199,7 @@ function createFormRequest(array $rules, array $data): FormRequest
     $request = Request::create('/test', 'POST', $data);
     $anonymousClassffb6530a01d09c039cba4cf2f03e5fc7 = $formRequest::createFrom($request);
     $anonymousClassffb6530a01d09c039cba4cf2f03e5fc7->setContainer(app());
-    $anonymousClassffb6530a01d09c039cba4cf2f03e5fc7->setRedirector(app('redirect'));
+    $anonymousClassffb6530a01d09c039cba4cf2f03e5fc7->setRedirector(resolve(Redirector::class));
 
     return $anonymousClassffb6530a01d09c039cba4cf2f03e5fc7;
 }
