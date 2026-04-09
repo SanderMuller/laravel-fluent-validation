@@ -69,7 +69,7 @@ parameters:
 			path: src/RuleSet.php
 
 		-
-			rawMessage: 'Cognitive complexity for "AnonymousClass8e30e02d5ceb57e77a2bd300ffd76c80::preExcludeRules()" is 21, keep it under 12'
+			rawMessage: 'Cognitive complexity for "AnonymousClass420d6bbea2864404c724b63698d04cf0::preExcludeRules()" is 21, keep it under 12'
 			identifier: complexity.functionLike
 			count: 1
 			path: tests/ExpandsWildcardsTest.php
