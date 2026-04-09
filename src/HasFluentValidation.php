@@ -30,18 +30,62 @@ namespace SanderMuller\FluentValidation;
  */
 trait HasFluentValidation
 {
-    public function validate($rules = null, $messages = [], $attributes = [])
+    public function validate(mixed $rules = null, mixed $messages = [], mixed $attributes = []): mixed
     {
-        [$rules, $messages, $attributes] = $this->compileFluentRules($rules, $messages, $attributes);
+        [$compiledRules, $compiledMessages, $compiledAttributes] = $this->compileFluentRules(
+            $this->toNullableArray($rules),
+            $this->toStringMap($messages),
+            $this->toStringMap($attributes),
+        );
 
-        return parent::validate($rules, $messages, $attributes);
+        return parent::validate($compiledRules, $compiledMessages, $compiledAttributes);
     }
 
-    public function validateOnly($field, $rules = null, $messages = [], $attributes = [], $dataOverrides = [])
+    public function validateOnly(mixed $field, mixed $rules = null, mixed $messages = [], mixed $attributes = [], mixed $dataOverrides = []): mixed
     {
-        [$rules, $messages, $attributes] = $this->compileFluentRules($rules, $messages, $attributes);
+        [$compiledRules, $compiledMessages, $compiledAttributes] = $this->compileFluentRules(
+            $this->toNullableArray($rules),
+            $this->toStringMap($messages),
+            $this->toStringMap($attributes),
+        );
 
-        return parent::validateOnly($field, $rules, $messages, $attributes, $dataOverrides);
+        return parent::validateOnly($field, $compiledRules, $compiledMessages, $compiledAttributes, $dataOverrides);
+    }
+
+    /** @return array<string, mixed>|null */
+    private function toNullableArray(mixed $value): ?array
+    {
+        if (! is_array($value)) {
+            return null;
+        }
+
+        $result = [];
+
+        foreach ($value as $k => $v) {
+            if (is_string($k)) {
+                $result[$k] = $v;
+            }
+        }
+
+        return $result;
+    }
+
+    /** @return array<string, string> */
+    private function toStringMap(mixed $value): array
+    {
+        if (! is_array($value)) {
+            return [];
+        }
+
+        $result = [];
+
+        foreach ($value as $k => $v) {
+            if (is_string($k) && is_string($v)) {
+                $result[$k] = $v;
+            }
+        }
+
+        return $result;
     }
 
     /**
@@ -53,18 +97,20 @@ trait HasFluentValidation
      * @param  array<string, string>  $attributes
      * @return array{0: array<string, mixed>|null, 1: array<string, string>, 2: array<string, string>}
      */
-    private function compileFluentRules(?array $rules, array $messages, array $attributes): array
+    protected function compileFluentRules(?array $rules, array $messages, array $attributes): array
     {
         // If no rules passed, resolve from rules() method (same as Livewire does)
-        $resolvedRules = $rules ?? (method_exists($this, 'rules') ? $this->rules() : null);
+        $resolvedRules = $rules ?? (method_exists($this, 'rules') ? $this->rules() : null); // @phpstan-ignore function.alreadyNarrowedType
 
-        if ($resolvedRules === null || $resolvedRules === []) {
+        $typedRules = $this->toNullableArray($resolvedRules);
+
+        if ($typedRules === null || $typedRules === []) {
             return [$rules, $messages, $attributes];
         }
 
         // Check if any rules are FluentRule objects (skip compilation for plain string rules)
         $hasFluentRules = false;
-        foreach ($resolvedRules as $rule) {
+        foreach ($typedRules as $rule) {
             if (is_object($rule)) {
                 $hasFluentRules = true;
                 break;
@@ -77,16 +123,18 @@ trait HasFluentValidation
 
         // Use Livewire's data resolution when available — it correctly
         // handles model-bound properties and nested data for wildcard expansion.
-        $data = method_exists($this, 'getDataForValidation')
-            ? $this->getDataForValidation($resolvedRules)
-            : (method_exists($this, 'all') ? $this->all() : []);
+        $rawData = method_exists($this, 'getDataForValidation') // @phpstan-ignore function.alreadyNarrowedType
+            ? $this->getDataForValidation($typedRules)
+            : (method_exists($this, 'all') ? $this->all() : []); // @phpstan-ignore function.alreadyNarrowedType
 
         // Unwrap Eloquent models to arrays so WildcardExpander can traverse them.
-        if (method_exists($this, 'unwrapDataForValidation')) {
-            $data = $this->unwrapDataForValidation($data);
+        if (method_exists($this, 'unwrapDataForValidation')) { // @phpstan-ignore function.alreadyNarrowedType
+            $rawData = $this->unwrapDataForValidation($rawData);
         }
 
-        $prepared = RuleSet::from($resolvedRules)->prepare($data);
+        $data = $this->toNullableArray($rawData) ?? [];
+
+        $prepared = RuleSet::from($typedRules)->prepare($data);
 
         return [
             $prepared->rules,
