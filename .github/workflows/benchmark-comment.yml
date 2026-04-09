@@ -39,7 +39,7 @@ jobs:
           body-includes: '${{ steps.meta.outputs.heading }}'
 
       - name: Post or update comment
-        uses: peter-evans/create-or-update-comment@v4
+        uses: peter-evans/create-or-update-comment@v5
         with:
           issue-number: ${{ steps.meta.outputs.number }}
           comment-id: ${{ steps.find.outputs.comment-id }}
