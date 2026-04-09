@@ -77,6 +77,7 @@ Must show 0 failures. This catches cross-cutting regressions.
 | Related tests | `vendor/bin/pest [--filter]` | Every change | 0 failures |
 | Static analysis | `vendor/bin/phpstan analyse --memory-limit=2G` | Completion only | 0 errors |
 | Full test suite | `vendor/bin/pest` | Completion only | 0 failures |
+| Benchmarks | `vendor/bin/pest --group=benchmark 2>&1 \| cat` | Performance changes | No regression |
 
 ## Important
 
@@ -84,6 +85,23 @@ Must show 0 failures. This catches cross-cutting regressions.
 - Run Pint **again after** PHPStan fixes — PHPStan fixes may introduce style issues.
 - **Do NOT run PHPStan or the full test suite mid-feature.** They are slow and waste time when the code is still in flux.
 - When the user explicitly asks to run PHPStan or the full suite, always obey regardless of tier.
+
+## Running Benchmarks
+
+Benchmark tests are in the `benchmark` group and output timing data to stderr. The `nunomaduro/pao` plugin reformats Pest output into structured JSON, which swallows the benchmark stderr output.
+
+To see benchmark results, pipe through `cat`:
+
+```bash
+vendor/bin/pest --group=benchmark 2>&1 | cat
+```
+
+This bypasses Pao's output formatting and shows the raw benchmark tables.
+
+Run benchmarks when:
+- Performance-sensitive code changes (FastCheckCompiler, OptimizedValidator, RuleSet, WildcardExpander, HasFluentRules)
+- Evaluating whether a refactor impacts validation speed
+- Comparing before/after for a specific optimization
 
 ## Fixing PHPStan Errors
 

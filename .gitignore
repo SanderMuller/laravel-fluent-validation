@@ -30,3 +30,4 @@ testbench.yaml
 /coverage
 /autoresearch
 benchmark-snapshot.json
+/internal/
