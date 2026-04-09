@@ -31,7 +31,7 @@ jobs:
           tail -n +2 benchmark-result.md > benchmark-comment.md
 
       - name: Find existing comment
-        uses: peter-evans/find-comment@v3
+        uses: peter-evans/find-comment@v4
         id: find
         with:
           issue-number: ${{ steps.meta.outputs.number }}
