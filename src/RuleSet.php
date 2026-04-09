@@ -6,6 +6,7 @@ use Illuminate\Contracts\Support\Arrayable;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Traits\Conditionable;
+use Illuminate\Support\Traits\Macroable;
 use Illuminate\Validation\ValidationException;
 use ReflectionProperty;
 use SanderMuller\FluentValidation\Rules\ArrayRule;
@@ -16,6 +17,7 @@ use SanderMuller\FluentValidation\Rules\ArrayRule;
 final class RuleSet implements Arrayable
 {
     use Conditionable;
+    use Macroable;
 
     /** @var array<string, mixed> */
     private array $fields = [];

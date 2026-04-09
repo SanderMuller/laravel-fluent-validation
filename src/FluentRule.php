@@ -3,6 +3,7 @@
 namespace SanderMuller\FluentValidation;
 
 use Illuminate\Contracts\Support\Arrayable;
+use Illuminate\Support\Traits\Macroable;
 use Illuminate\Validation\Rules\AnyOf;
 use SanderMuller\FluentValidation\Rules\ArrayRule;
 use SanderMuller\FluentValidation\Rules\BooleanRule;
@@ -17,6 +18,8 @@ use SanderMuller\FluentValidation\Rules\StringRule;
 
 class FluentRule
 {
+    use Macroable;
+
     public static function string(?string $label = null): StringRule
     {
         $stringRule = new StringRule();
