@@ -2,6 +2,7 @@
 
 namespace SanderMuller\FluentValidation;
 
+use Illuminate\Contracts\Translation\Translator;
 use Illuminate\Validation\DatabasePresenceVerifier;
 use Illuminate\Validation\Validator;
 use ReflectionProperty;
@@ -36,7 +37,7 @@ abstract class FluentValidator extends Validator
         $prepared = RuleSet::from($rules)->prepare($data);
 
         parent::__construct(
-            app('translator'),
+            resolve(Translator::class),
             $data,
             $prepared->rules,
             $messages + $prepared->messages,
@@ -49,7 +50,7 @@ abstract class FluentValidator extends Validator
         }
 
         if (app()->bound('validation.presence')) {
-            $this->setPresenceVerifier(app(DatabasePresenceVerifier::class));
+            $this->setPresenceVerifier(resolve(DatabasePresenceVerifier::class));
         }
     }
 }
