@@ -95,7 +95,7 @@ class EmailRule implements DataAwareRule, ValidationRule, ValidatorAwareRule
         }
 
         /** @var list<string|\Stringable> $allRules */
-        return implode('|', array_map(fn (\Stringable|string $r): string => (string) $r, $allRules));
+        return implode('|', array_map(static fn (\Stringable|string $r): string => (string) $r, $allRules));
     }
 
     /** @return list<string|object> */

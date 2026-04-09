@@ -203,10 +203,10 @@ final class RuleSet implements Arrayable
      * @throws ValidationException
      */
     private function validateWildcardGroups(
-        array $wildcardGroups,
-        array $data,
-        array $messages,
-        array $attributes,
+        array  $wildcardGroups,
+        array  $data,
+        array  $messages,
+        array  $attributes,
         ?array &$fallbackResult = null,
     ): array {
         /** @var array<string, list<string>> $allErrors */

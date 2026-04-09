@@ -235,7 +235,7 @@ trait HasFieldModifiers
     {
         if ($field instanceof Closure || is_bool($field)) {
             // RequiredUnless class only exists in Laravel 12+. Invert to RequiredIf.
-            $inverted = $field instanceof Closure ? fn (): bool => ! $field() : ! $field;
+            $inverted = $field instanceof Closure ? static fn (): bool => ! $field() : ! $field;
 
             return $this->addRule(new RequiredIf($inverted));
         }
@@ -328,7 +328,7 @@ trait HasFieldModifiers
     {
         if ($field instanceof Closure || is_bool($field)) {
             // ProhibitedUnless only exists in Laravel 12+. Invert to ProhibitedIf.
-            $inverted = $field instanceof Closure ? fn (): bool => ! $field() : ! $field;
+            $inverted = $field instanceof Closure ? static fn (): bool => ! $field() : ! $field;
 
             return $this->addRule(new ProhibitedIf($inverted));
         }

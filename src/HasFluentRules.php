@@ -164,7 +164,7 @@ trait HasFluentRules
                     /** @var list<numeric-string> $indices */
                     $indices = $m[1];
                     $idx = 0;
-                    $conditionField = (string) preg_replace_callback('/\*/', function () use ($indices, &$idx): string {
+                    $conditionField = (string) preg_replace_callback('/\*/', static function () use ($indices, &$idx): string {
                         return $indices[$idx++] ?? '*';
                     }, $conditionField);
                 }

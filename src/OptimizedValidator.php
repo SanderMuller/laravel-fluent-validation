@@ -244,7 +244,7 @@ class OptimizedValidator extends Validator
         // Replace each * in the condition field with the corresponding index.
         $i = 0;
 
-        return (string) preg_replace_callback('/\*/', function () use ($indices, &$i) {
+        return (string) preg_replace_callback('/\*/', static function () use ($indices, &$i) {
             return $indices[$i++] ?? '*';
         }, $conditionField);
     }
