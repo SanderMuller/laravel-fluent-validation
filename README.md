@@ -118,7 +118,7 @@ class StorePostRequest extends FluentFormRequest
 }
 ```
 
-Since FluentRule objects implement Laravel's `ValidationRule` interface, they also work in `Validator::make()`, `Rule::forEach()`, and `Rule::when()`. Use [`->when()`](#conditional-rules) to toggle rules by context. A single form request can handle both create and update. For Livewire components, see [Livewire](#livewire).
+Since FluentRule objects implement Laravel's `ValidationRule` interface, they also work in `Validator::make()`, `Rule::forEach()`, and `Rule::when()`. However, for inline validation outside form requests, prefer [`RuleSet::validate()`](#ruleset) over `Validator::make()` — it applies the same optimizations, label extraction, and `each()`/`children()` expansion that `HasFluentRules` provides for form requests. Use [`->when()`](#conditional-rules) to toggle rules by context — a single form request can handle both create and update. For Livewire components, see [Livewire](#livewire).
 
 ### Migrating existing rules
 
