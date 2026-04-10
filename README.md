@@ -118,7 +118,7 @@ class StorePostRequest extends FluentFormRequest
 }
 ```
 
-Since FluentRule objects implement Laravel's `ValidationRule` interface, they also work in `Validator::make()`, `Rule::forEach()`, and `Rule::when()`. However, for inline validation outside form requests, prefer [`RuleSet::validate()`](#ruleset) over `Validator::make()` — it applies the same optimizations, label extraction, and `each()`/`children()` expansion that `HasFluentRules` provides for form requests. Use [`->when()`](#conditional-rules) to toggle rules by context — a single form request can handle both create and update. For Livewire components, see [Livewire](#livewire).
+FluentRule objects implement Laravel's `ValidationRule` interface, so they work in `Validator::make()`, `Rule::forEach()`, and `Rule::when()` too. For inline validation outside form requests, prefer [`RuleSet::validate()`](#ruleset) over `Validator::make()`. It gives you the same optimizations, label extraction, and `each()`/`children()` expansion as `HasFluentRules`. Use [`->when()`](#conditional-rules) to handle create and update in a single form request. For Livewire, see [Livewire](#livewire).
 
 ### Migrating existing rules
 
@@ -136,13 +136,13 @@ $rules = [
 
 **Step 2:** Convert fields one at a time. Start with the ones that benefit most from autocompletion (complex conditionals, date comparisons, nested arrays). Common conversions:
 
-| Before                                            | After                                                                     |
-|---------------------------------------------------|---------------------------------------------------------------------------|
-| `'items.*.name' => 'required&#124;string'`        | `FluentRule::array()->each(['name' => FluentRule::string()->required()])` |
-| `'search' => 'array'` + `'search.value' => '...'` | `FluentRule::array()->children(['value' => ...])`                         |
-| `Rule::in([...])`                                 | `->in([...])` or `->in(MyEnum::class)`                                    |
-| `Rule::unique('users')`                           | `->unique('users')`                                                       |
-| `Rule::forEach(fn () => ...)`                     | `FluentRule::array()->each(...)`                                          |
+| Before                                              | After                                                                     |
+|-----------------------------------------------------|---------------------------------------------------------------------------|
+| `'items.*.name' => 'required\|string'`              | `FluentRule::array()->each(['name' => FluentRule::string()->required()])` |
+| `'search' => 'array'` and `'search.value' => '...'` | `FluentRule::array()->children(['value' => ...])`                         |
+| `Rule::in([...])`                                   | `->in([...])` or `->in(MyEnum::class)`                                    |
+| `Rule::unique('users')`                             | `->unique('users')`                                                       |
+| `Rule::forEach(fn () => ...)`                       | `FluentRule::array()->each(...)`                                          |
 
 All conditional methods (`requiredIf`, `excludeUnless`, etc.) accept `Closure|bool` in addition to field references. `each()` and `children()` nest naturally. Flat dot-notation keys like `columns.*.data.sort` become nested `each([...children([...])])` trees that mirror the data shape.
 
@@ -192,11 +192,22 @@ Labels are extracted by `HasFluentRules`, `HasFluentValidation`, and `RuleSet::v
 You can also set a label after construction with `->label('Name')`.
 
 > [!NOTE]
-> Labels require trait-based or RuleSet-based validation to be extracted. When using `$request->validate()` or bare `Validator::make()`, FluentRule objects self-validate in isolation and labels are not passed to the outer validator.
+> Labels require trait-based or RuleSet-based validation to be extracted. When using `$request->validate()` or bare `Validator::make()`, FluentRule objects self-validate in isolation and labels are not passed to the outer validator. Use [`HasFluentRules`](#in-a-form-request) in form requests, [`RuleSet::validate()`](#rulesetvalidate) for inline validation, [`HasFluentValidation`](#livewire) for Livewire components, or [`FluentValidator`](#using-with-custom-validators) for custom validator classes.
 
 ### Per-rule messages
 
-To customize the error message for a specific rule, chain `->message()` after it:
+To customize the error message for a specific rule, use `->messageFor('rule', 'message')`:
+
+```php
+FluentRule::string('Full Name')
+    ->required()
+    ->min(2)
+    ->max(255)
+    ->messageFor('required', 'We need your name!')
+    ->messageFor('min', 'At least :min characters.')
+```
+
+Alternatively, chain `->message()` immediately after the rule it applies to:
 
 ```php
 FluentRule::string('Full Name')
@@ -205,16 +216,16 @@ FluentRule::string('Full Name')
     ->max(255)
 ```
 
-Labels affect all error messages for the field. `->message()` overrides a specific rule. For a field-level fallback that applies to any failure, use `->fieldMessage()`:
+> [!WARNING]
+> `->message()` must be called after a rule method. Calling it before any rule (e.g. `FluentRule::string()->message(...)`) throws a `LogicException`. Use `->messageFor()` if you prefer to group messages at the end of the chain.
+
+Labels affect all error messages for the field. `->messageFor()` and `->message()` override a specific rule. For a field-level fallback that applies to any failure, use `->fieldMessage()`:
 
 ```php
 FluentRule::string()->required()->min(2)->fieldMessage('Something is wrong with this field.')
 ```
 
-> [!WARNING]
-> `->message()` must be called after a rule method. Calling it before any rule (e.g. `FluentRule::string()->message(...)`) throws a `LogicException`.
-
-Standard Laravel `messages()` arrays and `Validator::make()` message arguments still work and take priority over `->message()` and `->fieldMessage()`.
+Standard Laravel `messages()` arrays and `Validator::make()` message arguments still work and take priority over `->messageFor()`, `->message()`, and `->fieldMessage()`.
 
 ## Array validation with `each()` and `children()`
 
@@ -760,7 +771,7 @@ composer test
 
 Please see [CHANGELOG](CHANGELOG.md) for more information on what has changed recently.
 
-## Security Vulnerabilities
+## Security vulnerabilities
 
 Please review [our security policy](../../security/policy) on how to report security vulnerabilities.
 
