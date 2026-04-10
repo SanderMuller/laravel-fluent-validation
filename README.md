@@ -389,7 +389,20 @@ For large arrays with wildcard rules (`items.*.name`), the `HasFluentRules` trai
 | 500 items, mixed rules (string + date comparison) | ~200ms         | **~20ms**           |
 | 100 items, 47 conditional fields (exclude_unless) | ~3,200ms       | **~83ms**           |
 
-Simple type+size rules get the largest speedup (50-97x) because the PHP closures are trivially cheap. Mixed rule sets benefit from partial fast-checking. Conditional rules (`exclude_unless`, `required_if` with closures) can't be fast-checked but still benefit from conditional pre-evaluation that removes excluded attributes before validation runs.
+Simple type+size rules get the largest speedup (50-97x) because the PHP closures skip Laravel entirely. Mixed rule sets use partial fast-checking for eligible fields and fall through to Laravel for the rest. Conditional rules (`exclude_unless`, `required_if` with closures) can't be fast-checked but are pre-evaluated to remove excluded attributes before validation runs.
+
+### Batched database validation
+
+When wildcard arrays use `exists` or `unique` rules, Laravel fires one database query per item — 500 items means 500 queries. `HasFluentRules` and `RuleSet::validate()` batch these into a single `whereIn` query automatically:
+
+```php
+// 500 items × exists rule = 1 query instead of 500
+'items' => FluentRule::array()->required()->each([
+    'product_id' => FluentRule::integer()->required()->exists('products', 'id'),
+]),
+```
+
+Rules with scalar `where()` clauses are batched too. Rules with closure callbacks fall through to per-item validation as before. The batching is transparent: error messages, custom messages, and `validated()` output are unchanged.
 
 ### `RuleSet::validate()`
 

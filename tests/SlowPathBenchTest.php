@@ -1,5 +1,8 @@
 <?php declare(strict_types=1);
 
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
 use SanderMuller\FluentValidation\FluentRule;
@@ -100,6 +103,62 @@ it('benchmarks all code paths', function (): void {
     fprintf(STDERR, "\n");
 
     expect(true)->toBeTrue();
+})->group('benchmark');
+
+it('benchmarks batched exists vs native exists', function (): void {
+    // Setup in-memory SQLite with 200 known emails
+    config(['database.default' => 'bench_db']);
+    config(['database.connections.bench_db' => ['driver' => 'sqlite', 'database' => ':memory:']]);
+
+    Schema::connection('bench_db')->create('users', function (Blueprint $table): void {
+        $table->id();
+        $table->string('email')->unique();
+    });
+
+    $knownEmails = array_map(static fn (int $i): string => "user{$i}@example.com", range(1, 200));
+    foreach (array_chunk($knownEmails, 50) as $chunk) {
+        DB::connection('bench_db')->table('users')->insert(
+            array_map(static fn (string $email): array => ['email' => $email], $chunk),
+        );
+    }
+
+    $items = array_map(static fn (string $email): array => ['email' => $email], $knownEmails);
+
+    // Native Laravel: N individual queries
+    $nativeRules = [
+        'items' => 'required|array',
+        'items.*.email' => ['required', 'string', Rule::exists('bench_db.users', 'email')],
+    ];
+    $nativeData = ['items' => $items];
+
+    // Warmup
+    Validator::make($nativeData, $nativeRules)->validate();
+
+    $nativeMedian = benchmarkMedian(
+        fn () => Validator::make($nativeData, $nativeRules)->validate(),
+        3,
+    );
+
+    // Batched: 1 whereIn query via RuleSet
+    $batchFn = fn () => RuleSet::from([
+        'items' => FluentRule::array()->required()->each([
+            'email' => FluentRule::string()->required()->exists('bench_db.users', 'email'),
+        ]),
+    ])->validate($nativeData);
+
+    $batchFn(); // warmup
+    $batchMedian = benchmarkMedian($batchFn, 3);
+
+    $speedup = $nativeMedian / $batchMedian;
+
+    fprintf(STDERR, "\n  Benchmark: 200 items × exists rule (DB validation)\n");
+    fprintf(STDERR, "  %-30s %8s %8s\n", 'Approach', 'Time', 'Speedup');
+    fprintf(STDERR, "  %s\n", str_repeat('─', 50));
+    fprintf(STDERR, "  %-30s %7.1fms %8s\n", 'Native (N queries)', $nativeMedian, '1x');
+    fprintf(STDERR, "  %-30s %7.1fms %7.0fx\n", 'Batched (1 whereIn)', $batchMedian, $speedup);
+    fprintf(STDERR, "\n");
+
+    expect($batchMedian)->toBeLessThan($nativeMedian);
 })->group('benchmark');
 
 function benchmarkMedian(Closure $fn, int $iterations): float

@@ -8,6 +8,8 @@ use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Traits\Conditionable;
 use Illuminate\Support\Traits\Macroable;
+use Illuminate\Validation\Rules\Exists;
+use Illuminate\Validation\Rules\Unique;
 use Illuminate\Validation\ValidationException;
 use ReflectionProperty;
 use SanderMuller\FluentValidation\Rules\ArrayRule;
@@ -308,6 +310,14 @@ final class RuleSet implements Arrayable
         /** @var array<string, list<string>> $errors */
         $errors = [];
 
+        // Batch database validation: for rules without conditionals, pre-query
+        // all exists/unique values in one shot and set a precomputed verifier
+        // on per-item validators so they skip individual DB queries.
+        $batchVerifier = null;
+        if ($conditionalFields === [] && BatchDatabaseChecker::isAvailable()) {
+            $batchVerifier = $this->buildBatchVerifier($originalSlowRules, $items, $isScalar);
+        }
+
         foreach ($items as $index => $item) {
             /** @var array<string, mixed> $itemData */
             $itemData = $isScalar ? ['_v' => $item] : (is_array($item) ? $item : []);
@@ -352,6 +362,10 @@ final class RuleSet implements Arrayable
 
                     if (! isset($validatorCache[$cacheKey])) {
                         $validatorCache[$cacheKey] = Validator::make($itemData, $reducedSlowRules, $itemMessages, $itemAttributes);
+
+                        if ($batchVerifier instanceof PrecomputedPresenceVerifier) {
+                            $validatorCache[$cacheKey]->setPresenceVerifier($batchVerifier);
+                        }
                     } else {
                         $validatorCache[$cacheKey]->setData($itemData);
                     }
@@ -372,6 +386,10 @@ final class RuleSet implements Arrayable
 
             if (! isset($validatorCache[$cacheKey])) {
                 $validatorCache[$cacheKey] = Validator::make($itemData, $effectiveRules, $itemMessages, $itemAttributes);
+
+                if ($batchVerifier instanceof PrecomputedPresenceVerifier) {
+                    $validatorCache[$cacheKey]->setPresenceVerifier($batchVerifier);
+                }
             } else {
                 $validatorCache[$cacheKey]->setData($itemData);
             }
@@ -658,6 +676,30 @@ final class RuleSet implements Arrayable
         }
 
         return [$checks, $slowRules];
+    }
+
+    /**
+     * Build a PrecomputedPresenceVerifier by batching all exists/unique values
+     * from slow rules across all items in a single whereIn query.
+     *
+     * @param  array<string, mixed>  $slowRules
+     * @param  array<int|string, mixed>  $items
+     */
+    private function buildBatchVerifier(array $slowRules, array $items, bool $isScalar): ?PrecomputedPresenceVerifier
+    {
+        $batchableFields = BatchDatabaseChecker::findBatchableRules($slowRules);
+
+        if ($batchableFields === []) {
+            return null;
+        }
+
+        $groups = BatchDatabaseChecker::collectValues($batchableFields, $items, $isScalar);
+
+        if ($groups === []) {
+            return null;
+        }
+
+        return BatchDatabaseChecker::buildVerifier($groups);
     }
 
     /**

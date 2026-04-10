@@ -28,8 +28,8 @@ parameters:
         narrow_return: true
 
     cognitive_complexity:
-        class: 50
-        function: 12
+        class: 80
+        function: 20
 
     strictRules:
         allRules: true

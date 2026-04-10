@@ -6,15 +6,26 @@ Laravel's wildcard validation (`items.*.name`) has O(n²) performance for large 
 
 ## Optimization (automatic via HasFluentRules)
 
-The `HasFluentRules` trait (and `FluentFormRequest`) applies three optimizations automatically:
+The `HasFluentRules` trait (and `FluentFormRequest`) applies four optimizations automatically:
 
 | Optimization | What it does | Speedup |
 |---|---|---|
 | **O(n) wildcard expansion** | `WildcardExpander` replaces Laravel's O(n²) approach | ~20% for large arrays |
 | **Per-attribute fast-checks** | Pure PHP closures skip Laravel for valid items (25 rules supported) | Up to 97x for simple rules |
 | **Partial fast-check** | Fast-checkable fields use PHP, non-eligible fields go through Laravel | 10x for mixed rule sets |
+| **Batched DB validation** | `exists`/`unique` rules batched into single `whereIn` query | N queries → 1 query |
 
 Fast-checked rules: `required`, `filled`, `string`, `numeric`, `integer`, `boolean`, `date`, `email`, `url`, `ip`, `uuid`, `ulid`, `alpha`, `alpha_dash`, `alpha_num`, `accepted`, `declined`, `min`, `max`, `digits`, `digits_between`, `in`, `not_in`, `regex`, `not_regex`.
+
+### Batched database validation (N+1 prevention)
+
+`exists` and `unique` rules on wildcard arrays are automatically batched into a single `whereIn` query instead of one query per item. 500 items with `exists('products', 'id')` fires 1 query, not 500.
+
+**What's batched:** Simple `exists('table', 'column')` and `unique('table', 'column')` rules, including those with scalar `where()` clauses (e.g., `->exists('subjects', 'id', fn ($r) => $r->where('video_id', $id))`).
+
+**What's NOT batched (falls through to per-item):** Rules with closure callbacks (`->where(fn ($q) => ...)`), rules without an explicit column, and non-wildcard single-field rules.
+
+The batching is transparent — error messages, custom messages, `validated()` output, and `ignore()` on unique rules all work unchanged. Uses `useWritePdo()` to match Laravel's native verifier behavior in read/write split setups.
 
 ```php
 use SanderMuller\FluentValidation\HasFluentRules;
@@ -39,6 +50,7 @@ class ImportRequest extends FormRequest
 | 500 items, simple rules (string, numeric, in) | ~200ms | **~2ms** |
 | 500 items, mixed rules (string + date) | ~200ms | **~20ms** |
 | 100 items, 47 conditional fields (exclude_unless) | ~3,200ms | **~83ms** |
+| 200 items, exists rule (DB validation) | ~11ms (200 queries) | **~6ms (1 query)** |
 
 ### RuleSet::validate() (inline validation)
 

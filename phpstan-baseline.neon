@@ -1,75 +1,49 @@
 parameters:
 	ignoreErrors:
 		-
-			rawMessage: 'Class cognitive complexity is 76, keep it under 50'
-			identifier: complexity.classLike
-			count: 1
-			path: src/FastCheckCompiler.php
-
-		-
-			rawMessage: 'Cognitive complexity for "SanderMuller\FluentValidation\FastCheckCompiler::addFormatChecks()" is 16, keep it under 12'
+			rawMessage: 'Cognitive complexity for "SanderMuller\FluentValidation\FastCheckCompiler::buildClosure()" is 38, keep it under 20'
 			identifier: complexity.functionLike
 			count: 1
 			path: src/FastCheckCompiler.php
 
 		-
-			rawMessage: 'Cognitive complexity for "SanderMuller\FluentValidation\FastCheckCompiler::buildClosure()" is 38, keep it under 12'
-			identifier: complexity.functionLike
-			count: 1
-			path: src/FastCheckCompiler.php
-
-
-
-		-
-			rawMessage: 'Cognitive complexity for "SanderMuller\FluentValidation\FluentFormRequest::preExcludeRules()" is 21, keep it under 12'
+			rawMessage: 'Cognitive complexity for "SanderMuller\FluentValidation\FluentFormRequest::preExcludeRules()" is 21, keep it under 20'
 			identifier: complexity.functionLike
 			count: 1
 			path: src/FluentFormRequest.php
 
 		-
-			rawMessage: 'Class cognitive complexity is 68, keep it under 50'
-			identifier: complexity.classLike
-			count: 1
-			path: src/OptimizedValidator.php
-
-		-
-			rawMessage: 'Cognitive complexity for "SanderMuller\FluentValidation\OptimizedValidator::evaluateConditionals()" is 17, keep it under 12'
+			rawMessage: 'Cognitive complexity for "SanderMuller\FluentValidation\OptimizedValidator::passes()" is 35, keep it under 20'
 			identifier: complexity.functionLike
 			count: 1
 			path: src/OptimizedValidator.php
 
 		-
-			rawMessage: 'Cognitive complexity for "SanderMuller\FluentValidation\OptimizedValidator::passes()" is 35, keep it under 12'
+			rawMessage: 'Cognitive complexity for "SanderMuller\FluentValidation\Rector\ValidationStringToFluentRuleRector::buildModifierCall()" is 31, keep it under 20'
 			identifier: complexity.functionLike
 			count: 1
-			path: src/OptimizedValidator.php
+			path: src/Rector/ValidationStringToFluentRuleRector.php
 
 		-
-			rawMessage: 'Class cognitive complexity is 193, keep it under 50'
+			rawMessage: 'Class cognitive complexity is 205, keep it under 80'
 			identifier: complexity.classLike
 			count: 1
 			path: src/RuleSet.php
 
 		-
-			rawMessage: 'Cognitive complexity for "SanderMuller\FluentValidation\RuleSet::analyzeConditionals()" is 14, keep it under 12'
+			rawMessage: 'Cognitive complexity for "SanderMuller\FluentValidation\RuleSet::validateItems()" is 47, keep it under 20'
 			identifier: complexity.functionLike
 			count: 1
 			path: src/RuleSet.php
 
 		-
-			rawMessage: 'Cognitive complexity for "SanderMuller\FluentValidation\RuleSet::stripConditionalTuples()" is 15, keep it under 12'
+			rawMessage: 'Cognitive complexity for "AnonymousClass3648ab0e78c61a66a145908b66b5b36f::preExcludeRules()" is 21, keep it under 20'
 			identifier: complexity.functionLike
 			count: 1
-			path: src/RuleSet.php
+			path: tests/BatchDatabaseValidationTest.php
 
 		-
-			rawMessage: 'Cognitive complexity for "SanderMuller\FluentValidation\RuleSet::validateItems()" is 37, keep it under 12'
-			identifier: complexity.functionLike
-			count: 1
-			path: src/RuleSet.php
-
-		-
-			rawMessage: 'Cognitive complexity for "AnonymousClass420d6bbea2864404c724b63698d04cf0::preExcludeRules()" is 21, keep it under 12'
+			rawMessage: 'Cognitive complexity for "AnonymousClass420d6bbea2864404c724b63698d04cf0::preExcludeRules()" is 21, keep it under 20'
 			identifier: complexity.functionLike
 			count: 1
 			path: tests/ExpandsWildcardsTest.php

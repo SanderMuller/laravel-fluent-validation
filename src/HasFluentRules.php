@@ -3,6 +3,9 @@
 namespace SanderMuller\FluentValidation;
 
 use Illuminate\Contracts\Validation\Factory as ValidationFactory;
+use Illuminate\Validation\Rule;
+use Illuminate\Validation\Rules\Exists;
+use Illuminate\Validation\Rules\Unique;
 use Illuminate\Validation\Validator;
 use ReflectionProperty;
 
@@ -67,6 +70,19 @@ trait HasFluentRules
 
         $validator->stopOnFirstFailure($this->stopOnFirstFailure);
 
+        // Batch exists/unique queries for wildcard-expanded attributes only.
+        // Non-wildcard rules are left to the original verifier to avoid
+        // interfering with scoped exists/unique checks on single fields.
+        if ($prepared->implicitAttributes !== [] && BatchDatabaseChecker::isAvailable()) {
+            $wildcardAttributes = array_merge(...array_values($prepared->implicitAttributes));
+            $wildcardRules = array_intersect_key($preparedRules, array_flip($wildcardAttributes));
+            $batchVerifier = $this->buildFormRequestBatchVerifier($wildcardRules, $data);
+
+            if ($batchVerifier !== null) {
+                $validator->setPresenceVerifier($batchVerifier);
+            }
+        }
+
         if ($this->isPrecognitive()) {
             $validator->setRules(
                 $this->filterPrecognitiveRules($validator->getRulesWithoutPlaceholders())
@@ -117,6 +133,25 @@ trait HasFluentRules
         }
 
         return $map;
+    }
+
+    /**
+     * Build a PrecomputedPresenceVerifier by scanning prepared rules for
+     * batchable Exists/Unique objects and collecting their values from
+     * the expanded attribute paths.
+     *
+     * @param  array<string, mixed>  $preparedRules
+     * @param  array<string, mixed>  $data
+     */
+    private function buildFormRequestBatchVerifier(array $preparedRules, array $data): ?PrecomputedPresenceVerifier
+    {
+        $groups = BatchDatabaseChecker::collectExpandedValues($preparedRules, $data);
+
+        if ($groups === []) {
+            return null;
+        }
+
+        return BatchDatabaseChecker::buildVerifier($groups);
     }
 
     /**
