@@ -23,7 +23,7 @@ use ReflectionProperty;
  */
 final class BatchDatabaseChecker
 {
-    private const int CHUNK_SIZE = 1000;
+    private const CHUNK_SIZE = 1000;
 
     /**
      * Check if the current environment supports batching

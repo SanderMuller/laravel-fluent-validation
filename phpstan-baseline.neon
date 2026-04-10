@@ -1,6 +1,12 @@
 parameters:
 	ignoreErrors:
 		-
+			rawMessage: 'Out of 1 possible constant types, only 0 - 0.0 %% actually have it. Add more constant types to get over 100 %%'
+			identifier: typeCoverage.constantTypeCoverage
+			count: 1
+			path: src/BatchDatabaseChecker.php
+
+		-
 			rawMessage: 'Cognitive complexity for "SanderMuller\FluentValidation\FastCheckCompiler::buildClosure()" is 38, keep it under 20'
 			identifier: complexity.functionLike
 			count: 1
@@ -17,12 +23,6 @@ parameters:
 			identifier: complexity.functionLike
 			count: 1
 			path: src/OptimizedValidator.php
-
-		-
-			rawMessage: 'Cognitive complexity for "SanderMuller\FluentValidation\Rector\ValidationStringToFluentRuleRector::buildModifierCall()" is 31, keep it under 20'
-			identifier: complexity.functionLike
-			count: 1
-			path: src/Rector/ValidationStringToFluentRuleRector.php
 
 		-
 			rawMessage: 'Class cognitive complexity is 205, keep it under 80'
