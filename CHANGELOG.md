@@ -2,6 +2,63 @@
 
 All notable changes to `laravel-fluent-validation` will be documented in this file.
 
+## 1.2.0 - 2026-04-10
+
+#### Added
+
+- **`FluentRule::macro()`** — Register custom factory methods on the main FluentRule class. Define domain-specific entry points like `FluentRule::phone()` or `FluentRule::iban()` in a service provider:
+  
+  ```php
+  FluentRule::macro('phone', fn (?string $label = null) => FluentRule::string($label)->rule(new PhoneRule()));
+  // Usage: FluentRule::phone('Phone Number')->required()
+  
+  ```
+- **`RuleSet` is now `Macroable`** — Add composable rule groups to RuleSet:
+  
+  ```php
+  RuleSet::macro('withAddress', fn () => $this->merge([
+      'street' => FluentRule::string()->required(),
+      'city'   => FluentRule::string()->required(),
+      'zip'    => FluentRule::string()->required()->max(10),
+  ]));
+  // Usage: RuleSet::make()->withAddress()->field('name', FluentRule::string())
+  
+  ```
+
+#### Improved
+
+- **`HasFluentValidation` trait** — Added explicit `mixed` types for PHP 8.5 compatibility, private narrowing helpers (`toNullableArray`, `toStringMap`) for PHPStan level max, and made `compileFluentRules()` protected so it can be called from subclasses.
+- **`messageFor()` documentation** — Promoted from the rule reference to the primary recommendation in the per-rule messages section. `->messageFor('required', 'msg')` can be called anywhere in the chain without the ordering constraint of `->message()`.
+- **README** — Labels note now links to all four approaches that support extraction (`HasFluentRules`, `RuleSet::validate()`, `HasFluentValidation`, `FluentValidator`). Comparison table cleaned up. Tightened prose throughout.
+- Recommend `RuleSet::validate()` over `Validator::make()` in README — `RuleSet::validate()` applies the full optimization pipeline (wildcard expansion, fast-checks, label extraction) that `Validator::make()` misses.
+
+#### Internal
+
+- Applied Rector's `LARAVEL_CODE_QUALITY` set (`app()` → `resolve()`, Translator contract binding).
+- Rector Pest code quality: fluent assertion chains, `toBeFalse()` over `toBe(false)`.
+- `fn` → `static fn` for closures that don't use `$this` (Rector).
+- Added `HasFluentValidation` test suite (14 tests covering compilation, labels, messages, override behavior, wildcard expansion, `unwrapDataForValidation`, and data resolution fallback).
+- Benchmark PR comments now include Pest code path benchmarks alongside the main benchmark table.
+- Improved AI skill triggers to prevent editing generated files directly.
+- Added benchmark running documentation to backend-quality skill.
+- CI workflow hardening: stash before pull, env var for branch names.
+
+### What's Changed
+
+* chore(deps): bump peter-evans/create-or-update-comment from 4 to 5 by @dependabot[bot] in https://github.com/SanderMuller/laravel-fluent-validation/pull/7
+* chore(deps): bump actions/upload-artifact from 4 to 7 by @dependabot[bot] in https://github.com/SanderMuller/laravel-fluent-validation/pull/1
+* chore(deps): bump stefanzweifel/git-auto-commit-action from 5 to 7 by @dependabot[bot] in https://github.com/SanderMuller/laravel-fluent-validation/pull/6
+* chore(deps): bump actions/checkout from 4 to 6 by @dependabot[bot] in https://github.com/SanderMuller/laravel-fluent-validation/pull/5
+* chore(deps): bump actions/download-artifact from 4 to 8 by @dependabot[bot] in https://github.com/SanderMuller/laravel-fluent-validation/pull/2
+* chore(deps): bump peter-evans/find-comment from 3 to 4 by @dependabot[bot] in https://github.com/SanderMuller/laravel-fluent-validation/pull/4
+* chore(deps): bump actions/cache from 4 to 5 by @dependabot[bot] in https://github.com/SanderMuller/laravel-fluent-validation/pull/3
+
+### New Contributors
+
+* @dependabot[bot] made their first contribution in https://github.com/SanderMuller/laravel-fluent-validation/pull/7
+
+**Full Changelog**: https://github.com/SanderMuller/laravel-fluent-validation/compare/1.1.0...1.2.0
+
 ## 1.1.0 - 2026-04-08
 
 ### Added
@@ -143,6 +200,7 @@ Fluent validation rule builders for Laravel with IDE autocompletion, type safety
   
   
   
+  
   ```
 
 ### Documentation
@@ -171,6 +229,7 @@ Fluent validation rule builders for Laravel with IDE autocompletion, type safety
   
   
   
+  
   ```
 
 ### Documentation
@@ -193,6 +252,7 @@ Fluent validation rule builders for Laravel with IDE autocompletion, type safety
   ```php
   FluentRule::email(defaults: false)    // basic 'email' validation
   FluentRule::password(defaults: false) // Password::min(8), ignores app config
+  
   
   
   
@@ -464,6 +524,7 @@ Tested across two independent codebases:
   
   
   
+  
   ```
 - **PHPStan errors in OptimizedValidator** — Matched parent `Validator::validateAttribute()` signature.
   
@@ -526,6 +587,7 @@ Tested across two independent codebases:
   
   
   
+  
   ```
 - FluentFormRequest base class — Combines HasFluentRules compilation with per-attribute
   fast-check optimization via OptimizedValidator. Eligible wildcard rules are fast-checked
@@ -558,6 +620,7 @@ Tested across two independent codebases:
   ```php
   FluentRule::string()->unique('users', 'email', fn($r) => $r->ignore($this->user()->id))
   FluentRule::string()->exists('subjects', 'id', fn($r) => $r->where('video_id',          
+  
   
   
   
