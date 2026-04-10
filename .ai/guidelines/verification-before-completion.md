@@ -11,11 +11,11 @@ Before claiming any work is complete or successful, run the verification command
 
 ### During Development (after each change)
 
-| Claim            | Required verification                            |
-|------------------|--------------------------------------------------|
-| Code style clean | `vendor/bin/pint --dirty --format agent` output  |
+| Claim            | Required verification                              |
+|------------------|----------------------------------------------------|
+| Code style clean | `vendor/bin/pint --dirty --format agent` output    |
 | Tests pass       | Related tests pass via `--filter` or specific file |
-| Bug fixed        | Previously failing test now passes               |
+| Bug fixed        | Previously failing test now passes                 |
 
 ### At Completion Only (feature/phase done, before PR)
 
