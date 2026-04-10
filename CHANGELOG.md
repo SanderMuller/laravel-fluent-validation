@@ -2,6 +2,41 @@
 
 All notable changes to `laravel-fluent-validation` will be documented in this file.
 
+## 1.4.0 - 2026-04-10
+
+### Added
+
+- **Batched database validation for wildcard arrays** — `exists` and `unique` rules on wildcard fields (`items.*.email`) now run a single `whereIn` query instead of one query per item. For 500 items, that's 1 query instead of 500. Works in both `RuleSet::validate()` and `HasFluentRules` form requests.
+  ```php
+  'items' => FluentRule::array()->required()->each([
+      'product_id' => FluentRule::integer()->required()->exists('products', 'id'),
+  ]),
+  // 500 items × exists rule = 1 query instead of 500
+  
+  ```
+  Rules with scalar `where()` clauses (e.g., `->exists('subjects', 'id', fn ($r) => $r->where('video_id', $id))`) are batched too. Rules with closure callbacks fall through to per-item validation as before. Verified against hihaho's full test suite (3533 tests, 0 failures).
+
+### How it works
+
+A `PrecomputedPresenceVerifier` replaces Laravel's default verifier on per-item validators, returning pre-computed results from the batch query. Original `Exists`/`Unique` rule objects stay in place, so custom messages (`['items.*.email.exists' => '...']`), custom attributes, `ignore()`, and `validated()` output all work unchanged.
+
+**Safety guards:**
+
+- Rules with closure callbacks (`queryCallbacks()`) are not batched
+- Rules without an explicit column are not batched
+- Custom (non-default) presence verifiers cause batching to be skipped
+- Non-wildcard single-field rules are never batched
+- Falls back to the original verifier for any rule that wasn't pre-computed
+
+### Internal
+
+- New classes: `BatchDatabaseChecker`, `PrecomputedPresenceVerifier`
+- 40 batch database validation tests covering: exists/unique batching, ignore(), withoutTrashed(), scalar where clauses, fallback verifier, non-wildcard rejection, empty/null value handling, deduplication, custom messages, FormRequest + RuleSet paths
+- Exists/unique benchmark scenario added to benchmark suite
+- PHPStan complexity thresholds adjusted (class: 80, function: 20)
+
+**Full Changelog**: https://github.com/SanderMuller/laravel-fluent-validation/compare/1.3.0...1.4.0
+
 ## 1.3.0 - 2026-04-10
 
 ### Added
@@ -15,6 +50,7 @@ All notable changes to `laravel-fluent-validation` will be documented in this fi
   ])->failOnUnknownFields()->validate($request->all());
   // Extra keys like 'hack' => '...' will fail with "The hack field is prohibited."
   
+  
   ```
 - **`RuleSet::stopOnFirstFailure()`** — Stop validating remaining fields after the first failure. Works across top-level fields, wildcard groups, and per-item validation:
   
@@ -26,6 +62,7 @@ All notable changes to `laravel-fluent-validation` will be documented in this fi
       ]),
   ])->stopOnFirstFailure()->validate($data);
   // Stops after the first failing field or item
+  
   
   ```
 
@@ -51,6 +88,7 @@ All notable changes to `laravel-fluent-validation` will be documented in this fi
   // Usage: FluentRule::phone('Phone Number')->required()
   
   
+  
   ```
 - **`RuleSet` is now `Macroable`** — Add composable rule groups to RuleSet:
   
@@ -61,6 +99,7 @@ All notable changes to `laravel-fluent-validation` will be documented in this fi
       'zip'    => FluentRule::string()->required()->max(10),
   ]));
   // Usage: RuleSet::make()->withAddress()->field('name', FluentRule::string())
+  
   
   
   ```
@@ -242,6 +281,7 @@ Fluent validation rule builders for Laravel with IDE autocompletion, type safety
   
   
   
+  
   ```
 
 ### Documentation
@@ -272,6 +312,7 @@ Fluent validation rule builders for Laravel with IDE autocompletion, type safety
   
   
   
+  
   ```
 
 ### Documentation
@@ -294,6 +335,7 @@ Fluent validation rule builders for Laravel with IDE autocompletion, type safety
   ```php
   FluentRule::email(defaults: false)    // basic 'email' validation
   FluentRule::password(defaults: false) // Password::min(8), ignores app config
+  
   
   
   
@@ -569,6 +611,7 @@ Tested across two independent codebases:
   
   
   
+  
   ```
 - **PHPStan errors in OptimizedValidator** — Matched parent `Validator::validateAttribute()` signature.
   
@@ -633,6 +676,7 @@ Tested across two independent codebases:
   
   
   
+  
   ```
 - FluentFormRequest base class — Combines HasFluentRules compilation with per-attribute
   fast-check optimization via OptimizedValidator. Eligible wildcard rules are fast-checked
@@ -665,6 +709,7 @@ Tested across two independent codebases:
   ```php
   FluentRule::string()->unique('users', 'email', fn($r) => $r->ignore($this->user()->id))
   FluentRule::string()->exists('subjects', 'id', fn($r) => $r->where('video_id',          
+  
   
   
   
