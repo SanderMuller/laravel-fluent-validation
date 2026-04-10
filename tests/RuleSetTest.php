@@ -1719,8 +1719,8 @@ it('failOnUnknownFields includes correct error key for unknown fields', function
             'name' => 'John',
             'unknown_field' => 'value',
         ]);
-    } catch (ValidationException $e) {
-        $errors = $e->errors();
+    } catch (ValidationException $validationException) {
+        $errors = $validationException->errors();
     }
 
     expect($errors)->toHaveKey('unknown_field');
@@ -1749,8 +1749,8 @@ it('failOnUnknownFields rejects unknown nested keys in wildcard arrays', functio
         ])->failOnUnknownFields()->validate([
             'items' => [['name' => 'Foo', 'hack' => 'bad']],
         ]);
-    } catch (ValidationException $e) {
-        $errors = $e->errors();
+    } catch (ValidationException $validationException) {
+        $errors = $validationException->errors();
     }
 
     expect($errors)->toHaveKey('items.0.hack');
@@ -1779,8 +1779,8 @@ it('stopOnFirstFailure stops after the first field fails', function (): void {
             'name' => FluentRule::string()->required(),
             'email' => FluentRule::email()->required(),
         ])->stopOnFirstFailure()->validate([]);
-    } catch (ValidationException $e) {
-        $errors = $e->errors();
+    } catch (ValidationException $validationException) {
+        $errors = $validationException->errors();
     }
 
     // Only one field should have errors, not both
@@ -1816,8 +1816,8 @@ it('stopOnFirstFailure stops on first failing item in wildcard arrays', function
                 ['name' => ''],    // also fails, but should not be reached
             ],
         ]);
-    } catch (ValidationException $e) {
-        $errors = $e->errors();
+    } catch (ValidationException $validationException) {
+        $errors = $validationException->errors();
     }
 
     // Should have errors only for the first failing item, not all three
@@ -1834,8 +1834,8 @@ it('failOnUnknownFields uses custom attributes for error messages', function ():
             data: ['name' => 'John', 'unknown_field' => 'value'],
             attributes: ['unknown_field' => 'Mystery Field'],
         );
-    } catch (ValidationException $e) {
-        $errors = $e->errors();
+    } catch (ValidationException $validationException) {
+        $errors = $validationException->errors();
     }
 
     expect($errors)->toHaveKey('unknown_field')
@@ -1852,8 +1852,8 @@ it('failOnUnknownFields uses custom messages', function (): void {
             data: ['name' => 'John', 'hack' => 'bad'],
             messages: ['hack.prohibited' => 'No hacking allowed!'],
         );
-    } catch (ValidationException $e) {
-        $errors = $e->errors();
+    } catch (ValidationException $validationException) {
+        $errors = $validationException->errors();
     }
 
     expect($errors)->toHaveKey('hack')
@@ -1873,8 +1873,8 @@ it('failOnUnknownFields works with children() inside each()', function (): void 
         ])->failOnUnknownFields()->validate([
             'items' => [['action' => ['type' => 'click', 'hack' => 'bad']]],
         ]);
-    } catch (ValidationException $e) {
-        $errors = $e->errors();
+    } catch (ValidationException $validationException) {
+        $errors = $validationException->errors();
     }
 
     expect($errors)->toHaveKey('items.0.action.hack');
