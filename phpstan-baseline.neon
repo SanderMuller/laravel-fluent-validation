@@ -45,7 +45,7 @@ parameters:
 			path: src/OptimizedValidator.php
 
 		-
-			rawMessage: 'Class cognitive complexity is 195, keep it under 50'
+			rawMessage: 'Class cognitive complexity is 193, keep it under 50'
 			identifier: complexity.classLike
 			count: 1
 			path: src/RuleSet.php
