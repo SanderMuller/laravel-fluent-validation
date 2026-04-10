@@ -12,9 +12,6 @@ parameters:
         - src
         - tests
 
-    excludePaths:
-        - src/Rector
-
     level: max
 
     type_coverage:
