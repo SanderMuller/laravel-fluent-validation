@@ -33,20 +33,12 @@ class TestableComponent extends FakeLivewireBase
 {
     use HasFluentValidation;
 
-    /** @var array<string, mixed> */
-    public array $data;
-
-    /** @var array<string, mixed> */
-    private array $fluentRules;
-
     /**
      * @param  array<string, mixed>  $data
-     * @param  array<string, mixed>  $rules
+     * @param array<string, mixed> $fluentRules
      */
-    public function __construct(array $data = [], array $rules = [])
+    public function __construct(public array $data = [], private array $fluentRules = [])
     {
-        $this->data = $data;
-        $this->fluentRules = $rules;
     }
 
     /** @return array<string, mixed> */
@@ -88,13 +80,9 @@ class TestableComponentNoRulesMethod extends FakeLivewireBase
 {
     use HasFluentValidation;
 
-    /** @var array<string, mixed> */
-    public array $data;
-
     /** @param  array<string, mixed>  $data */
-    public function __construct(array $data = [])
+    public function __construct(public array $data = [])
     {
-        $this->data = $data;
     }
 
     /** @return array<string, mixed> */
@@ -221,8 +209,7 @@ it('merges compiled messages with caller-provided messages', function (): void {
     [, $messages] = $component->compile(messages: ['name.min' => 'Too short!']);
 
     expect($messages)
-        ->toHaveKey('name.required')
-        ->toHaveKey('name.min');
+        ->toHaveKeys(['name.required', 'name.min']);
 });
 
 it('merges compiled attributes with caller-provided attributes', function (): void {
@@ -256,8 +243,7 @@ it('expands wildcard rules into concrete keys', function (): void {
 
     // WildcardExpander expands items.*.name → items.0.name, items.1.name
     expect($compiled)
-        ->toHaveKey('items.0.name')
-        ->toHaveKey('items.1.name');
+        ->toHaveKeys(['items.0.name', 'items.1.name']);
 });
 
 // =========================================================================
