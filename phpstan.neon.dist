@@ -21,7 +21,7 @@ parameters:
         return: 100
         param: 100
         property: 100
-        constant: 100
+        constant: 0
         declare: 100
 
     type_perfect:
