@@ -75,6 +75,8 @@ Resolves translator, presence verifier, calls `prepare()`, sets implicit attribu
 - `->prepare($data)` — expand + extract metadata + compile (returns `PreparedRules` DTO)
 - `->toArray()` — flat rules with `each()` expanded
 - `->validate($data, $messages?, $attributes?)` — validate with full optimization
+- `->failOnUnknownFields()` — reject input keys not present in the rule set
+- `->stopOnFirstFailure()` — stop validating after the first field fails
 - `->expandWildcards($data)` — pre-expand without validating
 - `RuleSet::compile($rules)` — compile to native Laravel format
 - `RuleSet::compileToArrays($rules)` — compile to array format (`array<string, array<mixed>>`), useful for Livewire's `$this->validate()`

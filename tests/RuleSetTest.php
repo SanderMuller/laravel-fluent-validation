@@ -1681,3 +1681,227 @@ it('distinct() on each items passes with unique values', function (): void {
 
     expect($validated['tags'])->toHaveCount(3);
 });
+
+// =========================================================================
+// failOnUnknownFields
+// =========================================================================
+
+it('failOnUnknownFields passes when all input keys are known', function (): void {
+    $validated = RuleSet::from([
+        'name' => FluentRule::string()->required(),
+        'email' => FluentRule::email()->required(),
+    ])->failOnUnknownFields()->validate([
+        'name' => 'John',
+        'email' => 'john@example.com',
+    ]);
+
+    expect($validated)
+        ->toHaveKey('name', 'John')
+        ->toHaveKey('email', 'john@example.com');
+});
+
+it('failOnUnknownFields rejects unknown input keys', function (): void {
+    RuleSet::from([
+        'name' => FluentRule::string()->required(),
+    ])->failOnUnknownFields()->validate([
+        'name' => 'John',
+        'hack' => 'malicious',
+    ]);
+})->throws(ValidationException::class);
+
+it('failOnUnknownFields includes correct error key for unknown fields', function (): void {
+    $errors = [];
+
+    try {
+        RuleSet::from([
+            'name' => FluentRule::string()->required(),
+        ])->failOnUnknownFields()->validate([
+            'name' => 'John',
+            'unknown_field' => 'value',
+        ]);
+    } catch (ValidationException $e) {
+        $errors = $e->errors();
+    }
+
+    expect($errors)->toHaveKey('unknown_field');
+});
+
+it('failOnUnknownFields allows wildcard-matched input keys', function (): void {
+    $validated = RuleSet::from([
+        'items' => FluentRule::array()->required()->each([
+            'name' => FluentRule::string()->required(),
+        ]),
+    ])->failOnUnknownFields()->validate([
+        'items' => [['name' => 'Foo'], ['name' => 'Bar']],
+    ]);
+
+    expect($validated['items'])->toHaveCount(2);
+});
+
+it('failOnUnknownFields rejects unknown nested keys in wildcard arrays', function (): void {
+    $errors = [];
+
+    try {
+        RuleSet::from([
+            'items' => FluentRule::array()->required()->each([
+                'name' => FluentRule::string()->required(),
+            ]),
+        ])->failOnUnknownFields()->validate([
+            'items' => [['name' => 'Foo', 'hack' => 'bad']],
+        ]);
+    } catch (ValidationException $e) {
+        $errors = $e->errors();
+    }
+
+    expect($errors)->toHaveKey('items.0.hack');
+});
+
+it('failOnUnknownFields is not applied when not called', function (): void {
+    $validated = RuleSet::from([
+        'name' => FluentRule::string()->required(),
+    ])->validate([
+        'name' => 'John',
+        'extra' => 'ignored',
+    ]);
+
+    expect($validated)->toHaveKey('name', 'John');
+});
+
+// =========================================================================
+// stopOnFirstFailure
+// =========================================================================
+
+it('stopOnFirstFailure stops after the first field fails', function (): void {
+    $errors = [];
+
+    try {
+        RuleSet::from([
+            'name' => FluentRule::string()->required(),
+            'email' => FluentRule::email()->required(),
+        ])->stopOnFirstFailure()->validate([]);
+    } catch (ValidationException $e) {
+        $errors = $e->errors();
+    }
+
+    // Only one field should have errors, not both
+    expect($errors)->toHaveCount(1);
+});
+
+it('stopOnFirstFailure still passes when all fields are valid', function (): void {
+    $validated = RuleSet::from([
+        'name' => FluentRule::string()->required(),
+        'email' => FluentRule::email()->required(),
+    ])->stopOnFirstFailure()->validate([
+        'name' => 'John',
+        'email' => 'john@example.com',
+    ]);
+
+    expect($validated)
+        ->toHaveKey('name', 'John')
+        ->toHaveKey('email', 'john@example.com');
+});
+
+it('stopOnFirstFailure stops on first failing item in wildcard arrays', function (): void {
+    $errors = [];
+
+    try {
+        RuleSet::from([
+            'items' => FluentRule::array()->required()->each([
+                'name' => FluentRule::string()->required()->min(2),
+            ]),
+        ])->stopOnFirstFailure()->validate([
+            'items' => [
+                ['name' => ''],    // fails required
+                ['name' => 'a'],   // fails min:2
+                ['name' => ''],    // also fails, but should not be reached
+            ],
+        ]);
+    } catch (ValidationException $e) {
+        $errors = $e->errors();
+    }
+
+    // Should have errors only for the first failing item, not all three
+    expect($errors)->toHaveCount(1);
+});
+
+it('failOnUnknownFields uses custom attributes for error messages', function (): void {
+    $errors = [];
+
+    try {
+        RuleSet::from([
+            'name' => FluentRule::string()->required(),
+        ])->failOnUnknownFields()->validate(
+            data: ['name' => 'John', 'unknown_field' => 'value'],
+            attributes: ['unknown_field' => 'Mystery Field'],
+        );
+    } catch (ValidationException $e) {
+        $errors = $e->errors();
+    }
+
+    expect($errors)->toHaveKey('unknown_field')
+        ->and($errors['unknown_field'][0])->toContain('Mystery Field');
+});
+
+it('failOnUnknownFields uses custom messages', function (): void {
+    $errors = [];
+
+    try {
+        RuleSet::from([
+            'name' => FluentRule::string()->required(),
+        ])->failOnUnknownFields()->validate(
+            data: ['name' => 'John', 'hack' => 'bad'],
+            messages: ['hack.prohibited' => 'No hacking allowed!'],
+        );
+    } catch (ValidationException $e) {
+        $errors = $e->errors();
+    }
+
+    expect($errors)->toHaveKey('hack')
+        ->and($errors['hack'][0])->toBe('No hacking allowed!');
+});
+
+it('failOnUnknownFields works with children() inside each()', function (): void {
+    $errors = [];
+
+    try {
+        RuleSet::from([
+            'items' => FluentRule::array()->required()->each([
+                'action' => FluentRule::array()->required()->children([
+                    'type' => FluentRule::string()->required(),
+                ]),
+            ]),
+        ])->failOnUnknownFields()->validate([
+            'items' => [['action' => ['type' => 'click', 'hack' => 'bad']]],
+        ]);
+    } catch (ValidationException $e) {
+        $errors = $e->errors();
+    }
+
+    expect($errors)->toHaveKey('items.0.action.hack');
+});
+
+it('failOnUnknownFields works with scalar each()', function (): void {
+    $validated = RuleSet::from([
+        'tags' => FluentRule::array()->required()->each(FluentRule::string()->max(50)),
+    ])->failOnUnknownFields()->validate([
+        'tags' => ['php', 'laravel'],
+    ]);
+
+    expect($validated['tags'])->toHaveCount(2);
+});
+
+it('failOnUnknownFields with deeply nested wildcards', function (): void {
+    $validated = RuleSet::from([
+        'items' => FluentRule::array()->required()->each([
+            'options' => FluentRule::array()->each([
+                'label' => FluentRule::string()->required(),
+            ]),
+        ]),
+    ])->failOnUnknownFields()->validate([
+        'items' => [
+            ['options' => [['label' => 'A'], ['label' => 'B']]],
+        ],
+    ]);
+
+    expect($validated['items'])->toHaveCount(1);
+});

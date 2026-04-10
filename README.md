@@ -459,6 +459,8 @@ $validated = RuleSet::make()
 | `->expandWildcards($data)`         | `array`         | Pre-expand wildcards without validating                           |
 | `RuleSet::compile($rules)`         | `array`         | Compile fluent rules to native Laravel format                     |
 | `RuleSet::compileToArrays($rules)` | `array`         | Compile to array format for Livewire's `$this->validate()`        |
+| `->failOnUnknownFields()`          | `RuleSet`       | Reject input keys not present in the rule set                     |
+| `->stopOnFirstFailure()`           | `RuleSet`       | Stop validating after the first field fails                       |
 | `->dump()`                         | `array`         | Returns `{rules, messages, attributes}` for debugging             |
 | `->dd()`                           | `never`         | Dumps and terminates                                              |
 

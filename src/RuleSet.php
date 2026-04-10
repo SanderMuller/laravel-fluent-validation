@@ -4,6 +4,7 @@ namespace SanderMuller\FluentValidation;
 
 use Illuminate\Contracts\Support\Arrayable;
 use Illuminate\Contracts\Validation\ValidationRule;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Traits\Conditionable;
 use Illuminate\Support\Traits\Macroable;
@@ -21,6 +22,10 @@ final class RuleSet implements Arrayable
 
     /** @var array<string, mixed> */
     private array $fields = [];
+
+    private bool $failOnUnknownFields = false;
+
+    private bool $stopOnFirstFailure = false;
 
     public static function make(): self
     {
@@ -50,6 +55,27 @@ final class RuleSet implements Arrayable
             $this->fields,
             $rules instanceof self ? $rules->fields : $rules,
         );
+
+        return $this;
+    }
+
+    /**
+     * Reject input keys that are not present in the rule set.
+     * Unknown fields will receive a "prohibited" validation error.
+     */
+    public function failOnUnknownFields(): self
+    {
+        $this->failOnUnknownFields = true;
+
+        return $this;
+    }
+
+    /**
+     * Stop validating remaining fields after the first failure.
+     */
+    public function stopOnFirstFailure(): self
+    {
+        $this->stopOnFirstFailure = true;
 
         return $this;
     }
@@ -134,18 +160,25 @@ final class RuleSet implements Arrayable
         $messages += $ruleMessages;
         $attributes += $ruleAttributes;
 
-        if ($wildcardGroups === []) {
-            /** @var array<string, mixed> */
-            return Validator::make($data, self::compile($topRules), $messages, $attributes)->validate();
+        if ($this->failOnUnknownFields) {
+            $this->rejectUnknownFields($data, $topRules, $wildcardGroups, $messages, $attributes);
         }
 
-        $topValidator = Validator::make($data, self::compile($topRules), $messages, $attributes);
+        if ($wildcardGroups === []) {
+            /** @var array<string, mixed> */
+            return Validator::make($data, self::compile($topRules), $messages, $attributes)
+                ->stopOnFirstFailure($this->stopOnFirstFailure)
+                ->validate();
+        }
+
+        $topValidator = Validator::make($data, self::compile($topRules), $messages, $attributes)
+            ->stopOnFirstFailure($this->stopOnFirstFailure);
         if ($topValidator->fails()) {
             throw new ValidationException($topValidator);
         }
 
         $fallbackResult = null;
-        $allErrors = $this->validateWildcardGroups($wildcardGroups, $data, $messages, $attributes, $fallbackResult);
+        $allErrors = $this->validateWildcardGroups($wildcardGroups, $data, $messages, $attributes, $fallbackResult, $this->stopOnFirstFailure);
 
         if ($fallbackResult !== null) {
             return $fallbackResult;
@@ -208,6 +241,7 @@ final class RuleSet implements Arrayable
         array  $messages,
         array  $attributes,
         ?array &$fallbackResult = null,
+        bool   $stopOnFirstFailure = false,
     ): array {
         /** @var array<string, list<string>> $allErrors */
         $allErrors = [];
@@ -238,8 +272,12 @@ final class RuleSet implements Arrayable
                 return [];
             }
 
-            $groupErrors = $this->validateItems($items, $itemRules, $itemMessages, $itemAttributes, $parent, $isScalar);
+            $groupErrors = $this->validateItems($items, $itemRules, $itemMessages, $itemAttributes, $parent, $isScalar, $stopOnFirstFailure);
             $allErrors += $groupErrors;
+
+            if ($stopOnFirstFailure && $allErrors !== []) {
+                return $allErrors;
+            }
         }
 
         return $allErrors;
@@ -254,7 +292,7 @@ final class RuleSet implements Arrayable
      * @param  array<string, string>  $itemAttributes
      * @return array<string, list<string>>
      */
-    private function validateItems(array $items, array $itemRules, array $itemMessages, array $itemAttributes, string $parent, bool $isScalar): array
+    private function validateItems(array $items, array $itemRules, array $itemMessages, array $itemAttributes, string $parent, bool $isScalar, bool $stopOnFirstFailure = false): array
     {
         $conditionalFields = $this->analyzeConditionals($itemRules);
 
@@ -320,6 +358,10 @@ final class RuleSet implements Arrayable
 
                     if (! $validatorCache[$cacheKey]->passes()) {
                         $this->collectErrors($validatorCache[$cacheKey], $parent, $index, $isScalar, $errors);
+
+                        if ($stopOnFirstFailure) {
+                            return $errors;
+                        }
                     }
 
                     continue;
@@ -336,6 +378,10 @@ final class RuleSet implements Arrayable
 
             if (! $validatorCache[$cacheKey]->passes()) {
                 $this->collectErrors($validatorCache[$cacheKey], $parent, $index, $isScalar, $errors);
+
+                if ($stopOnFirstFailure) {
+                    return $errors;
+                }
             }
         }
 
@@ -509,10 +555,68 @@ final class RuleSet implements Arrayable
     }
 
     /**
-     * @param  array<string, list<string>>  $errors
+     * Reject input keys not covered by any rule in the set.
+     *
+     * @param  array<string, mixed>  $data
+     * @param  array<string, mixed>  $topRules
+     * @param  array<string, array<string, mixed>>  $wildcardGroups
+     * @param  array<string, string>  $messages
+     * @param  array<string, string>  $attributes
      *
      * @throws ValidationException
      */
+    private function rejectUnknownFields(array $data, array $topRules, array $wildcardGroups, array $messages, array $attributes): void
+    {
+        $allowedKeys = array_keys($topRules);
+
+        foreach ($wildcardGroups as $parent => $children) {
+            $allowedKeys[] = $parent;
+
+            foreach (array_keys($children) as $child) {
+                $allowedKeys[] = $child === '*'
+                    ? $parent . '.*'
+                    : $parent . '.*.' . $child;
+            }
+        }
+
+        $unknownKeys = [];
+
+        foreach (array_keys(Arr::dot($data)) as $inputKey) {
+            if (! $this->isKnownField($inputKey, $allowedKeys)) {
+                $unknownKeys[$inputKey] = 'prohibited';
+            }
+        }
+
+        if ($unknownKeys !== []) {
+            Validator::make($data, $unknownKeys, $messages, $attributes)->validate();
+        }
+    }
+
+    /**
+     * Check if an input key matches any allowed rule key, including wildcard patterns.
+     *
+     * @param  list<string>  $allowedKeys
+     */
+    private function isKnownField(string $inputKey, array $allowedKeys): bool
+    {
+        foreach ($allowedKeys as $ruleKey) {
+            if ($ruleKey === $inputKey) {
+                return true;
+            }
+
+            if (str_contains($ruleKey, '*')) {
+                $pattern = '/^' . str_replace('\*', '[^.]+', preg_quote($ruleKey, '/')) . '$/';
+
+                if (preg_match($pattern, $inputKey) === 1) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    /** @param  array<string, list<string>>  $errors */
     private function throwValidationErrors(array $errors): never
     {
         $errorValidator = Validator::make([], []);
