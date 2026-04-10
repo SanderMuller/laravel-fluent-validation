@@ -37,9 +37,7 @@ class TestableComponent extends FakeLivewireBase
      * @param  array<string, mixed>  $data
      * @param array<string, mixed> $fluentRules
      */
-    public function __construct(public array $data = [], private array $fluentRules = [])
-    {
-    }
+    public function __construct(public array $data = [], private array $fluentRules = []) {}
 
     /** @return array<string, mixed> */
     public function rules(): array
@@ -81,9 +79,7 @@ class TestableComponentNoRulesMethod extends FakeLivewireBase
     use HasFluentValidation;
 
     /** @param  array<string, mixed>  $data */
-    public function __construct(public array $data = [])
-    {
-    }
+    public function __construct(public array $data = []) {}
 
     /** @return array<string, mixed> */
     public function all(): array
@@ -111,22 +107,12 @@ class TestableComponentWithUnwrap extends FakeLivewireBase
 {
     use HasFluentValidation;
 
-    /** @var array<string, mixed> */
-    public array $rawData;
-
-    /** @var array<string, mixed> */
-    public array $unwrappedData;
-
     /**
      * @param  array<string, mixed>  $rawData
      * @param  array<string, mixed>  $unwrappedData
      * @param  array<string, mixed>  $rules
      */
-    public function __construct(array $rawData, array $unwrappedData, private array $rules = [])
-    {
-        $this->rawData = $rawData;
-        $this->unwrappedData = $unwrappedData;
-    }
+    public function __construct(public array $rawData, public array $unwrappedData, private array $rules = []) {}
 
     /** @return array<string, mixed> */
     public function rules(): array
@@ -168,7 +154,7 @@ class TestableComponentWithUnwrap extends FakeLivewireBase
 it('compiles FluentRule objects to native string rules', function (): void {
     $component = new TestableComponent(
         data: ['name' => 'John'],
-        rules: ['name' => FluentRule::string()->required()->max(255)],
+        fluentRules: ['name' => FluentRule::string()->required()->max(255)],
     );
 
     [$compiled] = $component->compile();
@@ -184,7 +170,7 @@ it('compiles FluentRule objects to native string rules', function (): void {
 it('extracts labels into the attributes array', function (): void {
     $component = new TestableComponent(
         data: ['name' => 'John'],
-        rules: ['name' => FluentRule::string('Full Name')->required()],
+        fluentRules: ['name' => FluentRule::string('Full Name')->required()],
     );
 
     [, , $attributes] = $component->compile();
@@ -196,7 +182,7 @@ it('extracts labels into the attributes array', function (): void {
 it('extracts per-rule messages into the messages array', function (): void {
     $component = new TestableComponent(
         data: ['name' => ''],
-        rules: ['name' => FluentRule::string()->required()->message('Name is required!')],
+        fluentRules: ['name' => FluentRule::string()->required()->message('Name is required!')],
     );
 
     [, $messages] = $component->compile();
@@ -212,7 +198,7 @@ it('extracts per-rule messages into the messages array', function (): void {
 it('passes rules through unchanged when no FluentRule objects are present', function (): void {
     $component = new TestableComponent(
         data: ['name' => 'John'],
-        rules: ['name' => 'required|string|max:255'],
+        fluentRules: ['name' => 'required|string|max:255'],
     );
 
     [$compiled] = $component->compile();
@@ -230,7 +216,7 @@ it('returns null rules when no rules() method and no inline rules passed', funct
 });
 
 it('returns null rules when rules() returns empty array', function (): void {
-    $component = new TestableComponent(data: [], rules: []);
+    $component = new TestableComponent(data: [], fluentRules: []);
 
     [$compiled] = $component->compile();
 
@@ -244,7 +230,7 @@ it('returns null rules when rules() returns empty array', function (): void {
 it('uses inline rules passed to compile() instead of rules()', function (): void {
     $component = new TestableComponent(
         data: ['email' => 'test@example.com'],
-        rules: ['name' => FluentRule::string()->required()],
+        fluentRules: ['name' => FluentRule::string()->required()],
     );
 
     [$compiled] = $component->compile(['email' => FluentRule::email()->required()]);
@@ -261,7 +247,7 @@ it('uses inline rules passed to compile() instead of rules()', function (): void
 it('merges compiled messages with caller-provided messages', function (): void {
     $component = new TestableComponent(
         data: ['name' => ''],
-        rules: ['name' => FluentRule::string()->required()->message('Name is required!')],
+        fluentRules: ['name' => FluentRule::string()->required()->message('Name is required!')],
     );
 
     [, $messages] = $component->compile(messages: ['name.min' => 'Too short!']);
@@ -273,7 +259,7 @@ it('merges compiled messages with caller-provided messages', function (): void {
 it('caller-provided messages override compiled messages for the same key', function (): void {
     $component = new TestableComponent(
         data: ['name' => ''],
-        rules: ['name' => FluentRule::string()->required()->message('Compiled message')],
+        fluentRules: ['name' => FluentRule::string()->required()->message('Compiled message')],
     );
 
     [, $messages] = $component->compile(messages: ['name.required' => 'Caller message']);
@@ -284,7 +270,7 @@ it('caller-provided messages override compiled messages for the same key', funct
 it('merges compiled attributes with caller-provided attributes', function (): void {
     $component = new TestableComponent(
         data: ['name' => ''],
-        rules: ['name' => FluentRule::string('Full Name')->required()],
+        fluentRules: ['name' => FluentRule::string('Full Name')->required()],
     );
 
     [, , $attributes] = $component->compile(attributes: ['email' => 'e-mail']);
@@ -297,7 +283,7 @@ it('merges compiled attributes with caller-provided attributes', function (): vo
 it('caller-provided attributes override compiled attributes for the same key', function (): void {
     $component = new TestableComponent(
         data: ['name' => ''],
-        rules: ['name' => FluentRule::string('Compiled Label')->required()],
+        fluentRules: ['name' => FluentRule::string('Compiled Label')->required()],
     );
 
     [, , $attributes] = $component->compile(attributes: ['name' => 'Caller Label']);
@@ -312,7 +298,7 @@ it('caller-provided attributes override compiled attributes for the same key', f
 it('expands wildcard rules into concrete keys', function (): void {
     $component = new TestableComponent(
         data: ['items' => [['name' => 'Foo'], ['name' => 'Bar']]],
-        rules: [
+        fluentRules: [
             'items' => FluentRule::array()->required(),
             'items.*' => FluentRule::array()->required(),
             'items.*.name' => FluentRule::string()->required()->max(255),
@@ -358,6 +344,5 @@ it('uses unwrapDataForValidation() output when the method exists', function (): 
 
     // Wildcard expansion must use the unwrapped array, not the raw model-object
     expect($compiled)
-        ->toHaveKey('items.0.name')
-        ->toHaveKey('items.1.name');
+        ->toHaveKeys(['items.0.name', 'items.1.name']);
 });
