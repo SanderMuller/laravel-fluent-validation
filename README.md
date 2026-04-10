@@ -464,6 +464,43 @@ $validated = RuleSet::make()
 | `->dump()`                         | `array`         | Returns `{rules, messages, attributes}` for debugging             |
 | `->dd()`                           | `never`         | Dumps and terminates                                              |
 
+### Rejecting unknown fields
+
+`failOnUnknownFields()` rejects input keys that don't match any rule in the set. If someone sends `role` when you only defined `name` and `email`, validation fails:
+
+```php
+$validated = RuleSet::from([
+    'name'  => FluentRule::string()->required(),
+    'email' => FluentRule::email()->required(),
+])->failOnUnknownFields()->validate($request->all());
+// Input: ['name' => 'John', 'email' => 'john@example.com', 'role' => 'admin']
+// → ValidationException: "The role field is prohibited."
+```
+
+Wildcard arrays are checked too. `items.0.hack` fails if only `items.*.name` is defined. You can customize the error message per field:
+
+```php
+->validate($data, messages: ['role.prohibited' => 'This field is not allowed.']);
+```
+
+> [!TIP]
+> For form requests, Laravel 13.4+ has a native `#[FailOnUnknownFields]` attribute that works automatically with `HasFluentRules`.
+
+### Stopping on first failure
+
+`stopOnFirstFailure()` bails after the first field error. If the file upload fails, the 500 `exists` queries for items never run:
+
+```php
+$validated = RuleSet::from([
+    'file'   => FluentRule::file()->required()->max('10mb'),
+    'items'  => FluentRule::array()->required()->each([
+        'sku' => FluentRule::string()->required()->exists('products', 'sku'),
+    ]),
+])->stopOnFirstFailure()->validate($request->all());
+```
+
+The same applies inside wildcard arrays. If the first item fails, the rest are skipped.
+
 ### Using with `validateWithBag` or custom Validator instances
 
 If you need a `Validator` instance directly (for `validateWithBag`, custom error bags, or manual inspection), you may use the `prepare()` method:
