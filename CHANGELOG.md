@@ -2,6 +2,32 @@
 
 All notable changes to `laravel-fluent-validation` will be documented in this file.
 
+## 1.6.0 - 2026-04-12
+
+### Added
+
+- **Fast-check date rules** — `date`, `date_format`, `after`, `before`, `after_or_equal`, `before_or_equal`, and `date_equals` rules with literal dates are now fast-checkable. A single `strtotime()` call per value replaces full Laravel validator creation. Field references (e.g., `after:start_date`) correctly fall through to standard validation.
+- **Fast-check `array` and `filled` rules** — `array` and `filled` are now handled by the fast-check compiler, eliminating validator overhead for these common rules.
+- **Nested wildcard fast-checks** — Wildcard patterns like `options.*.label` are now fast-checked by expanding within the per-item closure. Previously these fell through to per-item validators (~25ms), now resolved in <1ms.
+- **`FluentRules` marker attribute** — Mark non-`rules()` methods with `#[FluentRules]` so migration tooling (Rector) detects them. The attribute has no runtime effect.
+
+### Improved
+
+- **OptimizedValidator hot path** — Attributes are pre-grouped by wildcard pattern for cache-local iteration. Uses `Arr::dot()` for O(1) flat data lookups instead of per-attribute `getValue()` calls.
+- **BatchDatabaseChecker dedup** — Extracted `uniqueStringValues()` helper using `SORT_STRING` (3.7x faster than `SORT_REGULAR`).
+- **PrecomputedPresenceVerifier** — String-cast flip maps (`isset()`) replace `in_array()` for O(1) lookups. Fixes type mismatch between database integer values and form string values.
+- **RuleSet parameter threading** — `$flatRules` parameter threaded through `prepare()`, `expand()`, and `separateRules()` to avoid redundant `flatten()` calls.
+
+### New companion package
+
+- **Rector migration rules** — A new companion package [`sandermuller/laravel-fluent-validation-rector`](https://github.com/sandermuller/laravel-fluent-validation-rector) provides 6 Rector rules that automate migration from native Laravel validation to FluentRule. In real-world testing against a production codebase, the rules converted 448 files across 3469 tests with zero regressions.
+  ```bash
+  composer require --dev sandermuller/laravel-fluent-validation-rector
+  
+  ```
+
+**Full Changelog**: https://github.com/SanderMuller/laravel-fluent-validation/compare/1.5.0...1.6.0
+
 ## 1.5.0 - 2026-04-12
 
 ### Added
@@ -23,6 +49,7 @@ All notable changes to `laravel-fluent-validation` will be documented in this fi
 - **Rector migration rules** — A new companion package [`sandermuller/laravel-fluent-validation-rector`](https://github.com/sandermuller/laravel-fluent-validation-rector) provides 6 Rector rules that automate migration from native Laravel validation to FluentRule. In real-world testing against a production codebase, the rules converted 448 files across 3469 tests with zero regressions.
   ```bash
   composer require --dev sandermuller/laravel-fluent-validation-rector
+  
   
   ```
 
@@ -47,6 +74,7 @@ All notable changes to `laravel-fluent-validation` will be documented in this fi
       'product_id' => FluentRule::integer()->required()->exists('products', 'id'),
   ]),
   // 500 items × exists rule = 1 query instead of 500
+  
   
   
   
@@ -90,6 +118,7 @@ A `PrecomputedPresenceVerifier` replaces Laravel's default verifier on per-item 
   
   
   
+  
   ```
 - **`RuleSet::stopOnFirstFailure()`** — Stop validating remaining fields after the first failure. Works across top-level fields, wildcard groups, and per-item validation:
   
@@ -101,6 +130,7 @@ A `PrecomputedPresenceVerifier` replaces Laravel's default verifier on per-item 
       ]),
   ])->stopOnFirstFailure()->validate($data);
   // Stops after the first failing field or item
+  
   
   
   
@@ -132,6 +162,7 @@ A `PrecomputedPresenceVerifier` replaces Laravel's default verifier on per-item 
   
   
   
+  
   ```
 - **`RuleSet` is now `Macroable`** — Add composable rule groups to RuleSet:
   
@@ -142,6 +173,7 @@ A `PrecomputedPresenceVerifier` replaces Laravel's default verifier on per-item 
       'zip'    => FluentRule::string()->required()->max(10),
   ]));
   // Usage: RuleSet::make()->withAddress()->field('name', FluentRule::string())
+  
   
   
   
@@ -329,6 +361,7 @@ Fluent validation rule builders for Laravel with IDE autocompletion, type safety
   
   
   
+  
   ```
 
 ### Documentation
@@ -362,6 +395,7 @@ Fluent validation rule builders for Laravel with IDE autocompletion, type safety
   
   
   
+  
   ```
 
 ### Documentation
@@ -384,6 +418,7 @@ Fluent validation rule builders for Laravel with IDE autocompletion, type safety
   ```php
   FluentRule::email(defaults: false)    // basic 'email' validation
   FluentRule::password(defaults: false) // Password::min(8), ignores app config
+  
   
   
   
@@ -665,6 +700,7 @@ Tested across two independent codebases:
   
   
   
+  
   ```
 - **PHPStan errors in OptimizedValidator** — Matched parent `Validator::validateAttribute()` signature.
   
@@ -732,6 +768,7 @@ Tested across two independent codebases:
   
   
   
+  
   ```
 - FluentFormRequest base class — Combines HasFluentRules compilation with per-attribute
   fast-check optimization via OptimizedValidator. Eligible wildcard rules are fast-checked
@@ -764,6 +801,7 @@ Tested across two independent codebases:
   ```php
   FluentRule::string()->unique('users', 'email', fn($r) => $r->ignore($this->user()->id))
   FluentRule::string()->exists('subjects', 'id', fn($r) => $r->where('video_id',          
+  
   
   
   
