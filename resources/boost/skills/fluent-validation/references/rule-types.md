@@ -48,8 +48,12 @@ All comparison methods accept `DateTimeInterface|string`:
 
 ## Boolean
 
-- `accepted()`, `acceptedIf($field, ...$values)`
-- `declined()`, `declinedIf($field, ...$values)`
+`FluentRule::boolean()` validates that the value is `true`, `false`, `1`, `0`, `'1'`, or `'0'`. It does NOT accept `'yes'`, `'on'`, `'no'`, `'off'` — use `accepted()` or `declined()` for those.
+
+- `accepted()` — value must be `'yes'`, `'on'`, `'1'`, `1`, `true`, or `'true'`
+- `acceptedIf($field, ...$values)` — accepted only when another field has a given value
+- `declined()` — value must be `'no'`, `'off'`, `'0'`, `0`, `false`, or `'false'`
+- `declinedIf($field, ...$values)` — declined only when another field has a given value
 
 ## Array
 
@@ -80,6 +84,7 @@ All comparison methods accept `DateTimeInterface|string`:
 - Supports `children([...])` for fixed-key child rules
 - Supports all field modifiers and embedded rules
 - Comparison: `same($field)`, `different($field)`, `confirmed()`
+- Also the escape hatch the Rector migration rules reach for when they can't narrow the type from pipe/array rules. When reviewing migrated code, consider whether a typed factory (`string()`, `integer()`) better expresses intent — don't leave `field()` in place if the field has an inherent type that was just obscured by the original string-rule syntax.
 
 ## Embedded Rules (string, numeric, date, email)
 

@@ -156,3 +156,14 @@ class MyValidator extends FluentValidator
     }
 }
 ```
+
+If the class holds its rules in a method that isn't called `rules()` (e.g. `rulesWithoutPrefix()` in JSON-import pipelines), mark the method with `#[FluentRules]` so the migration Rector rules detect it. The attribute is migration-only and has no runtime effect:
+```php
+use SanderMuller\FluentValidation\FluentRules;
+
+class JsonImportValidator extends FluentValidator
+{
+    #[FluentRules]
+    public function rulesWithoutPrefix(): array { /* ... */ }
+}
+```

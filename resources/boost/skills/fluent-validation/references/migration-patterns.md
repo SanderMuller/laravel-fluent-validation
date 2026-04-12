@@ -2,6 +2,39 @@
 
 When converting existing validation rules to FluentRule, use the native method — do NOT use `->rule()` escape hatch unless the rule is app-specific or third-party.
 
+> Paired with the README's [Migrating existing validation with Rector](../../../../../README.md#migrating-existing-validation-with-rector) section. Start with the Rector run there; reach for this doc when you hit a file Rector left alone, or when you want the decision matrix for picking the right factory (`string()` vs `field()` vs `integer()` etc).
+
+---
+
+## Automating the bulk migration with Rector
+
+The companion package [`sandermuller/laravel-fluent-validation-rector`](https://github.com/sandermuller/laravel-fluent-validation-rector) provides Rector rules that handle the common patterns automatically. In real-world testing (Laravel app with ~120 FormRequests and 3469 tests), the rules converted 448 files with 0 regressions.
+
+```bash
+composer require --dev sandermuller/laravel-fluent-validation-rector
+```
+
+```php
+// rector.php
+use Rector\Config\RectorConfig;
+use SanderMuller\FluentValidationRector\Set\FluentValidationSetList;
+
+return RectorConfig::configure()
+    ->withPaths([__DIR__ . '/app'])
+    ->withSets([FluentValidationSetList::ALL]);
+```
+
+See the [Rector package README](https://github.com/sandermuller/laravel-fluent-validation-rector) for the full rule reference, granular set options, base class trait propagation, and known limitations.
+
+After running Rector, review these manual follow-ups:
+- Files extending custom `Validator` subclasses (need `FluentValidator` base change)
+- Abstract FormRequests whose subclasses use `collect(parent::rules())->mergeRecursive(...)` (skipped by design — see Extending parent rules below)
+- Conditional tuples with enum cases written as arrays (`['exclude_unless', $field, Enum::CASE]`) — ensure enum cases use `->value` when moving to fluent form
+
+**Non-standard rules methods:** if a class holds validation rules in a method that isn't called `rules()` (e.g. `rulesWithoutPrefix()` on a `FluentValidator` subclass for JSON-import pipelines), mark the method with `#[SanderMuller\FluentValidation\FluentRules]` so Rector detects it. The attribute is migration-only — it has no runtime effect and is safe to leave in place.
+
+**Debugging skipped files:** if Rector left a file untouched that you expected to be converted, re-run with `FLUENT_VALIDATION_RECTOR_VERBOSE=1 vendor/bin/rector process --dry-run`. The package rules emit `[fluent-validation:skip pid=N] RuleName ClassName (file): reason` lines on stderr explaining each decision ("abstract class", "detected as Livewire", "unsafe parent: a subclass manipulates parent::rules()", "already has HasFluentRules trait", etc). With `--parallel`, per-worker dedup means you may see the same skip from multiple `pid=` values — that's process-level duplication, not a logic bug.
+
 ---
 
 ## Choosing the right type
@@ -36,6 +69,20 @@ All conditional modifiers accept BOTH `(string $field, ...$values)` AND `(Closur
 ->requiredIf(fn () => $someCondition)
 ->prohibitedIf(true)
 ```
+
+### Passing BackedEnum cases to conditional modifiers
+
+Conditional modifiers accept `string|int|bool` values — they serialize via `implode(',', $values)`. Enum cases must be unwrapped via `->value`:
+
+```php
+// WRONG — fatal: "Object of class Status could not be converted to string"
+->excludeUnless('type', Status::DRAFT, Status::PUBLISHED)
+
+// CORRECT — pass the backing value
+->excludeUnless('type', Status::DRAFT->value, Status::PUBLISHED->value)
+```
+
+This also applies to `requiredIf`, `excludeIf`, `prohibitedIf`, `missingIf`, `presentIf`, etc. when called with the `(field, ...values)` signature. The `->in()` method is the exception — it accepts a BackedEnum class string directly (`->in(Status::class)`).
 
 ### Password
 
@@ -127,6 +174,25 @@ Keep the escape hatch — `whenInput()` doesn't support mixed arrays:
 ---
 
 ## Advanced patterns
+
+### Style: prefer explicit parent rules
+
+When writing new rules with wildcard children, define the parent array alongside them even when there's no type constraint:
+
+```php
+// Preferred — explicit parent
+'items'        => FluentRule::array()->required(),
+'items.*.name' => FluentRule::string()->required(),
+
+// Works — synthesis kicks in
+'items.*.name' => FluentRule::string()->required(),
+```
+
+When no explicit parent rule exists, `GroupWildcardRulesToEachRector` synthesizes `FluentRule::array()->nullable()` to preserve Laravel's flat-rule null-parity. That's safe, but explicit parents are self-documenting and give you direct control over `required`, `nullable`, `min`, `max`, and allowed keys at the array level.
+
+Grouping fires when the prefix has **≥1 typed/nested child** (e.g. `items.*.name`, `items.address`). Bare wildcards alone (`items.*` without a suffix) don't trigger grouping — they stay flat.
+
+Side effect of synthesis: scalar inputs where an array was expected (`items: "string"`) will start failing with `validation.array`. That's typically a latent bug in upstream code (a frontend sending the wrong type) getting surfaced for the first time — not a regression to apologize for.
 
 ### Custom error messages
 
