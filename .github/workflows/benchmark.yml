@@ -50,21 +50,6 @@ jobs:
           echo "${{ github.event.pull_request.number }}" > benchmark-result.md
           php benchmark.php --ci >> benchmark-result.md
 
-      - name: Run Pest benchmark suite
-        run: |
-          PEST_OUTPUT=$(vendor/bin/pest --no-coverage --colors=never --group=benchmark 2>&1 | grep -E '(Benchmark:|Scenario|Approach|──|Native|fast-check|per-item|fallback|HasFluentRules|RuleSet)' | grep -v '✓' || true)
-
-          if [ -n "$PEST_OUTPUT" ]; then
-            {
-              echo ""
-              echo "## Code Path Benchmarks"
-              echo ""
-              echo '```'
-              echo "$PEST_OUTPUT"
-              echo '```'
-            } >> benchmark-result.md
-          fi
-
       - name: Upload benchmark result
         uses: actions/upload-artifact@v7
         with:

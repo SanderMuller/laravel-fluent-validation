@@ -25,7 +25,7 @@ Write Laravel validation rules with IDE autocompletion instead of memorizing str
 ]),
 ```
 
-> **Migrating an existing codebase?** Jump straight to [Migrating existing validation with Rector](#migrating-existing-validation-with-rector) — a companion Rector package automates the bulk of the rewrite. Real-world testing: 448 files across 3469 tests with zero regressions.
+> **Migrating an existing codebase?** Jump straight to [Migrating existing validation with Rector](#migrating-existing-validation-with-rector), a companion Rector package automates the bulk of the rewrite. Real-world testing: 448 files across 3469 tests with zero regressions.
 
 ## Contents
 
@@ -42,7 +42,7 @@ Write Laravel validation rules with IDE autocompletion instead of memorizing str
 **Deep dive**
 - [Livewire](#livewire) — HasFluentValidation trait, Filament workaround
 - [Why this package?](#why-this-package) — DX, type safety, structure, performance
-- [Performance](#performance) — O(n) wildcards, benchmarks, RuleSet::validate
+- [Performance](#performance) — O(n) wildcards, pre-evaluation, fast-check closures, batched DB, benchmarks
 - [RuleSet](#ruleset) — builder, conditional fields, custom Validators
 - [Rule reference](#rule-reference) — all types, modifiers, conditionals, macros
 - [Troubleshooting](#troubleshooting) — common issues and solutions
@@ -353,7 +353,7 @@ If you've ever had to look up whether it's `required_with` or `required_with_all
 
 Beyond autocompletion, `each()` and `children()` let you group parent and child rules together instead of scattering 20 flat dot-notation keys across the file. Labels and messages go right on the rule, so you don't end up maintaining a separate `messages()` array that slowly drifts out of date.
 
-There's also a performance side. Laravel's wildcard validation is O(n²) for large arrays. The `HasFluentRules` trait fixes that, making it [up to 293x faster](#benchmarks) for simple rules.
+There's also a performance side. Laravel's wildcard validation is O(n²) for large arrays. The `HasFluentRules` trait fixes that, making it [up to 160x faster](#benchmarks) for nested wildcards and up to 69x faster for conditional-heavy payloads.
 
 <details>
 <summary><a name="compared-to-rule"></a>Compared to Laravel's <code>Rule</code> class</summary>
@@ -382,34 +382,44 @@ There's also a performance side. Laravel's wildcard validation is O(n²) for lar
 
 FluentRule objects compile to native Laravel format before validation runs. There is no runtime overhead compared to string rules.
 
-For large arrays with wildcard rules (`items.*.name`), the `HasFluentRules` trait replaces Laravel's [O(n²) wildcard expansion](https://github.com/laravel/framework/issues/49375) with O(n). It also generates PHP closures for 30+ common rules (string, numeric, email, date, array, boolean, in, regex, date comparisons with literal dates, etc.) that validate items without going through Laravel at all. Rules that can't be fast-checked (date comparisons with field references, custom closures) fall through to Laravel as normal.
+When using `HasFluentRules` (FormRequest), `HasFluentValidation` (Livewire), `FluentValidator`, or `RuleSet::validate()`, four optimizations kick in:
+
+- [**O(n) wildcard expansion**](#on-wildcard-expansion) — replaces Laravel's O(n²) `Arr::dot()` + regex expansion with a single tree walk
+- [**Pre-evaluation of conditional rules**](#pre-evaluation-of-conditional-rules) — resolves `exclude_unless`/`exclude_if` before validation and removes excluded attributes from the rule set
+- [**Fast-check closures**](#fast-check-closures) — compiles 30+ common rules into PHP closures that skip Laravel's validator entirely for passing values
+- [**Batched database validation**](#batched-database-validation) — turns N `exists`/`unique` queries into a single `whereIn`
 
 > [!NOTE]
-> These optimizations require `HasFluentRules` (FormRequest), `HasFluentValidation` (Livewire), `FluentValidator`, or `RuleSet::validate()`. When using `$request->validate()` or bare `Validator::make()`, FluentRule objects self-validate without wildcard optimization.
+> When using `$request->validate()` or bare `Validator::make()`, FluentRule objects self-validate without these optimizations.
 
 ### Benchmarks
 
-| Scenario                                          | Native Laravel | With HasFluentRules | Speedup |
-|---------------------------------------------------|----------------|---------------------|---------|
-| 500 items, simple rules (string, numeric, in)     | ~183ms         | **~2ms**            | ~92x    |
-| 500 items, string + date comparison               | ~183ms         | **~2ms**            | ~91x    |
-| 500 items, nested wildcards                       | ~183ms         | **~0.6ms**          | ~293x   |
-| 100 items, 47 conditional fields (exclude_unless) | ~3,000ms       | **~43ms**           | ~69x    |
+| Scenario | Optimizations | Native Laravel | Optimized | Speedup |
+|----------|---------------|----------------|-----------|---------|
+| [Product import](#product-import) — 500 items, simple rules | Wildcard, fast-check | ~162ms | **~3ms** | ~60x |
+| [Nested order lines](#nested-order-lines) — 1000 orders × 5 line items | Wildcard, fast-check (nested) | ~2,508ms | **~16ms** | ~160x |
+| [Conditional import](#conditional-import) — 100 items, 47 conditional fields | Wildcard, pre-evaluation | ~2,938ms | **~42ms** | ~69x |
+| [Event scheduling](#event-scheduling) — 100 items, field-ref dates | Wildcard, partial fast-check | ~19ms | **~10ms** | ~2x |
+| [Article submission](#article-submission) — 50 items, custom Rule objects | Wildcard only | ~8ms | **~2ms** | ~3x |
+| [Login form](#login-form) — 3 fields, no wildcards | None | ~0.1ms | **~0.1ms** | ~1x |
 
-Simple type+size rules and date comparisons (with literal dates) get the largest speedup because PHP closures skip Laravel entirely. Nested wildcard patterns (`options.*.label`) are expanded within the per-item closure for maximum throughput. Conditional rules (`exclude_unless`, `required_if` with closures) can't be fast-checked but are pre-evaluated to remove excluded attributes before validation runs.
+Forms without wildcard rules delegate directly to Laravel's validator. The Login scenario represents all non-wildcard FormRequests. All numbers are from `php benchmark.php` (macOS, PHP 8.4, OPcache); CI runs produce the same scenarios on Ubuntu.
+
+### O(n) wildcard expansion
+
+Laravel's `explodeWildcardRules()` flattens data with `Arr::dot()` and matches regex patterns against every key. For each wildcard rule, it scans every key in the flattened array, making the expansion O(n²). The package replaces this with a tree traversal that walks the data once and emits concrete paths as it descends.
+
+### Pre-evaluation of conditional rules
+
+Rules like `exclude_unless` and `exclude_if` are evaluated before the validator starts. Excluded attributes are removed from the rule set entirely, so the validator only sees the rules that actually apply. For a payload with 100 items and 47 conditional fields, this reduces the rule set from ~4,700 to ~200.
+
+### Fast-check closures
+
+For 30+ common rules (string, numeric, email, date, array, boolean, in, regex, date comparisons with literal dates, etc.), the package compiles PHP closures. `is_string($v) && strlen($v) <= 255` runs instead of going through rule parsing, method dispatch, and `BigNumber` size comparison. If a value passes, Laravel's validator never sees it. If it fails, that value falls through to Laravel for the correct error message. Rules that can't be fast-checked (date comparisons with field references, custom Rule objects, closures) go through Laravel as normal.
 
 ### Batched database validation
 
-When wildcard arrays use `exists` or `unique` rules, Laravel fires one database query per item — 500 items means 500 queries. `HasFluentRules` and `RuleSet::validate()` batch these into a single `whereIn` query automatically:
-
-```php
-// 500 items × exists rule = 1 query instead of 500
-'items' => FluentRule::array()->required()->each([
-    'product_id' => FluentRule::integer()->required()->exists('products', 'id'),
-]),
-```
-
-Rules with scalar `where()` clauses are batched too. Rules with closure callbacks fall through to per-item validation as before. The batching is transparent: error messages, custom messages, and `validated()` output are unchanged.
+When wildcard arrays use `exists` or `unique` rules, Laravel fires one database query per item. 500 items means 500 queries. `HasFluentRules` and `RuleSet::validate()` batch these into a single `whereIn` query automatically. Rules with scalar `where()` clauses are batched too. Rules with closure callbacks fall through to per-item validation as before. The batching is transparent: error messages, custom messages, and `validated()` output are unchanged. DB batching impact depends on the driver and network latency; it is measured in the test suite (`--group=benchmark`) rather than in `benchmark.php`.
 
 ### `RuleSet::validate()`
 
@@ -425,6 +435,120 @@ $validated = RuleSet::from([
 ```
 
 Benchmarks run automatically on PRs via GitHub Actions. All optimizations are Octane-safe (factory resolver restored via try/finally, no static state leakage).
+
+### Benchmark scenarios
+
+#### Product import
+
+500 products with simple, fully fast-checkable rules. All fields pass through PHP closures without touching Laravel's validator.
+
+```php
+'products'              => FluentRule::array()->required()->each([
+    'sku'               => FluentRule::string()->required()->max(50)->regex('/^SKU-/'),
+    'name'              => FluentRule::string()->required()->min(2)->max(255),
+    'price'             => FluentRule::numeric()->required()->min(0),
+    'quantity'           => FluentRule::numeric()->required()->integer()->min(0),
+    'category'          => FluentRule::string()->required()->in(['electronics', 'clothing', 'food']),
+    'active'            => FluentRule::boolean()->required(),
+    'tags'              => FluentRule::string()->nullable()->max(50),
+]),
+```
+
+**Optimizations**: O(n) wildcard expansion + fast-check closures for all fields.
+
+#### Nested order lines
+
+1000 orders, each with 5 line items. Nested wildcards (`orders.*.line_items.*.product_id`) are expanded within the per-item closure.
+
+```php
+'orders'                            => FluentRule::array()->required()->each([
+    'order_number'                  => FluentRule::string()->required()->alphaDash()->min(5),
+    'status'                        => FluentRule::string()->required()->in(['pending', 'processing', 'shipped']),
+    'line_items'                    => FluentRule::array()->required()->each([
+        'product_id'                => FluentRule::numeric()->required()->integer(),
+        'quantity'                  => FluentRule::numeric()->required()->integer()->min(1),
+        'price'                     => FluentRule::numeric()->required()->min(0.01),
+    ]),
+]),
+```
+
+**Optimizations**: O(n) wildcard expansion + fast-check closures, including the nested level.
+
+#### Conditional import
+
+100 interactive media items with 47 wildcard patterns. Most fields use `exclude_unless` to conditionally apply rules based on the item's `type` field. Only ~4 fields apply per item type out of 47 total.
+
+```php
+// String rules work through the same optimization path as FluentRule objects.
+'interactions'                                          => 'required|array|min:1',
+'interactions.*.type'                                   => ['required', 'string', Rule::in([...])],
+'interactions.*.title'                                  => ['nullable', 'string'],
+'interactions.*.start_time'                             => ['required', 'numeric', 'min:0'],
+'interactions.*.end_time'                               => ['required', 'numeric', 'gte:interactions.*.start_time'],
+// Only validated when type = 'chapter':
+'interactions.*.should_start_collapsed'                 => [['exclude_unless', 'interactions.*.type', 'chapter'], 'boolean'],
+'interactions.*.should_collapse_after_menu_item_click'  => [['exclude_unless', 'interactions.*.type', 'chapter'], 'boolean'],
+// Only validated when type = 'chapter' or 'menu':
+'interactions.*.position'                               => ['bail', ['exclude_unless', 'interactions.*.type', 'chapter', 'menu'], 'string'],
+// ... 40+ more conditional fields across 9 interaction types
+```
+
+**Optimizations**: O(n) wildcard expansion + pre-evaluation removes ~95% of rules before validation starts.
+
+#### Event scheduling
+
+100 events with date fields. `start_date` uses a literal date comparison (fast-checkable), but `end_date` and `registration_deadline` reference other fields (falls through to Laravel).
+
+```php
+'events'                        => FluentRule::array()->required()->each([
+    'name'                      => FluentRule::string()->required()->min(3)->max(255),
+    'start_date'                => FluentRule::date()->required()->after('2025-01-01'),        // literal → fast-checked
+    'end_date'                  => FluentRule::date()->required()->after('start_date'),          // field ref → Laravel
+    'registration_deadline'     => FluentRule::date()->required()->before('start_date'),         // field ref → Laravel
+]),
+```
+
+**Optimizations**: O(n) wildcard expansion + fast-check for `name` and `start_date` only. The field-reference date comparisons can't be compiled to closures because the comparison value isn't known until validation time.
+
+#### Article submission
+
+50 articles where most rules are custom `ValidationRule` objects. Custom objects bypass fast-check compilation entirely, so only the wildcard expansion helps.
+
+```php
+'articles'                      => FluentRule::array()->required()->each([
+    'title'                     => FluentRule::string()->required()->min(3)->max(255),
+    'slug'                      => FluentRule::string()->required()->alphaDash()->max(255),
+    'content'                   => ['required', 'string', new MinimumWordCount(100)],
+    'category'                  => ['required', new ValidCategory()],
+    'priority'                  => ['required', new ValidPriority()],
+]),
+```
+
+**Optimizations**: O(n) wildcard expansion only. Custom Rule objects bypass fast-check compilation, so most fields go through Laravel's validator.
+
+#### Login form
+
+3 fields, no wildcards. Without wildcard patterns, `RuleSet::validate()` delegates directly to Laravel's `Validator::make()`. None of the four optimizations apply because they all operate on per-item wildcard expansion.
+
+```php
+'email'    => FluentRule::email()->required()->max(255),
+'password' => FluentRule::string()->required()->min(8),
+'remember' => FluentRule::boolean()->nullable(),
+```
+
+**Optimizations**: None. FluentRule objects compile to native Laravel format, so there is no overhead either.
+
+#### When this won't help
+
+The performance optimizations target wildcard array validation. These cases see little or no speedup:
+
+- **Forms without wildcards** — `RuleSet::validate()` delegates directly to `Validator::make()`. No fast-checks, no expansion, no batching.
+- **Cross-field comparisons** (`after:start_date`, `gte:other_field`, `same:password`, `confirmed`) — these need to resolve sibling values at validation time and can't be compiled to closures.
+- **Custom `ValidationRule` objects and closures** — opaque to the fast-check compiler. Performance depends on what the rule does.
+- **`distinct` rules** — require comparing values across all items in the array, not per-item.
+- **Database rules with closure callbacks** (`exists`/`unique` with `->where(fn ...)`) — can't be batched; each item fires its own query.
+
+If you're not sure whether validation is your bottleneck, profile first. Laravel Telescope shows total request time breakdowns.
 
 > [!TIP]
 > **Using Boost?**  
@@ -583,7 +707,7 @@ class JsonImportValidator extends FluentValidator
 }
 ```
 
-The attribute has no runtime effect — it's a marker for the Rector rules only. Safe to leave in place after migrating.
+The attribute has no runtime effect. It's a marker for the Rector rules only. Safe to leave in place after migrating.
 
 ---
 
@@ -696,7 +820,7 @@ FluentRule::image()->minWidth(100)->maxWidth(1920)->minHeight(100)->maxHeight(10
 FluentRule::image()->width(800)->height(600)->ratio(16 / 9)
 ```
 
-**Field (untyped)** — modifiers without a type constraint. Use `field()` when the input has no inherent type (e.g. a value that could be a string OR integer depending on context), or when your only validation is modifiers (`required`, `nullable`, `in`, conditional presence). It's also the escape hatch Rector reaches for when it can't narrow the type from pipe/array rules — if you see `FluentRule::field()` in migrated code, consider whether a typed factory (`string()`, `integer()`) better expresses intent.
+**Field (untyped)** — modifiers without a type constraint. Use `field()` when the input has no inherent type (e.g. a value that could be a string OR integer depending on context), or when your only validation is modifiers (`required`, `nullable`, `in`, conditional presence). It's also the escape hatch Rector reaches for when it can't narrow the type from pipe/array rules. If you see `FluentRule::field()` in migrated code, consider whether a typed factory (`string()`, `integer()`) better expresses intent.
 
 ```php
 FluentRule::field()->present()
@@ -846,7 +970,7 @@ The Rector package includes 6 rules: string and array rule conversion, wildcard 
 
 See [Common migration patterns](resources/boost/skills/fluent-validation/references/migration-patterns.md) for a detailed reference covering rule-type selection, `Rule::` method conversion, BackedEnum handling, and advanced patterns.
 
-> **Expect further simplification in a future release.** A planned `SimplifyRuleWrappersRector` will collapse `->rule(Rule::X())` / `->rule('X')` / `->rule(['X', arg])` patterns to native methods wherever a fluent equivalent exists (`->rule('email')` → `->email()`, `->rule(Rule::unique('users'))` → `->unique('users')`, etc.). Don't hand-simplify the escape-hatch output — let the next Rector pass handle it so you can verify each transformation in isolation.
+> **Expect further simplification in a future release.** A planned `SimplifyRuleWrappersRector` will collapse `->rule(Rule::X())` / `->rule('X')` / `->rule(['X', arg])` patterns to native methods wherever a fluent equivalent exists (`->rule('email')` → `->email()`, `->rule(Rule::unique('users'))` → `->unique('users')`, etc.). Don't hand-simplify the escape-hatch output. Let the next Rector pass handle it so you can verify each transformation in isolation.
 
 ### Style: prefer explicit parent rules
 
