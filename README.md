@@ -25,6 +25,8 @@ Write Laravel validation rules with IDE autocompletion instead of memorizing str
 ]),
 ```
 
+> **Migrating an existing codebase?** Jump straight to [Migrating existing validation with Rector](#migrating-existing-validation-with-rector) — a companion Rector package automates the bulk of the rewrite. Real-world testing: 448 files across 3469 tests with zero regressions.
+
 ## Contents
 
 **Getting started**
@@ -32,6 +34,10 @@ Write Laravel validation rules with IDE autocompletion instead of memorizing str
 - [Quick start](#quick-start) — Validator::make, Form Requests, migrating existing rules
 - [Error messages](#error-messages) — labels, per-rule messages
 - [Array validation](#array-validation-with-each-and-children) — each, children, nesting
+
+**Migration**
+- [Migrating existing validation with Rector](#migrating-existing-validation-with-rector) — automated rewrite via [companion Rector package](https://github.com/sandermuller/laravel-fluent-validation-rector)
+- [Common migration patterns](resources/boost/skills/fluent-validation/references/migration-patterns.md) — detailed reference for manual conversions (external doc)
 
 **Deep dive**
 - [Livewire](#livewire) — HasFluentValidation trait, Filament workaround
@@ -559,6 +565,25 @@ class JsonImportValidator extends FluentValidator
 
 `FluentValidator` resolves the translator and presence verifier from the container, calls `prepare()` on the rules, and sets implicit attributes. Cross-field wildcard references (`requiredUnless('*.type', ...)`) work automatically.
 
+**Migrating rules in a non-standard method?** If your custom Validator holds its rules in a method that isn't named `rules()` (for example `rulesWithoutPrefix()` for a JSON-import pipeline), mark the method with `#[FluentRules]` so the migration Rector rules detect it:
+
+```php
+use SanderMuller\FluentValidation\FluentRules;
+
+class JsonImportValidator extends FluentValidator
+{
+    #[FluentRules]
+    public function rulesWithoutPrefix(): array
+    {
+        return [
+            'name' => ['required', 'string', 'max:255'],
+        ];
+    }
+}
+```
+
+The attribute has no runtime effect — it's a marker for the Rector rules only. Safe to leave in place after migrating.
+
 ---
 
 ## Rule reference
@@ -639,7 +664,7 @@ FluentRule::dateTime()->afterToday()                     // shortcut for format(
 <details>
 <summary><a name="rule-other-types"></a><strong>Boolean, Array, File, Image, Field, AnyOf</strong></summary>
 
-**Boolean** — acceptance and decline:
+**Boolean** — `boolean()` accepts `true`, `false`, `1`, `0`, `'1'`, `'0'`. Use `accepted()` for `'yes'`, `'on'`, `'1'`, `true` and `declined()` for `'no'`, `'off'`, `'0'`, `false`:
 
 ```php
 FluentRule::boolean()->accepted()->declined()
@@ -670,7 +695,7 @@ FluentRule::image()->minWidth(100)->maxWidth(1920)->minHeight(100)->maxHeight(10
 FluentRule::image()->width(800)->height(600)->ratio(16 / 9)
 ```
 
-**Field (untyped)** — modifiers without a type constraint:
+**Field (untyped)** — modifiers without a type constraint. Use `field()` when the input has no inherent type (e.g. a value that could be a string OR integer depending on context), or when your only validation is modifiers (`required`, `nullable`, `in`, conditional presence). It's also the escape hatch Rector reaches for when it can't narrow the type from pipe/array rules — if you see `FluentRule::field()` in migrated code, consider whether a typed factory (`string()`, `integer()`) better expresses intent.
 
 ```php
 FluentRule::field()->present()
@@ -792,6 +817,80 @@ FluentRule::string()->slug()
 
 </details>
 
+## Migrating existing validation with Rector
+
+The companion package [`sandermuller/laravel-fluent-validation-rector`](https://github.com/sandermuller/laravel-fluent-validation-rector) provides Rector rules that automate the bulk of a migration from native Laravel validation to FluentRule. In real-world testing against a production Laravel codebase, the rules converted **448 files across 3469 tests with zero regressions**.
+
+```bash
+composer require --dev sandermuller/laravel-fluent-validation-rector
+```
+
+```php
+// rector.php
+use Rector\Config\RectorConfig;
+use SanderMuller\FluentValidationRector\Set\FluentValidationSetList;
+
+return RectorConfig::configure()
+    ->withPaths([__DIR__ . '/app'])
+    ->withSets([FluentValidationSetList::ALL]);
+```
+
+```bash
+vendor/bin/rector process --dry-run   # preview changes
+vendor/bin/rector process             # apply them
+vendor/bin/pint                       # fix code style after
+```
+
+The Rector package includes 6 rules: string and array rule conversion, wildcard grouping into `each()`/`children()`, trait addition for FormRequests and Livewire components, and post-migration simplification. See the [Rector package README](https://github.com/sandermuller/laravel-fluent-validation-rector) for the full rule reference, granular set options, and configuration details.
+
+See [Common migration patterns](resources/boost/skills/fluent-validation/references/migration-patterns.md) for a detailed reference covering rule-type selection, `Rule::` method conversion, BackedEnum handling, and advanced patterns.
+
+> **Expect further simplification in a future release.** A planned `SimplifyRuleWrappersRector` will collapse `->rule(Rule::X())` / `->rule('X')` / `->rule(['X', arg])` patterns to native methods wherever a fluent equivalent exists (`->rule('email')` → `->email()`, `->rule(Rule::unique('users'))` → `->unique('users')`, etc.). Don't hand-simplify the escape-hatch output — let the next Rector pass handle it so you can verify each transformation in isolation.
+
+### Style: prefer explicit parent rules
+
+When writing new rules, define the parent array alongside its wildcard children even when you don't have a type constraint:
+
+```php
+// Preferred
+'items'        => FluentRule::array()->required(),
+'items.*.name' => FluentRule::string()->required(),
+
+// Works, but less explicit
+'items.*.name' => FluentRule::string()->required(),
+```
+
+Rector's `GroupWildcardRulesToEachRector` synthesizes `FluentRule::array()->nullable()` when no parent rule exists (preserving Laravel's flat-rule null-parity). That's safe, but explicit parents are self-documenting and let you control nullability/required/size at the array level. Existing codebases without explicit parents migrate fine — this is a convention for new code, not a rule.
+
+### Known limitations
+
+The Rector rules are deliberately conservative. They'll skip or leave untouched:
+
+- **Abstract classes** — subclasses may call `collect(parent::rules())->mergeRecursive(...)`, which breaks when the parent returns FluentRule objects instead of plain arrays. Abstract classes stay as-is so subclasses can still merge.
+- **Custom Validator subclasses** — classes extending your own `Validator` base (rather than Laravel's FormRequest) need manual migration. The rules only target FormRequest and Livewire.
+- **Dynamic rule building** — rules assembled via `collect()->put()`, runtime loops, or `Validator::sometimes()` after construction aren't detected. The rules only refactor literal array expressions in `rules()` returns and `$request->validate()` calls.
+- **Enum constants inside conditional tuples** — `['exclude_unless', $field, InteractionType::IMAGE]` stays as an array because enum cases can't be safely serialized through the fluent method's variadic `...$values`. The tuple converts only when all args are string/int/bool literals or variables.
+- **Complex `Rule::unique()` callbacks with multiple where clauses** — the rules convert `Rule::unique('users')->ignore($id)` and `Rule::exists('teams')->where('active', true)`, but deeply chained queries with 3+ where clauses bail to `->rule()` wrapping.
+- **Test file updates** — Rector processes production code. If your tests assert on specific validation error keys or messages that change shape after migration, expect to update them manually.
+- **Structural restructuring** — converting your `extends Validator` to `extends FluentValidator`, or replacing Collection-based rule assembly, needs manual work.
+
+### Verifying the migration
+
+After applying the Rector rules, work through this checklist in order. The cadence is "one full run at the start, filter-runs while investigating, one full run at the end" — resist the temptation to re-run the full suite between each small change.
+
+1. **Baseline full test run (optional but recommended).** Run `php artisan test --compact` or your project's equivalent *before* applying the rules. Note pass/fail counts and any pre-existing flakes so you can separate migration regressions from drift.
+2. **Dry-run first.** `vendor/bin/rector process --dry-run` — inspect the summary line (file count, rules applied). A count wildly above your `app/Http/Requests/` file total means a different Rector rule may also be matching; scope with `--clear-cache` and a path argument if needed.
+3. **Apply.** `vendor/bin/rector process` followed by `vendor/bin/pint --dirty` (your formatter of choice). Pint cleans up `\SanderMuller\FluentValidation\FluentRule` fully-qualified names into imports.
+4. **Diff-size sanity check.** `git diff --stat` — expect file count to match the dry-run summary. Large unexpected growth signals a stray rule; large shrinkage is normal (conversion replaces array scaffolding with method chains — net-negative line count is the healthy signal).
+5. **Spot-check 2–3 representative files.** Pick one small FormRequest, one with wildcards, one with custom rule objects (`->rule(new MyRule())`). Eyeball the transformation; if any look wrong, stop and investigate before touching the rest.
+
+   > If a file you expected to be converted was left untouched, re-run with `FLUENT_VALIDATION_RECTOR_VERBOSE=1 vendor/bin/rector process --dry-run`. The rules emit `[fluent-validation:skip pid=N]` lines on stderr explaining the decision ("abstract class", "detected as Livewire", "unsafe parent: a subclass manipulates parent::rules()", etc). No code change needed — just set the env var for the run. With `--parallel`, each worker dedups independently — seeing the same skip from multiple `pid=` values is normal (it's process-level duplication, not a logic bug).
+6. **Full test suite — second run.** `php artisan test --compact` with output captured to a file (`| tee /tmp/migration-run.log` or equivalent). This is your regression baseline.
+7. **Investigation loop (if failures).** Grep the captured log for unique `ErrorException:` / `TypeError:` signatures — most real regressions cluster into 2–3 root causes, not dozens of independent bugs. Fix one category, re-run only the affected subset with `--filter=PatternMatchingFailures`. Don't re-run the full suite to re-retrieve information already in the captured log.
+8. **Full test suite — final run.** One more full pass after all categories resolve. Same pass/fail profile as step 1 (minus any flake drift) is your green light.
+9. **Validation-message parity check *(optional, planned for v1.x)*.** A `validation:parity` helper is planned to diff attribute labels and error message keys between pre- and post-migration versions against the same fixture payload. Until then, for user-facing flows you care about, manually diff error responses from a pre-rector branch against the migrated one.
+10. **Commit.** Separate commit for the Rector run and any manual follow-ups so `git log` stays traceable.
+
 ## Troubleshooting
 
 **`validated()` is missing nested keys (children, each)**
@@ -812,6 +911,28 @@ If you think it should be a native method, [open an issue](https://github.com/Sa
 
 **`HasFluentValidation` conflicts with Filament's `InteractsWithSchemas`**
 Both traits define `validate()`. For Filament components, use `RuleSet::compileToArrays()` instead of the trait: `$this->validate(RuleSet::compileToArrays($this->rules()))`. This returns `array<string, array<mixed>>` matching Livewire's expected type, so PHPStan is happy. FluentRule works correctly without the trait for simple rules.
+
+**`Attempt to read property 'value' on int` after migration**
+The Rector rule appended `->value` to a class constant reference that isn't a true `BackedEnum`. This happens with legacy enum patterns — classes that define `public const int FOO = 0` + `__callStatic` instead of `enum Foo: int`. Update to the latest package version where the rule checks `is_subclass_of($class, BackedEnum::class)` before appending `->value`. Legacy constant classes are left untouched.
+
+**`array_search(): Argument #2 must be of type array, FluentRule\Rules\StringRule given`**
+A child FormRequest calls `parent::rules()` and manipulates the result with `array_search`, `array_push`, bracket assignment, or `collect()->mergeRecursive()`. Before the current Rector rule shipped, the parent could be converted without knowing the child would manipulate the array. A three-layer detector (same-file AST scan, file-based IPC between parallel workers via `flock`, full-project fallback scan) now marks such parents as unsafe and skips them. Both the parent and the manipulating child stay as-is. Update the package if you hit this.
+
+**Tests pass after migration but validation messages feel off**
+Your test suite probably asserts on response status codes and JSON shape, not on error-bag contents. Validation messages and attribute labels may drift without test failures. Until `validation:parity` ships in v1.x, spot-check user-facing flows by hand: send a deliberately invalid payload against both a pre-migration branch and the migrated branch, and diff the `errors` arrays.
+
+**Rector crashes mid-run with `Class "SplObjectStorage" not found` or similar missing-class errors**
+Pre-release bug in `SimplifyFluentRuleRector` where `use SplObjectStorage;` was missing. Fixed in the current release (migrated to `WeakMap` for automatic GC-driven cleanup). Update the package; no code changes needed on your end.
+
+**`Object of class X could not be converted to string` with BackedEnum in conditional rules**
+Conditional modifiers (`excludeUnless`, `requiredIf`, `prohibitedIf`, etc.) serialize `...$values` via `implode()`. Enum cases can't be imploded directly — unwrap them with `->value`:
+```php
+// WRONG
+->excludeUnless('type', Status::DRAFT, Status::PUBLISHED)
+// CORRECT
+->excludeUnless('type', Status::DRAFT->value, Status::PUBLISHED->value)
+```
+`->in()` is the exception — it accepts a BackedEnum class directly: `->in(Status::class)`.
 
 ## Testing
 
