@@ -43,7 +43,9 @@ jobs:
           restore-keys: rector-cache-
 
       - name: Run Rector
-        run: vendor/bin/rector process --no-diffs
+        run: |
+          mkdir -p .cache/rector .cache/rectorContainer
+          vendor/bin/rector process --no-diffs
 
       - name: Pull latest changes
         env:
