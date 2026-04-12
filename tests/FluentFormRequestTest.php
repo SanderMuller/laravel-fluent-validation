@@ -76,12 +76,21 @@ it('skips fast checks for object rules', function (): void {
     expect($checks)->not->toHaveKey('items.*.email');
 });
 
-it('skips fast checks for date comparison rules', function (): void {
+it('fast-checks date comparison rules with literal dates', function (): void {
     $checks = OptimizedValidator::buildFastChecks([
         'items.*.starts_at' => 'required|date|after:today',
     ]);
 
-    expect($checks)->not->toHaveKey('items.*.starts_at');
+    expect($checks)->toHaveKey('items.*.starts_at');
+});
+
+it('skips fast checks for date comparison rules with field references', function (): void {
+    $checks = OptimizedValidator::buildFastChecks([
+        'items.*.ends_at' => 'required|date|after:starts_at',
+    ]);
+
+    // 'starts_at' is not a date literal — strtotime returns false
+    expect($checks)->not->toHaveKey('items.*.ends_at');
 });
 
 it('skips fast checks for size and between rules', function (): void {
@@ -96,12 +105,12 @@ it('skips fast checks for size and between rules', function (): void {
     expect($betweenCheck)->not->toHaveKey('items.*.score');
 });
 
-it('skips fast checks for array rules', function (): void {
+it('fast-checks array rules', function (): void {
     $checks = OptimizedValidator::buildFastChecks([
         'items.*.tags' => 'required|array',
     ]);
 
-    expect($checks)->not->toHaveKey('items.*.tags');
+    expect($checks)->toHaveKey('items.*.tags');
 });
 
 it('skips fast checks for unknown rules', function (): void {
@@ -996,14 +1005,12 @@ it('works with sometimes() rules added after validator creation', function (): v
 // Edge cases: date fast check (fast-checkable without comparisons)
 // =========================================================================
 
-it('skips fast checks for date rules (strtotime diverges from Laravel)', function (): void {
+it('fast-checks date rules', function (): void {
     $checks = OptimizedValidator::buildFastChecks([
         'items.*.created_at' => 'required|date',
     ]);
 
-    // date rules are not fast-checkable because strtotime() accepts values
-    // that Laravel's validateDate() rejects (e.g., "0", "1")
-    expect($checks)->not->toHaveKey('items.*.created_at');
+    expect($checks)->toHaveKey('items.*.created_at');
 });
 
 // =========================================================================

@@ -21,19 +21,31 @@ use Illuminate\Validation\PresenceVerifierInterface;
  */
 final class PrecomputedPresenceVerifier implements DatabasePresenceVerifierInterface
 {
-    /** @var array<string, array<int, mixed>>  Keyed by "table:column" */
+    /** @var array<string, array<string, true>>  Keyed by "table:column", values are string-cast flip maps */
     private array $lookups = [];
 
     public function __construct(private readonly ?PresenceVerifierInterface $fallback = null) {}
 
     /**
      * Register pre-computed values for a table+column pair.
+     * Values are cast to strings for loose comparison matching database behavior
+     * (databases do implicit type coercion on WHERE column = value).
      *
      * @param  array<int, mixed>  $values  Values that exist in the database
      */
     public function addLookup(string $table, string $column, array $values): void
     {
-        $this->lookups[$table . ':' . $column] = $values;
+        // Store as string-keyed flip map for O(1) isset() lookups.
+        // String cast matches database implicit type coercion behavior.
+        $map = [];
+
+        foreach ($values as $v) {
+            if ($v !== null) {
+                $map[(string) $v] = true;
+            }
+        }
+
+        $this->lookups[$table . ':' . $column] = $map;
     }
 
     /** @param  array<mixed>  $extra */
@@ -49,7 +61,7 @@ final class PrecomputedPresenceVerifier implements DatabasePresenceVerifierInter
             return 0;
         }
 
-        return in_array($value, $this->lookups[$key], true) ? 1 : 0;
+        return isset($this->lookups[$key][is_scalar($value) ? (string) $value : '']) ? 1 : 0;
     }
 
     /**
@@ -69,9 +81,10 @@ final class PrecomputedPresenceVerifier implements DatabasePresenceVerifierInter
         }
 
         $count = 0;
+        $lookup = $this->lookups[$key];
 
         foreach ($values as $val) {
-            if (in_array($val, $this->lookups[$key], true)) {
+            if (is_scalar($val) && isset($lookup[(string) $val])) {
                 ++$count;
             }
         }

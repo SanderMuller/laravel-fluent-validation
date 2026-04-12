@@ -2,6 +2,7 @@
 
 namespace SanderMuller\FluentValidation;
 
+use Illuminate\Support\Arr;
 use Illuminate\Support\MessageBag;
 use Illuminate\Validation\Validator;
 
@@ -21,8 +22,8 @@ class OptimizedValidator extends Validator
     /** @var array<string, \Closure(mixed): bool> Fast checks keyed by wildcard pattern */
     private array $fastChecks = [];
 
-    /** @var array<string, string> Expanded attribute → wildcard pattern lookup */
-    private array $attributePatternMap = [];
+    /** @var array<string, list<string>> Pattern → expanded attributes (pre-grouped) */
+    private array $fastCheckGroups = [];
 
     /**
      * @param  array<string, \Closure(mixed): bool>  $fastChecks
@@ -31,7 +32,13 @@ class OptimizedValidator extends Validator
     public function withFastChecks(array $fastChecks, array $attributePatternMap): static
     {
         $this->fastChecks = $fastChecks;
-        $this->attributePatternMap = $attributePatternMap;
+
+        // Pre-group attributes by pattern for the fast-check loop
+        foreach ($attributePatternMap as $attribute => $pattern) {
+            if (isset($fastChecks[$pattern])) {
+                $this->fastCheckGroups[$pattern][] = $attribute;
+            }
+        }
 
         return $this;
     }
@@ -45,8 +52,27 @@ class OptimizedValidator extends Validator
     {
         $removedRules = [];
         $this->conditionValueCache = [];
-        $hasFastChecks = $this->fastChecks !== [];
 
+        // Phase 1: Fast-check wildcard attributes by pattern.
+        // Iterates per-pattern with all values for that pattern, improving
+        // cache locality and reducing closure dispatch overhead.
+        if ($this->fastCheckGroups !== []) {
+            $flatData = Arr::dot($this->getData());
+
+            foreach ($this->fastCheckGroups as $pattern => $attributes) {
+                $check = $this->fastChecks[$pattern];
+
+                foreach ($attributes as $attribute) {
+                    if (isset($this->rules[$attribute]) && $check($flatData[$attribute] ?? null)) {
+                        $removedRules[$attribute] = $this->rules[$attribute];
+                        unset($this->rules[$attribute]);
+                    }
+                }
+            }
+        }
+
+        // Phase 2: Conditional pre-evaluation and secondary fast-checks
+        // for remaining attributes (non-fast-checked wildcards + top-level rules).
         foreach ($this->rules as $attribute => $attributeRules) {
             if (! is_array($attributeRules)) {
                 continue;
@@ -54,22 +80,6 @@ class OptimizedValidator extends Validator
 
             /** @var list<mixed> $rules */
             $rules = $attributeRules;
-
-            // Fast-check: skip eligible wildcard attributes that pass PHP checks.
-            if ($hasFastChecks) {
-                $pattern = $this->attributePatternMap[$attribute] ?? null;
-
-                if ($pattern !== null && isset($this->fastChecks[$pattern])) {
-                    $value = $this->getValue($attribute);
-
-                    if (($this->fastChecks[$pattern])($value)) {
-                        $removedRules[$attribute] = $rules;
-                        unset($this->rules[$attribute]);
-
-                        continue;
-                    }
-                }
-            }
 
             // Conditional pre-evaluation: check exclude_unless/exclude_if
             // conditions without going through Laravel's validation loop.
@@ -85,7 +95,7 @@ class OptimizedValidator extends Validator
             // If condition was present but NOT excluded, try fast-checking the
             // remaining non-conditional rules (e.g., the "string" part of
             // ["exclude_unless:...", "string"]).
-            if ($excludeResult === false && $hasFastChecks) {
+            if ($excludeResult === false && $this->fastChecks !== []) {
                 $remainingRule = $this->extractNonConditionalRule($rules);
 
                 if ($remainingRule !== null) {

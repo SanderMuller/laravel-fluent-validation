@@ -33,9 +33,9 @@ final class FastCheckCompiler
     private static function parse(string $ruleString): ?array
     {
         $config = [
-            'required' => false,
+            'required' => false, 'filled' => false,
             'string' => false, 'numeric' => false, 'integer' => false,
-            'boolean' => false, 'email' => false,
+            'boolean' => false, 'array' => false, 'email' => false, 'date' => false,
             'url' => false, 'ip' => false, 'uuid' => false, 'ulid' => false,
             'accepted' => false, 'declined' => false,
             'alpha' => false, 'alphaDash' => false, 'alphaNum' => false,
@@ -43,6 +43,10 @@ final class FastCheckCompiler
             'digits' => null, 'digitsMin' => null, 'digitsMax' => null,
             'in' => null, 'notIn' => null,
             'regex' => null, 'notRegex' => null,
+            'dateFormat' => null,
+            'after' => null, 'before' => null,
+            'afterOrEqual' => null, 'beforeOrEqual' => null,
+            'dateEquals' => null,
         ];
 
         foreach (explode('|', $ruleString) as $part) {
@@ -68,8 +72,8 @@ final class FastCheckCompiler
     {
         // Simple boolean flags
         $boolFlags = [
-            'required', 'string', 'numeric', 'boolean',
-            'email', 'url', 'ip', 'uuid', 'ulid',
+            'required', 'filled', 'string', 'numeric', 'boolean',
+            'array', 'email', 'date', 'url', 'ip', 'uuid', 'ulid',
             'accepted', 'declined',
         ];
 
@@ -91,7 +95,13 @@ final class FastCheckCompiler
             str_starts_with($part, 'not_in:') => [...$config, 'notIn' => self::parseInValues(substr($part, 7))],
             str_starts_with($part, 'regex:') => [...$config, 'regex' => substr($part, 6)],
             str_starts_with($part, 'not_regex:') => [...$config, 'notRegex' => substr($part, 10)],
-            in_array($part, ['array', 'date', 'filled'], true) || self::isDateComparison($part) => null,
+            str_starts_with($part, 'date_format:') => [...$config, 'dateFormat' => substr($part, 12)],
+            str_starts_with($part, 'date_equals:') => self::parseDateLiteral($config, 'dateEquals', substr($part, 12)),
+            str_starts_with($part, 'after_or_equal:') => self::parseDateLiteral($config, 'afterOrEqual', substr($part, 15)),
+            str_starts_with($part, 'before_or_equal:') => self::parseDateLiteral($config, 'beforeOrEqual', substr($part, 16)),
+            str_starts_with($part, 'after:') => self::parseDateLiteral($config, 'after', substr($part, 6)),
+            str_starts_with($part, 'before:') => self::parseDateLiteral($config, 'before', substr($part, 7)),
+            // 'array' is now handled by boolFlags above
             default => null,
         };
     }
@@ -116,11 +126,24 @@ final class FastCheckCompiler
         );
     }
 
-    private static function isDateComparison(string $part): bool
+    /**
+     * Parse a date comparison rule. Only compiles when the parameter is a
+     * date literal (resolvable by strtotime), not a field reference.
+     *
+     * @param  array<string, mixed>  $config
+     * @return array<string, mixed>|null
+     */
+    private static function parseDateLiteral(array $config, string $key, string $param): ?array
     {
-        return str_starts_with($part, 'after:') || str_starts_with($part, 'before:')
-            || str_starts_with($part, 'after_or_equal:') || str_starts_with($part, 'before_or_equal:')
-            || str_starts_with($part, 'date_format:') || str_starts_with($part, 'date_equals:');
+        // Field references (e.g., "start_date") can't be resolved at compile time.
+        // Only date literals ("2030-01-01", "today", "now", "+1 week") are supported.
+        $timestamp = strtotime($param);
+
+        if ($timestamp === false) {
+            return null; // Not a date literal — bail
+        }
+
+        return [...$config, $key => $timestamp];
     }
 
     /**
@@ -131,6 +154,7 @@ final class FastCheckCompiler
     {
         // Pre-extract typed values for the hot path closure.
         $required = (bool) $c['required'];
+        $filled = (bool) $c['filled'];
         $isString = (bool) $c['string'];
         $isNumeric = (bool) $c['numeric'];
         $isInteger = (bool) $c['integer'];
@@ -146,10 +170,15 @@ final class FastCheckCompiler
         $checks = [];
         self::addTypeChecks($c, $checks);
         self::addFormatChecks($c, $checks);
+        self::addDateChecks($c, $checks);
         self::addDigitChecks($c, $checks);
 
-        return static function (mixed $value) use ($required, $isString, $isNumeric, $isInteger, $min, $max, $in, $notIn, $regex, $notRegex, $checks): bool {
+        return static function (mixed $value) use ($required, $filled, $isString, $isNumeric, $isInteger, $min, $max, $in, $notIn, $regex, $notRegex, $checks): bool {
             if ($required && ($value === null || $value === '')) {
+                return false;
+            }
+
+            if ($filled && $value === '') {
                 return false;
             }
 
@@ -219,6 +248,10 @@ final class FastCheckCompiler
             $checks[] = static fn (mixed $v): bool => is_string($v);
         }
 
+        if (($c['array'] ?? false) === true) {
+            $checks[] = static fn (mixed $v): bool => is_array($v);
+        }
+
         if (($c['numeric'] ?? false) === true) {
             $checks[] = static fn (mixed $v): bool => is_numeric($v);
         }
@@ -264,6 +297,78 @@ final class FastCheckCompiler
 
         if (($c['alphaNum'] ?? false) === true) {
             $checks[] = static fn (mixed $v): bool => is_string($v) && (bool) preg_match('/\A[a-zA-Z0-9]+\z/u', $v);
+        }
+    }
+
+    /**
+     * @param  array<string, mixed>  $c
+     * @param  list<\Closure(mixed): bool>  $checks
+     */
+    private static function addDateChecks(array $c, array &$checks): void
+    {
+        // Build a single combined date check closure that calls strtotime() once
+        // per value, then evaluates all date conditions against the cached timestamp.
+        $isDate = ($c['date'] ?? false) === true;
+        /** @var ?string $dateFormat */
+        $dateFormat = $c['dateFormat'] ?? null;
+        /** @var ?int $after */
+        $after = $c['after'] ?? null;
+        /** @var ?int $afterOrEqual */
+        $afterOrEqual = $c['afterOrEqual'] ?? null;
+        /** @var ?int $before */
+        $before = $c['before'] ?? null;
+        /** @var ?int $beforeOrEqual */
+        $beforeOrEqual = $c['beforeOrEqual'] ?? null;
+        /** @var ?int $dateEquals */
+        $dateEquals = $c['dateEquals'] ?? null;
+        $dateEqualsStr = $dateEquals !== null ? date('Y-m-d', $dateEquals) : null;
+
+        $hasDateChecks = $isDate || $dateFormat !== null || $after !== null
+            || $afterOrEqual !== null || $before !== null || $beforeOrEqual !== null
+            || $dateEquals !== null;
+
+        if ($hasDateChecks) {
+            $checks[] = static function (mixed $v) use ($isDate, $dateFormat, $after, $afterOrEqual, $before, $beforeOrEqual, $dateEqualsStr): bool {
+                if (! is_string($v)) {
+                    return false;
+                }
+
+                if ($dateFormat !== null) {
+                    $d = \DateTime::createFromFormat('!' . $dateFormat, $v);
+
+                    return $d !== false && $d->format($dateFormat) === $v;
+                }
+
+                // Single strtotime() call for all date comparisons
+                $ts = strtotime($v);
+
+                if ($ts === false) {
+                    return ! $isDate && $after === null && $afterOrEqual === null
+                        && $before === null && $beforeOrEqual === null && $dateEqualsStr === null;
+                }
+
+                if ($after !== null && $ts <= $after) {
+                    return false;
+                }
+
+                if ($afterOrEqual !== null && $ts < $afterOrEqual) {
+                    return false;
+                }
+
+                if ($before !== null && $ts >= $before) {
+                    return false;
+                }
+
+                if ($beforeOrEqual !== null && $ts > $beforeOrEqual) {
+                    return false;
+                }
+
+                if ($dateEqualsStr !== null && date('Y-m-d', $ts) !== $dateEqualsStr) {
+                    return false;
+                }
+
+                return true;
+            };
         }
     }
 

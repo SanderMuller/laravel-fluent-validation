@@ -8,8 +8,6 @@ use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Traits\Conditionable;
 use Illuminate\Support\Traits\Macroable;
-use Illuminate\Validation\Rules\Exists;
-use Illuminate\Validation\Rules\Unique;
 use Illuminate\Validation\ValidationException;
 use ReflectionProperty;
 use SanderMuller\FluentValidation\Rules\ArrayRule;
@@ -123,10 +121,11 @@ final class RuleSet implements Arrayable
      *     parent::__construct($translator, $data, $p->rules, $p->messages, $p->attributes);
      *
      * @param  array<string, mixed>  $data
+     * @param  array<string, mixed>|null  $flatRules  Pre-computed flatten() result
      */
-    public function prepare(array $data): PreparedRules
+    public function prepare(array $data, ?array $flatRules = null): PreparedRules
     {
-        [$expanded, $implicitAttributes] = $this->expand($data);
+        [$expanded, $implicitAttributes] = $this->expand($data, $flatRules);
         [$messages, $attributes] = self::extractMetadata($expanded);
 
         return new PreparedRules(
@@ -147,6 +146,8 @@ final class RuleSet implements Arrayable
     }
 
     /**
+     * Validate data against the rule set with full optimization.
+     *
      * @param  array<string, mixed>  $data
      * @param  array<string, string>  $messages
      * @param  array<string, string>  $attributes
@@ -197,11 +198,12 @@ final class RuleSet implements Arrayable
     /**
      * Split flattened rules into top-level rules and wildcard groups.
      *
+     * @param  array<string, mixed>|null  $flatRules  Pre-computed flatten() result to avoid re-processing
      * @return array{0: array<string, mixed>, 1: array<string, array<string, mixed>>}
      */
-    private function separateRules(): array
+    private function separateRules(?array $flatRules = null): array
     {
-        $flat = $this->flatten();
+        $flat = $flatRules ?? $this->flatten();
         $topRules = [];
         /** @var array<string, array<string, mixed>> $wildcardGroups */
         $wildcardGroups = [];
@@ -668,10 +670,41 @@ final class RuleSet implements Arrayable
 
             $valueCheck = FastCheckCompiler::compile($rule);
 
-            if ($valueCheck instanceof \Closure) {
-                $checks[] = static fn (array $data): bool => $valueCheck($data[$field] ?? null);
-            } else {
+            if (! $valueCheck instanceof \Closure) {
                 $slowRules[$field] = $rule;
+
+                continue;
+            }
+
+            // Nested wildcard field (e.g., options.*.label): expand and check each item
+            if (str_contains($field, '*.')) {
+                $parts = explode('.*.', $field, 2);
+                $parentField = $parts[0];
+                $childField = $parts[1];
+
+                $checks[] = static function (array $data) use ($parentField, $childField, $valueCheck): bool {
+                    $items = $data[$parentField] ?? null;
+                    if (! is_array($items)) {
+                        return true; // No items to validate
+                    }
+
+                    foreach ($items as $item) {
+                        if (! is_array($item)) {
+                            return false;
+                        }
+
+                        if (! $valueCheck($item[$childField] ?? null)) {
+                            return false;
+                        }
+                    }
+
+                    return true;
+                };
+            } elseif ($field === '*') {
+                // Scalar each: value is in '_v' key
+                $checks[] = static fn (array $data): bool => $valueCheck($data['_v'] ?? null);
+            } else {
+                $checks[] = static fn (array $data): bool => $valueCheck($data[$field] ?? null);
             }
         }
 
@@ -794,11 +827,12 @@ final class RuleSet implements Arrayable
 
     /**
      * @param  array<string, mixed>  $data
+     * @param  array<string, mixed>|null  $flatRules  Pre-computed flatten() result
      * @return array{0: array<string, mixed>, 1: array<string, list<string>>}
      */
-    public function expand(array $data): array
+    public function expand(array $data, ?array $flatRules = null): array
     {
-        $flatRules = $this->flatten();
+        $flatRules ??= $this->flatten();
         $rules = [];
         $implicitAttributes = [];
 

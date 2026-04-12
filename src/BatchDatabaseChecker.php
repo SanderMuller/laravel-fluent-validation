@@ -192,7 +192,7 @@ final class BatchDatabaseChecker
         $groups = [];
 
         foreach ($batchableFields as $field => $rule) {
-            $values = array_values(array_unique($allValues[$field] ?? [], SORT_REGULAR));
+            $values = self::uniqueStringValues($allValues[$field] ?? []);
 
             if ($values === []) {
                 continue;
@@ -295,8 +295,7 @@ final class BatchDatabaseChecker
     public static function registerLookups(PrecomputedPresenceVerifier $verifier, array $groups): void
     {
         foreach ($groups as $key => $group) {
-            /** @var array<int, mixed> $values */
-            $values = array_values(array_unique($group['values'], SORT_REGULAR));
+            $values = self::uniqueStringValues($group['values']);
 
             if ($values === []) {
                 continue;
@@ -432,6 +431,17 @@ final class BatchDatabaseChecker
         }
 
         return $results;
+    }
+
+    /**
+     * Deduplicate and cast values to strings for batch queries.
+     *
+     * @param  array<mixed>  $values
+     * @return list<string>
+     */
+    private static function uniqueStringValues(array $values): array
+    {
+        return array_values(array_unique(array_map(strval(...), $values), SORT_STRING));
     }
 
     private static function readProperty(object $object, string $property): mixed
