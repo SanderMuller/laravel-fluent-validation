@@ -1,5 +1,6 @@
 <?php declare(strict_types=1);
 
+use Rector\Caching\ValueObject\Storage\FileCacheStorage;
 use Rector\Carbon\Rector\FuncCall\DateFuncCallToCarbonRector;
 use Rector\CodeQuality\Rector\ClassMethod\InlineArrayReturnAssignRector;
 use Rector\CodeQuality\Rector\If_\ExplicitBoolCompareRector;
@@ -14,7 +15,11 @@ use RectorLaravel\Set\LaravelSetList;
 use RectorPest\Set\PestSetList;
 
 return RectorConfig::configure()
-    ->withCache('.cache/rector')
+    ->withCache(
+        cacheDirectory: './.cache/rector',
+        cacheClass: FileCacheStorage::class,
+        containerCacheDirectory: './.cache/rectorContainer',
+    )
     ->withPaths([
         __DIR__ . '/src',
         __DIR__ . '/tests',
@@ -31,6 +36,8 @@ return RectorConfig::configure()
         rectorPreset: true,
         phpunitCodeQuality: true,
     )
+    ->withAttributesSets()
+    ->withTypeCoverageDocblockLevel(0)
     ->withParallel(300, 15, 15)
     ->withMemoryLimit('3G')
     ->withPhpSets(php82: true)

@@ -44,6 +44,12 @@ parameters:
             reportUnmatched: false
         - identifier: ternary.condNotBoolean
 
+        # Pest $this->fail() in closures — PHPStan can't resolve $this to TestCase
+        -
+            identifier: method.notFound
+            path: tests/
+            reportUnmatched: false
+
         # Pest framework internals — expect() chains use Pest's internal Expectation class
         -
             identifier: method.internalClass

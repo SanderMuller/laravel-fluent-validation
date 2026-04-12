@@ -22,6 +22,9 @@ _ide_helper_models.php
 /.fleet
 /.vscode
 
+# Claude Code
+.claude/scheduled_tasks.lock
+
 # Misc
 phpunit.xml
 phpstan.neon

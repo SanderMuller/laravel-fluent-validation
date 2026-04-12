@@ -1,7 +1,25 @@
 parameters:
 	ignoreErrors:
 		-
-			rawMessage: 'Cognitive complexity for "SanderMuller\FluentValidation\FastCheckCompiler::buildClosure()" is 38, keep it under 20'
+			rawMessage: 'Parameter #1 $callback of function array_map expects (callable(mixed): mixed)|null, Closure(bool|float|GMP|int|resource|string|null): string given.'
+			identifier: argument.type
+			count: 1
+			path: src/BatchDatabaseChecker.php
+
+		-
+			rawMessage: 'Class cognitive complexity is 103, keep it under 80'
+			identifier: complexity.classLike
+			count: 1
+			path: src/FastCheckCompiler.php
+
+		-
+			rawMessage: 'Cognitive complexity for "SanderMuller\FluentValidation\FastCheckCompiler::addDateChecks()" is 23, keep it under 20'
+			identifier: complexity.functionLike
+			count: 1
+			path: src/FastCheckCompiler.php
+
+		-
+			rawMessage: 'Cognitive complexity for "SanderMuller\FluentValidation\FastCheckCompiler::buildClosure()" is 40, keep it under 20'
 			identifier: complexity.functionLike
 			count: 1
 			path: src/FastCheckCompiler.php
@@ -13,13 +31,19 @@ parameters:
 			path: src/FluentFormRequest.php
 
 		-
-			rawMessage: 'Cognitive complexity for "SanderMuller\FluentValidation\OptimizedValidator::passes()" is 35, keep it under 20'
+			rawMessage: 'Cognitive complexity for "SanderMuller\FluentValidation\OptimizedValidator::passes()" is 37, keep it under 20'
 			identifier: complexity.functionLike
 			count: 1
 			path: src/OptimizedValidator.php
 
 		-
-			rawMessage: 'Class cognitive complexity is 205, keep it under 80'
+			rawMessage: Cannot cast mixed to string.
+			identifier: cast.string
+			count: 1
+			path: src/PrecomputedPresenceVerifier.php
+
+		-
+			rawMessage: 'Class cognitive complexity is 218, keep it under 80'
 			identifier: complexity.classLike
 			count: 1
 			path: src/RuleSet.php
