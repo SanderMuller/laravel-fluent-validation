@@ -4,7 +4,7 @@
 [![GitHub Tests Action Status](https://img.shields.io/github/actions/workflow/status/sandermuller/laravel-fluent-validation/run-tests.yml?branch=main&label=tests&style=flat-square)](https://github.com/sandermuller/laravel-fluent-validation/actions?query=workflow%3Arun-tests+branch%3Amain)
 [![GitHub Code Style Action Status](https://img.shields.io/github/actions/workflow/status/sandermuller/laravel-fluent-validation/fix-php-code-style-issues.yml?branch=main&label=code%20style&style=flat-square)](https://github.com/sandermuller/laravel-fluent-validation/actions?query=workflow%3A"Fix+PHP+code+style+issues"+branch%3Amain)
 
-Write Laravel validation rules with IDE autocompletion instead of memorizing string syntax. Each rule type only exposes the methods that make sense for it, and `each()`/`children()` let you co-locate parent and child rules. For large arrays, the `HasFluentRules` trait makes wildcard validation [up to 97x faster](#benchmarks).
+Write Laravel validation rules with IDE autocompletion instead of memorizing string syntax. Each rule type only exposes the methods that make sense for it, and `each()`/`children()` let you co-locate parent and child rules. For large arrays, the `HasFluentRules` trait makes wildcard validation [up to 293x faster](#benchmarks).
 
 ```php
 // Before
@@ -353,7 +353,7 @@ If you've ever had to look up whether it's `required_with` or `required_with_all
 
 Beyond autocompletion, `each()` and `children()` let you group parent and child rules together instead of scattering 20 flat dot-notation keys across the file. Labels and messages go right on the rule, so you don't end up maintaining a separate `messages()` array that slowly drifts out of date.
 
-There's also a performance side. Laravel's wildcard validation is O(n²) for large arrays. The `HasFluentRules` trait fixes that, making it [up to 97x faster](#benchmarks) for simple rules.
+There's also a performance side. Laravel's wildcard validation is O(n²) for large arrays. The `HasFluentRules` trait fixes that, making it [up to 293x faster](#benchmarks) for simple rules.
 
 <details>
 <summary><a name="compared-to-rule"></a>Compared to Laravel's <code>Rule</code> class</summary>
@@ -382,20 +382,21 @@ There's also a performance side. Laravel's wildcard validation is O(n²) for lar
 
 FluentRule objects compile to native Laravel format before validation runs. There is no runtime overhead compared to string rules.
 
-For large arrays with wildcard rules (`items.*.name`), the `HasFluentRules` trait replaces Laravel's [O(n²) wildcard expansion](https://github.com/laravel/framework/issues/49375) with O(n). It also generates PHP closures for 25 common rules (string, numeric, email, in, regex, etc.) that validate items without going through Laravel at all. Rules that can't be fast-checked (date comparisons, custom closures) fall through to Laravel as normal.
+For large arrays with wildcard rules (`items.*.name`), the `HasFluentRules` trait replaces Laravel's [O(n²) wildcard expansion](https://github.com/laravel/framework/issues/49375) with O(n). It also generates PHP closures for 30+ common rules (string, numeric, email, date, array, boolean, in, regex, date comparisons with literal dates, etc.) that validate items without going through Laravel at all. Rules that can't be fast-checked (date comparisons with field references, custom closures) fall through to Laravel as normal.
 
 > [!NOTE]
 > These optimizations require `HasFluentRules` (FormRequest), `HasFluentValidation` (Livewire), `FluentValidator`, or `RuleSet::validate()`. When using `$request->validate()` or bare `Validator::make()`, FluentRule objects self-validate without wildcard optimization.
 
 ### Benchmarks
 
-| Scenario                                          | Native Laravel | With HasFluentRules |
-|---------------------------------------------------|----------------|---------------------|
-| 500 items, simple rules (string, numeric, in)     | ~200ms         | **~2ms**            |
-| 500 items, mixed rules (string + date comparison) | ~200ms         | **~20ms**           |
-| 100 items, 47 conditional fields (exclude_unless) | ~3,200ms       | **~83ms**           |
+| Scenario                                          | Native Laravel | With HasFluentRules | Speedup |
+|---------------------------------------------------|----------------|---------------------|---------|
+| 500 items, simple rules (string, numeric, in)     | ~183ms         | **~2ms**            | ~92x    |
+| 500 items, string + date comparison               | ~183ms         | **~2ms**            | ~91x    |
+| 500 items, nested wildcards                       | ~183ms         | **~0.6ms**          | ~293x   |
+| 100 items, 47 conditional fields (exclude_unless) | ~3,000ms       | **~43ms**           | ~69x    |
 
-Simple type+size rules get the largest speedup (50-97x) because the PHP closures skip Laravel entirely. Mixed rule sets use partial fast-checking for eligible fields and fall through to Laravel for the rest. Conditional rules (`exclude_unless`, `required_if` with closures) can't be fast-checked but are pre-evaluated to remove excluded attributes before validation runs.
+Simple type+size rules and date comparisons (with literal dates) get the largest speedup because PHP closures skip Laravel entirely. Nested wildcard patterns (`options.*.label`) are expanded within the per-item closure for maximum throughput. Conditional rules (`exclude_unless`, `required_if` with closures) can't be fast-checked but are pre-evaluated to remove excluded attributes before validation runs.
 
 ### Batched database validation
 
