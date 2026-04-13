@@ -4,7 +4,7 @@
 [![GitHub Tests Action Status](https://img.shields.io/github/actions/workflow/status/sandermuller/laravel-fluent-validation/run-tests.yml?branch=main&label=tests&style=flat-square)](https://github.com/sandermuller/laravel-fluent-validation/actions?query=workflow%3Arun-tests+branch%3Amain)
 [![GitHub Code Style Action Status](https://img.shields.io/github/actions/workflow/status/sandermuller/laravel-fluent-validation/fix-php-code-style-issues.yml?branch=main&label=code%20style&style=flat-square)](https://github.com/sandermuller/laravel-fluent-validation/actions?query=workflow%3A"Fix+PHP+code+style+issues"+branch%3Amain)
 
-Write Laravel validation rules with IDE autocompletion instead of memorizing string syntax. Each rule type only exposes the methods that make sense for it, and `each()`/`children()` let you co-locate parent and child rules. For large arrays, the `HasFluentRules` trait makes wildcard validation [up to 293x faster](#benchmarks).
+Write Laravel validation rules with IDE autocompletion instead of memorizing string syntax. Each rule type only exposes the methods that make sense for it, and `each()`/`children()` let you co-locate parent and child rules. For large arrays, the `HasFluentRules` trait makes wildcard validation [up to 160x faster](#benchmarks).
 
 ```php
 // Before
