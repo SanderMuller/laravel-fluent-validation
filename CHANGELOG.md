@@ -2,6 +2,69 @@
 
 All notable changes to `laravel-fluent-validation` will be documented in this file.
 
+## 1.7.0 - 2026-04-14
+
+### Full Livewire support
+
+`HasFluentValidation` now provides complete Livewire integration. The trait overrides `getRules()`, `getMessages()`, and `getValidationAttributes()` in addition to `validate()` and `validateOnly()`.
+
+#### `each()` and `children()` work in Livewire
+
+Previously, using `each()` in a Livewire component would silently break real-time validation because Livewire reads rule keys before compilation. This is now handled automatically. The trait flattens `each()` into wildcard keys and `children()` into fixed paths before Livewire sees them.
+
+```php
+class EditOrder extends Component
+{
+    use HasFluentValidation;
+
+    public function rules(): array
+    {
+        return [
+            'items' => FluentRule::array()->required()->each([
+                'name' => FluentRule::string('Item Name')->required(),
+                'qty'  => FluentRule::numeric()->required()->integer()->min(1),
+            ]),
+        ];
+    }
+}
+
+```
+Both `each()` and flat wildcard keys (`'items.*.name' => FluentRule::string()`) continue to work.
+
+#### Labels and messages work automatically
+
+Labels from `->label()` and messages from `->message()` are now extracted and passed to Livewire's validation. No separate `messages()` or `validationAttributes()` method needed.
+
+```php
+// "The Full Name field is required" — not "The name field is required"
+'name' => FluentRule::string('Full Name')->required()->message('Please enter your name'),
+
+```
+#### `$rules` property support
+
+Components that define rules via a `$rules` property instead of a `rules()` method now work correctly.
+
+### BackedEnum support in conditional rules
+
+All conditional rule methods now accept `BackedEnum` values directly. Previously, passing an enum case would throw a TypeError.
+
+```php
+// Before: ->excludeUnless('status', Status::DRAFT->value)
+// After:  ->excludeUnless('status', Status::DRAFT)
+
+```
+This applies to `excludeIf`, `excludeUnless`, `requiredIf`, `requiredUnless`, `prohibitedIf`, `prohibitedUnless`, `presentIf`, `presentUnless`, `missingIf`, and `missingUnless`. Enum cases are serialized to their backing value automatically.
+
+### Other improvements
+
+- Added `RuleSet::flattenRules()` public method for wildcard-preserving rule expansion
+- README: added trait requirement callout with decision table for FormRequest / Livewire / inline usage
+- README: added `each()` vs `children()` comparison table
+- README: documented `FluentRule::macro()` for factory-level custom rule types
+- README: noted Rector companion as ongoing code quality tool, not just migration
+
+**Full Changelog**: https://github.com/SanderMuller/laravel-fluent-validation/compare/1.6.0...1.7.0
+
 ## 1.6.0 - 2026-04-12
 
 ### Added
@@ -23,6 +86,7 @@ All notable changes to `laravel-fluent-validation` will be documented in this fi
 - **Rector migration rules** — A new companion package [`sandermuller/laravel-fluent-validation-rector`](https://github.com/sandermuller/laravel-fluent-validation-rector) provides 6 Rector rules that automate migration from native Laravel validation to FluentRule. In real-world testing against a production codebase, the rules converted 448 files across 3469 tests with zero regressions.
   ```bash
   composer require --dev sandermuller/laravel-fluent-validation-rector
+  
   
   ```
 
@@ -51,6 +115,7 @@ All notable changes to `laravel-fluent-validation` will be documented in this fi
   composer require --dev sandermuller/laravel-fluent-validation-rector
   
   
+  
   ```
 
 **Full Changelog**: https://github.com/SanderMuller/laravel-fluent-validation/compare/1.4.1...1.5.0
@@ -74,6 +139,7 @@ All notable changes to `laravel-fluent-validation` will be documented in this fi
       'product_id' => FluentRule::integer()->required()->exists('products', 'id'),
   ]),
   // 500 items × exists rule = 1 query instead of 500
+  
   
   
   
@@ -119,6 +185,7 @@ A `PrecomputedPresenceVerifier` replaces Laravel's default verifier on per-item 
   
   
   
+  
   ```
 - **`RuleSet::stopOnFirstFailure()`** — Stop validating remaining fields after the first failure. Works across top-level fields, wildcard groups, and per-item validation:
   
@@ -130,6 +197,7 @@ A `PrecomputedPresenceVerifier` replaces Laravel's default verifier on per-item 
       ]),
   ])->stopOnFirstFailure()->validate($data);
   // Stops after the first failing field or item
+  
   
   
   
@@ -163,6 +231,7 @@ A `PrecomputedPresenceVerifier` replaces Laravel's default verifier on per-item 
   
   
   
+  
   ```
 - **`RuleSet` is now `Macroable`** — Add composable rule groups to RuleSet:
   
@@ -173,6 +242,7 @@ A `PrecomputedPresenceVerifier` replaces Laravel's default verifier on per-item 
       'zip'    => FluentRule::string()->required()->max(10),
   ]));
   // Usage: RuleSet::make()->withAddress()->field('name', FluentRule::string())
+  
   
   
   
@@ -362,6 +432,7 @@ Fluent validation rule builders for Laravel with IDE autocompletion, type safety
   
   
   
+  
   ```
 
 ### Documentation
@@ -396,6 +467,7 @@ Fluent validation rule builders for Laravel with IDE autocompletion, type safety
   
   
   
+  
   ```
 
 ### Documentation
@@ -418,6 +490,7 @@ Fluent validation rule builders for Laravel with IDE autocompletion, type safety
   ```php
   FluentRule::email(defaults: false)    // basic 'email' validation
   FluentRule::password(defaults: false) // Password::min(8), ignores app config
+  
   
   
   
@@ -701,6 +774,7 @@ Tested across two independent codebases:
   
   
   
+  
   ```
 - **PHPStan errors in OptimizedValidator** — Matched parent `Validator::validateAttribute()` signature.
   
@@ -769,6 +843,7 @@ Tested across two independent codebases:
   
   
   
+  
   ```
 - FluentFormRequest base class — Combines HasFluentRules compilation with per-attribute
   fast-check optimization via OptimizedValidator. Eligible wildcard rules are fast-checked
@@ -801,6 +876,7 @@ Tested across two independent codebases:
   ```php
   FluentRule::string()->unique('users', 'email', fn($r) => $r->ignore($this->user()->id))
   FluentRule::string()->exists('subjects', 'id', fn($r) => $r->where('video_id',          
+  
   
   
   
