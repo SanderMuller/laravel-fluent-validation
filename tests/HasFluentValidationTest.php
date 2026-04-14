@@ -384,8 +384,7 @@ it('getRules() expands each() into wildcard keys', function (): void {
     // getRules() returns wildcard keys (items.*.name) not concrete keys (items.0.name)
     // so Livewire's hasRuleFor() and validateOnly() can match them
     expect($rules)
-        ->toHaveKey('items')
-        ->toHaveKey('items.*.name');
+        ->toHaveKeys(['items', 'items.*.name']);
 });
 
 it('getRules() preserves flat wildcard keys', function (): void {
@@ -429,9 +428,7 @@ it('validate() expands each() into concrete keys for validation', function (): v
     [$compiled] = $component->compile();
 
     expect($compiled)
-        ->toHaveKey('items')
-        ->toHaveKey('items.0.name')
-        ->toHaveKey('items.1.name');
+        ->toHaveKeys(['items', 'items.0.name', 'items.1.name']);
 });
 
 // =========================================================================
@@ -498,9 +495,7 @@ it('getRules() expands children() into fixed paths', function (): void {
     $rules = $component->getRules();
 
     expect($rules)
-        ->toHaveKey('credentials')
-        ->toHaveKey('credentials.base_uri')
-        ->toHaveKey('credentials.client_id');
+        ->toHaveKeys(['credentials', 'credentials.base_uri', 'credentials.client_id']);
 });
 
 it('getValidationAttributes() extracts labels from children() rules', function (): void {
@@ -525,8 +520,8 @@ it('getMessages() returns empty array when no FluentRules', function (): void {
         fluentRules: ['name' => 'required|string'],
     );
 
-    expect($component->getMessages())->toBe([]);
-    expect($component->getValidationAttributes())->toBe([]);
+    expect($component->getMessages())->toBeEmpty()
+        ->and($component->getValidationAttributes())->toBeEmpty();
 });
 
 it('getMessages() merges messagesFromOutside with FluentRule messages', function (): void {
