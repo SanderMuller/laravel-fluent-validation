@@ -924,6 +924,17 @@ final class RuleSet implements Arrayable
         return [$messages, $attributes];
     }
 
+    /**
+     * Flatten rules with wildcard keys preserved (e.g. items.*.name).
+     * Unlike prepare(), this does NOT expand wildcards against data.
+     *
+     * @return array<string, mixed>
+     */
+    public function flattenRules(): array
+    {
+        return $this->flatten();
+    }
+
     /** @return array<string, mixed> */
     private function flatten(): array
     {

@@ -371,7 +371,37 @@ it('requiredIf with false value serializes correctly', function (): void {
     expect($v->passes())->toBeTrue(); // active is 1, not 0 → reason not required
 });
 
+// BackedEnum values in conditional rules
 // =========================================================================
+
+it('requiredIf accepts BackedEnum values', function (): void {
+    $v = makeValidator(
+        ['type' => 'active', 'reason' => 'needs review'],
+        ['reason' => FluentRule::string()->requiredIf('type', TestStringEnum::Active)]
+    );
+    expect($v->passes())->toBeTrue();
+});
+
+it('excludeUnless accepts BackedEnum values', function (): void {
+    $rule = FluentRule::string()->excludeUnless('type', TestStringEnum::Active);
+    expect($rule->compiledRules())->toBe('exclude_unless:type,active|string');
+});
+
+it('excludeIf accepts BackedEnum values', function (): void {
+    $rule = FluentRule::string()->excludeIf('type', TestStringEnum::Inactive);
+    expect($rule->compiledRules())->toBe('exclude_if:type,inactive|string');
+});
+
+it('prohibitedIf accepts BackedEnum values', function (): void {
+    $rule = FluentRule::string()->prohibitedIf('type', TestStringEnum::Active, TestStringEnum::Inactive);
+    expect($rule->compiledRules())->toBe('prohibited_if:type,active,inactive|string');
+});
+
+it('conditional rules accept int BackedEnum values', function (): void {
+    $rule = FluentRule::string()->requiredIf('priority', TestIntEnum::Low);
+    expect($rule->compiledRules())->toBe('required_if:priority,1|string');
+});
+
 // =========================================================================
 // whenInput() — data-dependent conditional rules
 // =========================================================================

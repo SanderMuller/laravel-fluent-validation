@@ -77,3 +77,10 @@ parameters:
 			identifier: argument.type
 			count: 1
 			path: tests/RuleSetTest.php
+
+		# FakeLivewireBase uses `mixed` params to match Livewire's actual signatures.
+		# The trait overrides these methods, so narrowing them would break compatibility.
+		-
+			identifier: typeCoverage.paramTypeCoverage
+			count: 3
+			path: tests/HasFluentValidationTest.php

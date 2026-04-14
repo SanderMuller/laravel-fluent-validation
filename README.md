@@ -78,9 +78,18 @@ $validated = $request->validate([
 ]);
 ```
 
+> [!IMPORTANT]
+> FluentRule works anywhere Laravel accepts rules, but **labels, `each()`, `children()`, wildcard optimization, and precognitive requests** require one of:
+>
+> | Context | What to use |
+> |---------|-------------|
+> | FormRequest | `use HasFluentRules` trait ([details](#in-a-form-request)) |
+> | Livewire component | `use HasFluentValidation` trait ([details](#livewire)) |
+> | Inline / anywhere else | `RuleSet::from([...])->validate($data)` ([details](#ruleset)) |
+
 ### In a form request
 
-To get the full feature set (wildcard optimization, label extraction, fast-checks), add the `HasFluentRules` trait to your form request:
+Add the `HasFluentRules` trait to your form request:
 
 ```php
 use Illuminate\Foundation\Http\FormRequest;
@@ -111,9 +120,7 @@ class StorePostRequest extends FormRequest
 
 The label `'Title'` replaces `:attribute` in error messages. You get "The Title field is required" instead of "The title field is required", without a separate `attributes()` array.
 
-Without the trait, FluentRule objects still work (they implement `ValidationRule`), but [`each()`/`children()`](#array-validation-with-each-and-children), [labels](#error-messages), [wildcard optimization](#performance), and [precognitive requests](https://laravel.com/docs/precognition) all require it for correct error messages and `validated()` output.
-
-If you prefer, you may extend `FluentFormRequest` instead of adding the trait manually:
+Or extend `FluentFormRequest` instead of adding the trait manually:
 
 ```php
 use SanderMuller\FluentValidation\FluentFormRequest;
@@ -124,7 +131,7 @@ class StorePostRequest extends FluentFormRequest
 }
 ```
 
-FluentRule objects implement Laravel's `ValidationRule` interface, so they work in `Validator::make()`, `Rule::forEach()`, and `Rule::when()` too. For inline validation outside form requests, prefer [`RuleSet::validate()`](#ruleset) over `Validator::make()`. It gives you the same optimizations, label extraction, and `each()`/`children()` expansion as `HasFluentRules`. Use [`->when()`](#conditional-rules) to handle create and update in a single form request. For Livewire, see [Livewire](#livewire).
+FluentRule objects implement Laravel's `ValidationRule` interface, so they also work in `Validator::make()`, `Rule::forEach()`, and `Rule::when()`. For inline validation outside form requests, prefer [`RuleSet::validate()`](#ruleset) over `Validator::make()` — it gives you the same optimizations as `HasFluentRules`. Use [`->when()`](#conditional-rules) to handle create and update in a single form request.
 
 ### Migrating existing rules
 
@@ -234,6 +241,12 @@ FluentRule::string()->required()->min(2)->fieldMessage('Something is wrong with 
 Standard Laravel `messages()` arrays and `Validator::make()` message arguments still work and take priority over `->messageFor()`, `->message()`, and `->fieldMessage()`.
 
 ## Array validation with `each()` and `children()`
+
+| | `each()` | `children()` |
+|---|---|---|
+| **Data shape** | Array of items (`[{...}, {...}, ...]`) | Single object with known keys (`{key: ...}`) |
+| **Produces** | Wildcard paths (`items.*.name`) | Fixed paths (`search.value`) |
+| **Use when** | You have a list of N items with the same structure | You have one object with specific sub-keys |
 
 To validate each item in an array, use the `each()` method:
 
@@ -931,13 +944,17 @@ FluentRule::file()->rule(['mimetypes', ...$acceptedTypes])
 **Macros** — define reusable rule chains in a service provider:
 
 ```php
-// In a service provider
+// Rule-level macros: add methods to existing rule types
 NumericRule::macro('percentage', fn () => $this->integer()->min(0)->max(100));
 StringRule::macro('slug', fn () => $this->alpha(true)->lowercase());
 
-// Then use anywhere
 FluentRule::numeric()->percentage()
 FluentRule::string()->slug()
+
+// Factory-level macros: add new FluentRule::xyz() entry points
+FluentRule::macro('phone', fn (?string $label = null) => FluentRule::string($label)->rule('phone'));
+
+FluentRule::phone('Phone Number')
 ```
 
 </details>
@@ -969,6 +986,8 @@ vendor/bin/pint                       # fix code style after
 The Rector package includes 6 rules: string and array rule conversion, wildcard grouping into `each()`/`children()`, trait addition for FormRequests and Livewire components, and post-migration simplification. See the [Rector package README](https://github.com/sandermuller/laravel-fluent-validation-rector) for the full rule reference, granular set options, and configuration details.
 
 See [Common migration patterns](resources/boost/skills/fluent-validation/references/migration-patterns.md) for a detailed reference covering rule-type selection, `Rule::` method conversion, BackedEnum handling, and advanced patterns.
+
+The Rector rules are not just for migration. They also work as an ongoing code quality tool — run them in CI or as part of your Rector config to automatically simplify rules, group wildcards into `each()`/`children()`, and ensure new code follows the same patterns. New validation code written by team members gets cleaned up the same way migrated code does.
 
 > **Expect further simplification in a future release.** A planned `SimplifyRuleWrappersRector` will collapse `->rule(Rule::X())` / `->rule('X')` / `->rule(['X', arg])` patterns to native methods wherever a fluent equivalent exists (`->rule('email')` → `->email()`, `->rule(Rule::unique('users'))` → `->unique('users')`, etc.). Don't hand-simplify the escape-hatch output. Let the next Rector pass handle it so you can verify each transformation in isolation.
 

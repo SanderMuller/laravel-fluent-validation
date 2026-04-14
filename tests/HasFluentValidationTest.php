@@ -203,7 +203,7 @@ it('passes rules through unchanged when no FluentRule objects are present', func
 
     [$compiled] = $component->compile();
 
-    // No FluentRule objects — rules() returns non-FluentRule strings, so no compilation
+    // No FluentRule objects — null signals Livewire to use getRules()
     expect($compiled)->toBeNull();
 });
 
@@ -345,4 +345,73 @@ it('uses unwrapDataForValidation() output when the method exists', function (): 
     // Wildcard expansion must use the unwrapped array, not the raw model-object
     expect($compiled)
         ->toHaveKeys(['items.0.name', 'items.1.name']);
+});
+
+// =========================================================================
+// Livewire + each() support via getRules()
+// =========================================================================
+
+it('getRules() expands each() into wildcard keys', function (): void {
+    $component = new TestableComponent(
+        data: ['items' => [['name' => 'Foo'], ['name' => 'Bar']]],
+        fluentRules: [
+            'items' => FluentRule::array()->required()->each([
+                'name' => FluentRule::string()->required(),
+            ]),
+        ],
+    );
+
+    $rules = $component->getRules();
+
+    // getRules() returns wildcard keys (items.*.name) not concrete keys (items.0.name)
+    // so Livewire's hasRuleFor() and validateOnly() can match them
+    expect($rules)
+        ->toHaveKey('items')
+        ->toHaveKey('items.*.name');
+});
+
+it('getRules() preserves flat wildcard keys', function (): void {
+    $component = new TestableComponent(
+        data: ['items' => [['name' => 'Foo']]],
+        fluentRules: [
+            'items' => FluentRule::array()->required(),
+            'items.*.name' => FluentRule::string()->required(),
+        ],
+    );
+
+    $rules = $component->getRules();
+
+    expect($rules)->toHaveKey('items.*.name');
+});
+
+it('getRules() returns plain string rules unchanged', function (): void {
+    $component = new TestableComponent(
+        data: ['name' => 'John'],
+        fluentRules: [
+            'name' => 'required|string|max:255',
+        ],
+    );
+
+    $rules = $component->getRules();
+
+    expect($rules)->toBe(['name' => 'required|string|max:255']);
+});
+
+it('validate() expands each() into concrete keys for validation', function (): void {
+    $component = new TestableComponent(
+        data: ['items' => [['name' => 'Foo'], ['name' => 'Bar']]],
+        fluentRules: [
+            'items' => FluentRule::array()->required()->each([
+                'name' => FluentRule::string()->required(),
+            ]),
+        ],
+    );
+
+    // compile() uses compileFluentRules which is used by validate() for inline rules
+    [$compiled] = $component->compile();
+
+    expect($compiled)
+        ->toHaveKey('items')
+        ->toHaveKey('items.0.name')
+        ->toHaveKey('items.1.name');
 });

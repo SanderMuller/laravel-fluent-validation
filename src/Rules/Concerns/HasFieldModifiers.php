@@ -128,11 +128,15 @@ trait HasFieldModifiers
         return $this;
     }
 
-    /** @param  array<int|string, string|int|bool>  $values */
+    /** @param  array<int|string, string|int|bool|\BackedEnum>  $values */
     private static function serializeValues(array $values): string
     {
         return implode(',', array_map(
-            static fn (string|int|bool $v): string|int => is_bool($v) ? ($v ? '1' : '0') : $v,
+            static fn (string|int|bool|\BackedEnum $v): string|int => match (true) {
+                $v instanceof \BackedEnum => $v->value,
+                is_bool($v) => $v ? '1' : '0',
+                default => $v,
+            },
             $values,
         ));
     }
@@ -167,12 +171,12 @@ trait HasFieldModifiers
         return $this->addRule('present');
     }
 
-    public function presentIf(string $field, string|int|bool ...$values): static
+    public function presentIf(string $field, string|int|bool|\BackedEnum ...$values): static
     {
         return $this->addRule('present_if:' . $field . ',' . self::serializeValues($values));
     }
 
-    public function presentUnless(string $field, string|int|bool ...$values): static
+    public function presentUnless(string $field, string|int|bool|\BackedEnum ...$values): static
     {
         return $this->addRule('present_unless:' . $field . ',' . self::serializeValues($values));
     }
@@ -202,12 +206,12 @@ trait HasFieldModifiers
         return $this->addRule('missing');
     }
 
-    public function missingIf(string $field, string|int|bool ...$values): static
+    public function missingIf(string $field, string|int|bool|\BackedEnum ...$values): static
     {
         return $this->addRule('missing_if:' . $field . ',' . self::serializeValues($values));
     }
 
-    public function missingUnless(string $field, string|int|bool ...$values): static
+    public function missingUnless(string $field, string|int|bool|\BackedEnum ...$values): static
     {
         return $this->addRule('missing_unless:' . $field . ',' . self::serializeValues($values));
     }
@@ -222,7 +226,7 @@ trait HasFieldModifiers
         return $this->addRule('missing_with_all:' . implode(',', $fields));
     }
 
-    public function requiredIf(Closure|bool|string $field, string|int|bool ...$values): static
+    public function requiredIf(Closure|bool|string $field, string|int|bool|\BackedEnum ...$values): static
     {
         if ($field instanceof Closure || is_bool($field)) {
             return $this->addRule(new RequiredIf($field));
@@ -231,7 +235,7 @@ trait HasFieldModifiers
         return $this->addRule('required_if:' . $field . ',' . self::serializeValues($values));
     }
 
-    public function requiredUnless(Closure|bool|string $field, string|int|bool ...$values): static
+    public function requiredUnless(Closure|bool|string $field, string|int|bool|\BackedEnum ...$values): static
     {
         if ($field instanceof Closure || is_bool($field)) {
             // RequiredUnless class only exists in Laravel 12+. Invert to RequiredIf.
@@ -273,7 +277,7 @@ trait HasFieldModifiers
         return $this->addRule('required_if_declined:' . $field);
     }
 
-    public function excludeIf(Closure|bool|string $field, string|int|bool ...$values): static
+    public function excludeIf(Closure|bool|string $field, string|int|bool|\BackedEnum ...$values): static
     {
         if ($field instanceof Closure || is_bool($field)) {
             if (class_exists(ExcludeIf::class)) {
@@ -289,7 +293,7 @@ trait HasFieldModifiers
         return $this->addRule('exclude_if:' . $field . ',' . self::serializeValues($values));
     }
 
-    public function excludeUnless(Closure|bool|string $field, string|int|bool ...$values): static
+    public function excludeUnless(Closure|bool|string $field, string|int|bool|\BackedEnum ...$values): static
     {
         if ($field instanceof Closure || is_bool($field)) {
             if (class_exists(ExcludeUnless::class)) {
@@ -315,7 +319,7 @@ trait HasFieldModifiers
         return $this->addRule('exclude_without:' . $field);
     }
 
-    public function prohibitedIf(Closure|bool|string $field, string|int|bool ...$values): static
+    public function prohibitedIf(Closure|bool|string $field, string|int|bool|\BackedEnum ...$values): static
     {
         if ($field instanceof Closure || is_bool($field)) {
             return $this->addRule(new ProhibitedIf($field));
@@ -324,7 +328,7 @@ trait HasFieldModifiers
         return $this->addRule('prohibited_if:' . $field . ',' . self::serializeValues($values));
     }
 
-    public function prohibitedUnless(Closure|bool|string $field, string|int|bool ...$values): static
+    public function prohibitedUnless(Closure|bool|string $field, string|int|bool|\BackedEnum ...$values): static
     {
         if ($field instanceof Closure || is_bool($field)) {
             // ProhibitedUnless only exists in Laravel 12+. Invert to ProhibitedIf.
