@@ -1202,7 +1202,7 @@ it('validates a POST request through FluentFormRequest', function (): void {
         return response()->json($validator->validated());
     });
 
-    $response = $this->postJson('/test-fluent-form-request', [ // @phpstan-ignore method.notFound
+    $response = $this->postJson('/test-fluent-form-request', [
         'items' => [
             ['name' => 'John'],
             ['name' => 'Jane'],
@@ -1234,7 +1234,7 @@ it('returns 422 for invalid data through FluentFormRequest', function (): void {
         return response()->json($validator->validated());
     });
 
-    $response = $this->postJson('/test-fluent-form-request-fail', [ // @phpstan-ignore method.notFound
+    $response = $this->postJson('/test-fluent-form-request-fail', [
         'items' => [
             ['name' => 'Jo'],
         ],

@@ -1434,14 +1434,14 @@ it('supports macros on StringRule', function (): void {
 
     $v = makeValidator(
         ['slug' => 'hello'],
-        ['slug' => FluentRule::string()->slug()] // @phpstan-ignore method.notFound
+        ['slug' => FluentRule::string()->slug()]
     );
 
     expect($v->passes())->toBeTrue();
 
     $v = makeValidator(
         ['slug' => 'Hello World'],
-        ['slug' => FluentRule::string()->slug()] // @phpstan-ignore method.notFound
+        ['slug' => FluentRule::string()->slug()]
     );
 
     expect($v->passes())->toBeFalse();
@@ -1982,7 +1982,7 @@ it('supports macros on FluentRule', function (): void {
 it('supports macros on RuleSet', function (): void {
     RuleSet::macro('withName', fn () => $this->field('name', FluentRule::string()->required()->max(255)));
 
-    $validated = RuleSet::make()->withName()->validate(['name' => 'John']); // @phpstan-ignore method.notFound
+    $validated = RuleSet::make()->withName()->validate(['name' => 'John']);
     expect($validated['name'])->toBe('John');
 });
 

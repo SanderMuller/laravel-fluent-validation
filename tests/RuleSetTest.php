@@ -1573,7 +1573,7 @@ it('reports errors from slow-only path when fast-checks pass', function (): void
         ])->validate(['items' => [
             ['name' => 'Valid', 'starts_at' => '2020-01-01'],
         ]]);
-        test()->fail('Expected ValidationException'); // @phpstan-ignore method.notFound
+        test()->fail('Expected ValidationException');
     } catch (ValidationException $validationException) {
         expect($validationException->errors())->toHaveKey('items.0.starts_at')->not->toHaveKey('items.0.name');
     }
@@ -1589,7 +1589,7 @@ it('reports errors from full path when fast-check fails', function (): void {
         ])->validate(['items' => [
             ['name' => 'X', 'starts_at' => '2020-01-01'],
         ]]);
-        test()->fail('Expected ValidationException'); // @phpstan-ignore method.notFound
+        test()->fail('Expected ValidationException');
     } catch (ValidationException $validationException) {
         expect($validationException->errors())->toHaveKeys(['items.0.name', 'items.0.starts_at']);
     }
@@ -1621,7 +1621,7 @@ it('partial fast-check catches single invalid item among many valid', function (
                 'starts_at' => FluentRule::date()->required()->after('2025-01-01'),
             ]),
         ])->validate(['items' => $items]);
-        test()->fail('Expected ValidationException'); // @phpstan-ignore method.notFound
+        test()->fail('Expected ValidationException');
     } catch (ValidationException $validationException) {
         expect($validationException->errors())->toHaveKey('items.24.starts_at')
             ->toHaveCount(1);
@@ -1668,7 +1668,7 @@ it('distinct() on each items rejects duplicate values via RuleSet', function ():
         RuleSet::from([
             'tags' => FluentRule::array()->required()->each(FluentRule::string()->distinct()),
         ])->validate(['tags' => ['php', 'laravel', 'php']]);
-        test()->fail('Expected ValidationException'); // @phpstan-ignore method.notFound
+        test()->fail('Expected ValidationException');
     } catch (ValidationException $validationException) {
         expect($validationException->errors())->not->toBeEmpty();
     }

@@ -55,6 +55,18 @@ parameters:
 			path: src/RuleSet.php
 
 		-
+			rawMessage: 'Call to method ignoring() of internal interface Pest\Arch\Contracts\ArchExpectation from outside its root namespace Pest.'
+			identifier: method.internalInterface
+			count: 2
+			path: tests/ArchTest.php
+
+		-
+			rawMessage: 'Calling toBeInt() on Expectation<int> will always pass — the assertion is redundant.'
+			identifier: pest.redundantExpectation
+			count: 1
+			path: tests/BatchDatabaseValidationTest.php
+
+		-
 			rawMessage: 'Cognitive complexity for "AnonymousClass3648ab0e78c61a66a145908b66b5b36f::preExcludeRules()" is 21, keep it under 20'
 			identifier: complexity.functionLike
 			count: 1
@@ -65,6 +77,102 @@ parameters:
 			identifier: complexity.functionLike
 			count: 1
 			path: tests/ExpandsWildcardsTest.php
+
+		-
+			rawMessage: 'Calling toBeInstanceOf() on Expectation<Illuminate\Validation\Validator> will always pass — the assertion is redundant.'
+			identifier: pest.redundantExpectation
+			count: 2
+			path: tests/FluentFormRequestTest.php
+
+		-
+			rawMessage: 'Calling toBeInstanceOf() on Expectation<SanderMuller\FluentValidation\OptimizedValidator> will always pass — the assertion is redundant.'
+			identifier: pest.redundantExpectation
+			count: 1
+			path: tests/FluentFormRequestTest.php
+
+		-
+			rawMessage: 'Calling toBeTrue() on Expectation<false> will always fail.'
+			identifier: pest.impossibleExpectation
+			count: 1
+			path: tests/FluentFormRequestTest.php
+
+		-
+			rawMessage: 'Calling toBeArray() on Expectation<array<mixed>> will always pass — the assertion is redundant.'
+			identifier: pest.redundantExpectation
+			count: 1
+			path: tests/FluentRuleTest.php
+
+		-
+			rawMessage: 'Calling toBeArray() on Expectation<list<object|string>> will always pass — the assertion is redundant.'
+			identifier: pest.redundantExpectation
+			count: 1
+			path: tests/FluentRuleTest.php
+
+		-
+			rawMessage: 'Calling toBeInstanceOf() on Expectation<Illuminate\Validation\Rules\AnyOf> will always pass — the assertion is redundant.'
+			identifier: pest.redundantExpectation
+			count: 1
+			path: tests/FluentRuleTest.php
+
+		-
+			rawMessage: 'Calling toBeInstanceOf() on Expectation<SanderMuller\FluentValidation\Rules\ArrayRule> will always pass — the assertion is redundant.'
+			identifier: pest.redundantExpectation
+			count: 1
+			path: tests/FluentRuleTest.php
+
+		-
+			rawMessage: 'Calling toBeInstanceOf() on Expectation<SanderMuller\FluentValidation\Rules\BooleanRule> will always pass — the assertion is redundant.'
+			identifier: pest.redundantExpectation
+			count: 1
+			path: tests/FluentRuleTest.php
+
+		-
+			rawMessage: 'Calling toBeInstanceOf() on Expectation<SanderMuller\FluentValidation\Rules\DateRule> will always pass — the assertion is redundant.'
+			identifier: pest.redundantExpectation
+			count: 2
+			path: tests/FluentRuleTest.php
+
+		-
+			rawMessage: 'Calling toBeInstanceOf() on Expectation<SanderMuller\FluentValidation\Rules\EmailRule> will always pass — the assertion is redundant.'
+			identifier: pest.redundantExpectation
+			count: 1
+			path: tests/FluentRuleTest.php
+
+		-
+			rawMessage: 'Calling toBeInstanceOf() on Expectation<SanderMuller\FluentValidation\Rules\FileRule> will always pass — the assertion is redundant.'
+			identifier: pest.redundantExpectation
+			count: 1
+			path: tests/FluentRuleTest.php
+
+		-
+			rawMessage: 'Calling toBeInstanceOf() on Expectation<SanderMuller\FluentValidation\Rules\ImageRule> will always pass — the assertion is redundant.'
+			identifier: pest.redundantExpectation
+			count: 1
+			path: tests/FluentRuleTest.php
+
+		-
+			rawMessage: 'Calling toBeInstanceOf() on Expectation<SanderMuller\FluentValidation\Rules\NumericRule> will always pass — the assertion is redundant.'
+			identifier: pest.redundantExpectation
+			count: 1
+			path: tests/FluentRuleTest.php
+
+		-
+			rawMessage: 'Calling toBeInstanceOf() on Expectation<SanderMuller\FluentValidation\Rules\PasswordRule> will always pass — the assertion is redundant.'
+			identifier: pest.redundantExpectation
+			count: 1
+			path: tests/FluentRuleTest.php
+
+		-
+			rawMessage: 'Calling toBeInstanceOf() on Expectation<SanderMuller\FluentValidation\Rules\StringRule> will always pass — the assertion is redundant.'
+			identifier: pest.redundantExpectation
+			count: 1
+			path: tests/FluentRuleTest.php
+
+		-
+			rawMessage: 'Out of 1042 possible param types, only 1039 - 99.7 %% actually have it. Add more param types to get over 100 %%'
+			identifier: typeCoverage.paramTypeCoverage
+			count: 3
+			path: tests/HasFluentValidationTest.php
 
 		-
 			rawMessage: 'Parameter #1 $values of method SanderMuller\FluentValidation\Rules\StringRule::in() expects array<int, mixed>|class-string<BackedEnum>|Illuminate\Contracts\Support\Arrayable<(int|string), mixed>, Illuminate\Support\Collection<int, string> given.'
@@ -78,9 +186,8 @@ parameters:
 			count: 1
 			path: tests/RuleSetTest.php
 
-		# FakeLivewireBase uses `mixed` params to match Livewire's actual signatures.
-		# The trait overrides these methods, so narrowing them would break compatibility.
 		-
-			identifier: typeCoverage.paramTypeCoverage
-			count: 3
-			path: tests/HasFluentValidationTest.php
+			rawMessage: 'Calling toBeTrue() on Expectation<true> will always pass — the assertion is redundant.'
+			identifier: pest.redundantExpectation
+			count: 1
+			path: tests/SlowPathBenchTest.php

@@ -78,7 +78,7 @@ it('validates a real POST request through a FormRequest', function (): void {
         return response()->json($validator->validated());
     });
 
-    $response = $this->postJson('/test-expands-wildcards', [ // @phpstan-ignore method.notFound
+    $response = $this->postJson('/test-expands-wildcards', [
         'items' => [
             ['name' => 'John', 'email' => 'john@example.com'],
             ['name' => 'Jane', 'email' => 'jane@example.com'],
@@ -110,7 +110,7 @@ it('returns 422 with errors for invalid data through a FormRequest', function ()
         return response()->json($validator->validated());
     });
 
-    $response = $this->postJson('/test-expands-wildcards-fail', [ // @phpstan-ignore method.notFound
+    $response = $this->postJson('/test-expands-wildcards-fail', [
         'items' => [
             ['name' => 'Jo'],
         ],
