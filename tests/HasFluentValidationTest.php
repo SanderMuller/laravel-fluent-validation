@@ -13,6 +13,12 @@ use SanderMuller\FluentValidation\HasFluentValidation;
  */
 class FakeLivewireBase
 {
+    /** @var list<mixed> */
+    public array $messagesFromOutside = [];
+
+    /** @var list<mixed> */
+    public array $validationAttributesFromOutside = [];
+
     public function validate(mixed $rules = null, mixed $messages = [], mixed $attributes = []): mixed
     {
         return null;
@@ -21,6 +27,18 @@ class FakeLivewireBase
     public function validateOnly(mixed $field, mixed $rules = null, mixed $messages = [], mixed $attributes = [], mixed $dataOverrides = []): mixed
     {
         return null;
+    }
+
+    /** @return array<string, string> */
+    public function getMessages(): array
+    {
+        return [];
+    }
+
+    /** @return array<string, string> */
+    public function getValidationAttributes(): array
+    {
+        return [];
     }
 }
 
@@ -414,4 +432,134 @@ it('validate() expands each() into concrete keys for validation', function (): v
         ->toHaveKey('items')
         ->toHaveKey('items.0.name')
         ->toHaveKey('items.1.name');
+});
+
+// =========================================================================
+// getMessages() and getValidationAttributes() from FluentRule metadata
+// =========================================================================
+
+it('getMessages() extracts messages from FluentRule objects', function (): void {
+    $component = new TestableComponent(
+        data: ['name' => 'John'],
+        fluentRules: [
+            'name' => FluentRule::string()->required()->message('Name is required!'),
+        ],
+    );
+
+    $messages = $component->getMessages();
+
+    expect($messages)->toHaveKey('name.required')
+        ->and($messages['name.required'])->toBe('Name is required!');
+});
+
+it('getValidationAttributes() extracts labels from FluentRule objects', function (): void {
+    $component = new TestableComponent(
+        data: ['name' => 'John'],
+        fluentRules: [
+            'name' => FluentRule::string('Full Name')->required(),
+        ],
+    );
+
+    $attributes = $component->getValidationAttributes();
+
+    expect($attributes)->toHaveKey('name')
+        ->and($attributes['name'])->toBe('Full Name');
+});
+
+it('getMessages() extracts messages from each() rules', function (): void {
+    $component = new TestableComponent(
+        data: ['items' => [['name' => 'Foo']]],
+        fluentRules: [
+            'items' => FluentRule::array()->required()->each([
+                'name' => FluentRule::string('Item Name')->required()->message('Each item needs a name'),
+            ]),
+        ],
+    );
+
+    $messages = $component->getMessages();
+    $attributes = $component->getValidationAttributes();
+
+    expect($messages)->toHaveKey('items.*.name.required')
+        ->and($attributes)->toHaveKey('items.*.name')
+        ->and($attributes['items.*.name'])->toBe('Item Name');
+});
+
+it('getRules() expands children() into fixed paths', function (): void {
+    $component = new TestableComponent(
+        data: ['credentials' => ['base_uri' => 'https://example.com', 'client_id' => '123']],
+        fluentRules: [
+            'credentials' => FluentRule::array()->children([
+                'base_uri' => FluentRule::string()->nullable()->url(),
+                'client_id' => FluentRule::string()->required()->uuid(),
+            ]),
+        ],
+    );
+
+    $rules = $component->getRules();
+
+    expect($rules)
+        ->toHaveKey('credentials')
+        ->toHaveKey('credentials.base_uri')
+        ->toHaveKey('credentials.client_id');
+});
+
+it('getValidationAttributes() extracts labels from children() rules', function (): void {
+    $component = new TestableComponent(
+        data: ['credentials' => ['base_uri' => 'https://example.com']],
+        fluentRules: [
+            'credentials' => FluentRule::array()->children([
+                'base_uri' => FluentRule::string('Base URI')->nullable()->url(),
+            ]),
+        ],
+    );
+
+    $attributes = $component->getValidationAttributes();
+
+    expect($attributes)->toHaveKey('credentials.base_uri')
+        ->and($attributes['credentials.base_uri'])->toBe('Base URI');
+});
+
+it('getMessages() returns empty array when no FluentRules', function (): void {
+    $component = new TestableComponent(
+        data: ['name' => 'John'],
+        fluentRules: ['name' => 'required|string'],
+    );
+
+    expect($component->getMessages())->toBe([]);
+    expect($component->getValidationAttributes())->toBe([]);
+});
+
+it('getMessages() merges messagesFromOutside with FluentRule messages', function (): void {
+    $component = new TestableComponent(
+        data: ['name' => 'John'],
+        fluentRules: [
+            'name' => FluentRule::string()->required()->message('Name is required!'),
+        ],
+    );
+
+    $component->messagesFromOutside[] = ['name.max' => 'Too long!'];
+
+    $messages = $component->getMessages();
+
+    expect($messages)
+        ->toHaveKey('name.required', 'Name is required!')
+        ->toHaveKey('name.max', 'Too long!');
+});
+
+it('getValidationAttributes() merges validationAttributesFromOutside with FluentRule labels', function (): void {
+    $component = new TestableComponent(
+        data: ['name' => 'John', 'email' => 'john@example.com'],
+        fluentRules: [
+            'name' => FluentRule::string('Full Name')->required(),
+            'email' => FluentRule::email()->required(),
+        ],
+    );
+
+    $component->validationAttributesFromOutside[] = ['email' => 'E-mail Address'];
+
+    $attributes = $component->getValidationAttributes();
+
+    expect($attributes)
+        ->toHaveKey('name', 'Full Name')
+        ->toHaveKey('email', 'E-mail Address');
 });

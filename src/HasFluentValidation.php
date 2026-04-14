@@ -27,9 +27,20 @@ namespace SanderMuller\FluentValidation;
 trait HasFluentValidation
 {
     /**
+     * Cached metadata from FluentRule objects (labels and messages).
+     * Populated by getRules(), consumed by getMessages()/getValidationAttributes().
+     *
+     * @var array{messages: array<string, string>, attributes: array<string, string>}|null
+     */
+    private ?array $fluentMetadataCache = null;
+
+    /**
      * Override Livewire's getRules() to return compiled rules with
      * wildcard keys preserved (e.g. items.*.name). This ensures
      * hasRuleFor(), validateOnly(), and rulesForModel() work correctly.
+     *
+     * Also extracts labels and messages from FluentRule objects for
+     * getMessages() and getValidationAttributes().
      *
      * @return array<string, mixed>
      */
@@ -38,6 +49,8 @@ trait HasFluentValidation
         $rules = $this->resolveFluentRuleSource();
 
         if ($rules === []) {
+            $this->fluentMetadataCache = ['messages' => [], 'attributes' => []];
+
             return $this->mergeRulesFromOutside([]);
         }
 
@@ -53,16 +66,89 @@ trait HasFluentValidation
         }
 
         if (! $hasFluentRules) {
+            $this->fluentMetadataCache = ['messages' => [], 'attributes' => []];
+
             return $this->mergeRulesFromOutside($rules);
         }
 
-        // Flatten and compile: expands each()/children() into wildcard keys
-        // but does NOT expand wildcards against data. This preserves patterns
-        // like items.*.name that Livewire needs for hasRuleFor() matching.
+        // Flatten: expands each()/children() into wildcard keys
+        // but does NOT expand wildcards against data.
         $ruleSet = RuleSet::from($rules);
-        $flattened = RuleSet::compile($ruleSet->flattenRules());
+        $flattened = $ruleSet->flattenRules();
 
-        return $this->mergeRulesFromOutside($flattened);
+        // Extract labels and messages before compiling away the objects
+        [$messages, $attributes] = RuleSet::extractMetadata($flattened);
+        $this->fluentMetadataCache = ['messages' => $messages, 'attributes' => $attributes];
+
+        return $this->mergeRulesFromOutside(RuleSet::compile($flattened));
+    }
+
+    /**
+     * Override Livewire's getMessages() to include messages extracted
+     * from FluentRule objects (e.g. ->message('Name is required!')).
+     *
+     * @return array<string, string>
+     */
+    public function getMessages(): array
+    {
+        if ($this->fluentMetadataCache === null) {
+            $this->getRules();
+        }
+
+        $result = $this->fluentMetadataCache !== null ? $this->fluentMetadataCache['messages'] : [];
+
+        if (method_exists($this, 'messages')) { // @phpstan-ignore function.alreadyNarrowedType
+            /** @var array<string, string> */
+            $result = array_merge($result, (array) $this->messages()); // @phpstan-ignore argument.type
+        } elseif (property_exists($this, 'messages')) { // @phpstan-ignore function.alreadyNarrowedType
+            /** @var array<string, string> */
+            $result = array_merge($result, (array) $this->messages); // @phpstan-ignore argument.type
+        }
+
+        // Merge messagesFromOutside (same as Livewire's native getMessages())
+        /** @var list<mixed> $outside */
+        $outside = property_exists($this, 'messagesFromOutside') ? $this->messagesFromOutside : []; // @phpstan-ignore function.alreadyNarrowedType
+
+        foreach ($outside as $item) {
+            /** @var array<string, string> */
+            $result = array_merge($result, (array) value($item)); // @phpstan-ignore argument.type
+        }
+
+        return $result;
+    }
+
+    /**
+     * Override Livewire's getValidationAttributes() to include labels
+     * extracted from FluentRule objects (e.g. FluentRule::string('Full Name')).
+     *
+     * @return array<string, string>
+     */
+    public function getValidationAttributes(): array
+    {
+        if ($this->fluentMetadataCache === null) {
+            $this->getRules();
+        }
+
+        $result = $this->fluentMetadataCache !== null ? $this->fluentMetadataCache['attributes'] : [];
+
+        if (method_exists($this, 'validationAttributes')) { // @phpstan-ignore function.alreadyNarrowedType
+            /** @var array<string, string> */
+            $result = array_merge($result, (array) $this->validationAttributes()); // @phpstan-ignore argument.type
+        } elseif (property_exists($this, 'validationAttributes')) { // @phpstan-ignore function.alreadyNarrowedType
+            /** @var array<string, string> */
+            $result = array_merge($result, (array) $this->validationAttributes); // @phpstan-ignore argument.type
+        }
+
+        // Merge validationAttributesFromOutside (same as Livewire's native getValidationAttributes())
+        /** @var list<mixed> $outside */
+        $outside = property_exists($this, 'validationAttributesFromOutside') ? $this->validationAttributesFromOutside : []; // @phpstan-ignore function.alreadyNarrowedType
+
+        foreach ($outside as $item) {
+            /** @var array<string, string> */
+            $result = array_merge($result, (array) value($item)); // @phpstan-ignore argument.type
+        }
+
+        return $result;
     }
 
     public function validate(mixed $rules = null, mixed $messages = [], mixed $attributes = []): mixed

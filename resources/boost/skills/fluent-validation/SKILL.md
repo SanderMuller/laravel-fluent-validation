@@ -141,7 +141,7 @@ All rule types support macros via `Macroable`.
 
 ## Livewire Components
 
-See the `fluent-validation-livewire` skill for full Livewire guidance. Key point: add `use HasFluentValidation` to Livewire components and use flat wildcard keys (`items.*`) instead of `each()`.
+See the `fluent-validation-livewire` skill for full Livewire guidance. Key point: add `use HasFluentValidation` to Livewire components. Both flat wildcard keys (`items.*`) and `each()`/`children()` work — the trait handles the expansion.
 
 ## Custom Validator Subclasses
 

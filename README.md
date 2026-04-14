@@ -348,7 +348,7 @@ class EditUser extends Component
 }
 ```
 
-The trait overrides `validate()`, `validateOnly()`, and `getRules()`, so `wire:model.blur` real-time validation works automatically with both flat wildcard keys and `each()`/`children()`. It also works on Livewire Form objects and supports both `rules()` methods and `$rules` properties.
+The trait provides full Livewire support. Labels, messages, `each()`, `children()`, `wire:model.blur` real-time validation, Form objects, and `$rules` properties all work automatically.
 
 ```php
 // both styles work in Livewire components:

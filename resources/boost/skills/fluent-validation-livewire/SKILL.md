@@ -63,20 +63,26 @@ class UserForm extends Form
 - Expands `children()` into flat dot-notation keys
 - Uses `getDataForValidation()` and `unwrapDataForValidation()` for correct Livewire data handling
 
-## Wildcard arrays: use flat keys, NOT `each()`
+## Wildcard arrays: both `each()` and flat keys work
 
-Livewire reads rule keys from `rules()` before compilation. `each()` hides wildcard keys, breaking Livewire's wildcard handling.
+The trait overrides `getRules()` to flatten `each()` and `children()` into wildcard keys that Livewire can see. Both styles work:
 
 ```php
-// CORRECT — flat wildcard keys
-'items'   => FluentRule::array()->required(),
-'items.*' => FluentRule::string()->max(255),
+// flat wildcard keys
+'items'        => FluentRule::array()->required(),
+'items.*.name' => FluentRule::string()->required(),
 
-// WRONG — breaks Livewire
-'items' => FluentRule::array()->required()->each(FluentRule::string()->max(255)),
+// each() — the trait expands this for Livewire automatically
+'items' => FluentRule::array()->required()->each([
+    'name' => FluentRule::string()->required(),
+]),
+
+// children() — produces fixed paths (credentials.base_uri)
+'credentials' => FluentRule::array()->children([
+    'base_uri'  => FluentRule::string()->nullable()->url(),
+    'client_id' => FluentRule::string()->required()->uuid(),
+]),
 ```
-
-`children()` works fine since it produces fixed paths (`search.value`), not wildcards.
 
 ## Testing with `assertHasErrors`
 
@@ -128,5 +134,5 @@ use HasFluentValidation, InteractsWithForms {
 | Trait collision with Filament | Don't use the trait — use `RuleSet::compileToArrays()` instead |
 | `assertHasErrors` can't find rule identifiers | Works automatically since 0.4.2 (self-validation forwards identifiers) |
 | Wrapping FluentRule in arrays `[FluentRule::string()]` | Don't wrap — put FluentRule directly as the value |
-| Using `each()` for wildcard arrays | Use flat keys: `'items.*' => FluentRule::string()` |
+| `each()` not expanding in Livewire | Make sure you're using the `HasFluentValidation` trait — it overrides `getRules()` to expand `each()` |
 | PHPStan errors on `$this->validate()` | The trait overrides `validate()` with correct types |
