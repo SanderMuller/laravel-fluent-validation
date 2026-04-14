@@ -348,11 +348,20 @@ class EditUser extends Component
 }
 ```
 
-The trait overrides `validate()` and `validateOnly()`, so `wire:model.blur` real-time validation works automatically. It also works on Livewire Form objects. If your component uses a `public array $rules` property, switch to a `rules()` method. FluentRule objects can't be declared in property defaults.
+The trait overrides `validate()`, `validateOnly()`, and `getRules()`, so `wire:model.blur` real-time validation works automatically with both flat wildcard keys and `each()`/`children()`. It also works on Livewire Form objects and supports both `rules()` methods and `$rules` properties.
 
-> [!CAUTION]
-> Wildcard keys with Livewire  
-> Livewire reads wildcard keys from `rules()` before compilation. Use flat wildcard keys instead of `each()` for array fields: `'items.*' => FluentRule::string()`, not `FluentRule::array()->each(...)`. Using `each()` silently breaks Livewire's wildcard handling.
+```php
+// both styles work in Livewire components:
+
+// flat wildcard keys
+'items'        => FluentRule::array()->required(),
+'items.*.name' => FluentRule::string()->required(),
+
+// each() — the trait expands this for Livewire automatically
+'items' => FluentRule::array()->required()->each([
+    'name' => FluentRule::string()->required(),
+]),
+```
 
 **Filament components:** `HasFluentValidation` conflicts with Filament's `InteractsWithSchemas` because both define `validate()`. Use [`RuleSet::compileToArrays()`](#ruleset) instead: `$this->validate(RuleSet::compileToArrays($this->rules()))`.
 
