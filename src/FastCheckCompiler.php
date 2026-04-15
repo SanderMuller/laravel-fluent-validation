@@ -222,7 +222,7 @@ final class FastCheckCompiler
      */
     private static function applyPresenceGates(mixed $value, bool $required, bool $nullable, bool $hasImplicit): ?bool
     {
-        if ($required && ($value === null || $value === '' || $value === [])) {
+        if ($required && (in_array($value, [null, '', []], true))) {
             return false;
         }
 
