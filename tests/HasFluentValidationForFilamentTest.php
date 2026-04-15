@@ -64,8 +64,7 @@ it('validateFluent() compiles FluentRule objects and delegates to validate()', f
 
     $rules = $component->lastValidateCall['rules'];
     expect($rules)->toBeArray()
-        ->toHaveKey('name')
-        ->toHaveKey('email');
+        ->toHaveKeys(['name', 'email']);
 
     // Labels extracted
     $attributes = $component->lastValidateCall['attributes'];
@@ -101,8 +100,7 @@ it('validateFluent() expands each() into wildcard keys', function (): void {
 
     $rules = $component->lastValidateCall['rules'];
     expect($rules)
-        ->toHaveKey('items')
-        ->toHaveKey('items.*.name');
+        ->toHaveKeys(['items', 'items.*.name']);
 
     $attributes = $component->lastValidateCall['attributes'];
     expect($attributes)->toHaveKey('items.*.name', 'Item Name');
@@ -122,9 +120,7 @@ it('validateFluent() expands children() into fixed paths', function (): void {
 
     $rules = $component->lastValidateCall['rules'];
     expect($rules)
-        ->toHaveKey('credentials')
-        ->toHaveKey('credentials.base_uri')
-        ->toHaveKey('credentials.client_id');
+        ->toHaveKeys(['credentials', 'credentials.base_uri', 'credentials.client_id']);
 
     $attributes = $component->lastValidateCall['attributes'];
     expect($attributes)->toHaveKey('credentials.base_uri', 'Base URI');
@@ -145,7 +141,7 @@ it('validateFluent() passes plain string rules through to validate()', function 
 
     // Plain strings go straight to validate() without compilation
     expect($component->lastValidateCall['rules'])->toBeNull();
-    expect($component->lastValidateCall['messages'])->toBe([]);
+    expect($component->lastValidateCall['messages'])->toBeEmpty();
 });
 
 it('validateFluent() with empty rules delegates to validate()', function (): void {

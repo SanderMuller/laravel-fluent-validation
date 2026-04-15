@@ -1922,9 +1922,7 @@ it('compileWithMetadata returns compiled rules with extracted messages and label
 
     // Rules compiled
     expect($compiled)
-        ->toHaveKey('name')
-        ->toHaveKey('items')
-        ->toHaveKey('items.*.qty');
+        ->toHaveKeys(['name', 'items', 'items.*.qty']);
 
     // Messages extracted
     expect($messages)->toHaveKey('name.required', 'Name is required!');
@@ -1943,6 +1941,6 @@ it('compileWithMetadata returns empty messages/attributes for plain string rules
     [$compiled, $messages, $attributes] = RuleSet::compileWithMetadata($rules);
 
     expect($compiled)->toHaveKey('name')
-        ->and($messages)->toBe([])
-        ->and($attributes)->toBe([]);
+        ->and($messages)->toBeEmpty()
+        ->and($attributes)->toBeEmpty();
 });
