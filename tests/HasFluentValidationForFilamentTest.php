@@ -123,25 +123,19 @@ class TestableFilamentComponent extends FakeFilamentBase
 // validate() — compiles FluentRules
 // =========================================================================
 
-it('Filament: validate() compiles FluentRule objects', function (): void {
+it('Filament: validate() passes null rules so getRules() merges both sources', function (): void {
     $component = new TestableFilamentComponent(
         fluentRules: [
             'name' => FluentRule::string('Full Name')->required()->max(255),
-            'email' => FluentRule::email()->required(),
         ],
     );
 
     $component->validate();
 
-    $rules = $component->lastValidateCall['rules'];
-    expect($rules)->toBeArray()
-        ->toHaveKeys(['name', 'email']);
-
-    $attributes = $component->lastValidateCall['attributes'];
-    expect($attributes)->toHaveKey('name', 'Full Name')
-        ->and($rules['name'])->toBeString()
-        ->toContain('required')
-        ->toContain('max:255');
+    // Global-rules path: rules are null, Livewire calls getRules()
+    expect($component->lastValidateCall['rules'])->toBeNull();
+    // Labels extracted via getMessages()/getValidationAttributes()
+    expect($component->lastValidateCall['attributes'])->toHaveKey('name', 'Full Name');
 });
 
 it('Filament: validate() extracts messages', function (): void {
@@ -157,37 +151,22 @@ it('Filament: validate() extracts messages', function (): void {
         ->toHaveKey('name.required', 'Name is required!');
 });
 
-it('Filament: validate() expands each() against data', function (): void {
+it('Filament: getRules() compiles FluentRules with each() and children()', function (): void {
     $component = new TestableFilamentComponent(
         fluentRules: [
             'items' => FluentRule::array()->required()->each([
                 'name' => FluentRule::string('Item Name')->required(),
             ]),
-        ],
-        data: ['items' => [['name' => 'Foo'], ['name' => 'Bar']]],
-    );
-
-    $component->validate();
-
-    $rules = $component->lastValidateCall['rules'];
-    expect($rules)->toHaveKeys(['items', 'items.0.name', 'items.1.name']);
-});
-
-it('Filament: validate() expands children() into fixed paths', function (): void {
-    $component = new TestableFilamentComponent(
-        fluentRules: [
             'credentials' => FluentRule::array()->children([
                 'base_uri' => FluentRule::string('Base URI')->nullable()->url(),
-                'client_id' => FluentRule::string()->required()->uuid(),
             ]),
         ],
     );
 
-    $component->validate();
+    $rules = $component->getRules();
 
-    $rules = $component->lastValidateCall['rules'];
-    expect($rules)->toHaveKeys(['credentials', 'credentials.base_uri', 'credentials.client_id'])
-        ->and($component->lastValidateCall['attributes'])->toHaveKey('credentials.base_uri', 'Base URI');
+    expect($rules)
+        ->toHaveKeys(['items', 'items.*.name', 'credentials', 'credentials.base_uri']);
 });
 
 it('Filament: validate() passes plain string rules through', function (): void {
@@ -204,21 +183,20 @@ it('Filament: validate() passes plain string rules through', function (): void {
 // validateOnly() — single-field validation
 // =========================================================================
 
-it('Filament: validateOnly() compiles FluentRules', function (): void {
+it('Filament: validateOnly() passes null rules so getRules() is used', function (): void {
     $component = new TestableFilamentComponent(
         fluentRules: [
             'name' => FluentRule::string('Full Name')->required()->max(255),
-            'email' => FluentRule::email()->required(),
         ],
     );
 
     $component->validateOnly('name');
 
     expect($component->lastValidateOnlyCall['field'])->toBe('name');
-
-    $rules = $component->lastValidateOnlyCall['rules'];
-    expect($rules)->toBeArray()->toHaveKey('name')
-        ->and($component->lastValidateOnlyCall['attributes'])->toHaveKey('name', 'Full Name');
+    // Global-rules path: rules are null
+    expect($component->lastValidateOnlyCall['rules'])->toBeNull();
+    // Labels extracted
+    expect($component->lastValidateOnlyCall['attributes'])->toHaveKey('name', 'Full Name');
 });
 
 it('Filament: validateOnly() extracts messages', function (): void {
@@ -330,4 +308,28 @@ it('Filament: getRules() works without forms', function (): void {
     $rules = $component->getRules();
 
     expect($rules)->toHaveKey('name');
+});
+
+it('Filament: validate() includes form-schema rules alongside FluentRules', function (): void {
+    $component = new TestableFilamentComponent(
+        fluentRules: [
+            'slug' => FluentRule::string('URL Slug')->required()->alphaDash(),
+        ],
+        forms: [
+            new FakeFilamentForm(
+                validationRules: ['title' => ['required', 'string', 'max:255']],
+                validationAttributes: ['title' => 'Title'],
+            ),
+        ],
+    );
+
+    $component->validate();
+
+    // validate() should pass null rules to let getRules() merge both sources
+    expect($component->lastValidateCall['rules'])->toBeNull();
+
+    // Attributes should include both FluentRule labels and form-schema attributes
+    expect($component->lastValidateCall['attributes'])
+        ->toHaveKey('slug', 'URL Slug')
+        ->toHaveKey('title', 'Title');
 });

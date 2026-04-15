@@ -74,12 +74,30 @@ trait HasFluentValidationForFilament
     }
 
     /**
-     * Validate with FluentRule compilation + Filament's error event dispatch.
+     * Validate with FluentRule compilation + form-schema rules + Filament error dispatch.
+     *
+     * When no inline rules are passed, delegates to Livewire's base validate()
+     * which calls getRules() — this ensures both FluentRules and form-schema
+     * rules are included. When inline rules are passed, compiles those directly.
      */
     public function validate(mixed $rules = null, mixed $messages = [], mixed $attributes = []): mixed
     {
         try {
-            return $this->fluentValidate($rules, $messages, $attributes);
+            if ($rules !== null) {
+                // Inline rules passed — compile FluentRules directly
+                return $this->fluentValidate($rules, $messages, $attributes);
+            }
+
+            // Global rules — let Livewire call getRules() which merges
+            // FluentRules + form-schema rules, then extract messages/attributes
+            $compiledMessages = $this->getMessages();
+            $compiledAttributes = $this->getValidationAttributes();
+
+            return parent::validate(
+                null,
+                array_merge($compiledMessages, is_array($messages) ? $messages : []),
+                array_merge($compiledAttributes, is_array($attributes) ? $attributes : []),
+            );
         } catch (ValidationException $validationException) {
             $this->dispatchFilamentValidationError($validationException);
 
@@ -88,12 +106,25 @@ trait HasFluentValidationForFilament
     }
 
     /**
-     * Validate a single field with FluentRule compilation + Filament's error event dispatch.
+     * Validate a single field with FluentRule compilation + form-schema rules + Filament error dispatch.
      */
     public function validateOnly(mixed $field, mixed $rules = null, mixed $messages = [], mixed $attributes = [], mixed $dataOverrides = []): mixed
     {
         try {
-            return $this->fluentValidateOnly($field, $rules, $messages, $attributes, $dataOverrides);
+            if ($rules !== null) {
+                return $this->fluentValidateOnly($field, $rules, $messages, $attributes, $dataOverrides);
+            }
+
+            $compiledMessages = $this->getMessages();
+            $compiledAttributes = $this->getValidationAttributes();
+
+            return parent::validateOnly(
+                $field,
+                null,
+                array_merge($compiledMessages, is_array($messages) ? $messages : []),
+                array_merge($compiledAttributes, is_array($attributes) ? $attributes : []),
+                $dataOverrides,
+            );
         } catch (ValidationException $validationException) {
             $this->dispatchFilamentValidationError($validationException);
 
