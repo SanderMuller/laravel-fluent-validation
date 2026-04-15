@@ -472,6 +472,8 @@ Rules like `exclude_unless` and `exclude_if` are evaluated before the validator 
 
 For 30+ common rules (string, numeric, email, date, array, boolean, in, regex, date comparisons with literal dates, etc.), the package compiles PHP closures. `is_string($v) && strlen($v) <= 255` runs instead of going through rule parsing, method dispatch, and `BigNumber` size comparison. If a value passes, Laravel's validator never sees it. If it fails, that value falls through to Laravel for the correct error message. Rules that can't be fast-checked (date comparisons with field references, custom Rule objects, closures) go through Laravel as normal.
 
+Fast-checks apply to both wildcard rules (`items.*.name`) and flat top-level rules. A simple `RuleSet::from(['name' => 'string|max:255'])->validate($data)` skips Laravel's validator entirely when the value passes.
+
 ### Batched database validation
 
 When wildcard arrays use `exists` or `unique` rules, Laravel fires one database query per item. 500 items means 500 queries. `HasFluentRules` and `RuleSet::validate()` batch these into a single `whereIn` query automatically. Rules with scalar `where()` clauses are batched too. Rules with closure callbacks fall through to per-item validation as before. The batching is transparent: error messages, custom messages, and `validated()` output are unchanged. DB batching impact depends on the driver and network latency; it is measured in the test suite (`--group=benchmark`) rather than in `benchmark.php`.
@@ -597,7 +599,6 @@ Benchmarks run automatically on PRs via GitHub Actions. All optimizations are Oc
 
 The performance optimizations target wildcard array validation. These cases see little or no speedup:
 
-- **Forms without wildcards** — `RuleSet::validate()` delegates directly to `Validator::make()`. No fast-checks, no expansion, no batching.
 - **Cross-field comparisons** (`after:start_date`, `gte:other_field`, `same:password`, `confirmed`) — these need to resolve sibling values at validation time and can't be compiled to closures.
 - **Custom `ValidationRule` objects and closures** — opaque to the fast-check compiler. Performance depends on what the rule does.
 - **`distinct` rules** — require comparing values across all items in the array, not per-item.

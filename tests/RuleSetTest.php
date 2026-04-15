@@ -2011,3 +2011,44 @@ it('check() exposes underlying validator via escape hatch', function (): void {
 
     expect($result->validator())->toBeInstanceOf(Illuminate\Contracts\Validation\Validator::class);
 });
+
+it('check() safe() returns ValidatedInput on success', function (): void {
+    $result = RuleSet::from([
+        'name' => FluentRule::string()->required(),
+        'email' => FluentRule::email()->required(),
+    ])->check(['name' => 'John', 'email' => 'john@example.com']);
+
+    $safe = $result->safe();
+
+    expect($safe->only(['name']))->toBe(['name' => 'John']);
+});
+
+it('check() safe() throws on failed validation', function (): void {
+    $result = RuleSet::from([
+        'name' => FluentRule::string()->required(),
+    ])->check(['name' => '']);
+
+    expect(fn () => $result->safe())->toThrow(ValidationException::class);
+});
+
+it('non-wildcard fast path rejects invalid children() values', function (): void {
+    expect(fn () => RuleSet::from([
+        'search' => FluentRule::array()->required()->children([
+            'value' => FluentRule::string()->required()->max(5),
+        ]),
+    ])->validate([
+        'search' => ['value' => 'way too long for the max'],
+    ]))->toThrow(ValidationException::class);
+});
+
+it('non-wildcard fast path rejects filled with present null', function (): void {
+    expect(fn () => RuleSet::from([
+        'name' => FluentRule::string()->rule('filled'),
+    ])->validate(['name' => null]))->toThrow(ValidationException::class);
+});
+
+it('non-wildcard fast path rejects oversized arrays without explicit array flag', function (): void {
+    expect(fn () => RuleSet::from([
+        'tags' => FluentRule::field()->rule('max:1'),
+    ])->validate(['tags' => ['a', 'b', 'c']]))->toThrow(ValidationException::class);
+});

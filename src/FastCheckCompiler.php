@@ -34,6 +34,7 @@ final class FastCheckCompiler
     {
         $config = [
             'required' => false, 'filled' => false,
+            'nullable' => false, 'sometimes' => false,
             'string' => false, 'numeric' => false, 'integer' => false,
             'boolean' => false, 'array' => false, 'email' => false, 'date' => false,
             'url' => false, 'ip' => false, 'uuid' => false, 'ulid' => false,
@@ -59,6 +60,18 @@ final class FastCheckCompiler
             $config = $result;
         }
 
+        // Size rules (min/max) require a type flag so the closure knows
+        // how to measure: string length, array count, or numeric value.
+        // Without one, Laravel infers from runtime type — not fast-checkable.
+        if (($config['min'] !== null || $config['max'] !== null)
+            && $config['string'] === false
+            && $config['array'] === false
+            && $config['numeric'] === false
+            && $config['integer'] === false
+        ) {
+            return null;
+        }
+
         return $config;
     }
 
@@ -71,8 +84,10 @@ final class FastCheckCompiler
     private static function parsePart(string $part, array $config): ?array
     {
         // Simple boolean flags
+        // 'filled' not fast-checkable: distinguishing absent vs present-null
+        // requires presence tracking the closure doesn't have.
         $boolFlags = [
-            'required', 'filled', 'string', 'numeric', 'boolean',
+            'required', 'string', 'numeric', 'boolean',
             'array', 'email', 'date', 'url', 'ip', 'uuid', 'ulid',
             'accepted', 'declined',
         ];
@@ -86,7 +101,11 @@ final class FastCheckCompiler
             $part === 'alpha', $part === 'alpha:ascii' => [...$config, 'alpha' => true],
             $part === 'alpha_dash', $part === 'alpha_dash:ascii' => [...$config, 'alphaDash' => true],
             $part === 'alpha_num', $part === 'alpha_num:ascii' => [...$config, 'alphaNum' => true],
-            in_array($part, ['nullable', 'sometimes', 'bail'], true) => $config,
+            $part === 'nullable' => [...$config, 'nullable' => true],
+            // 'sometimes' not fast-checkable: distinguishing absent from
+            // present-null requires presence info the closure doesn't have.
+            $part === 'sometimes' => null,
+            $part === 'bail' => $config,
             str_starts_with($part, 'min:') => [...$config, 'min' => (int) substr($part, 4)],
             str_starts_with($part, 'max:') => [...$config, 'max' => (int) substr($part, 4)],
             str_starts_with($part, 'digits:') => [...$config, 'digits' => (int) substr($part, 7)],
@@ -154,10 +173,13 @@ final class FastCheckCompiler
     {
         // Pre-extract typed values for the hot path closure.
         $required = (bool) $c['required'];
-        $filled = (bool) $c['filled'];
+        $nullable = (bool) $c['nullable'];
+        $accepted = (bool) $c['accepted'];
+        $declined = (bool) $c['declined'];
         $isString = (bool) $c['string'];
         $isNumeric = (bool) $c['numeric'];
         $isInteger = (bool) $c['integer'];
+        $isArray = (bool) $c['array'];
         /** @var ?int $min */ $min = $c['min'];
         /** @var ?int $max */ $max = $c['max'];
         /** @var ?list<string> $in */ $in = $c['in'];
@@ -165,7 +187,8 @@ final class FastCheckCompiler
         /** @var ?string $regex */ $regex = $c['regex'];
         /** @var ?string $notRegex */ $notRegex = $c['notRegex'];
 
-        // Pre-build a list of value checks — only includes rules that are active.
+        $hasImplicit = $required || $accepted || $declined;
+
         /** @var list<\Closure(mixed): bool> $checks */
         $checks = [];
         self::addTypeChecks($c, $checks);
@@ -173,17 +196,10 @@ final class FastCheckCompiler
         self::addDateChecks($c, $checks);
         self::addDigitChecks($c, $checks);
 
-        return static function (mixed $value) use ($required, $filled, $isString, $isNumeric, $isInteger, $min, $max, $in, $notIn, $regex, $notRegex, $checks): bool {
-            if ($required && ($value === null || $value === '')) {
-                return false;
-            }
-
-            if ($filled && $value === '') {
-                return false;
-            }
-
-            if ($value === null) {
-                return true;
+        return static function (mixed $value) use ($required, $nullable, $hasImplicit, $isString, $isNumeric, $isInteger, $isArray, $min, $max, $in, $notIn, $regex, $notRegex, $checks): bool {
+            $gate = self::applyPresenceGates($value, $required, $nullable, $hasImplicit);
+            if ($gate !== null) {
+                return $gate;
             }
 
             foreach ($checks as $check) {
@@ -192,38 +208,99 @@ final class FastCheckCompiler
                 }
             }
 
-            // Size checks depend on type context (string length vs numeric value).
-            if ($min !== null || $max !== null) {
-                if ($isString && is_string($value)) {
-                    $len = mb_strlen($value);
-                    if (($min !== null && $len < $min) || ($max !== null && $len > $max)) {
-                        return false;
-                    }
-                } elseif ($isNumeric || $isInteger) {
-                    if (($min !== null && $value < $min) || ($max !== null && $value > $max)) {
-                        return false;
-                    }
-                }
-            }
-
-            if ($in !== null && is_scalar($value) && ! in_array((string) $value, $in, true)) {
+            if (! self::passesSizeCheck($value, $min, $max, $isString, $isArray, $isNumeric, $isInteger)) {
                 return false;
             }
 
-            if ($notIn !== null && is_scalar($value) && in_array((string) $value, $notIn, true)) {
-                return false;
-            }
-
-            if ($regex !== null && is_string($value) && preg_match($regex, $value) === 0) {
-                return false;
-            }
-
-            if ($notRegex !== null && is_string($value) && preg_match($notRegex, $value) === 1) {
-                return false;
-            }
-
-            return true;
+            return self::passesInAndRegexChecks($value, $in, $notIn, $regex, $notRegex);
         };
+    }
+
+    /**
+     * Presence gating: required/nullable/empty-string short-circuits.
+     * Returns true/false when the gate decides, or null to continue checks.
+     */
+    private static function applyPresenceGates(mixed $value, bool $required, bool $nullable, bool $hasImplicit): ?bool
+    {
+        if ($required && ($value === null || $value === '' || $value === [])) {
+            return false;
+        }
+
+        // `nullable` bypasses checks on null only when no implicit rule must run.
+        if ($value === null && $nullable && ! $hasImplicit) {
+            return true;
+        }
+
+        // Laravel parity: empty string skips non-implicit rules.
+        if ($value === '' && ! $hasImplicit) {
+            return true;
+        }
+
+        return null;
+    }
+
+    /**
+     * Size checks derive measurement from type context: string length,
+     * array count, or numeric value.
+     */
+    private static function passesSizeCheck(
+        mixed $value,
+        ?int $min,
+        ?int $max,
+        bool $isString,
+        bool $isArray,
+        bool $isNumeric,
+        bool $isInteger,
+    ): bool {
+        if ($min === null && $max === null) {
+            return true;
+        }
+
+        if ($isString && is_string($value)) {
+            $size = mb_strlen($value);
+        } elseif ($isArray && is_array($value)) {
+            $size = count($value);
+        } elseif (($isNumeric || $isInteger) && is_numeric($value)) {
+            $size = $value + 0;
+        } else {
+            return true;
+        }
+
+        if ($min !== null && $size < $min) {
+            return false;
+        }
+
+        return ! ($max !== null && $size > $max);
+    }
+
+    /**
+     * in/not_in and regex/not_regex both require scalar-or-numeric input;
+     * Laravel rejects non-scalars and casts remaining values to string.
+     *
+     * @param  ?list<string>  $in
+     * @param  ?list<string>  $notIn
+     */
+    private static function passesInAndRegexChecks(mixed $value, ?array $in, ?array $notIn, ?string $regex, ?string $notRegex): bool
+    {
+        if ($in !== null && (! is_scalar($value) || ! in_array((string) $value, $in, true))) {
+            return false;
+        }
+
+        if ($notIn !== null && is_scalar($value) && in_array((string) $value, $notIn, true)) {
+            return false;
+        }
+
+        $stringOrNumeric = is_string($value) || is_numeric($value);
+
+        if ($regex !== null && (! $stringOrNumeric || preg_match($regex, (string) $value) === 0)) {
+            return false;
+        }
+
+        if ($notRegex !== null && (! $stringOrNumeric || preg_match($notRegex, (string) $value) === 1)) {
+            return false;
+        }
+
+        return true;
     }
 
     /**
@@ -287,16 +364,20 @@ final class FastCheckCompiler
             $checks[] = static fn (mixed $v): bool => is_string($v) && (bool) preg_match('/^[0-7][0-9A-HJKMNP-TV-Z]{25}$/D', $v);
         }
 
+        // Laravel's alpha/alpha_dash/alpha_num accept strings and numbers,
+        // but reject bools, arrays, and null.
+        $stringlike = static fn (mixed $v): bool => is_string($v) || is_int($v) || is_float($v);
+
         if (($c['alpha'] ?? false) === true) {
-            $checks[] = static fn (mixed $v): bool => is_string($v) && (bool) preg_match('/\A[a-zA-Z]+\z/u', $v);
+            $checks[] = static fn (mixed $v): bool => $stringlike($v) && (bool) preg_match('/\A[a-zA-Z]+\z/u', (string) $v);
         }
 
         if (($c['alphaDash'] ?? false) === true) {
-            $checks[] = static fn (mixed $v): bool => is_string($v) && (bool) preg_match('/\A[a-zA-Z0-9_-]+\z/u', $v);
+            $checks[] = static fn (mixed $v): bool => $stringlike($v) && (bool) preg_match('/\A[a-zA-Z0-9_-]+\z/u', (string) $v);
         }
 
         if (($c['alphaNum'] ?? false) === true) {
-            $checks[] = static fn (mixed $v): bool => is_string($v) && (bool) preg_match('/\A[a-zA-Z0-9]+\z/u', $v);
+            $checks[] = static fn (mixed $v): bool => $stringlike($v) && (bool) preg_match('/\A[a-zA-Z0-9]+\z/u', (string) $v);
         }
     }
 

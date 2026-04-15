@@ -2,6 +2,43 @@
 
 All notable changes to `laravel-fluent-validation` will be documented in this file.
 
+## 1.9.0 - 2026-04-15
+
+### Added
+
+- `RuleSet::check()` returns an immutable `Validated` result object for errors-as-data flows. Methods: `passes()`, `fails()`, `errors()`, `firstError($field)`, `validated()`, `safe()` (returns `Illuminate\Support\ValidatedInput`), and `validator()` (escape hatch).
+- Fast-check closures now apply to flat top-level rules, not just wildcard rules. A rule set like `['name' => 'string|max:255']` skips Laravel's validator when values pass.
+
+### Fixed
+
+FastCheckCompiler rewrite for Laravel parity. A new parity suite (`tests/FastCheckParityTest.php`) surfaced 75 drifts against `Validator::make(...)->passes()`, all fixed:
+
+- Null no longer short-circuits to pass; type rules correctly fail on null without `nullable`.
+- `nullable` bypasses null only when no implicit rule (required/accepted/declined) needs to run.
+- `'' + non-implicit rule` now passes (Laravel's `presentOrRuleIsImplicit` semantics).
+- `required` fails on empty arrays.
+- `array|min`/`array|max` enforce `count()`-based size checks.
+- `alpha`/`alpha_dash`/`alpha_num` accept `int`/`float` via cast; reject `bool`/`null`/`array`.
+- `regex`/`not_regex` require `is_string || is_numeric`; reject booleans, nulls, arrays.
+- `in`/`not_in` reject non-scalars.
+- Dotted rule keys (from `children()`) now fall through to Laravel in the non-wildcard path, ensuring nested lookup and validated-data shaping match Laravel.
+
+### Changed (non-fast-checkable)
+
+- `filled` and `sometimes` now route through Laravel. Distinguishing absent from present-null requires presence tracking the closure doesn't have; marking them non-fast-checkable avoids silent acceptance of `{field: null}`.
+- Size rules (`min`/`max`) without a type flag (`string`/`array`/`numeric`/`integer`) are non-fast-checkable. Laravel infers size from runtime value type; the fast path defers.
+
+### Breaking
+
+Users who relied on the previous lenient null behavior will see rules fail where they previously passed. These were bugs — the fast path silently accepted invalid input. Add `nullable` to rules that should accept null:
+
+```diff
+- 'bio' => 'string|max:500',
++ 'bio' => 'nullable|string|max:500',
+```
+
+**Full Changelog**: https://github.com/SanderMuller/laravel-fluent-validation/compare/1.8.2...1.9.0
+
 ## 1.8.2 - 2026-04-15
 
 ### Fix

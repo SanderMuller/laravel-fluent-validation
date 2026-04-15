@@ -208,8 +208,40 @@ final class RuleSet implements Arrayable
         }
 
         if ($wildcardGroups === []) {
+            $compiled = self::compile($topRules);
+
+            // Fast-check pass: run compiled closures on top-level fields when
+            // all keys are flat (no dots). Dotted keys from children() require
+            // nested lookup and validated-data shaping that Laravel provides.
+            $hasDottedKey = false;
+            foreach (array_keys($compiled) as $key) {
+                if (str_contains($key, '.')) {
+                    $hasDottedKey = true;
+                    break;
+                }
+            }
+
+            if (! $hasDottedKey) {
+                [$fastChecks, $slowRules] = $this->buildFastChecks($compiled);
+
+                if ($slowRules === [] && $fastChecks !== []) {
+                    $allPass = true;
+                    foreach ($fastChecks as $check) {
+                        if (! $check($data)) {
+                            $allPass = false;
+                            break;
+                        }
+                    }
+
+                    if ($allPass) {
+                        /** @var array<string, mixed> */
+                        return array_intersect_key($data, $compiled);
+                    }
+                }
+            }
+
             /** @var array<string, mixed> */
-            return Validator::make($data, self::compile($topRules), $messages, $attributes)
+            return Validator::make($data, $compiled, $messages, $attributes)
                 ->stopOnFirstFailure($this->stopOnFirstFailure)
                 ->validate();
         }

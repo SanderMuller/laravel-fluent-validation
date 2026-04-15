@@ -4,6 +4,7 @@ namespace SanderMuller\FluentValidation;
 
 use Illuminate\Contracts\Validation\Validator as ValidatorContract;
 use Illuminate\Support\MessageBag;
+use Illuminate\Support\ValidatedInput;
 use Illuminate\Validation\ValidationException;
 
 /**
@@ -66,6 +67,21 @@ final readonly class Validated
         }
 
         return $this->validated;
+    }
+
+    /**
+     * Return validated data as a ValidatedInput instance for fluent access
+     * (->only(), ->except(), ->collect(), etc.).
+     *
+     * @throws ValidationException if validation failed
+     */
+    public function safe(): ValidatedInput
+    {
+        if ($this->fails()) {
+            throw new ValidationException($this->validator);
+        }
+
+        return new ValidatedInput($this->validated);
     }
 
     /**
