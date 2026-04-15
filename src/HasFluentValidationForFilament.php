@@ -6,8 +6,7 @@ use Illuminate\Validation\ValidationException;
 
 /**
  * Use this trait on Livewire components that also use Filament's InteractsWithForms/InteractsWithSchemas.
- * Provides the same FluentRule support as HasFluentValidation but wraps validation errors
- * with Filament's error event dispatch (form-validation-error).
+ * Provides FluentRule compilation + Filament form-schema rule aggregation + error event dispatch.
  *
  * Requires insteadof disambiguation since both traits define validate/validateOnly/getRules/getValidationAttributes:
  *
@@ -21,15 +20,57 @@ use Illuminate\Validation\ValidationException;
  *         }
  *     }
  *
- * Standard validate()/validateOnly() work as expected — FluentRule compilation,
- * label extraction, each()/children() expansion, and Filament error dispatching
- * are all handled automatically.
+ * Both rules() FluentRules and Filament form-schema rules are merged automatically.
  */
 trait HasFluentValidationForFilament
 {
     use HasFluentValidation {
         HasFluentValidation::validate as private fluentValidate;
         HasFluentValidation::validateOnly as private fluentValidateOnly;
+        HasFluentValidation::getRules as private fluentGetRules;
+        HasFluentValidation::getValidationAttributes as private fluentGetValidationAttributes;
+    }
+
+    /**
+     * Return compiled FluentRules merged with Filament form-schema rules.
+     *
+     * @return array<string, mixed>
+     */
+    public function getRules(): array
+    {
+        $rules = $this->fluentGetRules();
+
+        // Merge Filament form-schema rules (same as InteractsWithForms::getRules)
+        if (method_exists($this, 'getCachedForms')) { // @phpstan-ignore function.alreadyNarrowedType
+            foreach ($this->getCachedForms() as $form) {
+                if (method_exists($form, 'getValidationRules')) {
+                    $rules = [...$rules, ...$form->getValidationRules()];
+                }
+            }
+        }
+
+        return $rules;
+    }
+
+    /**
+     * Return FluentRule labels merged with Filament form-schema attributes.
+     *
+     * @return array<string, string>
+     */
+    public function getValidationAttributes(): array
+    {
+        $attributes = $this->fluentGetValidationAttributes();
+
+        // Merge Filament form-schema attributes (same as InteractsWithForms::getValidationAttributes)
+        if (method_exists($this, 'getCachedForms')) { // @phpstan-ignore function.alreadyNarrowedType
+            foreach ($this->getCachedForms() as $form) {
+                if (method_exists($form, 'getValidationAttributes')) {
+                    $attributes = [...$attributes, ...$form->getValidationAttributes()];
+                }
+            }
+        }
+
+        return $attributes;
     }
 
     /**

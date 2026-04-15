@@ -396,7 +396,7 @@ class EditUser extends Component implements HasForms
 }
 ```
 
-Standard `validate()` and `validateOnly()` work as expected. FluentRule compilation, label/message extraction, `each()`/`children()` expansion, and Filament's `form-validation-error` event dispatch are all handled automatically. Note: this trait replaces Filament's rule aggregation from form schemas — use it on components where validation is defined in `rules()`, not schema-driven.
+Standard `validate()` and `validateOnly()` work as expected. FluentRule compilation, label/message extraction, `each()`/`children()` expansion, Filament's `form-validation-error` event dispatch, and Filament form-schema rule aggregation are all handled automatically.
 
 ### Livewire + Laravel Boost
 

@@ -55,6 +55,33 @@ class FakeFilamentBase
     }
 }
 
+/**
+ * Simulates a Filament form that returns schema-driven validation rules and attributes.
+ */
+class FakeFilamentForm
+{
+    /**
+     * @param  array<string, mixed>  $validationRules
+     * @param  array<string, string>  $validationAttributes
+     */
+    public function __construct(
+        private readonly array $validationRules = [],
+        private readonly array $validationAttributes = [],
+    ) {}
+
+    /** @return array<string, mixed> */
+    public function getValidationRules(): array
+    {
+        return $this->validationRules;
+    }
+
+    /** @return array<string, string> */
+    public function getValidationAttributes(): array
+    {
+        return $this->validationAttributes;
+    }
+}
+
 class TestableFilamentComponent extends FakeFilamentBase
 {
     use HasFluentValidationForFilament;
@@ -62,8 +89,13 @@ class TestableFilamentComponent extends FakeFilamentBase
     /**
      * @param  array<string, mixed>  $fluentRules
      * @param  array<string, mixed>  $data
+     * @param  list<FakeFilamentForm>  $forms
      */
-    public function __construct(private array $fluentRules = [], public array $data = []) {}
+    public function __construct(
+        private array $fluentRules = [],
+        public array $data = [],
+        private array $forms = [],
+    ) {}
 
     /** @return array<string, mixed> */
     public function rules(): array
@@ -78,6 +110,12 @@ class TestableFilamentComponent extends FakeFilamentBase
     public function getDataForValidation(array $rules): array
     {
         return $this->data;
+    }
+
+    /** @return list<FakeFilamentForm> */
+    public function getCachedForms(): array
+    {
+        return $this->forms;
     }
 }
 
@@ -212,4 +250,84 @@ it('Filament: validate() merges caller messages with FluentRule messages', funct
     expect($component->lastValidateCall['messages'])
         ->toHaveKey('name.required', 'Name is required!')
         ->toHaveKey('name.max', 'Too long!');
+});
+
+// =========================================================================
+// Form-schema rule aggregation
+// =========================================================================
+
+it('Filament: getRules() merges FluentRules with form-schema rules', function (): void {
+    $component = new TestableFilamentComponent(
+        fluentRules: [
+            'slug' => FluentRule::string()->required()->alphaDash(),
+        ],
+        forms: [
+            new FakeFilamentForm(
+                validationRules: ['title' => ['required', 'string', 'max:255']],
+                validationAttributes: ['title' => 'Title'],
+            ),
+        ],
+    );
+
+    $rules = $component->getRules();
+
+    // FluentRule from rules()
+    expect($rules)->toHaveKey('slug');
+    // Schema rule from form
+    expect($rules)->toHaveKey('title');
+    expect($rules['title'])->toBe(['required', 'string', 'max:255']);
+});
+
+it('Filament: getValidationAttributes() merges FluentRule labels with form-schema attributes', function (): void {
+    $component = new TestableFilamentComponent(
+        fluentRules: [
+            'slug' => FluentRule::string('URL Slug')->required(),
+        ],
+        forms: [
+            new FakeFilamentForm(
+                validationRules: ['title' => ['required']],
+                validationAttributes: ['title' => 'Article Title'],
+            ),
+        ],
+    );
+
+    $attributes = $component->getValidationAttributes();
+
+    expect($attributes)
+        ->toHaveKey('slug', 'URL Slug')
+        ->toHaveKey('title', 'Article Title');
+});
+
+it('Filament: getRules() works with multiple forms', function (): void {
+    $component = new TestableFilamentComponent(
+        fluentRules: [
+            'name' => FluentRule::string()->required(),
+        ],
+        forms: [
+            new FakeFilamentForm(
+                validationRules: ['email' => ['required', 'email']],
+            ),
+            new FakeFilamentForm(
+                validationRules: ['phone' => ['nullable', 'string']],
+            ),
+        ],
+    );
+
+    $rules = $component->getRules();
+
+    expect($rules)
+        ->toHaveKeys(['name', 'email', 'phone']);
+});
+
+it('Filament: getRules() works without forms', function (): void {
+    $component = new TestableFilamentComponent(
+        fluentRules: [
+            'name' => FluentRule::string()->required(),
+        ],
+        forms: [],
+    );
+
+    $rules = $component->getRules();
+
+    expect($rules)->toHaveKey('name');
 });
