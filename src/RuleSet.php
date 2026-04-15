@@ -880,6 +880,26 @@ final class RuleSet implements Arrayable
      * @param  array<string, mixed>  $rules
      * @return array<string, array<mixed>>
      */
+    /**
+     * Compile rules and extract labels/messages for use with Livewire's validate().
+     * Returns [rules, messages, attributes] matching validate()'s parameter order.
+     *
+     * Usage in Filament components:
+     *   [$rules, $messages, $attributes] = RuleSet::compileWithMetadata($this->rules());
+     *   $this->validate($rules, $messages, $attributes);
+     *
+     * @param  array<string, mixed>  $rules
+     * @return array{0: array<string, mixed>, 1: array<string, string>, 2: array<string, string>}
+     */
+    public static function compileWithMetadata(array $rules): array
+    {
+        $ruleSet = self::from($rules);
+        $flattened = $ruleSet->flattenRules();
+        [$messages, $attributes] = self::extractMetadata($flattened);
+
+        return [self::compile($flattened), $messages, $attributes];
+    }
+
     public static function compileToArrays(array $rules): array
     {
         $compiled = self::compile($rules);

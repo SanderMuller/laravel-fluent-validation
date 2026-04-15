@@ -55,6 +55,30 @@ parameters:
 			path: src/RuleSet.php
 
 		-
+			rawMessage: 'Method SanderMuller\FluentValidation\RuleSet::compileToArrays() has parameter $rules with no value type specified in iterable type array.'
+			identifier: missingType.iterableValue
+			count: 1
+			path: src/RuleSet.php
+
+		-
+			rawMessage: 'Method SanderMuller\FluentValidation\RuleSet::compileToArrays() return type has no value type specified in iterable type array.'
+			identifier: missingType.iterableValue
+			count: 1
+			path: src/RuleSet.php
+
+		-
+			rawMessage: 'Method SanderMuller\FluentValidation\RuleSet::dump() should return array{rules: array<string, array<mixed>>, messages: array<string, string>, attributes: array<string, string>} but returns array{rules: array, messages: array<string, string>, attributes: array<string, string>}.'
+			identifier: return.type
+			count: 1
+			path: src/RuleSet.php
+
+		-
+			rawMessage: 'Parameter #1 $rules of static method SanderMuller\FluentValidation\RuleSet::compile() expects array<string, mixed>, array given.'
+			identifier: argument.type
+			count: 1
+			path: src/RuleSet.php
+
+		-
 			rawMessage: 'Call to method ignoring() of internal interface Pest\Arch\Contracts\ArchExpectation from outside its root namespace Pest.'
 			identifier: method.internalInterface
 			count: 2
@@ -95,12 +119,6 @@ parameters:
 			identifier: pest.impossibleExpectation
 			count: 1
 			path: tests/FluentFormRequestTest.php
-
-		-
-			rawMessage: 'Calling toBeArray() on Expectation<array<mixed>> will always pass — the assertion is redundant.'
-			identifier: pest.redundantExpectation
-			count: 1
-			path: tests/FluentRuleTest.php
 
 		-
 			rawMessage: 'Calling toBeArray() on Expectation<list<object|string>> will always pass — the assertion is redundant.'
@@ -169,7 +187,7 @@ parameters:
 			path: tests/FluentRuleTest.php
 
 		-
-			rawMessage: 'Out of 1042 possible param types, only 1039 - 99.7 %% actually have it. Add more param types to get over 100 %%'
+			rawMessage: 'Out of 1050 possible param types, only 1047 - 99.7 %% actually have it. Add more param types to get over 100 %%'
 			identifier: typeCoverage.paramTypeCoverage
 			count: 3
 			path: tests/HasFluentValidationTest.php

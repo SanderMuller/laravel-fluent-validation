@@ -133,6 +133,9 @@ class StorePostRequest extends FluentFormRequest
 
 FluentRule objects implement Laravel's `ValidationRule` interface, so they also work in `Validator::make()`, `Rule::forEach()`, and `Rule::when()`. For inline validation outside form requests, prefer [`RuleSet::validate()`](#ruleset) over `Validator::make()` — it gives you the same optimizations as `HasFluentRules`. Use [`->when()`](#conditional-rules) to handle create and update in a single form request.
 
+> [!NOTE]
+> `FluentRule` is a static factory, not a base class. `FluentRule::string()` returns a `StringRule`, `FluentRule::email()` returns an `EmailRule`, etc. For PHPDoc type hints, reference the concrete rule class or `ValidationRule`, not `FluentRule`.
+
 ### Migrating existing rules
 
 You don't need to convert all your rules at once. Fluent rules mix freely with string rules and native rule objects in the same array:
@@ -363,7 +366,32 @@ The trait provides full Livewire support. Labels, messages, `each()`, `children(
 ]),
 ```
 
-**Filament components:** `HasFluentValidation` conflicts with Filament's `InteractsWithSchemas` because both define `validate()`. Use [`RuleSet::compileToArrays()`](#ruleset) instead: `$this->validate(RuleSet::compileToArrays($this->rules()))`.
+**Filament components:** `HasFluentValidation` conflicts with Filament's `InteractsWithForms` (v3/v4) / `InteractsWithSchemas` (v5) because both define `validate()`, `validateOnly()`, `getRules()`, and `getValidationAttributes()`. Use `HasFluentValidationForFilament` instead — it adds a `validateFluent()` method without overriding any Livewire or Filament methods:
+
+```php
+use Filament\Forms\Concerns\InteractsWithForms;
+use SanderMuller\FluentValidation\HasFluentValidationForFilament;
+
+class EditUser extends Component implements HasForms
+{
+    use HasFluentValidationForFilament, InteractsWithForms;
+
+    public function rules(): array
+    {
+        return [
+            'name' => FluentRule::string('Name')->required()->max(255),
+        ];
+    }
+
+    public function save(): void
+    {
+        $validated = $this->validateFluent(); // compiles FluentRules with labels/messages
+        // ...
+    }
+}
+```
+
+`validateFluent()` compiles FluentRule objects, extracts labels and messages, and delegates to Filament's `validate()`. Filament's form-schema validation, error dispatching, and `$this->form->getState()` all work normally.
 
 ### Livewire + Laravel Boost
 

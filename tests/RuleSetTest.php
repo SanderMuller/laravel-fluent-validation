@@ -1905,3 +1905,44 @@ it('failOnUnknownFields with deeply nested wildcards', function (): void {
 
     expect($validated['items'])->toHaveCount(1);
 });
+
+// =========================================================================
+// compileWithMetadata — rules + messages + attributes in one call
+// =========================================================================
+
+it('compileWithMetadata returns compiled rules with extracted messages and labels', function (): void {
+    $rules = [
+        'name' => FluentRule::string('Full Name')->required()->message('Name is required!'),
+        'items' => FluentRule::array()->required()->each([
+            'qty' => FluentRule::numeric('Quantity')->required()->integer()->min(1),
+        ]),
+    ];
+
+    [$compiled, $messages, $attributes] = RuleSet::compileWithMetadata($rules);
+
+    // Rules compiled
+    expect($compiled)
+        ->toHaveKey('name')
+        ->toHaveKey('items')
+        ->toHaveKey('items.*.qty');
+
+    // Messages extracted
+    expect($messages)->toHaveKey('name.required', 'Name is required!');
+
+    // Labels extracted
+    expect($attributes)
+        ->toHaveKey('name', 'Full Name')
+        ->toHaveKey('items.*.qty', 'Quantity');
+});
+
+it('compileWithMetadata returns empty messages/attributes for plain string rules', function (): void {
+    $rules = [
+        'name' => 'required|string|max:255',
+    ];
+
+    [$compiled, $messages, $attributes] = RuleSet::compileWithMetadata($rules);
+
+    expect($compiled)->toHaveKey('name')
+        ->and($messages)->toBe([])
+        ->and($attributes)->toBe([]);
+});
