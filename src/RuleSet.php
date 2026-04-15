@@ -6,6 +6,7 @@ use Illuminate\Contracts\Support\Arrayable;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\MessageBag;
 use Illuminate\Support\Traits\Conditionable;
 use Illuminate\Support\Traits\Macroable;
 use Illuminate\Validation\ValidationException;
@@ -137,32 +138,42 @@ final class RuleSet implements Arrayable
     }
 
     /**
-     * Build a Laravel Validator without invoking validation.
-     * Use when you want to inspect errors via ->fails()/->errors() instead
-     * of throwing ValidationException. Expands wildcards against $data.
+     * Validate and return a Validated result object. Does not throw on failure.
+     * Use when you want errors-as-data (import rows, batch jobs, conditional logic).
      *
-     * For batch/import flows where row failure is expected:
-     *     $validator = RuleSet::from([...])->validator($row->toArray());
-     *     if ($validator->fails()) { ... }
+     *     $result = RuleSet::from($rules)->check($row->toArray());
+     *     if ($result->fails()) {
+     *         Log::warning('...', $result->errors()->all());
+     *         return null;
+     *     }
+     *     $validated = $result->validated();
      *
-     * Keeps: O(n) wildcard expansion, rule compilation, label/message extraction.
-     * Drops: per-item fast-check closures, conditional rule pre-evaluation,
-     * batched DB validation. For large wildcard payloads, validate() is faster.
+     * Uses the full optimization engine: fast-check closures, conditional
+     * pre-evaluation, batched DB validation, O(n) wildcard expansion.
      *
      * @param  array<string, mixed>  $data
      * @param  array<string, string>  $messages
      * @param  array<string, string>  $attributes
      */
-    public function validator(array $data, array $messages = [], array $attributes = []): \Illuminate\Validation\Validator
+    public function check(array $data, array $messages = [], array $attributes = []): Validated
     {
-        $prepared = $this->prepare($data);
+        try {
+            $validated = $this->validate($data, $messages, $attributes);
 
-        return Validator::make(
-            $data,
-            $prepared->rules,
-            array_merge($prepared->messages, $messages),
-            array_merge($prepared->attributes, $attributes),
-        )->stopOnFirstFailure($this->stopOnFirstFailure);
+            return new Validated(
+                passes: true,
+                validated: $validated,
+                errors: new MessageBag(),
+                validator: Validator::make($data, []),
+            );
+        } catch (ValidationException $validationException) {
+            return new Validated(
+                passes: false,
+                validated: [],
+                errors: $validationException->validator->errors(),
+                validator: $validationException->validator,
+            );
+        }
     }
 
     /**
