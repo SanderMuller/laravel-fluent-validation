@@ -69,7 +69,7 @@ trait HasFluentValidationForFilament
             $this->onValidationError($exception);
         }
 
-        if (method_exists($this, 'dispatch')) { // @phpstan-ignore function.alreadyNarrowedType
+        if (method_exists($this, 'dispatch') && method_exists($this, 'getId')) { // @phpstan-ignore function.alreadyNarrowedType
             $this->dispatch('form-validation-error', livewireId: $this->getId());
         }
     }

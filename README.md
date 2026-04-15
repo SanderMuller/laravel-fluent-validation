@@ -366,7 +366,7 @@ The trait provides full Livewire support. Labels, messages, `each()`, `children(
 ]),
 ```
 
-**Filament components:** `HasFluentValidation` conflicts with Filament's `InteractsWithForms` (v3/v4) / `InteractsWithSchemas` (v5) because both define `validate()`, `validateOnly()`, `getRules()`, and `getValidationAttributes()`. Use `HasFluentValidationForFilament` instead — it adds a `validateFluent()` method without overriding any Livewire or Filament methods:
+**Filament components:** `HasFluentValidation` conflicts with Filament's `InteractsWithForms` (v3/v4) / `InteractsWithSchemas` (v5) because both define `validate()`, `validateOnly()`, `getRules()`, and `getValidationAttributes()`. Use `HasFluentValidationForFilament` instead — it provides the same FluentRule compilation with Filament's error event dispatching preserved:
 
 ```php
 use Filament\Forms\Concerns\InteractsWithForms;
@@ -374,7 +374,12 @@ use SanderMuller\FluentValidation\HasFluentValidationForFilament;
 
 class EditUser extends Component implements HasForms
 {
-    use HasFluentValidationForFilament, InteractsWithForms;
+    use HasFluentValidationForFilament, InteractsWithForms {
+        HasFluentValidationForFilament::validate insteadof InteractsWithForms;
+        HasFluentValidationForFilament::validateOnly insteadof InteractsWithForms;
+        HasFluentValidationForFilament::getRules insteadof InteractsWithForms;
+        HasFluentValidationForFilament::getValidationAttributes insteadof InteractsWithForms;
+    }
 
     public function rules(): array
     {
@@ -385,19 +390,13 @@ class EditUser extends Component implements HasForms
 
     public function save(): void
     {
-        $validated = $this->validateFluent();
+        $validated = $this->validate(); // standard method — compiles FluentRules automatically
         // ...
-    }
-
-    // For real-time validation with wire:model.blur:
-    public function updated(string $property): void
-    {
-        $this->validateOnlyFluent($property);
     }
 }
 ```
 
-`validateFluent()` and `validateOnlyFluent()` compile FluentRule objects, extract labels and messages, and delegate to Filament's `validate()` / `validateOnly()`. Filament's form-schema validation, error dispatching, and `$this->form->getState()` all work normally.
+Standard `validate()` and `validateOnly()` work as expected. FluentRule compilation, label/message extraction, `each()`/`children()` expansion, and Filament's `form-validation-error` event dispatch are all handled automatically. Note: this trait replaces Filament's rule aggregation from form schemas — use it on components where validation is defined in `rules()`, not schema-driven.
 
 ### Livewire + Laravel Boost
 
