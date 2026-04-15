@@ -187,7 +187,13 @@ parameters:
 			path: tests/FluentRuleTest.php
 
 		-
-			rawMessage: 'Out of 1050 possible param types, only 1047 - 99.7 %% actually have it. Add more param types to get over 100 %%'
+			rawMessage: 'Property FakeFilamentBase::$lastValidateOnlyCall (array{field: string, rules: mixed, messages: array<string, string>, attributes: array<string, string>}) does not accept array{field: mixed, rules: array<string, mixed>|null, messages: array<string, string>, attributes: array<string, string>}.'
+			identifier: assign.propertyType
+			count: 1
+			path: tests/HasFluentValidationForFilamentTest.php
+
+		-
+			rawMessage: 'Out of 1063 possible param types, only 1060 - 99.7 %% actually have it. Add more param types to get over 100 %%'
 			identifier: typeCoverage.paramTypeCoverage
 			count: 3
 			path: tests/HasFluentValidationTest.php

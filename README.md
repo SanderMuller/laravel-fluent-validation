@@ -385,13 +385,19 @@ class EditUser extends Component implements HasForms
 
     public function save(): void
     {
-        $validated = $this->validateFluent(); // compiles FluentRules with labels/messages
+        $validated = $this->validateFluent();
         // ...
+    }
+
+    // For real-time validation with wire:model.blur:
+    public function updated(string $property): void
+    {
+        $this->validateOnlyFluent($property);
     }
 }
 ```
 
-`validateFluent()` compiles FluentRule objects, extracts labels and messages, and delegates to Filament's `validate()`. Filament's form-schema validation, error dispatching, and `$this->form->getState()` all work normally.
+`validateFluent()` and `validateOnlyFluent()` compile FluentRule objects, extract labels and messages, and delegate to Filament's `validate()` / `validateOnly()`. Filament's form-schema validation, error dispatching, and `$this->form->getState()` all work normally.
 
 ### Livewire + Laravel Boost
 

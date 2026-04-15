@@ -16,6 +16,9 @@ class FakeFilamentBase
     /** @var array{rules: mixed, messages: array<string, string>, attributes: array<string, string>} */
     public array $lastValidateCall = ['rules' => null, 'messages' => [], 'attributes' => []];
 
+    /** @var array{field: string, rules: mixed, messages: array<string, string>, attributes: array<string, string>} */
+    public array $lastValidateOnlyCall = ['field' => '', 'rules' => null, 'messages' => [], 'attributes' => []];
+
     /**
      * @param  array<string, mixed>|null  $rules
      * @param  array<string, string>  $messages
@@ -25,6 +28,25 @@ class FakeFilamentBase
     public function validate(mixed $rules = null, array $messages = [], array $attributes = []): array
     {
         $this->lastValidateCall = [
+            'rules' => $rules,
+            'messages' => $messages,
+            'attributes' => $attributes,
+        ];
+
+        return is_array($rules) ? $rules : [];
+    }
+
+    /**
+     * @param  array<string, mixed>|null  $rules
+     * @param  array<string, string>  $messages
+     * @param  array<string, string>  $attributes
+     * @param  array<string, mixed>  $dataOverrides
+     * @return array<string, mixed>
+     */
+    public function validateOnly(mixed $field, mixed $rules = null, array $messages = [], array $attributes = [], array $dataOverrides = []): array
+    {
+        $this->lastValidateOnlyCall = [
+            'field' => $field,
             'rules' => $rules,
             'messages' => $messages,
             'attributes' => $attributes,
@@ -192,4 +214,40 @@ it('validateFluent() merges caller-provided messages with FluentRule messages', 
     expect($messages)
         ->toHaveKey('name.required', 'Name is required!')
         ->toHaveKey('name.max', 'Too long!');
+});
+
+// =========================================================================
+// validateOnlyFluent() — single-field validation
+// =========================================================================
+
+it('validateOnlyFluent() compiles FluentRules and delegates to validateOnly()', function (): void {
+    $component = new TestableFilamentComponent(
+        fluentRules: [
+            'name' => FluentRule::string('Full Name')->required()->max(255),
+            'email' => FluentRule::email()->required(),
+        ],
+    );
+
+    $component->validateOnlyFluent('name');
+
+    expect($component->lastValidateOnlyCall['field'])->toBe('name');
+
+    $rules = $component->lastValidateOnlyCall['rules'];
+    expect($rules)->toBeArray()->toHaveKey('name');
+
+    $attributes = $component->lastValidateOnlyCall['attributes'];
+    expect($attributes)->toHaveKey('name', 'Full Name');
+});
+
+it('validateOnlyFluent() extracts messages for the validated field', function (): void {
+    $component = new TestableFilamentComponent(
+        fluentRules: [
+            'name' => FluentRule::string()->required()->message('Name is required!'),
+        ],
+    );
+
+    $component->validateOnlyFluent('name');
+
+    $messages = $component->lastValidateOnlyCall['messages'];
+    expect($messages)->toHaveKey('name.required', 'Name is required!');
 });

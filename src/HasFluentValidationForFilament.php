@@ -36,10 +36,43 @@ trait HasFluentValidationForFilament
      */
     public function validateFluent(?array $rules = null, array $messages = [], array $attributes = []): array
     {
+        [$compiled, $mergedMessages, $mergedAttributes] = $this->compileFluentSource($rules, $messages, $attributes);
+
+        return $this->validate($compiled, $mergedMessages, $mergedAttributes);
+    }
+
+    /**
+     * Compile FluentRule objects and validate a single field.
+     * Call this instead of $this->validateOnly() for real-time validation
+     * with FluentRule label/message extraction in Filament components.
+     *
+     * @param  array<string, mixed>|null  $rules
+     * @param  array<string, string>  $messages
+     * @param  array<string, string>  $attributes
+     * @param  array<string, mixed>  $dataOverrides
+     * @return array<string, mixed>
+     */
+    public function validateOnlyFluent(string $field, ?array $rules = null, array $messages = [], array $attributes = [], array $dataOverrides = []): array
+    {
+        [$compiled, $mergedMessages, $mergedAttributes] = $this->compileFluentSource($rules, $messages, $attributes);
+
+        return $this->validateOnly($field, $compiled, $mergedMessages, $mergedAttributes, $dataOverrides);
+    }
+
+    /**
+     * Resolve and compile FluentRule source with metadata extraction.
+     *
+     * @param  array<string, mixed>|null  $rules
+     * @param  array<string, string>  $messages
+     * @param  array<string, string>  $attributes
+     * @return array{0: array<string, mixed>|null, 1: array<string, string>, 2: array<string, string>}
+     */
+    private function compileFluentSource(?array $rules, array $messages, array $attributes): array
+    {
         $source = $rules ?? (method_exists($this, 'rules') ? $this->rules() : []); // @phpstan-ignore function.alreadyNarrowedType
 
         if ($source === []) {
-            return $this->validate($rules, $messages, $attributes);
+            return [$rules, $messages, $attributes];
         }
 
         // Check if any rules are FluentRule objects
@@ -54,15 +87,15 @@ trait HasFluentValidationForFilament
         }
 
         if (! $hasFluentRules) {
-            return $this->validate($rules, $messages, $attributes);
+            return [$rules, $messages, $attributes];
         }
 
         [$compiled, $extractedMessages, $extractedAttributes] = RuleSet::compileWithMetadata($source);
 
-        return $this->validate(
+        return [
             $compiled,
             array_merge($extractedMessages, $messages),
             array_merge($extractedAttributes, $attributes),
-        );
+        ];
     }
 }
