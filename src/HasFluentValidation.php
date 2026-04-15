@@ -24,6 +24,7 @@ namespace SanderMuller\FluentValidation;
  *         }
  *     }
  */
+/** @method array<string, mixed> rules() */
 trait HasFluentValidation
 {
     /**
