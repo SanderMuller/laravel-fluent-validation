@@ -317,7 +317,7 @@ $scenarios['Conditional import — 100 items, 47 conditional fields'] = [
 
 // --- 6. Login form — no wildcards, minimal rules ---
 $scenarios['Login form — 3 fields, no wildcards'] = [
-    'optimizations' => 'None',
+    'optimizations' => 'Fast-check (flat)',
     'native' => [
         ['email' => 'required|string|email|max:255', 'password' => 'required|string|min:8', 'remember' => 'nullable|boolean'],
         ['email' => 'user@example.com', 'password' => 'secure-password-123', 'remember' => true],

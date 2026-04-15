@@ -451,14 +451,14 @@ When using `HasFluentRules` (FormRequest), `HasFluentValidation` (Livewire), `Fl
 
 | Scenario | Optimizations | Native Laravel | Optimized | Speedup |
 |----------|---------------|----------------|-----------|---------|
-| [Product import](#product-import) — 500 items, simple rules | Wildcard, fast-check | ~162ms | **~3ms** | ~60x |
-| [Nested order lines](#nested-order-lines) — 1000 orders × 5 line items | Wildcard, fast-check (nested) | ~2,508ms | **~16ms** | ~160x |
-| [Conditional import](#conditional-import) — 100 items, 47 conditional fields | Wildcard, pre-evaluation | ~2,938ms | **~42ms** | ~69x |
-| [Event scheduling](#event-scheduling) — 100 items, field-ref dates | Wildcard, partial fast-check | ~19ms | **~10ms** | ~2x |
+| [Product import](#product-import) — 500 items, simple rules | Wildcard, fast-check | ~160ms | **~3ms** | ~46x |
+| [Nested order lines](#nested-order-lines) — 1000 orders × 5 line items | Wildcard, fast-check (nested) | ~2,416ms | **~19ms** | ~125x |
+| [Conditional import](#conditional-import) — 100 items, 47 conditional fields | Wildcard, pre-evaluation | ~2,900ms | **~47ms** | ~62x |
+| [Event scheduling](#event-scheduling) — 100 items, field-ref dates | Wildcard, partial fast-check | ~18ms | **~10ms** | ~2x |
 | [Article submission](#article-submission) — 50 items, custom Rule objects | Wildcard only | ~8ms | **~2ms** | ~3x |
-| [Login form](#login-form) — 3 fields, no wildcards | None | ~0.1ms | **~0.1ms** | ~1x |
+| [Login form](#login-form) — 3 fields, no wildcards | Fast-check (flat) | ~0.1ms | **~0.02ms** | ~6x |
 
-Forms without wildcard rules delegate directly to Laravel's validator. The Login scenario represents all non-wildcard FormRequests. All numbers are from `php benchmark.php` (macOS, PHP 8.4, OPcache); CI runs produce the same scenarios on Ubuntu.
+All numbers are from `php benchmark.php` (macOS, PHP 8.4, OPcache); CI runs produce the same scenarios on Ubuntu.
 
 ### O(n) wildcard expansion
 
@@ -585,7 +585,7 @@ Benchmarks run automatically on PRs via GitHub Actions. All optimizations are Oc
 
 #### Login form
 
-3 fields, no wildcards. Without wildcard patterns, `RuleSet::validate()` delegates directly to Laravel's `Validator::make()`. None of the four optimizations apply because they all operate on per-item wildcard expansion.
+3 fields, no wildcards. All three rules are fully fast-checkable, so `RuleSet::validate()` skips Laravel's validator entirely when values pass.
 
 ```php
 'email'    => FluentRule::email()->required()->max(255),
@@ -593,7 +593,7 @@ Benchmarks run automatically on PRs via GitHub Actions. All optimizations are Oc
 'remember' => FluentRule::boolean()->nullable(),
 ```
 
-**Optimizations**: None. FluentRule objects compile to native Laravel format, so there is no overhead either.
+**Optimizations**: Fast-check closures for all three fields. Absolute savings are small (~0.1ms → ~0.02ms), but the relative speedup is ~6x since a simple form doesn't give Laravel much wildcard work to amortize against.
 
 #### When this won't help
 
