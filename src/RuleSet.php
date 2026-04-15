@@ -137,6 +137,31 @@ final class RuleSet implements Arrayable
     }
 
     /**
+     * Build a Laravel Validator without invoking validation.
+     * Use when you want to inspect errors via ->fails()/->errors() instead
+     * of throwing ValidationException. Expands wildcards against $data.
+     *
+     * For batch/import flows where row failure is expected:
+     *     $validator = RuleSet::from([...])->validator($row->toArray());
+     *     if ($validator->fails()) { ... }
+     *
+     * @param  array<string, mixed>  $data
+     * @param  array<string, string>  $messages
+     * @param  array<string, string>  $attributes
+     */
+    public function validator(array $data, array $messages = [], array $attributes = []): \Illuminate\Validation\Validator
+    {
+        $prepared = $this->prepare($data);
+
+        return Validator::make(
+            $data,
+            $prepared->rules,
+            array_merge($prepared->messages, $messages),
+            array_merge($prepared->attributes, $attributes),
+        )->stopOnFirstFailure($this->stopOnFirstFailure);
+    }
+
+    /**
      * @param  array<string, mixed>  $data
      * @return array<string, mixed>
      */

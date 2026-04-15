@@ -1944,3 +1944,43 @@ it('compileWithMetadata returns empty messages/attributes for plain string rules
         ->and($messages)->toBeEmpty()
         ->and($attributes)->toBeEmpty();
 });
+
+// =========================================================================
+// validator() — non-throwing factory
+// =========================================================================
+
+it('validator() returns a Laravel Validator without throwing', function (): void {
+    $validator = RuleSet::from([
+        'name' => FluentRule::string()->required(),
+    ])->validator(['name' => '']);
+
+    expect($validator->fails())->toBeTrue()
+        ->and($validator->errors()->get('name'))->not->toBeEmpty();
+});
+
+it('validator() passes for valid data', function (): void {
+    $validator = RuleSet::from([
+        'name' => FluentRule::string()->required()->max(255),
+    ])->validator(['name' => 'John']);
+
+    expect($validator->passes())->toBeTrue();
+});
+
+it('validator() extracts FluentRule labels', function (): void {
+    $validator = RuleSet::from([
+        'name' => FluentRule::string('Full Name')->required(),
+    ])->validator(['name' => '']);
+
+    expect($validator->errors()->first('name'))->toContain('Full Name');
+});
+
+it('validator() expands wildcards against data', function (): void {
+    $validator = RuleSet::from([
+        'items' => FluentRule::array()->required()->each([
+            'name' => FluentRule::string()->required(),
+        ]),
+    ])->validator(['items' => [['name' => 'Foo'], ['name' => '']]]);
+
+    expect($validator->fails())->toBeTrue()
+        ->and($validator->errors()->has('items.1.name'))->toBeTrue();
+});
