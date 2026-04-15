@@ -29,8 +29,6 @@ use ReflectionProperty;
  *             ];
  *         }
  *     }
- *
- * @method array<string, mixed> rules()
  */
 trait HasFluentRules
 {
