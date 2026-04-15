@@ -145,6 +145,10 @@ final class RuleSet implements Arrayable
      *     $validator = RuleSet::from([...])->validator($row->toArray());
      *     if ($validator->fails()) { ... }
      *
+     * Keeps: O(n) wildcard expansion, rule compilation, label/message extraction.
+     * Drops: per-item fast-check closures, conditional rule pre-evaluation,
+     * batched DB validation. For large wildcard payloads, validate() is faster.
+     *
      * @param  array<string, mixed>  $data
      * @param  array<string, string>  $messages
      * @param  array<string, string>  $attributes
