@@ -900,6 +900,7 @@ final class RuleSet implements Arrayable
         return [self::compile($flattened), $messages, $attributes];
     }
 
+    /** @return array<string, array<mixed>> */
     public static function compileToArrays(array $rules): array
     {
         $compiled = self::compile($rules);

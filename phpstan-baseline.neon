@@ -61,18 +61,6 @@ parameters:
 			path: src/RuleSet.php
 
 		-
-			rawMessage: 'Method SanderMuller\FluentValidation\RuleSet::compileToArrays() return type has no value type specified in iterable type array.'
-			identifier: missingType.iterableValue
-			count: 1
-			path: src/RuleSet.php
-
-		-
-			rawMessage: 'Method SanderMuller\FluentValidation\RuleSet::dump() should return array{rules: array<string, array<mixed>>, messages: array<string, string>, attributes: array<string, string>} but returns array{rules: array, messages: array<string, string>, attributes: array<string, string>}.'
-			identifier: return.type
-			count: 1
-			path: src/RuleSet.php
-
-		-
 			rawMessage: 'Parameter #1 $rules of static method SanderMuller\FluentValidation\RuleSet::compile() expects array<string, mixed>, array given.'
 			identifier: argument.type
 			count: 1
@@ -119,6 +107,12 @@ parameters:
 			identifier: pest.impossibleExpectation
 			count: 1
 			path: tests/FluentFormRequestTest.php
+
+		-
+			rawMessage: 'Calling toBeArray() on Expectation<array<mixed>> will always pass — the assertion is redundant.'
+			identifier: pest.redundantExpectation
+			count: 1
+			path: tests/FluentRuleTest.php
 
 		-
 			rawMessage: 'Calling toBeArray() on Expectation<list<object|string>> will always pass — the assertion is redundant.'
