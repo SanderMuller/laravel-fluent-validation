@@ -315,15 +315,14 @@ final class FastCheckCompiler
                 return false;
             }
 
-            // Value-level closure already handled nullable/empty-string skips.
-            // If we got this far and $value isn't a string, fail field-ref checks.
-            if (! is_string($value)) {
-                // If the value is null/'' it passed nullable/empty semantics earlier;
-                // in that case, field-ref comparisons should be skipped.
-                if ($value === null || $value === '') {
-                    return true;
-                }
+            // valueClosure already applied nullable/empty-string semantics.
+            // For field-ref comparisons, skip when the value is empty/null —
+            // Laravel also skips date comparison rules on empty values.
+            if ($value === null || $value === '') {
+                return true;
+            }
 
+            if (! is_string($value)) {
                 return false;
             }
 
@@ -333,43 +332,70 @@ final class FastCheckCompiler
                 return false;
             }
 
+            // Laravel parity: when the referenced field doesn't resolve to a
+            // valid timestamp, its value is loosely compared as 0 (null coerces
+            // to 0 in numeric comparisons). This means:
+            //  - `after` / `after_or_equal`: unresolvable ref → compare against 0,
+            //     so any positive timestamp passes.
+            //  - `before` / `before_or_equal` / `date_equals`: unresolvable ref →
+            //     compare against 0, so any positive timestamp fails.
             if ($afterField !== null) {
-                $ref = strtotime((string) ($item[$afterField] ?? ''));
-                if ($ref === false || $ts <= $ref) {
+                $ref = self::resolveRefTimestamp($item, $afterField);
+                if ($ts <= $ref) {
                     return false;
                 }
             }
 
             if ($afterOrEqualField !== null) {
-                $ref = strtotime((string) ($item[$afterOrEqualField] ?? ''));
-                if ($ref === false || $ts < $ref) {
+                $ref = self::resolveRefTimestamp($item, $afterOrEqualField);
+                if ($ts < $ref) {
                     return false;
                 }
             }
 
             if ($beforeField !== null) {
-                $ref = strtotime((string) ($item[$beforeField] ?? ''));
-                if ($ref === false || $ts >= $ref) {
+                $ref = self::resolveRefTimestamp($item, $beforeField);
+                if ($ts >= $ref) {
                     return false;
                 }
             }
 
             if ($beforeOrEqualField !== null) {
-                $ref = strtotime((string) ($item[$beforeOrEqualField] ?? ''));
-                if ($ref === false || $ts > $ref) {
+                $ref = self::resolveRefTimestamp($item, $beforeOrEqualField);
+                if ($ts > $ref) {
                     return false;
                 }
             }
 
             if ($dateEqualsField !== null) {
-                $ref = strtotime((string) ($item[$dateEqualsField] ?? ''));
-                if ($ref === false || date('Y-m-d', $ts) !== date('Y-m-d', $ref)) {
+                $ref = self::resolveRefTimestamp($item, $dateEqualsField);
+                if ($ref === 0 || date('Y-m-d', $ts) !== date('Y-m-d', $ref)) {
                     return false;
                 }
             }
 
             return true;
         };
+    }
+
+    /**
+     * Resolve an item's date field to a timestamp. Unresolvable values (null,
+     * missing, empty, non-string, unparseable) coerce to 0 — matches Laravel's
+     * loose-comparison behavior when a referenced field doesn't parse.
+     *
+     * @param  array<string, mixed>  $item
+     */
+    private static function resolveRefTimestamp(array $item, string $field): int
+    {
+        $raw = $item[$field] ?? null;
+
+        if ($raw === null || $raw === '' || ! is_string($raw)) {
+            return 0;
+        }
+
+        $ts = strtotime($raw);
+
+        return $ts === false ? 0 : $ts;
     }
 
     /**

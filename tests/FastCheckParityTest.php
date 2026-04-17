@@ -126,3 +126,67 @@ it('fast-check closure verdict matches Laravel validator', function (string $rul
         ),
     );
 })->with(parityGrid());
+
+/**
+ * Parity grid for item-aware date field-ref rules. The closure receives both
+ * the target value and the item array (so `after:start_date` can resolve).
+ *
+ * @return iterable<string, array{string, mixed, array<string, mixed>}>
+ */
+function itemAwareDateParityGrid(): iterable
+{
+    $rules = [
+        'required|date|after:start_date',
+        'required|date|before:start_date',
+        'nullable|date|after:start_date',
+        'required|date|after_or_equal:start_date',
+        'required|date|before_or_equal:start_date',
+        'required|date|date_equals:start_date',
+    ];
+
+    $items = [
+        'both-valid-after' => ['value' => '2030-06-05', 'start_date' => '2030-06-01'],
+        'both-valid-before' => ['value' => '2030-05-15', 'start_date' => '2030-06-01'],
+        'both-valid-equal' => ['value' => '2030-06-01', 'start_date' => '2030-06-01'],
+        'value-invalid-date' => ['value' => 'not-a-date', 'start_date' => '2030-06-01'],
+        'ref-invalid-date' => ['value' => '2030-06-01', 'start_date' => 'not-a-date'],
+        'value-null' => ['value' => null, 'start_date' => '2030-06-01'],
+        'value-empty' => ['value' => '', 'start_date' => '2030-06-01'],
+        'ref-null' => ['value' => '2030-06-01', 'start_date' => null],
+        'ref-missing' => ['value' => '2030-06-01'],
+    ];
+
+    foreach ($rules as $rule) {
+        foreach ($items as $itemLabel => $item) {
+            $value = $item['value'] ?? null;
+            yield "{$rule} :: {$itemLabel}" => [$rule, $value, $item];
+        }
+    }
+}
+
+it('item-aware fast-check verdict matches Laravel validator for date field-refs', function (string $rule, mixed $value, array $item): void {
+    $closure = FastCheckCompiler::compileWithItemContext($rule);
+
+    if (! $closure instanceof Closure) {
+        // Rule not item-aware fast-checkable — skip.
+        expect(true)->toBeTrue();
+
+        return;
+    }
+
+    $fastResult = $closure($value, $item);
+
+    // Laravel needs the full item context for field-ref rules.
+    $laravelResult = Validator::make($item, ['value' => $rule])->passes();
+
+    expect($fastResult)->toBe(
+        $laravelResult,
+        sprintf(
+            'Parity drift for rule "%s" on item %s: fast=%s, Laravel=%s',
+            $rule,
+            json_encode($item, JSON_UNESCAPED_SLASHES),
+            $fastResult ? 'pass' : 'fail',
+            $laravelResult ? 'pass' : 'fail',
+        ),
+    );
+})->with(itemAwareDateParityGrid());
