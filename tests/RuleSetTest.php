@@ -2144,6 +2144,37 @@ it('wildcard fast path enforces gte:FIELD (numeric)', function (): void {
     expect(RuleSet::from($rules)->validate($valid))->toBe($valid);
 });
 
+it('wildcard fast path enforces combined gt + lt gates in one rule', function (): void {
+    $rules = [
+        'offers' => FluentRule::array()->required()->each([
+            'min_price' => FluentRule::numeric()->required(),
+            'max_price' => FluentRule::numeric()->required(),
+            'price' => FluentRule::numeric()->required()->rule('gt:min_price')->rule('lt:max_price'),
+        ]),
+    ];
+
+    // price strictly between min and max → pass.
+    $valid = ['offers' => [
+        ['min_price' => 10, 'max_price' => 20, 'price' => 15],
+    ]];
+    expect(RuleSet::from($rules)->validate($valid))->toBe($valid);
+
+    // price equals min → fails gt.
+    expect(fn () => RuleSet::from($rules)->validate(['offers' => [
+        ['min_price' => 10, 'max_price' => 20, 'price' => 10],
+    ]]))->toThrow(ValidationException::class);
+
+    // price equals max → fails lt.
+    expect(fn () => RuleSet::from($rules)->validate(['offers' => [
+        ['min_price' => 10, 'max_price' => 20, 'price' => 20],
+    ]]))->toThrow(ValidationException::class);
+
+    // price above max → fails lt.
+    expect(fn () => RuleSet::from($rules)->validate(['offers' => [
+        ['min_price' => 10, 'max_price' => 20, 'price' => 25],
+    ]]))->toThrow(ValidationException::class);
+});
+
 it('wildcard fast path enforces gt:FIELD (string length)', function (): void {
     $rules = [
         'entries' => FluentRule::array()->required()->each([
