@@ -1059,34 +1059,9 @@ When writing new rules, define the parent array alongside its wildcard children 
 
 Rector's `GroupWildcardRulesToEachRector` synthesizes `FluentRule::array()->nullable()` when no parent rule exists (preserving Laravel's flat-rule null-parity). That's safe, but explicit parents are self-documenting and let you control nullability/required/size at the array level. Existing codebases without explicit parents migrate fine — this is a convention for new code, not a rule.
 
-### Known limitations
+### Known limitations & verification workflow
 
-The Rector rules are deliberately conservative. They'll skip or leave untouched:
-
-- **Abstract classes** — subclasses may call `collect(parent::rules())->mergeRecursive(...)`, which breaks when the parent returns FluentRule objects instead of plain arrays. Abstract classes stay as-is so subclasses can still merge.
-- **Custom Validator subclasses** — classes extending your own `Validator` base (rather than Laravel's FormRequest) need manual migration. The rules only target FormRequest and Livewire.
-- **Dynamic rule building** — rules assembled via `collect()->put()`, runtime loops, or `Validator::sometimes()` after construction aren't detected. The rules only refactor literal array expressions in `rules()` returns and `$request->validate()` calls.
-- **Enum constants inside conditional tuples** — `['exclude_unless', $field, InteractionType::IMAGE]` stays as an array because enum cases can't be safely serialized through the fluent method's variadic `...$values`. The tuple converts only when all args are string/int/bool literals or variables.
-- **Complex `Rule::unique()` callbacks with multiple where clauses** — the rules convert `Rule::unique('users')->ignore($id)` and `Rule::exists('teams')->where('active', true)`, but deeply chained queries with 3+ where clauses bail to `->rule()` wrapping.
-- **Test file updates** — Rector processes production code. If your tests assert on specific validation error keys or messages that change shape after migration, expect to update them manually.
-- **Structural restructuring** — converting your `extends Validator` to `extends FluentValidator`, or replacing Collection-based rule assembly, needs manual work.
-
-### Verifying the migration
-
-After applying the Rector rules, work through this checklist in order. The cadence is "one full run at the start, filter-runs while investigating, one full run at the end" — resist the temptation to re-run the full suite between each small change.
-
-1. **Baseline full test run (optional but recommended).** Run `php artisan test --compact` or your project's equivalent *before* applying the rules. Note pass/fail counts and any pre-existing flakes so you can separate migration regressions from drift.
-2. **Dry-run first.** `vendor/bin/rector process --dry-run` — inspect the summary line (file count, rules applied). A count wildly above your `app/Http/Requests/` file total means a different Rector rule may also be matching; scope with `--clear-cache` and a path argument if needed.
-3. **Apply.** `vendor/bin/rector process` followed by `vendor/bin/pint --dirty` (your formatter of choice). Pint cleans up `\SanderMuller\FluentValidation\FluentRule` fully-qualified names into imports.
-4. **Diff-size sanity check.** `git diff --stat` — expect file count to match the dry-run summary. Large unexpected growth signals a stray rule; large shrinkage is normal (conversion replaces array scaffolding with method chains — net-negative line count is the healthy signal).
-5. **Spot-check 2–3 representative files.** Pick one small FormRequest, one with wildcards, one with custom rule objects (`->rule(new MyRule())`). Eyeball the transformation; if any look wrong, stop and investigate before touching the rest.
-
-   > If a file you expected to be converted was left untouched, re-run with `FLUENT_VALIDATION_RECTOR_VERBOSE=1 vendor/bin/rector process --dry-run`. The rules emit `[fluent-validation:skip pid=N]` lines on stderr explaining the decision ("abstract class", "detected as Livewire", "unsafe parent: a subclass manipulates parent::rules()", etc). No code change needed — just set the env var for the run. With `--parallel`, each worker dedups independently — seeing the same skip from multiple `pid=` values is normal (it's process-level duplication, not a logic bug).
-6. **Full test suite — second run.** `php artisan test --compact` with output captured to a file (`| tee /tmp/migration-run.log` or equivalent). This is your regression baseline.
-7. **Investigation loop (if failures).** Grep the captured log for unique `ErrorException:` / `TypeError:` signatures — most real regressions cluster into 2–3 root causes, not dozens of independent bugs. Fix one category, re-run only the affected subset with `--filter=PatternMatchingFailures`. Don't re-run the full suite to re-retrieve information already in the captured log.
-8. **Full test suite — final run.** One more full pass after all categories resolve. Same pass/fail profile as step 1 (minus any flake drift) is your green light.
-9. **Validation-message parity check *(optional, planned for v1.x)*.** A `validation:parity` helper is planned to diff attribute labels and error message keys between pre- and post-migration versions against the same fixture payload. Until then, for user-facing flows you care about, manually diff error responses from a pre-rector branch against the migrated one.
-10. **Commit.** Separate commit for the Rector run and any manual follow-ups so `git log` stays traceable.
+The Rector rules are deliberately conservative — they'll skip abstract classes, custom Validator subclasses, dynamically-built rules, and enum cases in conditional tuples, among others. The full skip list, verbose-skip diagnostics (`FLUENT_VALIDATION_RECTOR_VERBOSE=1`), and a step-by-step post-migration verification checklist (baseline test run → dry-run → apply → diff-size sanity → spot-check → filter-runs → final green) live in the [Rector package README](https://github.com/sandermuller/laravel-fluent-validation-rector#known-limitations). Start there before migrating anything non-trivial.
 
 ## Troubleshooting
 
