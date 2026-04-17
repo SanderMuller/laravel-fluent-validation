@@ -1101,17 +1101,8 @@ If you think it should be a native method, [open an issue](https://github.com/Sa
 **`HasFluentValidation` conflicts with Filament's `InteractsWithSchemas`**
 Both traits define `validate()`. For Filament components, use `RuleSet::compileToArrays()` instead of the trait: `$this->validate(RuleSet::compileToArrays($this->rules()))`. This returns `array<string, array<mixed>>` matching Livewire's expected type, so PHPStan is happy. FluentRule works correctly without the trait for simple rules.
 
-**`Attempt to read property 'value' on int` after migration**
-The Rector rule appended `->value` to a class constant reference that isn't a true `BackedEnum`. This happens with legacy enum patterns — classes that define `public const int FOO = 0` + `__callStatic` instead of `enum Foo: int`. Update to the latest package version where the rule checks `is_subclass_of($class, BackedEnum::class)` before appending `->value`. Legacy constant classes are left untouched.
-
-**`array_search(): Argument #2 must be of type array, FluentRule\Rules\StringRule given`**
-A child FormRequest calls `parent::rules()` and manipulates the result with `array_search`, `array_push`, bracket assignment, or `collect()->mergeRecursive()`. Before the current Rector rule shipped, the parent could be converted without knowing the child would manipulate the array. A three-layer detector (same-file AST scan, file-based IPC between parallel workers via `flock`, full-project fallback scan) now marks such parents as unsafe and skips them. Both the parent and the manipulating child stay as-is. Update the package if you hit this.
-
-**Tests pass after migration but validation messages feel off**
-Your test suite probably asserts on response status codes and JSON shape, not on error-bag contents. Validation messages and attribute labels may drift without test failures. Until `validation:parity` ships in v1.x, spot-check user-facing flows by hand: send a deliberately invalid payload against both a pre-migration branch and the migrated branch, and diff the `errors` arrays.
-
-**Rector crashes mid-run with `Class "SplObjectStorage" not found` or similar missing-class errors**
-Pre-release bug in `SimplifyFluentRuleRector` where `use SplObjectStorage;` was missing. Fixed in the current release (migrated to `WeakMap` for automatic GC-driven cleanup). Update the package; no code changes needed on your end.
+**Migration issues (Rector companion)**
+Rector-specific issues (`Attempt to read property 'value' on int`, `array_search(): Argument #2 must be of type array`, post-migration message drift, `SplObjectStorage` crashes, etc.) are tracked in the [laravel-fluent-validation-rector README](https://github.com/sandermuller/laravel-fluent-validation-rector#troubleshooting). Update the Rector companion to the latest version first — most are fixed upstream.
 
 **`Object of class X could not be converted to string` with BackedEnum in conditional rules**
 Conditional modifiers (`excludeUnless`, `requiredIf`, `prohibitedIf`, etc.) serialize `...$values` via `implode()`. Enum cases can't be imploded directly — unwrap them with `->value`:
