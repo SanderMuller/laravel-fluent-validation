@@ -2123,6 +2123,46 @@ it('wildcard fast path enforces same:FIELD equality against sibling', function (
     expect(RuleSet::from($rules)->validate($valid))->toBe($valid);
 });
 
+it('wildcard fast path enforces gte:FIELD (numeric)', function (): void {
+    $rules = [
+        'slots' => FluentRule::array()->required()->each([
+            'stock' => FluentRule::integer()->required(),
+            'sold' => FluentRule::integer()->required()->rule('lte:stock'),
+        ]),
+    ];
+
+    // sold > stock → fail.
+    expect(fn () => RuleSet::from($rules)->validate(['slots' => [
+        ['stock' => 5, 'sold' => 10],
+    ]]))->toThrow(ValidationException::class);
+
+    // sold == stock → pass (lte, equal).
+    $valid = ['slots' => [
+        ['stock' => 5, 'sold' => 5],
+        ['stock' => 10, 'sold' => 3],
+    ]];
+    expect(RuleSet::from($rules)->validate($valid))->toBe($valid);
+});
+
+it('wildcard fast path enforces gt:FIELD (string length)', function (): void {
+    $rules = [
+        'entries' => FluentRule::array()->required()->each([
+            'short' => FluentRule::string()->required(),
+            'long' => FluentRule::string()->required()->rule('gt:short'),
+        ]),
+    ];
+
+    // same length → fails strict gt.
+    expect(fn () => RuleSet::from($rules)->validate(['entries' => [
+        ['short' => 'abc', 'long' => 'xyz'],
+    ]]))->toThrow(ValidationException::class);
+
+    $valid = ['entries' => [
+        ['short' => 'hi', 'long' => 'hello'],
+    ]];
+    expect(RuleSet::from($rules)->validate($valid))->toBe($valid);
+});
+
 it('wildcard fast path enforces confirmed (default suffix)', function (): void {
     $rules = [
         'users' => FluentRule::array()->required()->each([

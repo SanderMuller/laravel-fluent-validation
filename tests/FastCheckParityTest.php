@@ -399,3 +399,127 @@ it('compileWithItemContext compiles confirmed rule only when attribute name is p
     expect(FastCheckCompiler::compileWithItemContext('required|confirmed'))
         ->toBeNull();
 });
+
+/**
+ * Parity grid for `gt:FIELD` / `gte:FIELD` / `lt:FIELD` / `lte:FIELD`.
+ * Laravel compares via `getSize($attribute, $value)`, which:
+ *   - for `numeric`/`integer` rule + numeric value: uses the numeric value
+ *   - for `array` value: uses count()
+ *   - else: falls through to `mb_strlen((string) $value)`
+ *
+ * Our closure must mirror that coercion exactly for the ref side, since
+ * the value side is already guaranteed type-valid by the type rule that
+ * runs before `gt:` (otherwise the type rule fails and the whole closure
+ * returns false).
+ *
+ * @return iterable<string, array{string, mixed, array<string, mixed>}>
+ */
+function itemAwareSizeComparisonParityGrid(): iterable
+{
+    $rules = [
+        // Numeric family
+        'required|numeric|gt:other',
+        'required|numeric|gte:other',
+        'required|numeric|lt:other',
+        'required|numeric|lte:other',
+        'required|integer|gt:other',
+        'required|integer|lte:other',
+
+        // String family — compares lengths
+        'required|string|gt:other',
+        'required|string|gte:other',
+        'required|string|lt:other',
+        'required|string|lte:other',
+
+        // Array family — compares counts
+        'required|array|gt:other',
+        'required|array|gte:other',
+        'required|array|lt:other',
+        'required|array|lte:other',
+
+        // Nullable combos
+        'nullable|numeric|gt:other',
+        'nullable|string|lte:other',
+    ];
+
+    $items = [
+        // Numeric shapes
+        'num:5-vs-3' => ['value' => 5, 'other' => 3],
+        'num:3-vs-5' => ['value' => 3, 'other' => 5],
+        'num:5-vs-5' => ['value' => 5, 'other' => 5],
+        'num:5-vs-str5' => ['value' => 5, 'other' => '5'],
+        'num:5-vs-abc' => ['value' => 5, 'other' => 'abc'],  // ref falls through to mb_strlen
+        'num:5-vs-null' => ['value' => 5, 'other' => null],
+        'num:5-vs-missing' => ['value' => 5],
+
+        // String shapes (lengths)
+        'str:hello-vs-hi' => ['value' => 'hello', 'other' => 'hi'],      // 5 vs 2
+        'str:hi-vs-hello' => ['value' => 'hi', 'other' => 'hello'],      // 2 vs 5
+        'str:same-vs-same' => ['value' => 'same', 'other' => 'same'],    // 4 vs 4
+        'str:hi-vs-null' => ['value' => 'hi', 'other' => null],          // 2 vs 0
+        'str:hi-vs-array' => ['value' => 'hi', 'other' => ['a', 'b']],   // 2 vs count=2
+
+        // Array shapes (counts)
+        'arr:3-vs-1' => ['value' => [1, 2, 3], 'other' => [1]],
+        'arr:empty-vs-1' => ['value' => [], 'other' => [1]],
+        'arr:1-vs-1' => ['value' => [1], 'other' => [1]],
+        'arr:2-vs-str3' => ['value' => [1, 2], 'other' => 'abc'],        // count 2 vs mb_strlen 3
+
+        // Nullable-value-null (should skip on nullable + non-implicit).
+        'null-value' => ['value' => null, 'other' => 3],
+    ];
+
+    foreach ($rules as $rule) {
+        foreach ($items as $itemLabel => $item) {
+            $value = $item['value'] ?? null;
+            yield "{$rule} :: {$itemLabel}" => [$rule, $value, $item];
+        }
+    }
+}
+
+it('item-aware fast-check verdict matches Laravel validator for size comparisons', function (string $rule, mixed $value, array $item): void {
+    $closure = FastCheckCompiler::compileWithItemContext($rule);
+
+    if (! $closure instanceof Closure) {
+        expect(true)->toBeTrue();
+
+        return;
+    }
+
+    $fastResult = $closure($value, $item);
+    $laravelResult = Validator::make($item, ['value' => $rule])->passes();
+
+    expect($fastResult)->toBe(
+        $laravelResult,
+        sprintf(
+            'Parity drift for rule "%s" on item %s: fast=%s, Laravel=%s',
+            $rule,
+            json_encode($item, JSON_UNESCAPED_SLASHES),
+            $fastResult ? 'pass' : 'fail',
+            $laravelResult ? 'pass' : 'fail',
+        ),
+    );
+})->with(itemAwareSizeComparisonParityGrid());
+
+/**
+ * Targeted assertion that drives the implementation. Size comparison rules
+ * (gt/gte/lt/lte with field-ref params) must fast-check when an explicit
+ * type flag is present, and bail when the type is ambiguous — matching how
+ * min/max are already handled by compile().
+ */
+it('compileWithItemContext compiles gt/gte/lt/lte with a type flag', function (): void {
+    // Positive: explicit type flag → closure.
+    expect(FastCheckCompiler::compileWithItemContext('required|numeric|gt:other'))
+        ->toBeInstanceOf(Closure::class);
+    expect(FastCheckCompiler::compileWithItemContext('required|string|lte:other'))
+        ->toBeInstanceOf(Closure::class)
+        ->and(FastCheckCompiler::compileWithItemContext('required|array|gte:other'))->toBeInstanceOf(Closure::class);
+
+    // Negative: no type flag → can't decide how to size-compare → null.
+    expect(FastCheckCompiler::compileWithItemContext('required|gt:other'))
+        ->toBeNull();
+
+    // Negative: multi-param `gt:a,b` is not valid Laravel syntax → bail.
+    expect(FastCheckCompiler::compileWithItemContext('required|numeric|gt:a,b'))
+        ->toBeNull();
+});

@@ -50,14 +50,17 @@ final class FastCheckCompiler
         }
 
         // Fast pre-filter: only re-parse if the rule actually has an item-aware
-        // comparison — date field-ref or same/different field-ref. Without this,
-        // every slow rule pays for a second full parse (wasted work for
-        // conditional/unknown rules).
+        // comparison. Without this, every slow rule pays for a second full
+        // parse (wasted work for conditional/unknown rules).
         if (! str_contains($ruleString, 'after:')
             && ! str_contains($ruleString, 'before:')
             && ! str_contains($ruleString, 'date_equals:')
             && ! str_contains($ruleString, 'same:')
             && ! str_contains($ruleString, 'different:')
+            && ! str_contains($ruleString, 'gt:')
+            && ! str_contains($ruleString, 'gte:')
+            && ! str_contains($ruleString, 'lt:')
+            && ! str_contains($ruleString, 'lte:')
         ) {
             return null;
         }
@@ -292,6 +295,8 @@ final class FastCheckCompiler
             'afterOrEqualField' => null, 'beforeOrEqualField' => null,
             'dateEqualsField' => null,
             'sameField' => null, 'differentField' => null,
+            'gtField' => null, 'gteField' => null,
+            'ltField' => null, 'lteField' => null,
         ];
 
         foreach (explode('|', $ruleString) as $part) {
@@ -306,6 +311,25 @@ final class FastCheckCompiler
 
         // Same size-rule type-flag guard as parse().
         if (($config['min'] !== null || $config['max'] !== null)
+            && $config['string'] === false
+            && $config['array'] === false
+            && $config['numeric'] === false
+            && $config['integer'] === false
+        ) {
+            return null;
+        }
+
+        // gt/gte/lt/lte against a sibling require an explicit type flag so
+        // the closure knows how to size the values (numeric value, string
+        // length, or array count). Without a type flag, bail — matches how
+        // Laravel's validateGt/validateLt fail when the attribute has no
+        // size-rule applied.
+        $hasSizeComparison = $config['gtField'] !== null
+            || $config['gteField'] !== null
+            || $config['ltField'] !== null
+            || $config['lteField'] !== null;
+
+        if ($hasSizeComparison
             && $config['string'] === false
             && $config['array'] === false
             && $config['numeric'] === false
@@ -333,6 +357,10 @@ final class FastCheckCompiler
             str_starts_with($part, 'before:') => self::parseDateParamWithFieldRef($config, 'before', substr($part, 7)),
             str_starts_with($part, 'same:') => self::parseFieldOnlyRef($config, 'sameField', substr($part, 5)),
             str_starts_with($part, 'different:') => self::parseFieldOnlyRef($config, 'differentField', substr($part, 10)),
+            str_starts_with($part, 'gte:') => self::parseFieldOnlyRef($config, 'gteField', substr($part, 4)),
+            str_starts_with($part, 'lte:') => self::parseFieldOnlyRef($config, 'lteField', substr($part, 4)),
+            str_starts_with($part, 'gt:') => self::parseFieldOnlyRef($config, 'gtField', substr($part, 3)),
+            str_starts_with($part, 'lt:') => self::parseFieldOnlyRef($config, 'ltField', substr($part, 3)),
             default => self::parsePart($part, $config),
         };
     }
@@ -381,6 +409,18 @@ final class FastCheckCompiler
         $sameField = $c['sameField'];
         /** @var ?string $differentField */
         $differentField = $c['differentField'];
+        /** @var ?string $gtField */
+        $gtField = $c['gtField'];
+        /** @var ?string $gteField */
+        $gteField = $c['gteField'];
+        /** @var ?string $ltField */
+        $ltField = $c['ltField'];
+        /** @var ?string $lteField */
+        $lteField = $c['lteField'];
+
+        $isNumeric = (bool) $c['numeric'];
+        $isInteger = (bool) $c['integer'];
+        $isArray = (bool) $c['array'];
 
         $hasDateFieldRef = $afterField !== null || $beforeField !== null
             || $afterOrEqualField !== null || $beforeOrEqualField !== null
@@ -388,7 +428,10 @@ final class FastCheckCompiler
 
         $hasEqualityFieldRef = $sameField !== null || $differentField !== null;
 
-        if (! $hasDateFieldRef && ! $hasEqualityFieldRef) {
+        $hasSizeComparison = $gtField !== null || $gteField !== null
+            || $ltField !== null || $lteField !== null;
+
+        if (! $hasDateFieldRef && ! $hasEqualityFieldRef && ! $hasSizeComparison) {
             return static fn (mixed $value, array $_item): bool => $valueClosure($value);
         }
 
@@ -398,7 +441,9 @@ final class FastCheckCompiler
             $afterOrEqualField, $beforeOrEqualField,
             $dateEqualsField,
             $sameField, $differentField,
-            $hasDateFieldRef
+            $gtField, $gteField, $ltField, $lteField,
+            $isNumeric, $isInteger, $isArray,
+            $hasDateFieldRef, $hasSizeComparison
         ): bool {
             if (! $valueClosure($value)) {
                 return false;
@@ -421,7 +466,43 @@ final class FastCheckCompiler
                 return false;
             }
 
+            if ($hasSizeComparison) {
+                // Laravel parity: gt/gte/lt/lte require the ref side to match
+                // the same type-family as the attribute. A numeric attribute
+                // with a non-numeric ref (null, string, array, missing) fails;
+                // a string attribute with a non-string ref fails; etc.
+                // valueClosure has already guaranteed the value-side type.
+                if ($gtField !== null) {
+                    $sizes = self::sizePair($value, $item[$gtField] ?? null, $isNumeric, $isInteger, $isArray);
+                    if ($sizes === null || $sizes[0] <= $sizes[1]) {
+                        return false;
+                    }
+                }
+
+                if ($gteField !== null) {
+                    $sizes = self::sizePair($value, $item[$gteField] ?? null, $isNumeric, $isInteger, $isArray);
+                    if ($sizes === null || $sizes[0] < $sizes[1]) {
+                        return false;
+                    }
+                }
+
+                if ($ltField !== null) {
+                    $sizes = self::sizePair($value, $item[$ltField] ?? null, $isNumeric, $isInteger, $isArray);
+                    if ($sizes === null || $sizes[0] >= $sizes[1]) {
+                        return false;
+                    }
+                }
+
+                if ($lteField !== null) {
+                    $sizes = self::sizePair($value, $item[$lteField] ?? null, $isNumeric, $isInteger, $isArray);
+                    if ($sizes === null || $sizes[0] > $sizes[1]) {
+                        return false;
+                    }
+                }
+            }
+
             if (! $hasDateFieldRef) {
+                // String size comparisons handled above; no date path needed.
                 return true;
             }
 
@@ -479,6 +560,43 @@ final class FastCheckCompiler
 
             return true;
         };
+    }
+
+    /**
+     * Produce `[valueSize, refSize]` for a size comparison under the given
+     * type flag. Returns null if the types don't match — Laravel rejects
+     * `numeric|gt:ref` when ref isn't numeric, `string|gt:ref` when ref
+     * isn't string, `array|gt:ref` when ref isn't array.
+     *
+     * The value side is always type-correct (valueClosure already enforced
+     * it), so only the ref side needs the type-alignment check.
+     *
+     * @return array{0: int|float, 1: int|float}|null
+     */
+    private static function sizePair(mixed $value, mixed $ref, bool $isNumeric, bool $isInteger, bool $isArray): ?array
+    {
+        if ($isNumeric || $isInteger) {
+            if (! is_numeric($ref)) {
+                return null;
+            }
+
+            return [$value + 0, $ref + 0];
+        }
+
+        if ($isArray) {
+            if (! is_array($ref)) {
+                return null;
+            }
+
+            return [count($value), count($ref)];
+        }
+
+        // Default: string length comparison (under `string` rule).
+        if (! is_string($ref)) {
+            return null;
+        }
+
+        return [mb_strlen((string) $value), mb_strlen($ref)];
     }
 
     /**
