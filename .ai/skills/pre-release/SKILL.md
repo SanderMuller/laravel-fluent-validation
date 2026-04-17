@@ -121,9 +121,14 @@ Run `benchmark.php --ci` **at least twice** — single runs have variance. If th
 
 ## Release Notes
 
-Only draft release notes **after** all steps pass. Include the final benchmark table from the last run in the release body (CI normally auto-appends it between `<!-- benchmark-start -->` / `<!-- benchmark-end -->` markers — verify this actually happened via `gh release view <tag>`).
+Only draft release notes **after** all steps pass. Draft them in `internal/release-notes-<version>.md`, then paste the contents as the GitHub release body.
 
 For release notes that claim a performance improvement or regression fix, cite the before/after benchmark numbers explicitly.
+
+**CI handles two things automatically — do not do them manually:**
+
+- **Benchmark table** is appended between `<!-- benchmark-start -->` / `<!-- benchmark-end -->` markers in the release body by `.github/workflows/release-benchmark.yml`. Verify via `gh release view <tag>`.
+- **`CHANGELOG.md`** is prepended with the release body by `.github/workflows/update-changelog.yml` on release publish. Do not edit `CHANGELOG.md` manually as part of the release PR. See the `release-automation` guideline for details.
 
 ## Important
 
