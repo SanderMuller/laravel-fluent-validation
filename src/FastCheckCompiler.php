@@ -36,6 +36,16 @@ final class FastCheckCompiler
      */
     public static function compileWithItemContext(string $ruleString): ?\Closure
     {
+        // Fast pre-filter: only re-parse if the rule actually has a date
+        // comparison rule. Without this, every slow rule pays for a second
+        // full parse (wasted work for conditional/unknown rules).
+        if (! str_contains($ruleString, 'after:')
+            && ! str_contains($ruleString, 'before:')
+            && ! str_contains($ruleString, 'date_equals:')
+        ) {
+            return null;
+        }
+
         $config = self::parseWithItemContext($ruleString);
 
         return $config !== null ? self::buildItemAwareClosure($config) : null;
