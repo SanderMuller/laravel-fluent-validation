@@ -454,7 +454,7 @@ When using `HasFluentRules` (FormRequest), `HasFluentValidation` (Livewire), `Fl
 | [Product import](#product-import) — 500 items, simple rules | Wildcard, fast-check | ~160ms | **~3ms** | ~46x |
 | [Nested order lines](#nested-order-lines) — 1000 orders × 5 line items | Wildcard, fast-check (nested) | ~2,416ms | **~19ms** | ~125x |
 | [Conditional import](#conditional-import) — 100 items, 47 conditional fields | Wildcard, pre-evaluation | ~2,900ms | **~47ms** | ~62x |
-| [Event scheduling](#event-scheduling) — 100 items, field-ref dates | Wildcard, partial fast-check | ~18ms | **~10ms** | ~2x |
+| [Event scheduling](#event-scheduling) — 100 items, field-ref dates | Wildcard, fast-check (field-ref dates) | ~19ms | **~0.7ms** | ~29x |
 | [Article submission](#article-submission) — 50 items, custom Rule objects | Wildcard only | ~8ms | **~2ms** | ~3x |
 | [Login form](#login-form) — 3 fields, no wildcards | Fast-check (flat) | ~0.1ms | **~0.02ms** | ~6x |
 
@@ -470,7 +470,7 @@ Rules like `exclude_unless` and `exclude_if` are evaluated before the validator 
 
 ### Fast-check closures
 
-For 30+ common rules (string, numeric, email, date, array, boolean, in, regex, date comparisons with literal dates, etc.), the package compiles PHP closures. `is_string($v) && strlen($v) <= 255` runs instead of going through rule parsing, method dispatch, and `BigNumber` size comparison. If a value passes, Laravel's validator never sees it. If it fails, that value falls through to Laravel for the correct error message. Rules that can't be fast-checked (date comparisons with field references, custom Rule objects, closures) go through Laravel as normal.
+For 30+ common rules (string, numeric, email, date, array, boolean, in, regex, date comparisons with literal dates, date comparisons with wildcard-sibling field references, etc.), the package compiles PHP closures. `is_string($v) && strlen($v) <= 255` runs instead of going through rule parsing, method dispatch, and `BigNumber` size comparison. If a value passes, Laravel's validator never sees it. If it fails, that value falls through to Laravel for the correct error message. Rules that can't be fast-checked (custom Rule objects, closures, `gte`/`lte`/`same`/`confirmed` cross-field comparisons) go through Laravel as normal.
 
 Fast-checks apply to both wildcard rules (`items.*.name`) and flat top-level rules. A simple `RuleSet::from(['name' => 'string|max:255'])->validate($data)` skips Laravel's validator entirely when the value passes.
 
@@ -554,18 +554,18 @@ Benchmarks run automatically on PRs via GitHub Actions. All optimizations are Oc
 
 #### Event scheduling
 
-100 events with date fields. `start_date` uses a literal date comparison (fast-checkable), but `end_date` and `registration_deadline` reference other fields (falls through to Laravel).
+100 events with date fields. Both literal date comparisons and wildcard-sibling field references fast-check.
 
 ```php
 'events'                        => FluentRule::array()->required()->each([
     'name'                      => FluentRule::string()->required()->min(3)->max(255),
     'start_date'                => FluentRule::date()->required()->after('2025-01-01'),        // literal → fast-checked
-    'end_date'                  => FluentRule::date()->required()->after('start_date'),          // field ref → Laravel
-    'registration_deadline'     => FluentRule::date()->required()->before('start_date'),         // field ref → Laravel
+    'end_date'                  => FluentRule::date()->required()->after('start_date'),          // field ref → fast-checked
+    'registration_deadline'     => FluentRule::date()->required()->before('start_date'),         // field ref → fast-checked
 ]),
 ```
 
-**Optimizations**: O(n) wildcard expansion + fast-check for `name` and `start_date` only. The field-reference date comparisons can't be compiled to closures because the comparison value isn't known until validation time.
+**Optimizations**: O(n) wildcard expansion + fast-check for every field. Sibling field references (`after:start_date`, `before:start_date`) resolve against the current wildcard item at call time via a second closure variant, so date comparisons don't fall through to Laravel.
 
 #### Article submission
 
@@ -599,7 +599,7 @@ Benchmarks run automatically on PRs via GitHub Actions. All optimizations are Oc
 
 The performance optimizations target wildcard array validation. These cases see little or no speedup:
 
-- **Cross-field comparisons** (`after:start_date`, `gte:other_field`, `same:password`, `confirmed`) — these need to resolve sibling values at validation time and can't be compiled to closures.
+- **Non-date cross-field comparisons** (`gte:other_field`, `same:password`, `confirmed`) — can't be compiled to closures. Date comparisons against wildcard siblings (`after:start_date`, `before:start_date`, `after_or_equal`, `before_or_equal`, `date_equals`) *are* fast-checked.
 - **Custom `ValidationRule` objects and closures** — opaque to the fast-check compiler. Performance depends on what the rule does.
 - **`distinct` rules** — require comparing values across all items in the array, not per-item.
 - **Database rules with closure callbacks** (`exists`/`unique` with `->where(fn ...)`) — can't be batched; each item fires its own query.
