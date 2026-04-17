@@ -13,13 +13,19 @@ parameters:
 			path: src/FastCheckCompiler.php
 
 		-
-			rawMessage: 'Class cognitive complexity is 103, keep it under 80'
+			rawMessage: 'Class cognitive complexity is 116, keep it under 80'
 			identifier: complexity.classLike
 			count: 1
 			path: src/FastCheckCompiler.php
 
 		-
 			rawMessage: 'Cognitive complexity for "SanderMuller\FluentValidation\FastCheckCompiler::addDateChecks()" is 23, keep it under 20'
+			identifier: complexity.functionLike
+			count: 1
+			path: src/FastCheckCompiler.php
+
+		-
+			rawMessage: 'Cognitive complexity for "SanderMuller\FluentValidation\FastCheckCompiler::buildClosure()" is 48, keep it under 20'
 			identifier: complexity.functionLike
 			count: 1
 			path: src/FastCheckCompiler.php
@@ -193,7 +199,7 @@ parameters:
 			path: tests/FluentRuleTest.php
 
 		-
-			rawMessage: 'Out of 1108 possible param types, only 1104 - 99.6 %% actually have it. Add more param types to get over 100 %%'
+			rawMessage: 'Out of 1092 possible param types, only 1088 - 99.6 %% actually have it. Add more param types to get over 100 %%'
 			identifier: typeCoverage.paramTypeCoverage
 			count: 1
 			path: tests/HasFluentValidationForFilamentTest.php
@@ -211,7 +217,7 @@ parameters:
 			path: tests/HasFluentValidationForFilamentTest.php
 
 		-
-			rawMessage: 'Out of 1108 possible param types, only 1104 - 99.6 %% actually have it. Add more param types to get over 100 %%'
+			rawMessage: 'Out of 1092 possible param types, only 1088 - 99.6 %% actually have it. Add more param types to get over 100 %%'
 			identifier: typeCoverage.paramTypeCoverage
 			count: 3
 			path: tests/HasFluentValidationTest.php

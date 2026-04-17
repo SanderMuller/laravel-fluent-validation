@@ -2,6 +2,7 @@
 
 use Rector\Caching\ValueObject\Storage\FileCacheStorage;
 use Rector\Carbon\Rector\FuncCall\DateFuncCallToCarbonRector;
+use Rector\CodeQuality\Rector\BooleanOr\RepeatedOrEqualToInArrayRector;
 use Rector\CodeQuality\Rector\ClassMethod\InlineArrayReturnAssignRector;
 use Rector\CodeQuality\Rector\If_\ExplicitBoolCompareRector;
 use Rector\CodingStyle\Rector\Encapsed\EncapsedStringsToSprintfRector;
@@ -61,4 +62,9 @@ return RectorConfig::configure()
         PrivatizeFinalClassMethodRector::class,
         RemoveUselessParamTagRector::class,
         RemoveUselessReturnTagRector::class,
+        // Hot-path closure allocates a literal array on every invocation
+        // when in_array() is used. Explicit === comparisons avoid that.
+        RepeatedOrEqualToInArrayRector::class => [
+            __DIR__ . '/src/FastCheckCompiler.php',
+        ],
     ]);

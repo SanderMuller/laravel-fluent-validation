@@ -196,10 +196,29 @@ final class FastCheckCompiler
         self::addDateChecks($c, $checks);
         self::addDigitChecks($c, $checks);
 
-        return static function (mixed $value) use ($required, $nullable, $hasImplicit, $isString, $isNumeric, $isInteger, $isArray, $min, $max, $in, $notIn, $regex, $notRegex, $checks): bool {
-            $gate = self::applyPresenceGates($value, $required, $nullable, $hasImplicit);
-            if ($gate !== null) {
-                return $gate;
+        $hasSize = $min !== null || $max !== null;
+        $hasInRegex = $in !== null || $notIn !== null || $regex !== null || $notRegex !== null;
+
+        return static function (mixed $value) use (
+            $required, $nullable, $hasImplicit,
+            $isString, $isNumeric, $isInteger, $isArray,
+            $min, $max, $hasSize,
+            $in, $notIn, $regex, $notRegex, $hasInRegex,
+            $checks
+        ): bool {
+            // Presence gates (inlined for hot-path perf).
+            // Explicit === comparisons beat in_array() here — avoids allocating
+            // the [null, '', []] literal array on every closure call.
+            if ($required && ($value === null || $value === '' || $value === [])) {
+                return false;
+            }
+
+            if ($value === null) {
+                if ($nullable && ! $hasImplicit) {
+                    return true;
+                }
+            } elseif ($value === '' && ! $hasImplicit) {
+                return true;
             }
 
             foreach ($checks as $check) {
@@ -208,99 +227,56 @@ final class FastCheckCompiler
                 }
             }
 
-            if (! self::passesSizeCheck($value, $min, $max, $isString, $isArray, $isNumeric, $isInteger)) {
-                return false;
+            // Size check (inlined)
+            if ($hasSize) {
+                if ($isString && is_string($value)) {
+                    $size = mb_strlen($value);
+                } elseif ($isArray && is_array($value)) {
+                    $size = count($value);
+                } elseif (($isNumeric || $isInteger) && is_numeric($value)) {
+                    $size = $value + 0;
+                } else {
+                    $size = null;
+                }
+
+                if ($size !== null) {
+                    if ($min !== null && $size < $min) {
+                        return false;
+                    }
+
+                    if ($max !== null && $size > $max) {
+                        return false;
+                    }
+                }
             }
 
-            return self::passesInAndRegexChecks($value, $in, $notIn, $regex, $notRegex);
+            // in/not_in/regex/not_regex (inlined)
+            if ($hasInRegex) {
+                $isScalar = is_scalar($value);
+
+                if ($in !== null && (! $isScalar || ! in_array((string) $value, $in, true))) {
+                    return false;
+                }
+
+                if ($notIn !== null && $isScalar && in_array((string) $value, $notIn, true)) {
+                    return false;
+                }
+
+                if ($regex !== null || $notRegex !== null) {
+                    $stringOrNumeric = is_string($value) || is_numeric($value);
+
+                    if ($regex !== null && (! $stringOrNumeric || preg_match($regex, (string) $value) === 0)) {
+                        return false;
+                    }
+
+                    if ($notRegex !== null && (! $stringOrNumeric || preg_match($notRegex, (string) $value) === 1)) {
+                        return false;
+                    }
+                }
+            }
+
+            return true;
         };
-    }
-
-    /**
-     * Presence gating: required/nullable/empty-string short-circuits.
-     * Returns true/false when the gate decides, or null to continue checks.
-     */
-    private static function applyPresenceGates(mixed $value, bool $required, bool $nullable, bool $hasImplicit): ?bool
-    {
-        if ($required && (in_array($value, [null, '', []], true))) {
-            return false;
-        }
-
-        // `nullable` bypasses checks on null only when no implicit rule must run.
-        if ($value === null && $nullable && ! $hasImplicit) {
-            return true;
-        }
-
-        // Laravel parity: empty string skips non-implicit rules.
-        if ($value === '' && ! $hasImplicit) {
-            return true;
-        }
-
-        return null;
-    }
-
-    /**
-     * Size checks derive measurement from type context: string length,
-     * array count, or numeric value.
-     */
-    private static function passesSizeCheck(
-        mixed $value,
-        ?int $min,
-        ?int $max,
-        bool $isString,
-        bool $isArray,
-        bool $isNumeric,
-        bool $isInteger,
-    ): bool {
-        if ($min === null && $max === null) {
-            return true;
-        }
-
-        if ($isString && is_string($value)) {
-            $size = mb_strlen($value);
-        } elseif ($isArray && is_array($value)) {
-            $size = count($value);
-        } elseif (($isNumeric || $isInteger) && is_numeric($value)) {
-            $size = $value + 0;
-        } else {
-            return true;
-        }
-
-        if ($min !== null && $size < $min) {
-            return false;
-        }
-
-        return ! ($max !== null && $size > $max);
-    }
-
-    /**
-     * in/not_in and regex/not_regex both require scalar-or-numeric input;
-     * Laravel rejects non-scalars and casts remaining values to string.
-     *
-     * @param  ?list<string>  $in
-     * @param  ?list<string>  $notIn
-     */
-    private static function passesInAndRegexChecks(mixed $value, ?array $in, ?array $notIn, ?string $regex, ?string $notRegex): bool
-    {
-        if ($in !== null && (! is_scalar($value) || ! in_array((string) $value, $in, true))) {
-            return false;
-        }
-
-        if ($notIn !== null && is_scalar($value) && in_array((string) $value, $notIn, true)) {
-            return false;
-        }
-
-        $stringOrNumeric = is_string($value) || is_numeric($value);
-
-        if ($regex !== null && (! $stringOrNumeric || preg_match($regex, (string) $value) === 0)) {
-            return false;
-        }
-
-        if ($notRegex !== null && (! $stringOrNumeric || preg_match($notRegex, (string) $value) === 1)) {
-            return false;
-        }
-
-        return true;
     }
 
     /**
