@@ -1028,13 +1028,21 @@ vendor/bin/rector process             # apply them
 vendor/bin/pint                       # fix code style after
 ```
 
-The Rector package includes 6 rules: string and array rule conversion, wildcard grouping into `each()`/`children()`, trait addition for FormRequests and Livewire components, and post-migration simplification. See the [Rector package README](https://github.com/sandermuller/laravel-fluent-validation-rector) for the full rule reference, granular set options, and configuration details.
+The Rector package covers the full migration surface — pipe-delimited strings, array-based rules, `Rule::` objects, `Password::min()` chains, conditional tuples, closures, custom rule objects, Livewire `#[Rule]` / `#[Validate]` attributes, wildcard grouping, trait insertion, and post-migration chain cleanup. Organized into composable sets:
+
+| Set | Includes |
+|-----|----------|
+| `ALL` | `CONVERT` + `GROUP` + `TRAITS` (full migration pipeline) |
+| `CONVERT` | String, array, and `#[Rule]` / `#[Validate]` attribute converters |
+| `GROUP` | Wildcard and dot-notation grouping into `each()` / `children()` |
+| `TRAITS` | `HasFluentRules` for FormRequests, `HasFluentValidation` (with Filament variant) for Livewire |
+| `SIMPLIFY` | Post-migration chain cleanup — `string()->url()` → `url()`, `min()+max()` → `between()`, redundant-type removal. Run separately after verifying the initial conversion. |
+
+See the [Rector package README](https://github.com/sandermuller/laravel-fluent-validation-rector) for the full rule-by-rule reference, configuration options (`PRESERVE_REALTIME_VALIDATION`, `BASE_CLASSES`), and diagnostics guidance.
 
 See [Common migration patterns](resources/boost/skills/fluent-validation/references/migration-patterns.md) for a detailed reference covering rule-type selection, `Rule::` method conversion, BackedEnum handling, and advanced patterns.
 
-The Rector rules are not just for migration. They also work as an ongoing code quality tool — run them in CI or as part of your Rector config to automatically simplify rules, group wildcards into `each()`/`children()`, and ensure new code follows the same patterns. New validation code written by team members gets cleaned up the same way migrated code does.
-
-> **Expect further simplification in a future release.** A planned `SimplifyRuleWrappersRector` will collapse `->rule(Rule::X())` / `->rule('X')` / `->rule(['X', arg])` patterns to native methods wherever a fluent equivalent exists (`->rule('email')` → `->email()`, `->rule(Rule::unique('users'))` → `->unique('users')`, etc.). Don't hand-simplify the escape-hatch output. Let the next Rector pass handle it so you can verify each transformation in isolation.
+The Rector rules aren't just for migration. Run `ALL` (or `SIMPLIFY` on its own) in CI as an ongoing code-quality gate — new validation code written by team members gets cleaned up the same way migrated code does.
 
 ### Style: prefer explicit parent rules
 
@@ -1103,16 +1111,6 @@ Both traits define `validate()`. For Filament components, use `RuleSet::compileT
 
 **Migration issues (Rector companion)**
 Rector-specific issues (`Attempt to read property 'value' on int`, `array_search(): Argument #2 must be of type array`, post-migration message drift, `SplObjectStorage` crashes, etc.) are tracked in the [laravel-fluent-validation-rector README](https://github.com/sandermuller/laravel-fluent-validation-rector#troubleshooting). Update the Rector companion to the latest version first — most are fixed upstream.
-
-**`Object of class X could not be converted to string` with BackedEnum in conditional rules**
-Conditional modifiers (`excludeUnless`, `requiredIf`, `prohibitedIf`, etc.) serialize `...$values` via `implode()`. Enum cases can't be imploded directly — unwrap them with `->value`:
-```php
-// WRONG
-->excludeUnless('type', Status::DRAFT, Status::PUBLISHED)
-// CORRECT
-->excludeUnless('type', Status::DRAFT->value, Status::PUBLISHED->value)
-```
-`->in()` is the exception — it accepts a BackedEnum class directly: `->in(Status::class)`.
 
 ## Testing
 
