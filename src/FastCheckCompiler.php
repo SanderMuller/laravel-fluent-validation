@@ -25,21 +25,6 @@ final class FastCheckCompiler
     }
 
     /**
-     * Compile a rule string into a closure that checks a single value against
-     * item-level context (sibling fields). This variant resolves date field
-     * references like `after:start_date` against the passed item array.
-     *
-     * When `$attributeName` is provided, the `confirmed` / `confirmed:X` rule
-     * is rewritten to `same:${attr}_confirmation` (or `same:X`) before parse.
-     * Without it, rules containing `confirmed` cannot be fast-checked because
-     * the confirmation field name depends on the attribute being validated.
-     *
-     * Returns null if the rule contains parts that can't be fast-checked even
-     * with item context. Used by RuleSet for wildcard-item slow-rule recovery.
-     *
-     * @return \Closure(mixed, array<string, mixed>): bool|null
-     */
-    /**
      * Compile a rule string with presence-conditional rewriting
      * (`required_with`, `required_without`, `required_with_all`,
      * `required_without_all`). The returned closure evaluates the
@@ -89,31 +74,98 @@ final class FastCheckCompiler
 
         $stripped = implode('|', $remaining);
 
-        // Compile the two branches. "active" adds `required`; "inactive"
-        // drops the presence conditional entirely.
-        $withRequired = self::compile($stripped === '' ? 'required' : 'required|' . $stripped);
-        $withoutRequired = $stripped === ''
-            ? static fn (mixed $value): bool => true
-            : self::compile($stripped);
+        // Compile the non-required remainder. Try item-aware first so
+        // combinations like `required_with:foo|same:bar` or
+        // `required_without:foo|gt:other` compose into one fast closure;
+        // fall back to the value-only compiler for plain rules, wrapped
+        // to the item-aware signature.
+        /** @var ?\Closure(mixed, array<string, mixed>): bool $checkRest */
+        $checkRest = $stripped === ''
+            ? static fn (mixed $_value, array $_item): bool => true
+            : self::buildItemAwareBranch($stripped);
 
-        if (! $withRequired instanceof \Closure || ! $withoutRequired instanceof \Closure) {
+        if (! $checkRest instanceof \Closure) {
             return null;
         }
 
-        return static function (mixed $value, array $item) use ($conditions, $withRequired, $withoutRequired): bool {
+        return static function (mixed $value, array $item) use ($conditions, $checkRest): bool {
+            $active = false;
             foreach ($conditions as $condition) {
                 if (self::presenceConditionActive($condition['type'], $condition['fields'], $item)) {
-                    return $withRequired($value);
+                    $active = true;
+                    break;
                 }
             }
 
-            return $withoutRequired($value);
+            // When presence conditions activate, the field is required in
+            // Laravel's sense: fail if empty per `validateRequired` (null,
+            // whitespace-only string, or empty Countable/array).
+            if ($active && self::isLaravelEmpty($value)) {
+                return false;
+            }
+
+            return $checkRest($value, $item);
         };
     }
 
     /**
+     * Build an item-aware branch closure for a stripped rule remainder.
+     * Prefers `compileWithItemContext` so same/different/date-ref/size-ref
+     * tokens compose; falls back to the value-only `compile()` wrapped to
+     * the item-aware signature when the remainder is purely value-level.
+     *
+     * @return \Closure(mixed, array<string, mixed>): bool|null
+     */
+    private static function buildItemAwareBranch(string $ruleString): ?\Closure
+    {
+        $itemAware = self::compileWithItemContext($ruleString);
+
+        if ($itemAware instanceof \Closure) {
+            return $itemAware;
+        }
+
+        $valueOnly = self::compile($ruleString);
+
+        if (! $valueOnly instanceof \Closure) {
+            return null;
+        }
+
+        return static fn (mixed $value, array $_item): bool => $valueOnly($value);
+    }
+
+    /**
+     * Match Laravel's `validateRequired` definition of "empty":
+     *   - null
+     *   - string whose `trim()` is ''
+     *   - array or Countable with count() === 0
+     *
+     * Used by presence-conditional gates on both sides — sibling
+     * presence and target required check.
+     */
+    private static function isLaravelEmpty(mixed $value): bool
+    {
+        if ($value === null) {
+            return true;
+        }
+
+        if (is_string($value)) {
+            return trim($value) === '';
+        }
+
+        if (is_array($value)) {
+            return $value === [];
+        }
+
+        if ($value instanceof \Countable) {
+            return count($value) === 0;
+        }
+
+        return false;
+    }
+
+    /**
      * A field is "present" by Laravel's `validateRequired` criteria: not null,
-     * not empty string, not empty array.
+     * not whitespace-only string, not empty array/Countable.
      *
      * @param  list<string>  $fields
      * @param  array<string, mixed>  $item
@@ -122,8 +174,7 @@ final class FastCheckCompiler
     {
         $present = [];
         foreach ($fields as $field) {
-            $raw = $item[$field] ?? null;
-            $present[] = ! in_array($raw, [null, '', []], true);
+            $present[] = ! self::isLaravelEmpty($item[$field] ?? null);
         }
 
         return match ($type) {
@@ -135,6 +186,21 @@ final class FastCheckCompiler
         };
     }
 
+    /**
+     * Compile a rule string into a closure that checks a single value against
+     * item-level context (sibling fields). This variant resolves date field
+     * references like `after:start_date` against the passed item array.
+     *
+     * When `$attributeName` is provided, the `confirmed` / `confirmed:X` rule
+     * is rewritten to `same:${attr}_confirmation` (or `same:X`) before parse.
+     * Without it, rules containing `confirmed` cannot be fast-checked because
+     * the confirmation field name depends on the attribute being validated.
+     *
+     * Returns null if the rule contains parts that can't be fast-checked even
+     * with item context. Used by RuleSet for wildcard-item slow-rule recovery.
+     *
+     * @return \Closure(mixed, array<string, mixed>): bool|null
+     */
     public static function compileWithItemContext(string $ruleString, ?string $attributeName = null): ?\Closure
     {
         // Rewrite `confirmed` / `confirmed:X` to `same:...` when an attribute

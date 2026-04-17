@@ -2309,6 +2309,54 @@ it('wildcard fast path enforces required_with (sibling present → required)', f
     expect(RuleSet::from($rules)->validate($noPhone))->toBe(['contacts' => [[]]]);
 });
 
+it('wildcard fast path enforces required_with with multi-param (any sibling present)', function (): void {
+    $rules = [
+        'rows' => FluentRule::array()->required()->each([
+            'a' => FluentRule::string()->nullable(),
+            'b' => FluentRule::string()->nullable(),
+            'label' => FluentRule::string()->rule('required_with:a,b')->max(50),
+        ]),
+    ];
+
+    // a present → label required → missing = fail.
+    expect(fn () => RuleSet::from($rules)->validate(['rows' => [
+        ['a' => 'x'],
+    ]]))->toThrow(ValidationException::class);
+
+    // b present, a missing → label required → missing = fail.
+    expect(fn () => RuleSet::from($rules)->validate(['rows' => [
+        ['b' => 'y'],
+    ]]))->toThrow(ValidationException::class);
+
+    // neither → label optional → pass.
+    $neither = ['rows' => [[]]];
+    expect(RuleSet::from($rules)->validate($neither))->toBe(['rows' => [[]]]);
+
+    // both + label → pass.
+    $full = ['rows' => [['a' => 'x', 'b' => 'y', 'label' => 'ok']]];
+    expect(RuleSet::from($rules)->validate($full))->toBe($full);
+});
+
+it('wildcard fast path fast-checks required_with alone (stripped rule is empty)', function (): void {
+    // No other rules on the field — stripped remainder is empty, so
+    // withoutRequired is the always-pass closure.
+    $rules = [
+        'items' => FluentRule::array()->required()->each([
+            'trigger' => FluentRule::string()->nullable(),
+            'conditional' => FluentRule::field()->rule('required_with:trigger'),
+        ]),
+    ];
+
+    // trigger present, conditional missing → fail.
+    expect(fn () => RuleSet::from($rules)->validate(['items' => [
+        ['trigger' => 'x'],
+    ]]))->toThrow(ValidationException::class);
+
+    // trigger missing → pass regardless of conditional value.
+    $noTrigger = ['items' => [[]]];
+    expect(RuleSet::from($rules)->validate($noTrigger))->toBe(['items' => [[]]]);
+});
+
 it('wildcard fast path enforces required_without (sibling absent → required)', function (): void {
     $rules = [
         'users' => FluentRule::array()->required()->each([

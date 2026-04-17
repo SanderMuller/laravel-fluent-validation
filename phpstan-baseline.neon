@@ -19,7 +19,7 @@ parameters:
 			path: src/FastCheckCompiler.php
 
 		-
-			rawMessage: 'Class cognitive complexity is 246, keep it under 80'
+			rawMessage: 'Class cognitive complexity is 253, keep it under 80'
 			identifier: complexity.classLike
 			count: 1
 			path: src/FastCheckCompiler.php
@@ -43,13 +43,19 @@ parameters:
 			path: src/FastCheckCompiler.php
 
 		-
-			rawMessage: 'Cognitive complexity for "SanderMuller\FluentValidation\FastCheckCompiler::compileWithPresenceConditionals()" is 24, keep it under 20'
+			rawMessage: 'Cognitive complexity for "SanderMuller\FluentValidation\FastCheckCompiler::compileWithPresenceConditionals()" is 25, keep it under 20'
 			identifier: complexity.functionLike
 			count: 1
 			path: src/FastCheckCompiler.php
 
 		-
 			rawMessage: 'Parameter #1 $value of function count expects array|Countable, mixed given.'
+			identifier: argument.type
+			count: 1
+			path: src/FastCheckCompiler.php
+
+		-
+			rawMessage: 'Parameter #2 of closure expects array<string, mixed>, array given.'
 			identifier: argument.type
 			count: 1
 			path: src/FastCheckCompiler.php
@@ -77,12 +83,6 @@ parameters:
 			identifier: cast.string
 			count: 1
 			path: src/PrecomputedPresenceVerifier.php
-
-		-
-			rawMessage: Anonymous function should return bool but returns mixed.
-			identifier: return.type
-			count: 2
-			path: src/RuleSet.php
 
 		-
 			rawMessage: 'Class cognitive complexity is 267, keep it under 80'
@@ -121,6 +121,18 @@ parameters:
 			path: src/RuleSet.php
 
 		-
+			rawMessage: 'Parameter #2 of closure expects array<string, mixed>, array given.'
+			identifier: argument.type
+			count: 2
+			path: src/RuleSet.php
+
+		-
+			rawMessage: 'Parameter #2 of closure expects array<string, mixed>, array<mixed> given.'
+			identifier: argument.type
+			count: 1
+			path: src/RuleSet.php
+
+		-
 			rawMessage: 'Call to method ignoring() of internal interface Pest\Arch\Contracts\ArchExpectation from outside its root namespace Pest.'
 			identifier: method.internalInterface
 			count: 2
@@ -147,13 +159,25 @@ parameters:
 		-
 			rawMessage: 'Calling toBeTrue() on Expectation<true> will always pass — the assertion is redundant.'
 			identifier: pest.redundantExpectation
-			count: 5
+			count: 7
+			path: tests/FastCheckParityTest.php
+
+		-
+			rawMessage: 'Offset ''value'' on array{value: ''2030-05-01''|''2030-06-10'', start: ''2030-06-01''}|array{value: ''bar'', other: ''bar''}|array{value: ''foo'', trigger: ''x'', other: ''bar''|''foo''}|array{value: 3|10, a: ''x'', b?: ''y'', min: 5} on left side of ?? always exists and is not nullable.'
+			identifier: nullCoalesce.offset
+			count: 1
+			path: tests/FastCheckParityTest.php
+
+		-
+			rawMessage: 'Parameter #2 of closure expects array<string, mixed>, array given.'
+			identifier: argument.type
+			count: 6
 			path: tests/FastCheckParityTest.php
 
 		-
 			rawMessage: 'Parameter #3 of function sprintf is expected to be string by placeholder #2 ("%%s"), string|false given.'
 			identifier: argument.type
-			count: 3
+			count: 5
 			path: tests/FastCheckParityTest.php
 
 		-
@@ -253,7 +277,7 @@ parameters:
 			path: tests/FluentRuleTest.php
 
 		-
-			rawMessage: 'Out of 1142 possible param types, only 1138 - 99.6 %% actually have it. Add more param types to get over 100 %%'
+			rawMessage: 'Out of 1153 possible param types, only 1149 - 99.6 %% actually have it. Add more param types to get over 100 %%'
 			identifier: typeCoverage.paramTypeCoverage
 			count: 1
 			path: tests/HasFluentValidationForFilamentTest.php
@@ -271,7 +295,7 @@ parameters:
 			path: tests/HasFluentValidationForFilamentTest.php
 
 		-
-			rawMessage: 'Out of 1142 possible param types, only 1138 - 99.6 %% actually have it. Add more param types to get over 100 %%'
+			rawMessage: 'Out of 1153 possible param types, only 1149 - 99.6 %% actually have it. Add more param types to get over 100 %%'
 			identifier: typeCoverage.paramTypeCoverage
 			count: 3
 			path: tests/HasFluentValidationTest.php

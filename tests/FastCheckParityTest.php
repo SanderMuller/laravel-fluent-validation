@@ -402,6 +402,174 @@ it('item-aware fast-check verdict matches Laravel validator for confirmed rule',
  * name it MUST bail (the rule can't be fast-checked without knowing the
  * field it applies to).
  */
+/**
+ * Parity grid for presence-conditional rules (`required_with` family).
+ * Codex adversarial review flagged two drift classes this grid asserts:
+ *
+ *   1. Whitespace-only / empty-Countable siblings: Laravel's
+ *      `validateRequired` treats `'   '` and empty Countable as absent;
+ *      my initial implementation treated them as present.
+ *
+ *   2. Whitespace-only target with active `required`: Laravel's required
+ *      check fails `'   '`; mine passed until the fix.
+ *
+ * @return iterable<string, array{string, mixed, array<string, mixed>}>
+ */
+function itemAwarePresenceConditionalParityGrid(): iterable
+{
+    $rules = [
+        'required_with:a|string|max:50',
+        'required_without:a|string|max:50',
+        'required_with_all:a,b|string|max:50',
+        'required_without_all:a,b|string|max:50',
+    ];
+
+    $items = [
+        // Basic presence shapes.
+        'a-present-target-ok' => ['value' => 'label', 'a' => 'x'],
+        'a-present-target-missing' => ['value' => null, 'a' => 'x', 'b' => 'y'],
+        'a-absent-target-missing' => ['value' => null],
+
+        // Whitespace-only sibling (Laravel treats as absent).
+        'a-whitespace-target-ok' => ['value' => 'label', 'a' => '   '],
+        'a-whitespace-target-missing' => ['value' => null, 'a' => '   '],
+
+        // Whitespace-only target with sibling present.
+        'a-present-target-whitespace' => ['value' => '   ', 'a' => 'x'],
+
+        // Multi-param for _all variants.
+        'ab-present-target-ok' => ['value' => 'label', 'a' => 'x', 'b' => 'y'],
+        'ab-one-missing-target-missing' => ['value' => null, 'a' => 'x'],
+        'ab-whitespace-target-missing' => ['value' => null, 'a' => '   ', 'b' => '   '],
+
+        // Empty array sibling (Laravel treats as absent).
+        'a-empty-array-target-missing' => ['value' => null, 'a' => []],
+
+        // Zero / false siblings (Laravel treats as present).
+        'a-zero-target-missing' => ['value' => null, 'a' => 0],
+    ];
+
+    foreach ($rules as $rule) {
+        foreach ($items as $itemLabel => $item) {
+            $value = $item['value'] ?? null;
+            yield "{$rule} :: {$itemLabel}" => [$rule, $value, $item];
+        }
+    }
+}
+
+it('presence-conditional fast-check matches Laravel for required_with family', function (string $rule, mixed $value, array $item): void {
+    $closure = FastCheckCompiler::compileWithPresenceConditionals($rule);
+
+    if (! $closure instanceof Closure) {
+        expect(true)->toBeTrue();
+
+        return;
+    }
+
+    $fastResult = $closure($value, $item);
+    $laravelResult = Validator::make($item, ['value' => $rule])->passes();
+
+    expect($fastResult)->toBe(
+        $laravelResult,
+        sprintf(
+            'Parity drift for rule "%s" on item %s: fast=%s, Laravel=%s',
+            $rule,
+            json_encode($item, JSON_UNESCAPED_SLASHES),
+            $fastResult ? 'pass' : 'fail',
+            $laravelResult ? 'pass' : 'fail',
+        ),
+    );
+})->with(itemAwarePresenceConditionalParityGrid());
+
+/**
+ * Composition grid: presence conditionals combined with item-aware
+ * field-ref rules (same / gt / date refs). Codex flagged this as a
+ * silent slow-path fallback before — compileWithPresenceConditionals
+ * now delegates the stripped remainder through the item-aware path.
+ *
+ * @return iterable<string, array{string, mixed, array<string, mixed>}>
+ */
+function itemAwarePresenceComposedParityGrid(): iterable
+{
+    $cases = [
+        'required_with + same: match' => [
+            'required_with:trigger|same:other',
+            ['value' => 'foo', 'trigger' => 'x', 'other' => 'foo'],
+        ],
+        'required_with + same: mismatch' => [
+            'required_with:trigger|same:other',
+            ['value' => 'foo', 'trigger' => 'x', 'other' => 'bar'],
+        ],
+        // "inactive + value absent" not tested here — the closure receives
+        // null both for missing key and key-present-null; distinguishing
+        // them requires the RuleSet wrapper's array_key_exists pre-check.
+        'required_with + same: inactive both present' => [
+            'required_with:trigger|same:other',
+            ['value' => 'bar', 'other' => 'bar'],
+        ],
+        'required_without + after: active valid order' => [
+            'required_without:trigger|date|after:start',
+            ['value' => '2030-06-10', 'start' => '2030-06-01'],
+        ],
+        'required_without + after: active invalid order' => [
+            'required_without:trigger|date|after:start',
+            ['value' => '2030-05-01', 'start' => '2030-06-01'],
+        ],
+        'required_with_all + gt: active valid' => [
+            'required_with_all:a,b|numeric|gt:min',
+            ['value' => 10, 'a' => 'x', 'b' => 'y', 'min' => 5],
+        ],
+        'required_with_all + gt: active invalid' => [
+            'required_with_all:a,b|numeric|gt:min',
+            ['value' => 3, 'a' => 'x', 'b' => 'y', 'min' => 5],
+        ],
+        'required_with_all + gt: inactive (b missing, value present)' => [
+            'required_with_all:a,b|numeric|gt:min',
+            ['value' => 10, 'a' => 'x', 'min' => 5],
+        ],
+    ];
+
+    foreach ($cases as $label => [$rule, $item]) {
+        $value = $item['value'] ?? null;
+        yield $label => [$rule, $value, $item];
+    }
+}
+
+it('presence-conditional composes with item-aware field-ref rules', function (string $rule, mixed $value, array $item): void {
+    $closure = FastCheckCompiler::compileWithPresenceConditionals($rule);
+
+    if (! $closure instanceof Closure) {
+        // Still slow-path — assert skip silently. The targeted test below
+        // enforces that specific combinations DO compose.
+        expect(true)->toBeTrue();
+
+        return;
+    }
+
+    $fastResult = $closure($value, $item);
+    $laravelResult = Validator::make($item, ['value' => $rule])->passes();
+
+    expect($fastResult)->toBe(
+        $laravelResult,
+        sprintf(
+            'Parity drift for rule "%s" on item %s: fast=%s, Laravel=%s',
+            $rule,
+            json_encode($item, JSON_UNESCAPED_SLASHES),
+            $fastResult ? 'pass' : 'fail',
+            $laravelResult ? 'pass' : 'fail',
+        ),
+    );
+})->with(itemAwarePresenceComposedParityGrid());
+
+it('compileWithPresenceConditionals composes with item-aware remainder rules', function (): void {
+    // Positive: presence + same / after / gt — all must now return a closure.
+    expect(FastCheckCompiler::compileWithPresenceConditionals('required_with:trigger|same:other'))
+        ->toBeInstanceOf(Closure::class);
+    expect(FastCheckCompiler::compileWithPresenceConditionals('required_without:trigger|date|after:start'))
+        ->toBeInstanceOf(Closure::class)
+        ->and(FastCheckCompiler::compileWithPresenceConditionals('required_with_all:a,b|numeric|gt:min'))->toBeInstanceOf(Closure::class);
+});
+
 it('compileWithItemContext compiles confirmed rule only when attribute name is provided', function (): void {
     // Positive: with attribute name → closure.
     expect(FastCheckCompiler::compileWithItemContext('required|confirmed', 'password'))
