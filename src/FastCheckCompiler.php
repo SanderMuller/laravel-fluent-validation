@@ -199,7 +199,7 @@ final class FastCheckCompiler
         }
 
         // Plausible field identifier — store as deferred field reference.
-        if (preg_match('/\A[a-zA-Z_][a-zA-Z0-9_]*\z/', $param) !== 1) {
+        if (preg_match('/\A[a-zA-Z_]\w*\z/', $param) !== 1) {
             return null;
         }
 
@@ -383,7 +383,7 @@ final class FastCheckCompiler
      * missing, empty, non-string, unparseable) coerce to 0 — matches Laravel's
      * loose-comparison behavior when a referenced field doesn't parse.
      *
-     * @param  array<string, mixed>  $item
+     * @param  array<array-key, mixed>  $item
      */
     private static function resolveRefTimestamp(array $item, string $field): int
     {

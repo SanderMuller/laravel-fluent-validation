@@ -759,7 +759,7 @@ final class RuleSet implements Arrayable
                 $parentField = $parts[0];
                 $childField = $parts[1];
 
-                if ($itemAwareCheck !== null) {
+                if ($itemAwareCheck instanceof \Closure) {
                     $checks[] = static function (array $data) use ($parentField, $childField, $itemAwareCheck): bool {
                         $items = $data[$parentField] ?? null;
                         if (! is_array($items)) {
@@ -800,12 +800,12 @@ final class RuleSet implements Arrayable
                 }
             } elseif ($field === '*') {
                 // Scalar each: value is in '_v' key
-                if ($itemAwareCheck !== null) {
+                if ($itemAwareCheck instanceof \Closure) {
                     $checks[] = static fn (array $data): bool => $itemAwareCheck($data['_v'] ?? null, $data);
                 } else {
                     $checks[] = static fn (array $data): bool => $valueCheck($data['_v'] ?? null);
                 }
-            } elseif ($itemAwareCheck !== null) {
+            } elseif ($itemAwareCheck instanceof \Closure) {
                 $checks[] = static fn (array $data): bool => $itemAwareCheck($data[$field] ?? null, $data);
             } else {
                 $checks[] = static fn (array $data): bool => $valueCheck($data[$field] ?? null);
