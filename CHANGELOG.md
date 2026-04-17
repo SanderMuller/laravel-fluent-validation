@@ -2,6 +2,75 @@
 
 All notable changes to `laravel-fluent-validation` will be documented in this file.
 
+## 1.9.2 - 2026-04-17
+
+### Fast-check date field references (12–16x faster for wildcard date rules)
+
+Before 1.9.2, rules like `after:start_date` or `before:start_date` inside a wildcard `each()` block always fell through to Laravel's validator. The fast-check compiler bailed the moment it saw a non-literal date param, so validation walked through `$validator->passes()` once per item.
+
+1.9.2 adds a new closure variant that resolves sibling field references at call time, keeping these validations in the fast path.
+
+```php
+RuleSet::from([
+    'events' => FluentRule::array()->required()->each([
+        'name'        => FluentRule::string()->required()->min(3)->max(255),
+        'start_date'  => FluentRule::date()->required()->after('2025-01-01'),
+        'end_date'    => FluentRule::date()->required()->after('start_date'),
+        'registration_deadline' => FluentRule::date()->required()->before('start_date'),
+    ]),
+])->validate($data);
+
+```
+For 100 events with the rule set above, the optimized path used to invoke Laravel's validator 300 times (3 date-field-ref rules × 100 items). It now runs entirely in PHP closures.
+
+#### Benchmark Δ vs 1.9.1 (isolated harness, 100 events × 4 fields)
+
+| Metric | 1.9.1 | 1.9.2 | Δ |
+|--------|------:|------:|----:|
+| Median execution time | 10.20ms | 0.65ms | **−94%** |
+
+#### Benchmark Δ vs 1.9.0 (full `benchmark.php --ci`, two clean runs)
+
+| Scenario | 1.9.0 | 1.9.2 run 1 | 1.9.2 run 2 |
+|----------|------:|------------:|------------:|
+| Event scheduling (field-ref dates) | 10.4ms / ~2x | 0.7ms / ~29x | 0.7ms / ~27x |
+
+All other scenarios are within noise vs 1.9.0 (-28% to +1%).
+
+### API
+
+New public method on `FastCheckCompiler`:
+
+```php
+public static function compileWithItemContext(string $ruleString): ?\Closure
+
+```
+Returns `?\Closure(mixed $value, array<string, mixed> $item): bool`. The closure receives the current value and the wildcard item, resolving date field references like `after:FIELD`, `before:FIELD`, `after_or_equal:FIELD`, `before_or_equal:FIELD`, and `date_equals:FIELD` against `$item[FIELD]`.
+
+`RuleSet::buildFastChecks` uses this method as a fallback when the standard `compile()` call returns null, so existing call sites pick up the speedup automatically — no code changes required.
+
+#### Supported rules (field-ref form)
+
+- `after:FIELD`
+- `after_or_equal:FIELD`
+- `before:FIELD`
+- `before_or_equal:FIELD`
+- `date_equals:FIELD`
+
+Other field-referenced comparison rules (e.g. `gt:FIELD`, `lt:FIELD`) still fall through to Laravel — they can be added the same way if demand warrants it.
+
+### Parity with Laravel
+
+A new item-aware parity grid (`tests/FastCheckParityTest.php`) asserts that the field-ref closure verdict matches `Validator::make(...)->passes()` across 6 rules × 9 item shapes (54 new assertions, 792 total).
+
+The grid surfaced one Laravel quirk worth documenting: when the referenced field can't be resolved to a valid timestamp (null, missing, empty, unparseable), Laravel treats its value as 0 in the comparison — so `after:bad_ref` with a valid current date silently **passes**, while `before:bad_ref` / `before_or_equal:bad_ref` / `date_equals:bad_ref` silently **fail**. The `resolveRefTimestamp()` helper matches this behavior exactly.
+
+### Pre-filter optimization
+
+`compileWithItemContext` is pre-filtered to only re-parse rules that actually contain `after:`, `before:`, or `date_equals:`. Without this filter, every slow rule paid for a redundant second parse — the Conditional import benchmark briefly drifted +19% before the filter was added. With the filter in place, all non-Event-scheduling scenarios are within noise vs 1.9.1.
+
+**Full Changelog**: https://github.com/SanderMuller/laravel-fluent-validation/compare/1.9.1...1.9.2
+
 ## 1.9.0 - 2026-04-15
 
 ### Added
@@ -35,8 +104,8 @@ Users who relied on the previous lenient null behavior will see rules fail where
 ```diff
 - 'bio' => 'string|max:500',
 + 'bio' => 'nullable|string|max:500',
-```
 
+```
 **Full Changelog**: https://github.com/SanderMuller/laravel-fluent-validation/compare/1.8.2...1.9.0
 
 ## 1.8.2 - 2026-04-15
@@ -75,6 +144,7 @@ class EditUser extends Component implements HasForms
         $validated = $this->validate(); // works as expected
     }
 }
+
 
 
 ```
@@ -124,6 +194,7 @@ class EditUser extends Component implements HasForms
 
 
 
+
 ```
 `validateFluent()` compiles FluentRule objects, extracts labels and messages, and delegates to Filament's `validate()`. Filament's form-schema validation, error dispatching, and `$this->form->getState()` all work normally.
 
@@ -134,6 +205,7 @@ New convenience method that compiles rules and extracts labels/messages in one c
 ```php
 [$rules, $messages, $attributes] = RuleSet::compileWithMetadata($this->rules());
 $this->validate($rules, $messages, $attributes);
+
 
 
 
@@ -176,6 +248,7 @@ class EditOrder extends Component
 
 
 
+
 ```
 Both `each()` and flat wildcard keys (`'items.*.name' => FluentRule::string()`) continue to work.
 
@@ -186,6 +259,7 @@ Labels from `->label()` and messages from `->message()` are now extracted and pa
 ```php
 // "The Full Name field is required" — not "The name field is required"
 'name' => FluentRule::string('Full Name')->required()->message('Please enter your name'),
+
 
 
 
@@ -203,6 +277,7 @@ All conditional rule methods now accept `BackedEnum` values directly. Previously
 ```php
 // Before: ->excludeUnless('status', Status::DRAFT->value)
 // After:  ->excludeUnless('status', Status::DRAFT)
+
 
 
 
@@ -248,6 +323,7 @@ This applies to `excludeIf`, `excludeUnless`, `requiredIf`, `requiredUnless`, `p
   
   
   
+  
   ```
 
 **Full Changelog**: https://github.com/SanderMuller/laravel-fluent-validation/compare/1.5.0...1.6.0
@@ -280,6 +356,7 @@ This applies to `excludeIf`, `excludeUnless`, `requiredIf`, `requiredUnless`, `p
   
   
   
+  
   ```
 
 **Full Changelog**: https://github.com/SanderMuller/laravel-fluent-validation/compare/1.4.1...1.5.0
@@ -303,6 +380,7 @@ This applies to `excludeIf`, `excludeUnless`, `requiredIf`, `requiredUnless`, `p
       'product_id' => FluentRule::integer()->required()->exists('products', 'id'),
   ]),
   // 500 items × exists rule = 1 query instead of 500
+  
   
   
   
@@ -358,6 +436,7 @@ A `PrecomputedPresenceVerifier` replaces Laravel's default verifier on per-item 
   
   
   
+  
   ```
 - **`RuleSet::stopOnFirstFailure()`** — Stop validating remaining fields after the first failure. Works across top-level fields, wildcard groups, and per-item validation:
   
@@ -369,6 +448,7 @@ A `PrecomputedPresenceVerifier` replaces Laravel's default verifier on per-item 
       ]),
   ])->stopOnFirstFailure()->validate($data);
   // Stops after the first failing field or item
+  
   
   
   
@@ -412,6 +492,7 @@ A `PrecomputedPresenceVerifier` replaces Laravel's default verifier on per-item 
   
   
   
+  
   ```
 - **`RuleSet` is now `Macroable`** — Add composable rule groups to RuleSet:
   
@@ -422,6 +503,7 @@ A `PrecomputedPresenceVerifier` replaces Laravel's default verifier on per-item 
       'zip'    => FluentRule::string()->required()->max(10),
   ]));
   // Usage: RuleSet::make()->withAddress()->field('name', FluentRule::string())
+  
   
   
   
@@ -621,6 +703,7 @@ Fluent validation rule builders for Laravel with IDE autocompletion, type safety
   
   
   
+  
   ```
 
 ### Documentation
@@ -660,6 +743,7 @@ Fluent validation rule builders for Laravel with IDE autocompletion, type safety
   
   
   
+  
   ```
 
 ### Documentation
@@ -682,6 +766,7 @@ Fluent validation rule builders for Laravel with IDE autocompletion, type safety
   ```php
   FluentRule::email(defaults: false)    // basic 'email' validation
   FluentRule::password(defaults: false) // Password::min(8), ignores app config
+  
   
   
   
@@ -975,6 +1060,7 @@ Tested across two independent codebases:
   
   
   
+  
   ```
 - **PHPStan errors in OptimizedValidator** — Matched parent `Validator::validateAttribute()` signature.
   
@@ -1048,6 +1134,7 @@ Tested across two independent codebases:
   
   
   
+  
   ```
 - FluentFormRequest base class — Combines HasFluentRules compilation with per-attribute
   fast-check optimization via OptimizedValidator. Eligible wildcard rules are fast-checked
@@ -1080,6 +1167,7 @@ Tested across two independent codebases:
   ```php
   FluentRule::string()->unique('users', 'email', fn($r) => $r->ignore($this->user()->id))
   FluentRule::string()->exists('subjects', 'id', fn($r) => $r->where('video_id',          
+  
   
   
   
