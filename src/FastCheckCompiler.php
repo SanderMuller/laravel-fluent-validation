@@ -39,6 +39,102 @@ final class FastCheckCompiler
      *
      * @return \Closure(mixed, array<string, mixed>): bool|null
      */
+    /**
+     * Compile a rule string with presence-conditional rewriting
+     * (`required_with`, `required_without`, `required_with_all`,
+     * `required_without_all`). The returned closure evaluates the
+     * presence condition(s) against the item, then delegates to the
+     * pre-compiled "required active" or "required inactive" variant.
+     *
+     * Returns null if the rule contains no presence conditional, the
+     * field identifiers are malformed, or the stripped remainder is
+     * itself not fast-checkable.
+     *
+     * @return \Closure(mixed, array<string, mixed>): bool|null
+     */
+    public static function compileWithPresenceConditionals(string $ruleString): ?\Closure
+    {
+        if (! str_contains($ruleString, 'required_with:')
+            && ! str_contains($ruleString, 'required_without:')
+            && ! str_contains($ruleString, 'required_with_all:')
+            && ! str_contains($ruleString, 'required_without_all:')
+        ) {
+            return null;
+        }
+
+        /** @var list<array{type: string, fields: list<string>}> $conditions */
+        $conditions = [];
+        $remaining = [];
+
+        foreach (explode('|', $ruleString) as $part) {
+            if (preg_match('/^(required_with_all|required_without_all|required_with|required_without):(.+)$/', $part, $m) === 1) {
+                $fields = explode(',', $m[2]);
+
+                // Validate identifier shape on every field; multi-param is supported.
+                foreach ($fields as $field) {
+                    if (preg_match('/\A[a-zA-Z_]\w*\z/', $field) !== 1) {
+                        return null;
+                    }
+                }
+
+                $conditions[] = ['type' => $m[1], 'fields' => $fields];
+            } else {
+                $remaining[] = $part;
+            }
+        }
+
+        if ($conditions === []) {
+            return null;
+        }
+
+        $stripped = implode('|', $remaining);
+
+        // Compile the two branches. "active" adds `required`; "inactive"
+        // drops the presence conditional entirely.
+        $withRequired = self::compile($stripped === '' ? 'required' : 'required|' . $stripped);
+        $withoutRequired = $stripped === ''
+            ? static fn (mixed $value): bool => true
+            : self::compile($stripped);
+
+        if (! $withRequired instanceof \Closure || ! $withoutRequired instanceof \Closure) {
+            return null;
+        }
+
+        return static function (mixed $value, array $item) use ($conditions, $withRequired, $withoutRequired): bool {
+            foreach ($conditions as $condition) {
+                if (self::presenceConditionActive($condition['type'], $condition['fields'], $item)) {
+                    return $withRequired($value);
+                }
+            }
+
+            return $withoutRequired($value);
+        };
+    }
+
+    /**
+     * A field is "present" by Laravel's `validateRequired` criteria: not null,
+     * not empty string, not empty array.
+     *
+     * @param  list<string>  $fields
+     * @param  array<string, mixed>  $item
+     */
+    private static function presenceConditionActive(string $type, array $fields, array $item): bool
+    {
+        $present = [];
+        foreach ($fields as $field) {
+            $raw = $item[$field] ?? null;
+            $present[] = ! in_array($raw, [null, '', []], true);
+        }
+
+        return match ($type) {
+            'required_with' => in_array(true, $present, true),            // any present
+            'required_without' => in_array(false, $present, true),         // any absent
+            'required_with_all' => ! in_array(false, $present, true),      // all present
+            'required_without_all' => ! in_array(true, $present, true),    // all absent
+            default => false,
+        };
+    }
+
     public static function compileWithItemContext(string $ruleString, ?string $attributeName = null): ?\Closure
     {
         // Rewrite `confirmed` / `confirmed:X` to `same:...` when an attribute

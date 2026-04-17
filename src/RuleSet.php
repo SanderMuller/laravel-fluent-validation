@@ -752,7 +752,8 @@ final class RuleSet implements Arrayable
                     ? explode('.*.', $field, 2)[1]
                     : $field;
 
-                $itemAwareCheck = FastCheckCompiler::compileWithItemContext($rule, $attributeName);
+                $itemAwareCheck = FastCheckCompiler::compileWithItemContext($rule, $attributeName)
+                    ?? FastCheckCompiler::compileWithPresenceConditionals($rule);
 
                 if (! $itemAwareCheck instanceof \Closure) {
                     $slowRules[$field] = $rule;

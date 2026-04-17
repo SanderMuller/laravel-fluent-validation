@@ -2284,3 +2284,91 @@ it('wildcard fast path enforces combined field-refs (after:a|before:b) in one ru
         ['start' => '2030-06-01', 'end' => '2030-06-10', 'checkpoint' => '2030-06-20'],
     ]]))->toThrow(ValidationException::class);
 });
+
+it('wildcard fast path enforces required_with (sibling present → required)', function (): void {
+    $rules = [
+        'contacts' => FluentRule::array()->required()->each([
+            'phone' => FluentRule::string()->nullable(),
+            'phone_type' => FluentRule::string()->requiredWith('phone'),
+        ]),
+    ];
+
+    // phone present, phone_type missing → required_with triggers → fail.
+    expect(fn () => RuleSet::from($rules)->validate(['contacts' => [
+        ['phone' => '555-1234'],
+    ]]))->toThrow(ValidationException::class);
+
+    // phone present, phone_type present → pass.
+    $valid = ['contacts' => [
+        ['phone' => '555-1234', 'phone_type' => 'mobile'],
+    ]];
+    expect(RuleSet::from($rules)->validate($valid))->toBe($valid);
+
+    // phone absent → required_with inactive → phone_type optional → pass.
+    $noPhone = ['contacts' => [[]]];
+    expect(RuleSet::from($rules)->validate($noPhone))->toBe(['contacts' => [[]]]);
+});
+
+it('wildcard fast path enforces required_without (sibling absent → required)', function (): void {
+    $rules = [
+        'users' => FluentRule::array()->required()->each([
+            'email' => FluentRule::string()->nullable(),
+            'phone' => FluentRule::string()->requiredWithout('email'),
+        ]),
+    ];
+
+    // email missing, phone missing → required_without fails → fail.
+    expect(fn () => RuleSet::from($rules)->validate(['users' => [
+        [],
+    ]]))->toThrow(ValidationException::class);
+
+    // email missing, phone present → pass.
+    $phoneOnly = ['users' => [['phone' => '555']]];
+    expect(RuleSet::from($rules)->validate($phoneOnly))->toBe($phoneOnly);
+
+    // email present → required_without inactive → phone optional → pass.
+    $emailOnly = ['users' => [['email' => 'a@b.co']]];
+    expect(RuleSet::from($rules)->validate($emailOnly))->toBe($emailOnly);
+});
+
+it('wildcard fast path enforces required_with_all (all siblings present → required)', function (): void {
+    $rules = [
+        'cards' => FluentRule::array()->required()->each([
+            'number' => FluentRule::string()->nullable(),
+            'expiry' => FluentRule::string()->nullable(),
+            'cvc' => FluentRule::string()->rule('required_with_all:number,expiry'),
+        ]),
+    ];
+
+    // both number + expiry → cvc required → missing = fail.
+    expect(fn () => RuleSet::from($rules)->validate(['cards' => [
+        ['number' => '4242', 'expiry' => '12/30'],
+    ]]))->toThrow(ValidationException::class);
+
+    // only number → required_with_all inactive → cvc optional → pass.
+    $partial = ['cards' => [['number' => '4242']]];
+    expect(RuleSet::from($rules)->validate($partial))->toBe($partial);
+
+    // all three → pass.
+    $complete = ['cards' => [['number' => '4242', 'expiry' => '12/30', 'cvc' => '123']]];
+    expect(RuleSet::from($rules)->validate($complete))->toBe($complete);
+});
+
+it('wildcard fast path enforces required_without_all (all siblings absent → required)', function (): void {
+    $rules = [
+        'contacts' => FluentRule::array()->required()->each([
+            'email' => FluentRule::string()->nullable(),
+            'phone' => FluentRule::string()->nullable(),
+            'fallback' => FluentRule::string()->rule('required_without_all:email,phone'),
+        ]),
+    ];
+
+    // both email + phone absent → fallback required → missing = fail.
+    expect(fn () => RuleSet::from($rules)->validate(['contacts' => [
+        [],
+    ]]))->toThrow(ValidationException::class);
+
+    // email present → inactive → fallback optional → pass.
+    $withEmail = ['contacts' => [['email' => 'a@b.co']]];
+    expect(RuleSet::from($rules)->validate($withEmail))->toBe($withEmail);
+});
