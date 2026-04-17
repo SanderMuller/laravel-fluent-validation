@@ -2,6 +2,99 @@
 
 All notable changes to `laravel-fluent-validation` will be documented in this file.
 
+## 1.11.0 - 2026-04-17
+
+Presence-conditional rules join the item-aware fast-check family. `required_with`, `required_without`, `required_with_all`, and `required_without_all` now bypass Laravel's validator for wildcard items that satisfy the condition, with full composition against the `same` / `different` / `confirmed` / date / `gt` / `gte` / `lt` / `lte` field-ref rules landed in 1.10.0.
+
+### What's fast-checked now
+
+| Rule | Trigger |
+|------|---------|
+| `required_with:a,b,...` | ANY listed field present → target required |
+| `required_without:a,b,...` | ANY listed field absent → target required |
+| `required_with_all:a,b,...` | ALL listed fields present → target required |
+| `required_without_all:a,b,...` | ALL listed fields absent → target required |
+
+Multi-param supported for every variant. "Present" matches Laravel's `validateRequired` exactly — not null, not whitespace-only string (`trim() === ''`), not empty array, not empty `Countable`.
+
+### Composition with field-ref rules
+
+Presence conditionals now compose with the item-aware rules from 1.10.0 into a single fast closure:
+
+```php
+RuleSet::from([
+    'orders' => FluentRule::array()->required()->each([
+        'trigger' => FluentRule::string()->nullable(),
+        'confirm' => FluentRule::string()->rule('required_with:trigger|same:trigger'),
+
+        'min_qty' => FluentRule::numeric()->required(),
+        'qty' => FluentRule::numeric()->rule('required_without:fallback|gt:min_qty'),
+
+        'start' => FluentRule::date()->nullable(),
+        'end'   => FluentRule::date()->rule('required_without_all:start|after:start'),
+    ]),
+])->validate($data);
+
+```
+Before 1.11.0, any of those combinations would silently fall through to Laravel's validator because the presence compiler only accepted value-only remainders. 1.11.0's compiler delegates stripped remainders through `compileWithItemContext` so combinations keep all of their speedup.
+
+### Benchmark impact
+
+Isolated harness (1000 items × 7 fields × 3 presence-conditional rules):
+
+| Version | Optimized | Speedup vs Laravel |
+|---------|----------:|-------------------:|
+| 1.10.0 (slow path) | ~100.6ms | 1x (full Laravel) |
+| 1.11.0 (fast-check) | **~7ms** | **~14x** |
+
+`benchmark.php --ci` vs 1.10.0 across two clean runs: Product −7% / −10%, Nested −15% / −16%, Event/Article/Conditional within noise. No regressions.
+
+### API
+
+One new public method on `FastCheckCompiler`:
+
+```php
+public static function compileWithPresenceConditionals(string $ruleString): ?\Closure
+
+```
+Returns `?\Closure(mixed $value, array<string, mixed> $item): bool`. The closure evaluates the presence condition(s) against the item at call time, then either (a) fails fast if the target is required but empty, or (b) runs the stripped-remainder closure. `RuleSet::buildFastChecks` picks this up automatically as a third fallback after `compile()` and `compileWithItemContext()` — existing call sites benefit without code changes.
+
+### Parity
+
+The same adversarial loop that shipped 1.10.0 caught two drift patterns in the first implementation — both fixed before release:
+
+1. **Presence definition was too strict.** The initial check used `! in_array($raw, [null, '', []], true)`, which treats `'   '` and empty `Countable` as present. Laravel's `validateRequired` treats them as empty. Fixed by centralizing on a new `isLaravelEmpty()` helper matching Laravel exactly: `null`, `trim() === ''` for strings, empty array, empty `Countable`.
+   
+2. **No composition with item-aware remainders.** The first cut compiled the stripped remainder via value-only `compile()`, so `required_with:trigger|same:other` fell to slow path. The second pass added `buildItemAwareBranch()` which prefers `compileWithItemContext` (handles same / different / date-ref / gt/gte/lt/lte) and wraps value-only rules to the item-aware signature.
+   
+
+Full parity coverage:
+
+| Grid | Assertions |
+|------|-----------:|
+| Flat value rules | 720 |
+| Item-aware date field-refs | 117 |
+| Item-aware same/different | 88 |
+| Item-aware confirmed | 7 |
+| Item-aware gt/gte/lt/lte | 272 |
+| Item-aware presence conditionals | 44 |
+| Item-aware presence composition | 8 |
+
+Total: **1,256 parity assertions** against `Validator::make(...)->passes()`.
+
+### Documented limitation
+
+The closure receives `null` both for "item key missing" and "item key present with null value" because `RuleSet` passes `$item[$field] ?? null`. Laravel's `presentOrRuleIsImplicit` distinguishes these via `Arr::has`; the closure can't. For non-implicit remainders (e.g. `same:other`), this means a genuinely absent target may fail the fast path where Laravel would skip. The `RuleSet::buildFastChecks` wrapper absorbs this: when the fast path rejects, Laravel's validator re-evaluates the item and produces the correct verdict. End-to-end validation behavior is identical; only the fast-check path is a touch stricter than strictly necessary.
+
+### No breaking changes
+
+- Existing rule sets keep working without modification.
+- `FastCheckCompiler::compile()` and `compileWithItemContext()` signatures unchanged.
+- New `compileWithPresenceConditionals()` is additive.
+- Full test suite: **1,954 tests / 2,664 assertions**.
+
+**Full Changelog**: https://github.com/SanderMuller/laravel-fluent-validation/compare/1.10.0...1.11.0
+
 ## 1.10.0 - 2026-04-17
 
 Item-aware fast-check for cross-field rules. Wildcard items with date-sibling, equality-sibling, or size-sibling comparisons now skip Laravel's validator when values pass — same mechanism as `RuleSet::validate`'s existing fast-check, extended to rules that reference another field in the same item.
@@ -53,6 +146,7 @@ public static function compileWithItemContext(
     string $ruleString,
     ?string $attributeName = null,
 ): ?\Closure
+
 
 ```
 Returns `?\Closure(mixed $value, array<string, mixed> $item): bool`. The closure resolves field references like `after:FIELD`, `same:FIELD`, `gt:FIELD` against the passed item array. Passing `$attributeName` is required for `confirmed` rule rewriting (the confirmation field name depends on the attribute being validated).
@@ -120,6 +214,7 @@ RuleSet::from([
 ])->validate($data);
 
 
+
 ```
 For 100 events with the rule set above, the optimized path used to invoke Laravel's validator 300 times (3 date-field-ref rules × 100 items). It now runs entirely in PHP closures.
 
@@ -143,6 +238,7 @@ New public method on `FastCheckCompiler`:
 
 ```php
 public static function compileWithItemContext(string $ruleString): ?\Closure
+
 
 
 ```
@@ -207,6 +303,7 @@ Users who relied on the previous lenient null behavior will see rules fail where
 + 'bio' => 'nullable|string|max:500',
 
 
+
 ```
 **Full Changelog**: https://github.com/SanderMuller/laravel-fluent-validation/compare/1.8.2...1.9.0
 
@@ -246,6 +343,7 @@ class EditUser extends Component implements HasForms
         $validated = $this->validate(); // works as expected
     }
 }
+
 
 
 
@@ -299,6 +397,7 @@ class EditUser extends Component implements HasForms
 
 
 
+
 ```
 `validateFluent()` compiles FluentRule objects, extracts labels and messages, and delegates to Filament's `validate()`. Filament's form-schema validation, error dispatching, and `$this->form->getState()` all work normally.
 
@@ -309,6 +408,7 @@ New convenience method that compiles rules and extracts labels/messages in one c
 ```php
 [$rules, $messages, $attributes] = RuleSet::compileWithMetadata($this->rules());
 $this->validate($rules, $messages, $attributes);
+
 
 
 
@@ -355,6 +455,7 @@ class EditOrder extends Component
 
 
 
+
 ```
 Both `each()` and flat wildcard keys (`'items.*.name' => FluentRule::string()`) continue to work.
 
@@ -365,6 +466,7 @@ Labels from `->label()` and messages from `->message()` are now extracted and pa
 ```php
 // "The Full Name field is required" — not "The name field is required"
 'name' => FluentRule::string('Full Name')->required()->message('Please enter your name'),
+
 
 
 
@@ -384,6 +486,7 @@ All conditional rule methods now accept `BackedEnum` values directly. Previously
 ```php
 // Before: ->excludeUnless('status', Status::DRAFT->value)
 // After:  ->excludeUnless('status', Status::DRAFT)
+
 
 
 
@@ -433,6 +536,7 @@ This applies to `excludeIf`, `excludeUnless`, `requiredIf`, `requiredUnless`, `p
   
   
   
+  
   ```
 
 **Full Changelog**: https://github.com/SanderMuller/laravel-fluent-validation/compare/1.5.0...1.6.0
@@ -467,6 +571,7 @@ This applies to `excludeIf`, `excludeUnless`, `requiredIf`, `requiredUnless`, `p
   
   
   
+  
   ```
 
 **Full Changelog**: https://github.com/SanderMuller/laravel-fluent-validation/compare/1.4.1...1.5.0
@@ -490,6 +595,7 @@ This applies to `excludeIf`, `excludeUnless`, `requiredIf`, `requiredUnless`, `p
       'product_id' => FluentRule::integer()->required()->exists('products', 'id'),
   ]),
   // 500 items × exists rule = 1 query instead of 500
+  
   
   
   
@@ -549,6 +655,7 @@ A `PrecomputedPresenceVerifier` replaces Laravel's default verifier on per-item 
   
   
   
+  
   ```
 - **`RuleSet::stopOnFirstFailure()`** — Stop validating remaining fields after the first failure. Works across top-level fields, wildcard groups, and per-item validation:
   
@@ -560,6 +667,7 @@ A `PrecomputedPresenceVerifier` replaces Laravel's default verifier on per-item 
       ]),
   ])->stopOnFirstFailure()->validate($data);
   // Stops after the first failing field or item
+  
   
   
   
@@ -607,6 +715,7 @@ A `PrecomputedPresenceVerifier` replaces Laravel's default verifier on per-item 
   
   
   
+  
   ```
 - **`RuleSet` is now `Macroable`** — Add composable rule groups to RuleSet:
   
@@ -617,6 +726,7 @@ A `PrecomputedPresenceVerifier` replaces Laravel's default verifier on per-item 
       'zip'    => FluentRule::string()->required()->max(10),
   ]));
   // Usage: RuleSet::make()->withAddress()->field('name', FluentRule::string())
+  
   
   
   
@@ -820,6 +930,7 @@ Fluent validation rule builders for Laravel with IDE autocompletion, type safety
   
   
   
+  
   ```
 
 ### Documentation
@@ -861,6 +972,7 @@ Fluent validation rule builders for Laravel with IDE autocompletion, type safety
   
   
   
+  
   ```
 
 ### Documentation
@@ -883,6 +995,7 @@ Fluent validation rule builders for Laravel with IDE autocompletion, type safety
   ```php
   FluentRule::email(defaults: false)    // basic 'email' validation
   FluentRule::password(defaults: false) // Password::min(8), ignores app config
+  
   
   
   
@@ -1180,6 +1293,7 @@ Tested across two independent codebases:
   
   
   
+  
   ```
 - **PHPStan errors in OptimizedValidator** — Matched parent `Validator::validateAttribute()` signature.
   
@@ -1255,6 +1369,7 @@ Tested across two independent codebases:
   
   
   
+  
   ```
 - FluentFormRequest base class — Combines HasFluentRules compilation with per-attribute
   fast-check optimization via OptimizedValidator. Eligible wildcard rules are fast-checked
@@ -1287,6 +1402,7 @@ Tested across two independent codebases:
   ```php
   FluentRule::string()->unique('users', 'email', fn($r) => $r->ignore($this->user()->id))
   FluentRule::string()->exists('subjects', 'id', fn($r) => $r->where('video_id',          
+  
   
   
   
