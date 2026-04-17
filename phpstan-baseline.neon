@@ -235,7 +235,7 @@ parameters:
 			path: tests/FluentRuleTest.php
 
 		-
-			rawMessage: 'Out of 1112 possible param types, only 1108 - 99.6 %% actually have it. Add more param types to get over 100 %%'
+			rawMessage: 'Out of 1113 possible param types, only 1109 - 99.6 %% actually have it. Add more param types to get over 100 %%'
 			identifier: typeCoverage.paramTypeCoverage
 			count: 1
 			path: tests/HasFluentValidationForFilamentTest.php
@@ -253,7 +253,7 @@ parameters:
 			path: tests/HasFluentValidationForFilamentTest.php
 
 		-
-			rawMessage: 'Out of 1112 possible param types, only 1108 - 99.6 %% actually have it. Add more param types to get over 100 %%'
+			rawMessage: 'Out of 1113 possible param types, only 1109 - 99.6 %% actually have it. Add more param types to get over 100 %%'
 			identifier: typeCoverage.paramTypeCoverage
 			count: 3
 			path: tests/HasFluentValidationTest.php

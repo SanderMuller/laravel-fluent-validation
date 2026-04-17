@@ -2052,3 +2052,79 @@ it('non-wildcard fast path rejects oversized arrays without explicit array flag'
         'tags' => FluentRule::field()->rule('max:1'),
     ])->validate(['tags' => ['a', 'b', 'c']]))->toThrow(ValidationException::class);
 });
+
+it('wildcard fast path rejects field-ref date violation (after:sibling)', function (): void {
+    $rules = [
+        'events' => FluentRule::array()->required()->each([
+            'start_date' => FluentRule::date()->required(),
+            'end_date' => FluentRule::date()->required()->after('start_date'),
+        ]),
+    ];
+
+    // end_date equals start_date → `after` should fail.
+    $data = ['events' => [
+        ['start_date' => '2030-06-01', 'end_date' => '2030-06-01'],
+    ]];
+
+    expect(fn () => RuleSet::from($rules)->validate($data))
+        ->toThrow(ValidationException::class);
+});
+
+it('wildcard fast path accepts field-ref date when ordering is correct', function (): void {
+    $rules = [
+        'events' => FluentRule::array()->required()->each([
+            'start_date' => FluentRule::date()->required(),
+            'end_date' => FluentRule::date()->required()->after('start_date'),
+        ]),
+    ];
+
+    $data = ['events' => [
+        ['start_date' => '2030-06-01', 'end_date' => '2030-06-05'],
+        ['start_date' => '2030-07-01', 'end_date' => '2030-07-02'],
+    ]];
+
+    expect(RuleSet::from($rules)->validate($data))->toBe($data);
+});
+
+it('wildcard fast path rejects field-ref date violation (before:sibling)', function (): void {
+    $rules = [
+        'events' => FluentRule::array()->required()->each([
+            'start_date' => FluentRule::date()->required(),
+            'registration_deadline' => FluentRule::date()->required()->before('start_date'),
+        ]),
+    ];
+
+    // registration_deadline after start_date → `before` should fail.
+    $data = ['events' => [
+        ['start_date' => '2030-06-01', 'registration_deadline' => '2030-06-15'],
+    ]];
+
+    expect(fn () => RuleSet::from($rules)->validate($data))
+        ->toThrow(ValidationException::class);
+});
+
+it('wildcard fast path enforces combined field-refs (after:a|before:b) in one rule', function (): void {
+    $rules = [
+        'events' => FluentRule::array()->required()->each([
+            'start' => FluentRule::date()->required(),
+            'end' => FluentRule::date()->required(),
+            // checkpoint must sit strictly between start and end.
+            'checkpoint' => FluentRule::date()->required()->after('start')->before('end'),
+        ]),
+    ];
+
+    $valid = ['events' => [
+        ['start' => '2030-06-01', 'end' => '2030-06-10', 'checkpoint' => '2030-06-05'],
+    ]];
+    expect(RuleSet::from($rules)->validate($valid))->toBe($valid);
+
+    // checkpoint BEFORE start → fails `after:start`.
+    expect(fn () => RuleSet::from($rules)->validate(['events' => [
+        ['start' => '2030-06-01', 'end' => '2030-06-10', 'checkpoint' => '2030-05-15'],
+    ]]))->toThrow(ValidationException::class);
+
+    // checkpoint AFTER end → fails `before:end`.
+    expect(fn () => RuleSet::from($rules)->validate(['events' => [
+        ['start' => '2030-06-01', 'end' => '2030-06-10', 'checkpoint' => '2030-06-20'],
+    ]]))->toThrow(ValidationException::class);
+});

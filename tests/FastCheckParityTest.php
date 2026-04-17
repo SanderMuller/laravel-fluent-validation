@@ -138,10 +138,14 @@ function itemAwareDateParityGrid(): iterable
     $rules = [
         'required|date|after:start_date',
         'required|date|before:start_date',
-        'nullable|date|after:start_date',
         'required|date|after_or_equal:start_date',
         'required|date|before_or_equal:start_date',
         'required|date|date_equals:start_date',
+        'nullable|date|after:start_date',
+        'nullable|date|before:start_date',
+        'nullable|date|after_or_equal:start_date',
+        'nullable|date|before_or_equal:start_date',
+        'nullable|date|date_equals:start_date',
     ];
 
     $items = [
@@ -190,3 +194,31 @@ it('item-aware fast-check verdict matches Laravel validator for date field-refs'
         ),
     );
 })->with(itemAwareDateParityGrid());
+
+it('compileWithItemContext returns null for rules that have no date comparison', function (string $rule): void {
+    // Pre-filter guard: the item-aware path only triggers for rules containing
+    // `after:`, `before:`, or `date_equals:`. Everything else bails early so
+    // the caller (RuleSet::buildFastChecks) doesn't pay for a redundant parse.
+    expect(FastCheckCompiler::compileWithItemContext($rule))->toBeNull();
+})->with([
+    'plain string rule' => ['required|string|max:255'],
+    'numeric rule' => ['required|numeric|min:0'],
+    'email rule' => ['nullable|email'],
+    'in-list rule' => ['required|in:a,b,c'],
+    'regex rule' => ['required|regex:/^[a-z]+$/'],
+    'integer with size' => ['required|integer|min:1|max:100'],
+]);
+
+it('compileWithItemContext compiles only when a date field-ref is present', function (): void {
+    // Positive: contains a date field-ref → non-null closure returned.
+    expect(FastCheckCompiler::compileWithItemContext('required|date|after:start_date'))
+        ->toBeInstanceOf(Closure::class);
+
+    // Positive: literal date still compiles (same path handles both).
+    expect(FastCheckCompiler::compileWithItemContext('required|date|after:2025-01-01'))
+        ->toBeInstanceOf(Closure::class);
+
+    // Negative: unknown rule part still bails, even with date context.
+    expect(FastCheckCompiler::compileWithItemContext('required|date|after:start_date|custom_unknown_rule'))
+        ->toBeNull();
+});
