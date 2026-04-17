@@ -470,7 +470,7 @@ Rules like `exclude_unless` and `exclude_if` are evaluated before the validator 
 
 ### Fast-check closures
 
-For 30+ common rules (string, numeric, email, date, array, boolean, in, regex, date comparisons with literal dates, date comparisons with wildcard-sibling field references, etc.), the package compiles PHP closures. `is_string($v) && strlen($v) <= 255` runs instead of going through rule parsing, method dispatch, and `BigNumber` size comparison. If a value passes, Laravel's validator never sees it. If it fails, that value falls through to Laravel for the correct error message. Rules that can't be fast-checked (custom Rule objects, closures, `gte`/`lte`/`same`/`confirmed` cross-field comparisons) go through Laravel as normal.
+For 30+ common rules (string, numeric, email, date, array, boolean, in, regex, date comparisons with literal dates, date + size + equality comparisons against wildcard-sibling field references — `after:start_date`, `gte:min_price`, `same:password`, `confirmed`, etc.), the package compiles PHP closures. `is_string($v) && strlen($v) <= 255` runs instead of going through rule parsing, method dispatch, and `BigNumber` size comparison. If a value passes, Laravel's validator never sees it. If it fails, that value falls through to Laravel for the correct error message. Rules that can't be fast-checked (custom Rule objects, closures, `distinct`, `exists`/`unique` with closure callbacks) go through Laravel as normal.
 
 Fast-checks apply to both wildcard rules (`items.*.name`) and flat top-level rules. A simple `RuleSet::from(['name' => 'string|max:255'])->validate($data)` skips Laravel's validator entirely when the value passes.
 
@@ -599,7 +599,9 @@ Benchmarks run automatically on PRs via GitHub Actions. All optimizations are Oc
 
 The performance optimizations target wildcard array validation. These cases see little or no speedup:
 
-- **Non-date cross-field comparisons** (`gte:other_field`, `same:password`, `confirmed`) — can't be compiled to closures. Date comparisons against wildcard siblings (`after:start_date`, `before:start_date`, `after_or_equal`, `before_or_equal`, `date_equals`) *are* fast-checked.
+- **`gt`/`gte`/`lt`/`lte` without a type flag** — Laravel derives comparison type from an accompanying rule (`string`/`array`/`numeric`/`integer`). Without one, these fall through to Laravel. With a type flag, sibling-field comparisons like `numeric|gt:min_price` are fast-checked.
+- **`date_format` + date field-ref** — Laravel parses both sides with the declared format and has lenient missing-ref handling our strtotime-based closure can't match. Falls through to Laravel.
+- **Multi-param `different:a,b,c`** — single-field `different:a` is fast-checked; comma-list forms fall through.
 - **Custom `ValidationRule` objects and closures** — opaque to the fast-check compiler. Performance depends on what the rule does.
 - **`distinct` rules** — require comparing values across all items in the array, not per-item.
 - **Database rules with closure callbacks** (`exists`/`unique` with `->where(fn ...)`) — can't be batched; each item fires its own query.
