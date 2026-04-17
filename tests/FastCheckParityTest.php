@@ -304,3 +304,98 @@ it('compileWithItemContext compiles only when a field-ref is present', function 
     expect(FastCheckCompiler::compileWithItemContext('required|date|after:start_date|custom_unknown_rule'))
         ->toBeNull();
 });
+
+/**
+ * Parity grid for the `confirmed` rule, which rewrites to
+ * `same:${attr}_confirmation` at compile time (or `same:X` when written
+ * as `confirmed:X`). Without the attribute name the rule can't be
+ * fast-checked.
+ *
+ * @return iterable<string, array{string, string, mixed, array<string, mixed>}>
+ */
+function itemAwareConfirmedParityGrid(): iterable
+{
+    // [rule, attribute name, value, item]
+    $cases = [
+        'default match' => [
+            'required|confirmed', 'password',
+            'hunter2', ['password' => 'hunter2', 'password_confirmation' => 'hunter2'],
+        ],
+        'default mismatch' => [
+            'required|confirmed', 'password',
+            'hunter2', ['password' => 'hunter2', 'password_confirmation' => 'hunter3'],
+        ],
+        'default confirmation missing' => [
+            'required|confirmed', 'password',
+            'hunter2', ['password' => 'hunter2'],
+        ],
+        'default confirmation null' => [
+            'required|confirmed', 'password',
+            'hunter2', ['password' => 'hunter2', 'password_confirmation' => null],
+        ],
+        'custom name match' => [
+            'required|confirmed:check', 'pwd',
+            'hunter2', ['pwd' => 'hunter2', 'check' => 'hunter2'],
+        ],
+        'custom name mismatch' => [
+            'required|confirmed:check', 'pwd',
+            'hunter2', ['pwd' => 'hunter2', 'check' => 'hunter3'],
+        ],
+        'nullable value null' => [
+            'nullable|confirmed', 'password',
+            null, ['password' => null],
+        ],
+    ];
+
+    foreach ($cases as $label => [$rule, $attr, $value, $item]) {
+        yield "{$rule} on {$attr} :: {$label}" => [$rule, $attr, $value, $item];
+    }
+}
+
+it('item-aware fast-check verdict matches Laravel validator for confirmed rule', function (string $rule, string $attr, mixed $value, array $item): void {
+    $closure = FastCheckCompiler::compileWithItemContext($rule, $attr);
+
+    if (! $closure instanceof Closure) {
+        expect(true)->toBeTrue();
+
+        return;
+    }
+
+    $fastResult = $closure($value, $item);
+
+    // Laravel sees the rule under the attribute name — the attribute's key
+    // in $item is what drives the `${attr}_confirmation` lookup.
+    $laravelResult = Validator::make($item, [$attr => $rule])->passes();
+
+    expect($fastResult)->toBe(
+        $laravelResult,
+        sprintf(
+            'Parity drift for rule "%s" on attr "%s" with item %s: fast=%s, Laravel=%s',
+            $rule,
+            $attr,
+            json_encode($item, JSON_UNESCAPED_SLASHES),
+            $fastResult ? 'pass' : 'fail',
+            $laravelResult ? 'pass' : 'fail',
+        ),
+    );
+})->with(itemAwareConfirmedParityGrid());
+
+/**
+ * Targeted assertion for the `confirmed` compile path. Drives the
+ * implementation: compileWithItemContext with an attribute name MUST
+ * return a closure for `confirmed` / `confirmed:X`; without an attribute
+ * name it MUST bail (the rule can't be fast-checked without knowing the
+ * field it applies to).
+ */
+it('compileWithItemContext compiles confirmed rule only when attribute name is provided', function (): void {
+    // Positive: with attribute name → closure.
+    expect(FastCheckCompiler::compileWithItemContext('required|confirmed', 'password'))
+        ->toBeInstanceOf(Closure::class);
+
+    expect(FastCheckCompiler::compileWithItemContext('required|confirmed:pwd_check', 'pwd'))
+        ->toBeInstanceOf(Closure::class);
+
+    // Negative: without attribute name → null.
+    expect(FastCheckCompiler::compileWithItemContext('required|confirmed'))
+        ->toBeNull();
+});

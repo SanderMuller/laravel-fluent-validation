@@ -744,7 +744,15 @@ final class RuleSet implements Arrayable
             $itemAwareCheck = null;
 
             if (! $valueCheck instanceof \Closure) {
-                $itemAwareCheck = FastCheckCompiler::compileWithItemContext($rule);
+                // Pass the within-item attribute name so `confirmed` can
+                // rewrite to `same:${attr}_confirmation`. For `items.*.password`
+                // the attribute is `password`; for flat `password` it's the
+                // key itself.
+                $attributeName = str_contains($field, '*.')
+                    ? explode('.*.', $field, 2)[1]
+                    : $field;
+
+                $itemAwareCheck = FastCheckCompiler::compileWithItemContext($rule, $attributeName);
 
                 if (! $itemAwareCheck instanceof \Closure) {
                     $slowRules[$field] = $rule;

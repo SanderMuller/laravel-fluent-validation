@@ -2123,6 +2123,51 @@ it('wildcard fast path enforces same:FIELD equality against sibling', function (
     expect(RuleSet::from($rules)->validate($valid))->toBe($valid);
 });
 
+it('wildcard fast path enforces confirmed (default suffix)', function (): void {
+    $rules = [
+        'users' => FluentRule::array()->required()->each([
+            'password' => FluentRule::string()->required()->rule('confirmed'),
+        ]),
+    ];
+
+    // Mismatched confirmation → fail.
+    expect(fn () => RuleSet::from($rules)->validate(['users' => [
+        ['password' => 'hunter2', 'password_confirmation' => 'hunter3'],
+    ]]))->toThrow(ValidationException::class);
+
+    // Missing confirmation → fail.
+    expect(fn () => RuleSet::from($rules)->validate(['users' => [
+        ['password' => 'hunter2'],
+    ]]))->toThrow(ValidationException::class);
+
+    // Matching confirmation → pass (but `password_confirmation` is stripped
+    // from validated output since it isn't in the rule set).
+    $valid = ['users' => [
+        ['password' => 'hunter2', 'password_confirmation' => 'hunter2'],
+    ]];
+    $result = RuleSet::from($rules)->validate($valid);
+    expect($result['users'][0]['password'])->toBe('hunter2');
+});
+
+it('wildcard fast path enforces confirmed:custom_name', function (): void {
+    $rules = [
+        'users' => FluentRule::array()->required()->each([
+            'pwd' => FluentRule::string()->required()->rule('confirmed:pwd_check'),
+        ]),
+    ];
+
+    // Mismatch → fail.
+    expect(fn () => RuleSet::from($rules)->validate(['users' => [
+        ['pwd' => 'hunter2', 'pwd_check' => 'hunter3'],
+    ]]))->toThrow(ValidationException::class);
+
+    // Match → pass.
+    $valid = ['users' => [
+        ['pwd' => 'hunter2', 'pwd_check' => 'hunter2'],
+    ]];
+    expect(RuleSet::from($rules)->validate($valid)['users'][0]['pwd'])->toBe('hunter2');
+});
+
 it('wildcard fast path enforces different:FIELD against sibling', function (): void {
     $rules = [
         'users' => FluentRule::array()->required()->each([

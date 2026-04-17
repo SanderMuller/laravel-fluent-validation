@@ -29,13 +29,26 @@ final class FastCheckCompiler
      * item-level context (sibling fields). This variant resolves date field
      * references like `after:start_date` against the passed item array.
      *
+     * When `$attributeName` is provided, the `confirmed` / `confirmed:X` rule
+     * is rewritten to `same:${attr}_confirmation` (or `same:X`) before parse.
+     * Without it, rules containing `confirmed` cannot be fast-checked because
+     * the confirmation field name depends on the attribute being validated.
+     *
      * Returns null if the rule contains parts that can't be fast-checked even
      * with item context. Used by RuleSet for wildcard-item slow-rule recovery.
      *
      * @return \Closure(mixed, array<string, mixed>): bool|null
      */
-    public static function compileWithItemContext(string $ruleString): ?\Closure
+    public static function compileWithItemContext(string $ruleString, ?string $attributeName = null): ?\Closure
     {
+        // Rewrite `confirmed` / `confirmed:X` to `same:...` when an attribute
+        // name is available. `confirmed` alone uses `${attr}_confirmation` as
+        // the sibling field (Laravel's default). Without an attribute name,
+        // the rewrite can't happen — fall through and let the pre-filter bail.
+        if ($attributeName !== null && self::containsConfirmedRule($ruleString)) {
+            $ruleString = self::rewriteConfirmedRule($ruleString, $attributeName);
+        }
+
         // Fast pre-filter: only re-parse if the rule actually has an item-aware
         // comparison — date field-ref or same/different field-ref. Without this,
         // every slow rule pays for a second full parse (wasted work for
@@ -52,6 +65,41 @@ final class FastCheckCompiler
         $config = self::parseWithItemContext($ruleString);
 
         return $config !== null ? self::buildItemAwareClosure($config) : null;
+    }
+
+    /**
+     * Is the `confirmed` rule present as a standalone pipe part or with a
+     * `confirmed:X` parameter? Rejects substring matches inside other rule
+     * names (e.g., no false positive on a hypothetical `foo_confirmed`).
+     */
+    private static function containsConfirmedRule(string $ruleString): bool
+    {
+        foreach (explode('|', $ruleString) as $part) {
+            if ($part === 'confirmed' || str_starts_with($part, 'confirmed:')) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Rewrite `confirmed` → `same:${attr}_confirmation` and
+     * `confirmed:X` → `same:X`. Leaves other pipe parts alone.
+     */
+    private static function rewriteConfirmedRule(string $ruleString, string $attributeName): string
+    {
+        $parts = explode('|', $ruleString);
+
+        foreach ($parts as $i => $part) {
+            if ($part === 'confirmed') {
+                $parts[$i] = 'same:' . $attributeName . '_confirmation';
+            } elseif (str_starts_with($part, 'confirmed:')) {
+                $parts[$i] = 'same:' . substr($part, 10);
+            }
+        }
+
+        return implode('|', $parts);
     }
 
     /**
