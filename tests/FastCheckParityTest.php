@@ -195,10 +195,92 @@ it('item-aware fast-check verdict matches Laravel validator for date field-refs'
     );
 })->with(itemAwareDateParityGrid());
 
-it('compileWithItemContext returns null for rules that have no date comparison', function (string $rule): void {
+/**
+ * Parity grid for item-aware `same:FIELD` and `different:FIELD` rules.
+ * Laravel's `validateSame` / `validateDifferent` use strict `===` / `!==`
+ * against the referenced field resolved via `Arr::get($data, FIELD)`.
+ *
+ * @return iterable<string, array{string, mixed, array<string, mixed>}>
+ */
+function itemAwareSameDifferentParityGrid(): iterable
+{
+    $rules = [
+        'required|same:other',
+        'required|different:other',
+        'nullable|same:other',
+        'nullable|different:other',
+        'required|string|same:other',
+        'required|string|different:other',
+    ];
+
+    $items = [
+        'equal-strings' => ['value' => 'foo', 'other' => 'foo'],
+        'different-strings' => ['value' => 'foo', 'other' => 'bar'],
+        'equal-ints' => ['value' => 7, 'other' => 7],
+        'int-vs-string' => ['value' => 1, 'other' => '1'],
+        'string-vs-int' => ['value' => '1', 'other' => 1],
+        'both-null' => ['value' => null, 'other' => null],
+        'value-null-other-string' => ['value' => null, 'other' => 'foo'],
+        'value-string-other-null' => ['value' => 'foo', 'other' => null],
+        'value-empty' => ['value' => '', 'other' => 'foo'],
+        'other-missing' => ['value' => 'foo'],
+        'value-and-other-empty' => ['value' => '', 'other' => ''],
+    ];
+
+    foreach ($rules as $rule) {
+        foreach ($items as $itemLabel => $item) {
+            $value = $item['value'] ?? null;
+            yield "{$rule} :: {$itemLabel}" => [$rule, $value, $item];
+        }
+    }
+}
+
+it('item-aware fast-check verdict matches Laravel validator for same/different field-refs', function (string $rule, mixed $value, array $item): void {
+    $closure = FastCheckCompiler::compileWithItemContext($rule);
+
+    if (! $closure instanceof Closure) {
+        // Rule not yet item-aware fast-checkable — skip (implementation pending).
+        expect(true)->toBeTrue();
+
+        return;
+    }
+
+    $fastResult = $closure($value, $item);
+    $laravelResult = Validator::make($item, ['value' => $rule])->passes();
+
+    expect($fastResult)->toBe(
+        $laravelResult,
+        sprintf(
+            'Parity drift for rule "%s" on item %s: fast=%s, Laravel=%s',
+            $rule,
+            json_encode($item, JSON_UNESCAPED_SLASHES),
+            $fastResult ? 'pass' : 'fail',
+            $laravelResult ? 'pass' : 'fail',
+        ),
+    );
+})->with(itemAwareSameDifferentParityGrid());
+
+/**
+ * Targeted assertion that drives the implementation: compileWithItemContext
+ * MUST return a closure for `same:FIELD` / `different:FIELD` rules once
+ * support lands. Until then this test fails, keeping the scope honest.
+ */
+it('compileWithItemContext compiles same:FIELD and different:FIELD rules', function (): void {
+    expect(FastCheckCompiler::compileWithItemContext('required|same:other'))
+        ->toBeInstanceOf(Closure::class)
+        ->and(FastCheckCompiler::compileWithItemContext('required|different:other'))->toBeInstanceOf(Closure::class)
+        ->and(FastCheckCompiler::compileWithItemContext('nullable|same:password_confirmation'))->toBeInstanceOf(Closure::class);
+
+    // Multi-param `different:a,b` is not (yet) fast-checkable — must bail.
+    expect(FastCheckCompiler::compileWithItemContext('required|different:a,b'))
+        ->toBeNull();
+});
+
+it('compileWithItemContext returns null for rules that have no date comparison or same/different', function (string $rule): void {
     // Pre-filter guard: the item-aware path only triggers for rules containing
-    // `after:`, `before:`, or `date_equals:`. Everything else bails early so
-    // the caller (RuleSet::buildFastChecks) doesn't pay for a redundant parse.
+    // date-ref markers (`after:`, `before:`, `date_equals:`) or equality-ref
+    // markers (`same:`, `different:`). Everything else bails early so the
+    // caller (RuleSet::buildFastChecks) doesn't pay for a redundant parse.
     expect(FastCheckCompiler::compileWithItemContext($rule))->toBeNull();
 })->with([
     'plain string rule' => ['required|string|max:255'],
@@ -209,7 +291,7 @@ it('compileWithItemContext returns null for rules that have no date comparison',
     'integer with size' => ['required|integer|min:1|max:100'],
 ]);
 
-it('compileWithItemContext compiles only when a date field-ref is present', function (): void {
+it('compileWithItemContext compiles only when a field-ref is present', function (): void {
     // Positive: contains a date field-ref → non-null closure returned.
     expect(FastCheckCompiler::compileWithItemContext('required|date|after:start_date'))
         ->toBeInstanceOf(Closure::class);
@@ -218,7 +300,7 @@ it('compileWithItemContext compiles only when a date field-ref is present', func
     expect(FastCheckCompiler::compileWithItemContext('required|date|after:2025-01-01'))
         ->toBeInstanceOf(Closure::class);
 
-    // Negative: unknown rule part still bails, even with date context.
+    // Negative: unknown rule part still bails, even with field-ref context.
     expect(FastCheckCompiler::compileWithItemContext('required|date|after:start_date|custom_unknown_rule'))
         ->toBeNull();
 });

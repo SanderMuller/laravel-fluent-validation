@@ -2103,6 +2103,46 @@ it('wildcard fast path rejects field-ref date violation (before:sibling)', funct
         ->toThrow(ValidationException::class);
 });
 
+it('wildcard fast path enforces same:FIELD equality against sibling', function (): void {
+    $rules = [
+        'users' => FluentRule::array()->required()->each([
+            'password' => FluentRule::string()->required(),
+            'password_confirmation' => FluentRule::string()->required()->rule('same:password'),
+        ]),
+    ];
+
+    // Mismatch → fail.
+    expect(fn () => RuleSet::from($rules)->validate(['users' => [
+        ['password' => 'hunter2', 'password_confirmation' => 'hunter3'],
+    ]]))->toThrow(ValidationException::class);
+
+    // Match → pass.
+    $valid = ['users' => [
+        ['password' => 'hunter2', 'password_confirmation' => 'hunter2'],
+    ]];
+    expect(RuleSet::from($rules)->validate($valid))->toBe($valid);
+});
+
+it('wildcard fast path enforces different:FIELD against sibling', function (): void {
+    $rules = [
+        'users' => FluentRule::array()->required()->each([
+            'username' => FluentRule::string()->required(),
+            'nickname' => FluentRule::string()->required()->rule('different:username'),
+        ]),
+    ];
+
+    // Match (nickname equals username) → fails `different`.
+    expect(fn () => RuleSet::from($rules)->validate(['users' => [
+        ['username' => 'alice', 'nickname' => 'alice'],
+    ]]))->toThrow(ValidationException::class);
+
+    // Distinct → pass.
+    $valid = ['users' => [
+        ['username' => 'alice', 'nickname' => 'Ali'],
+    ]];
+    expect(RuleSet::from($rules)->validate($valid))->toBe($valid);
+});
+
 it('wildcard fast path enforces combined field-refs (after:a|before:b) in one rule', function (): void {
     $rules = [
         'events' => FluentRule::array()->required()->each([

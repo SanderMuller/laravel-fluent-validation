@@ -36,12 +36,15 @@ final class FastCheckCompiler
      */
     public static function compileWithItemContext(string $ruleString): ?\Closure
     {
-        // Fast pre-filter: only re-parse if the rule actually has a date
-        // comparison rule. Without this, every slow rule pays for a second
-        // full parse (wasted work for conditional/unknown rules).
+        // Fast pre-filter: only re-parse if the rule actually has an item-aware
+        // comparison — date field-ref or same/different field-ref. Without this,
+        // every slow rule pays for a second full parse (wasted work for
+        // conditional/unknown rules).
         if (! str_contains($ruleString, 'after:')
             && ! str_contains($ruleString, 'before:')
             && ! str_contains($ruleString, 'date_equals:')
+            && ! str_contains($ruleString, 'same:')
+            && ! str_contains($ruleString, 'different:')
         ) {
             return null;
         }
@@ -240,6 +243,7 @@ final class FastCheckCompiler
             'afterField' => null, 'beforeField' => null,
             'afterOrEqualField' => null, 'beforeOrEqualField' => null,
             'dateEqualsField' => null,
+            'sameField' => null, 'differentField' => null,
         ];
 
         foreach (explode('|', $ruleString) as $part) {
@@ -279,8 +283,27 @@ final class FastCheckCompiler
             str_starts_with($part, 'before_or_equal:') => self::parseDateParamWithFieldRef($config, 'beforeOrEqual', substr($part, 16)),
             str_starts_with($part, 'after:') => self::parseDateParamWithFieldRef($config, 'after', substr($part, 6)),
             str_starts_with($part, 'before:') => self::parseDateParamWithFieldRef($config, 'before', substr($part, 7)),
+            str_starts_with($part, 'same:') => self::parseFieldOnlyRef($config, 'sameField', substr($part, 5)),
+            str_starts_with($part, 'different:') => self::parseFieldOnlyRef($config, 'differentField', substr($part, 10)),
             default => self::parsePart($part, $config),
         };
+    }
+
+    /**
+     * Parse a single-field reference parameter. Bails (returns null) if the
+     * parameter isn't a single plausible identifier — so multi-param forms
+     * like `different:a,b` fall through to Laravel.
+     *
+     * @param  array<string, mixed>  $config
+     * @return array<string, mixed>|null
+     */
+    private static function parseFieldOnlyRef(array $config, string $key, string $param): ?array
+    {
+        if (preg_match('/\A[a-zA-Z_]\w*\z/', $param) !== 1) {
+            return null;
+        }
+
+        return [...$config, $key => $param];
     }
 
     /**
@@ -306,12 +329,18 @@ final class FastCheckCompiler
         $beforeOrEqualField = $c['beforeOrEqualField'];
         /** @var ?string $dateEqualsField */
         $dateEqualsField = $c['dateEqualsField'];
+        /** @var ?string $sameField */
+        $sameField = $c['sameField'];
+        /** @var ?string $differentField */
+        $differentField = $c['differentField'];
 
-        $hasFieldRef = $afterField !== null || $beforeField !== null
+        $hasDateFieldRef = $afterField !== null || $beforeField !== null
             || $afterOrEqualField !== null || $beforeOrEqualField !== null
             || $dateEqualsField !== null;
 
-        if (! $hasFieldRef) {
+        $hasEqualityFieldRef = $sameField !== null || $differentField !== null;
+
+        if (! $hasDateFieldRef && ! $hasEqualityFieldRef) {
             return static fn (mixed $value, array $_item): bool => $valueClosure($value);
         }
 
@@ -319,16 +348,32 @@ final class FastCheckCompiler
             $valueClosure,
             $afterField, $beforeField,
             $afterOrEqualField, $beforeOrEqualField,
-            $dateEqualsField
+            $dateEqualsField,
+            $sameField, $differentField,
+            $hasDateFieldRef
         ): bool {
             if (! $valueClosure($value)) {
                 return false;
             }
 
             // valueClosure already applied nullable/empty-string semantics.
-            // For field-ref comparisons, skip when the value is empty/null —
-            // Laravel also skips date comparison rules on empty values.
+            // Non-implicit field-ref rules (same/different/after/before/etc.)
+            // are all skipped by Laravel when the value is null/'' under
+            // nullable semantics — mirror that.
             if ($value === null || $value === '') {
+                return true;
+            }
+
+            // Equality field-refs (same / different) work on any value type.
+            if ($sameField !== null && ($item[$sameField] ?? null) !== $value) {
+                return false;
+            }
+
+            if ($differentField !== null && ($item[$differentField] ?? null) === $value) {
+                return false;
+            }
+
+            if (! $hasDateFieldRef) {
                 return true;
             }
 
