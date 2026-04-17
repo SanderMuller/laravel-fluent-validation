@@ -19,7 +19,7 @@ parameters:
 			path: src/FastCheckCompiler.php
 
 		-
-			rawMessage: 'Class cognitive complexity is 216, keep it under 80'
+			rawMessage: 'Class cognitive complexity is 221, keep it under 80'
 			identifier: complexity.classLike
 			count: 1
 			path: src/FastCheckCompiler.php
@@ -37,7 +37,7 @@ parameters:
 			path: src/FastCheckCompiler.php
 
 		-
-			rawMessage: 'Cognitive complexity for "SanderMuller\FluentValidation\FastCheckCompiler::buildItemAwareClosure()" is 56, keep it under 20'
+			rawMessage: 'Cognitive complexity for "SanderMuller\FluentValidation\FastCheckCompiler::buildItemAwareClosure()" is 59, keep it under 20'
 			identifier: complexity.functionLike
 			count: 1
 			path: src/FastCheckCompiler.php

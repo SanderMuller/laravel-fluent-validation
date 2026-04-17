@@ -338,6 +338,21 @@ final class FastCheckCompiler
             return null;
         }
 
+        // date_format + date field-ref is a Laravel-only code path.
+        // checkDateTimeOrder parses BOTH sides with the attribute's format
+        // AND returns true when the referenced value is null/missing.
+        // Our strtotime-based resolver can't match either behavior, so
+        // bail and let Laravel handle it.
+        $hasDateFieldRef = $config['afterField'] !== null
+            || $config['beforeField'] !== null
+            || $config['afterOrEqualField'] !== null
+            || $config['beforeOrEqualField'] !== null
+            || $config['dateEqualsField'] !== null;
+
+        if ($config['dateFormat'] !== null && $hasDateFieldRef) {
+            return null;
+        }
+
         return $config;
     }
 
@@ -421,6 +436,8 @@ final class FastCheckCompiler
         $isNumeric = (bool) $c['numeric'];
         $isInteger = (bool) $c['integer'];
         $isArray = (bool) $c['array'];
+        $nullable = (bool) $c['nullable'];
+        $hasImplicit = (bool) $c['required'] || (bool) $c['accepted'] || (bool) $c['declined'];
 
         $hasDateFieldRef = $afterField !== null || $beforeField !== null
             || $afterOrEqualField !== null || $beforeOrEqualField !== null
@@ -442,18 +459,26 @@ final class FastCheckCompiler
             $dateEqualsField,
             $sameField, $differentField,
             $gtField, $gteField, $ltField, $lteField,
-            $isNumeric, $isInteger, $isArray,
+            $isNumeric, $isInteger, $isArray, $nullable, $hasImplicit,
             $hasDateFieldRef, $hasSizeComparison
         ): bool {
             if (! $valueClosure($value)) {
                 return false;
             }
 
-            // valueClosure already applied nullable/empty-string semantics.
-            // Non-implicit field-ref rules (same/different/after/before/etc.)
-            // are all skipped by Laravel when the value is null/'' under
-            // nullable semantics — mirror that.
-            if ($value === null || $value === '') {
+            // Laravel parity: non-implicit rules skip on empty string when
+            // no implicit rule is present (via `presentOrRuleIsImplicit`).
+            // This covers `same:other` / `different:other` / `after:other`
+            // etc. without `required` — Laravel never evaluates them on ''.
+            if ($value === '' && ! $hasImplicit) {
+                return true;
+            }
+
+            // Null skips only when `nullable` is set. Without `nullable`,
+            // Laravel treats null as "present" and evaluates the cross-field
+            // rule — `different:x` with value=null and x=null fails because
+            // null === null.
+            if ($value === null && $nullable) {
                 return true;
             }
 

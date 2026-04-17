@@ -146,6 +146,15 @@ function itemAwareDateParityGrid(): iterable
         'nullable|date|after_or_equal:start_date',
         'nullable|date|before_or_equal:start_date',
         'nullable|date|date_equals:start_date',
+
+        // date_format + field-ref: Laravel honors the custom format when
+        // parsing both sides AND returns true when the referenced field is
+        // missing/null. Our simple strtotime-based path can't match this
+        // correctly, so these rules must bail to slow path (compile returns
+        // null and the test trivially skips).
+        'required|date_format:d/m/Y|before:start_date',
+        'required|date_format:d/m/Y|after:start_date',
+        'required|date_format:Y-m-d|date_equals:start_date',
     ];
 
     $items = [
@@ -211,6 +220,12 @@ function itemAwareSameDifferentParityGrid(): iterable
         'nullable|different:other',
         'required|string|same:other',
         'required|string|different:other',
+
+        // Bare rules without required/nullable/type — these should still
+        // run the equality check against null values. Laravel does; our
+        // fast path must too.
+        'same:other',
+        'different:other',
     ];
 
     $items = [
