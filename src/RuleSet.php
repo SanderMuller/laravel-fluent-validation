@@ -741,11 +741,16 @@ final class RuleSet implements Arrayable
             }
 
             $valueCheck = FastCheckCompiler::compile($rule);
+            $itemAwareCheck = null;
 
             if (! $valueCheck instanceof \Closure) {
-                $slowRules[$field] = $rule;
+                $itemAwareCheck = FastCheckCompiler::compileWithItemContext($rule);
 
-                continue;
+                if (! $itemAwareCheck instanceof \Closure) {
+                    $slowRules[$field] = $rule;
+
+                    continue;
+                }
             }
 
             // Nested wildcard field (e.g., options.*.label): expand and check each item
@@ -754,27 +759,54 @@ final class RuleSet implements Arrayable
                 $parentField = $parts[0];
                 $childField = $parts[1];
 
-                $checks[] = static function (array $data) use ($parentField, $childField, $valueCheck): bool {
-                    $items = $data[$parentField] ?? null;
-                    if (! is_array($items)) {
-                        return true; // No items to validate
-                    }
-
-                    foreach ($items as $item) {
-                        if (! is_array($item)) {
-                            return false;
+                if ($itemAwareCheck !== null) {
+                    $checks[] = static function (array $data) use ($parentField, $childField, $itemAwareCheck): bool {
+                        $items = $data[$parentField] ?? null;
+                        if (! is_array($items)) {
+                            return true;
                         }
 
-                        if (! $valueCheck($item[$childField] ?? null)) {
-                            return false;
-                        }
-                    }
+                        foreach ($items as $item) {
+                            if (! is_array($item)) {
+                                return false;
+                            }
 
-                    return true;
-                };
+                            if (! $itemAwareCheck($item[$childField] ?? null, $item)) {
+                                return false;
+                            }
+                        }
+
+                        return true;
+                    };
+                } else {
+                    $checks[] = static function (array $data) use ($parentField, $childField, $valueCheck): bool {
+                        $items = $data[$parentField] ?? null;
+                        if (! is_array($items)) {
+                            return true;
+                        }
+
+                        foreach ($items as $item) {
+                            if (! is_array($item)) {
+                                return false;
+                            }
+
+                            if (! $valueCheck($item[$childField] ?? null)) {
+                                return false;
+                            }
+                        }
+
+                        return true;
+                    };
+                }
             } elseif ($field === '*') {
                 // Scalar each: value is in '_v' key
-                $checks[] = static fn (array $data): bool => $valueCheck($data['_v'] ?? null);
+                if ($itemAwareCheck !== null) {
+                    $checks[] = static fn (array $data): bool => $itemAwareCheck($data['_v'] ?? null, $data);
+                } else {
+                    $checks[] = static fn (array $data): bool => $valueCheck($data['_v'] ?? null);
+                }
+            } elseif ($itemAwareCheck !== null) {
+                $checks[] = static fn (array $data): bool => $itemAwareCheck($data[$field] ?? null, $data);
             } else {
                 $checks[] = static fn (array $data): bool => $valueCheck($data[$field] ?? null);
             }

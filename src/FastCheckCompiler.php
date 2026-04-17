@@ -25,6 +25,23 @@ final class FastCheckCompiler
     }
 
     /**
+     * Compile a rule string into a closure that checks a single value against
+     * item-level context (sibling fields). This variant resolves date field
+     * references like `after:start_date` against the passed item array.
+     *
+     * Returns null if the rule contains parts that can't be fast-checked even
+     * with item context. Used by RuleSet for wildcard-item slow-rule recovery.
+     *
+     * @return \Closure(mixed, array<string, mixed>): bool|null
+     */
+    public static function compileWithItemContext(string $ruleString): ?\Closure
+    {
+        $config = self::parseWithItemContext($ruleString);
+
+        return $config !== null ? self::buildItemAwareClosure($config) : null;
+    }
+
+    /**
      * Parse a pipe-delimited rule string into a fast-check config.
      * Returns null if any rule part is not fast-checkable.
      *
@@ -163,6 +180,196 @@ final class FastCheckCompiler
         }
 
         return [...$config, $key => $timestamp];
+    }
+
+    /**
+     * Parse a date comparison rule allowing field references. If the parameter
+     * is a date literal, behaves like parseDateLiteral. Otherwise, if it's a
+     * plausible field name, stores it under `{$key}Field` for item-time resolution.
+     *
+     * @param  array<string, mixed>  $config
+     * @return array<string, mixed>|null
+     */
+    private static function parseDateParamWithFieldRef(array $config, string $key, string $param): ?array
+    {
+        $timestamp = strtotime($param);
+
+        if ($timestamp !== false) {
+            return [...$config, $key => $timestamp];
+        }
+
+        // Plausible field identifier — store as deferred field reference.
+        if (preg_match('/\A[a-zA-Z_][a-zA-Z0-9_]*\z/', $param) !== 1) {
+            return null;
+        }
+
+        return [...$config, $key . 'Field' => $param];
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    private static function parseWithItemContext(string $ruleString): ?array
+    {
+        $config = [
+            'required' => false, 'filled' => false,
+            'nullable' => false, 'sometimes' => false,
+            'string' => false, 'numeric' => false, 'integer' => false,
+            'boolean' => false, 'array' => false, 'email' => false, 'date' => false,
+            'url' => false, 'ip' => false, 'uuid' => false, 'ulid' => false,
+            'accepted' => false, 'declined' => false,
+            'alpha' => false, 'alphaDash' => false, 'alphaNum' => false,
+            'min' => null, 'max' => null,
+            'digits' => null, 'digitsMin' => null, 'digitsMax' => null,
+            'in' => null, 'notIn' => null,
+            'regex' => null, 'notRegex' => null,
+            'dateFormat' => null,
+            'after' => null, 'before' => null,
+            'afterOrEqual' => null, 'beforeOrEqual' => null,
+            'dateEquals' => null,
+            'afterField' => null, 'beforeField' => null,
+            'afterOrEqualField' => null, 'beforeOrEqualField' => null,
+            'dateEqualsField' => null,
+        ];
+
+        foreach (explode('|', $ruleString) as $part) {
+            $result = self::parsePartWithItemContext($part, $config);
+
+            if ($result === null) {
+                return null;
+            }
+
+            $config = $result;
+        }
+
+        // Same size-rule type-flag guard as parse().
+        if (($config['min'] !== null || $config['max'] !== null)
+            && $config['string'] === false
+            && $config['array'] === false
+            && $config['numeric'] === false
+            && $config['integer'] === false
+        ) {
+            return null;
+        }
+
+        return $config;
+    }
+
+    /**
+     * @param  array<string, mixed>  $config
+     * @return array<string, mixed>|null
+     */
+    private static function parsePartWithItemContext(string $part, array $config): ?array
+    {
+        // For date rules, use the field-ref-aware parser. For everything else,
+        // delegate to the standard parsePart.
+        return match (true) {
+            str_starts_with($part, 'date_equals:') => self::parseDateParamWithFieldRef($config, 'dateEquals', substr($part, 12)),
+            str_starts_with($part, 'after_or_equal:') => self::parseDateParamWithFieldRef($config, 'afterOrEqual', substr($part, 15)),
+            str_starts_with($part, 'before_or_equal:') => self::parseDateParamWithFieldRef($config, 'beforeOrEqual', substr($part, 16)),
+            str_starts_with($part, 'after:') => self::parseDateParamWithFieldRef($config, 'after', substr($part, 6)),
+            str_starts_with($part, 'before:') => self::parseDateParamWithFieldRef($config, 'before', substr($part, 7)),
+            default => self::parsePart($part, $config),
+        };
+    }
+
+    /**
+     * Build a closure that takes (value, item) and resolves date field refs
+     * against the item array. Delegates most checks to buildClosure's helpers.
+     *
+     * @param  array<string, mixed>  $c
+     * @return \Closure(mixed, array<string, mixed>): bool
+     */
+    private static function buildItemAwareClosure(array $c): \Closure
+    {
+        // Pre-resolve the value-level closure from buildClosure for all the
+        // non-field-ref parts. Then wrap with field-ref handling.
+        $valueClosure = self::buildClosure($c);
+
+        /** @var ?string $afterField */
+        $afterField = $c['afterField'];
+        /** @var ?string $beforeField */
+        $beforeField = $c['beforeField'];
+        /** @var ?string $afterOrEqualField */
+        $afterOrEqualField = $c['afterOrEqualField'];
+        /** @var ?string $beforeOrEqualField */
+        $beforeOrEqualField = $c['beforeOrEqualField'];
+        /** @var ?string $dateEqualsField */
+        $dateEqualsField = $c['dateEqualsField'];
+
+        $hasFieldRef = $afterField !== null || $beforeField !== null
+            || $afterOrEqualField !== null || $beforeOrEqualField !== null
+            || $dateEqualsField !== null;
+
+        if (! $hasFieldRef) {
+            return static fn (mixed $value, array $_item): bool => $valueClosure($value);
+        }
+
+        return static function (mixed $value, array $item) use (
+            $valueClosure,
+            $afterField, $beforeField,
+            $afterOrEqualField, $beforeOrEqualField,
+            $dateEqualsField
+        ): bool {
+            if (! $valueClosure($value)) {
+                return false;
+            }
+
+            // Value-level closure already handled nullable/empty-string skips.
+            // If we got this far and $value isn't a string, fail field-ref checks.
+            if (! is_string($value)) {
+                // If the value is null/'' it passed nullable/empty semantics earlier;
+                // in that case, field-ref comparisons should be skipped.
+                if ($value === null || $value === '') {
+                    return true;
+                }
+
+                return false;
+            }
+
+            $ts = strtotime($value);
+
+            if ($ts === false) {
+                return false;
+            }
+
+            if ($afterField !== null) {
+                $ref = strtotime((string) ($item[$afterField] ?? ''));
+                if ($ref === false || $ts <= $ref) {
+                    return false;
+                }
+            }
+
+            if ($afterOrEqualField !== null) {
+                $ref = strtotime((string) ($item[$afterOrEqualField] ?? ''));
+                if ($ref === false || $ts < $ref) {
+                    return false;
+                }
+            }
+
+            if ($beforeField !== null) {
+                $ref = strtotime((string) ($item[$beforeField] ?? ''));
+                if ($ref === false || $ts >= $ref) {
+                    return false;
+                }
+            }
+
+            if ($beforeOrEqualField !== null) {
+                $ref = strtotime((string) ($item[$beforeOrEqualField] ?? ''));
+                if ($ref === false || $ts > $ref) {
+                    return false;
+                }
+            }
+
+            if ($dateEqualsField !== null) {
+                $ref = strtotime((string) ($item[$dateEqualsField] ?? ''));
+                if ($ref === false || date('Y-m-d', $ts) !== date('Y-m-d', $ref)) {
+                    return false;
+                }
+            }
+
+            return true;
+        };
     }
 
     /**
