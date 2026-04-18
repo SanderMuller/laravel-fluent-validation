@@ -55,6 +55,12 @@ parameters:
             identifier: method.internalClass
             path: tests/
             reportUnmatched: false
+        # PHPUnit's AssertionFailedError / ExpectationFailedException are marked @internal
+        # but legitimately referenced from tests when asserting on assertion failures
+        -
+            identifier: classConstant.internalClass
+            path: tests/
+            reportUnmatched: false
         # Pest higher-order expectations and test helpers return mixed
         -
             identifier: method.nonObject
