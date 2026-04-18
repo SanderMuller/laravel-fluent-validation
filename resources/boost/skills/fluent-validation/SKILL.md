@@ -153,9 +153,16 @@ use SanderMuller\FluentValidation\Testing\FluentRulesTester;
 FluentRulesTester::for($rules)->with($data)->passes();
 FluentRulesTester::for(StorePostRequest::class)->with($payload)->failsWith('email', 'email');
 FluentRulesTester::for(JsonImportValidator::class, $user)->with($payload)->passes();
+
+// Bind route params + authenticated user when authorize()/rules() need them
+FluentRulesTester::for(UpdateVideoRequest::class)
+    ->withRoute(['video' => $video])
+    ->actingAs($user)
+    ->with($payload)
+    ->passes();
 ```
 
-`with(array $data)` is required before any assertion. Variadic args after the target are forwarded to FluentValidator subclass constructors after `$data`. For unauthorized FormRequests, the `AuthorizationException` is recorded — assert via `->fails()` or `->assertUnauthorized()`. `FluentRulesTester` is the only stable test surface; everything else under `Testing\` is `@internal`.
+`with(array $data)` is required before any assertion. Variadic args after the target are forwarded to FluentValidator subclass constructors after `$data`. `withRoute()` and `actingAs()` are re-callable and only meaningful for FormRequest class-string targets. For unauthorized FormRequests, the `AuthorizationException` is recorded — assert via `->fails()` or `->assertUnauthorized()`. `FluentRulesTester` is the only stable test surface; everything else under `Testing\` is `@internal`.
 
 Optional Pest expectations live in `src/Testing/PestExpectations.php` — `require_once` from `tests/Pest.php` to opt in to `expect($rules)->toPassWith($data)`, `->toFailOn($data, $field, $rule)`, `->toBeFluentRuleOf($class)`.
 

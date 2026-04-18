@@ -658,8 +658,8 @@ $validated = RuleSet::make()
 | `RuleSet::from([...])`             | `RuleSet`       | Create from a rules array                                         |
 | `RuleSet::make()->field(...)`      | `RuleSet`       | Fluent builder                                                    |
 | `->merge($ruleSet)`                | `RuleSet`       | Merge another RuleSet or array into this one                      |
-| `->only(...$fields)`               | `RuleSet`       | Keep only the named fields                                        |
-| `->except(...$fields)`             | `RuleSet`       | Drop the named fields                                             |
+| `->only(...$fields)`               | `RuleSet`       | Keep only the named fields (variadic strings or single array)     |
+| `->except(...$fields)`             | `RuleSet`       | Drop the named fields (variadic strings or single array)          |
 | `->put($field, $rule)`             | `RuleSet`       | Add or replace a single field's rule                              |
 | `->get($field, $default = null)`   | `mixed`         | Read a single field's rule (uncompiled), or `$default` if absent  |
 | `->when($cond, $callback)`         | `RuleSet`       | Conditionally add fields (also: `unless`)                         |
@@ -834,11 +834,13 @@ FluentRulesTester::for(FluentRule::string()->required()->min(3))
     ->fails();
 
 // 4. FormRequest class-string — runs the full FormRequest pipeline,
-//    including authorize(). Call actingAs() before the tester to set
-//    the user that authorize() sees.
-FluentRulesTester::for(StorePostRequest::class)
-    ->with(['title' => 'Hello', 'body' => 'World'])
-    ->failsWith('body', 'min');
+//    including authorize(). Bind the authenticated user via actingAs()
+//    and any route parameters via withRoute() before invoking.
+FluentRulesTester::for(UpdateVideoRequest::class)
+    ->withRoute(['video' => $video])
+    ->actingAs($user)
+    ->with(['title' => 'Updated'])
+    ->passes();
 
 // 5. FluentValidator class-string — variadic args after `for(...)`
 //    are forwarded to the FluentValidator subclass constructor after
@@ -880,6 +882,26 @@ FluentRulesTester::for([
 ```
 
 Replacements are forwarded to the translator verbatim. Pass `:attribute` explicitly when your rules use labels — the validator pre-substitutes the label into the message before the bag stores it, so the comparison value must already match the labeled output.
+
+### Route parameters and authenticated user
+
+FormRequests routinely read `$this->route('video')` inside `authorize()` or `rules()` for ownership checks and conditional validation, and gate via `$this->user()`. Bind both before invoking:
+
+```php
+FluentRulesTester::for(UpdateVideoRequest::class)
+    ->withRoute(['video' => $video])
+    ->actingAs($user)
+    ->with(['title' => 'New title'])
+    ->passes();
+```
+
+`withRoute()` accepts a `string => mixed` map. Inside the FormRequest:
+
+- `$this->route('video')` returns the bound `$video`
+- `$this->route('video', $default)` returns `$video` (default ignored when key present)
+- `$this->route('missing', $default)` returns `$default`
+
+`actingAs($user, $guard = null)` mirrors Laravel's test helper — sets the user on the auth guard before `validateResolved()` runs. Both methods are re-callable; later calls fully replace earlier ones (matching `with()`).
 
 ### Unauthorized FormRequests
 
