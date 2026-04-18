@@ -39,7 +39,7 @@
         "phpstan/phpstan-strict-rules": "^2.0.10",
         "rector/rector": "^2.4.1",
         "rector/type-perfect": "^2.1.2",
-        "sandermuller/package-boost": "^0.2",
+        "sandermuller/package-boost": "^0.4.0",
         "spaze/phpstan-disallowed-calls": "^4.10",
         "symplify/phpstan-extensions": "^12.0.2",
         "tomasvotruba/cognitive-complexity": "^1.1",
@@ -63,6 +63,7 @@
         "rector": "vendor/bin/rector process",
         "test": "vendor/bin/pest",
         "test-coverage": "vendor/bin/pest --coverage",
+        "sync-ai": "vendor/bin/testbench package-boost:sync",
         "qa": [
             "@format",
             "@rector",
