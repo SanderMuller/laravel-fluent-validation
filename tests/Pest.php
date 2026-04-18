@@ -7,6 +7,8 @@ use SanderMuller\FluentValidation\Tests\TestCase;
 
 uses(TestCase::class)->in(__DIR__);
 
+require_once __DIR__ . '/../src/Testing/PestExpectations.php';
+
 /**
  * @param array<string, mixed> $data
  * @param array<string, mixed> $rules
