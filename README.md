@@ -4,7 +4,7 @@
 [![GitHub Tests Action Status](https://img.shields.io/github/actions/workflow/status/sandermuller/laravel-fluent-validation/run-tests.yml?branch=main&label=tests&style=flat-square)](https://github.com/sandermuller/laravel-fluent-validation/actions?query=workflow%3Arun-tests+branch%3Amain)
 [![GitHub Code Style Action Status](https://img.shields.io/github/actions/workflow/status/sandermuller/laravel-fluent-validation/fix-php-code-style-issues.yml?branch=main&label=code%20style&style=flat-square)](https://github.com/sandermuller/laravel-fluent-validation/actions?query=workflow%3A"Fix+PHP+code+style+issues"+branch%3Amain)
 
-Write Laravel validation rules with IDE autocompletion instead of memorizing string syntax. Each rule type only exposes the methods that make sense for it, and `each()`/`children()` let you co-locate parent and child rules. For large arrays, the `HasFluentRules` trait makes wildcard validation [up to 160x faster](#benchmarks).
+Write Laravel validation rules with IDE autocompletion instead of memorizing string syntax. Each rule type exposes only the methods that apply to it: `FluentRule::string()` won't offer `digits()`, `FluentRule::date()` won't offer `mimes()`. `each()` and `children()` keep parent and child rules in one place instead of scattered across dot-notation keys. For large arrays, the `HasFluentRules` trait makes wildcard validation [up to 160x faster](#benchmarks).
 
 ```php
 // Before
@@ -131,7 +131,7 @@ class StorePostRequest extends FluentFormRequest
 }
 ```
 
-FluentRule objects implement Laravel's `ValidationRule` interface, so they also work in `Validator::make()`, `Rule::forEach()`, and `Rule::when()`. For inline validation outside form requests, prefer [`RuleSet::validate()`](#ruleset) over `Validator::make()` — it gives you the same optimizations as `HasFluentRules`. Use [`->when()`](#conditional-rules) to handle create and update in a single form request.
+FluentRule objects implement Laravel's `ValidationRule` interface, so they also work in `Validator::make()`, `Rule::forEach()`, and `Rule::when()`. For inline validation outside form requests, prefer [`RuleSet::validate()`](#ruleset) over `Validator::make()`; it gives you the same optimizations as `HasFluentRules`. Use [`->when()`](#conditional-rules) to handle create and update in a single form request.
 
 > [!NOTE]
 > `FluentRule` is a static factory, not a base class. `FluentRule::string()` returns a `StringRule`, `FluentRule::email()` returns an `EmailRule`, etc. For PHPDoc type hints, reference the concrete rule class or `ValidationRule`, not `FluentRule`.
@@ -366,7 +366,10 @@ The trait provides full Livewire support. Labels, messages, `each()`, `children(
 ]),
 ```
 
-**Filament components:** `HasFluentValidation` conflicts with Filament's `InteractsWithForms` (v3/v4) / `InteractsWithSchemas` (v5) because both define `validate()`, `validateOnly()`, `getRules()`, and `getValidationAttributes()`. Use `HasFluentValidationForFilament` instead — it provides the same FluentRule compilation with Filament's error event dispatching preserved:
+**Filament components:** `HasFluentValidation` conflicts with Filament's `InteractsWithForms` (v3/v4) / `InteractsWithSchemas` (v5) because both define `validate()`, `validateOnly()`, `getRules()`, and `getValidationAttributes()`. Use `HasFluentValidationForFilament` instead. It provides the same FluentRule compilation with Filament's error event dispatching preserved:
+
+> [!TIP]
+> If you're migrating an existing Filament codebase, the [Rector companion](https://github.com/sandermuller/laravel-fluent-validation-rector) picks the right trait automatically (`HasFluentValidationForFilament` plus the required 4-method `insteadof` block) whenever `InteractsWithForms` / `InteractsWithSchemas` is used directly on the class. No manual setup of the conflict resolution below.
 
 ```php
 use Filament\Forms\Concerns\InteractsWithForms;
@@ -404,11 +407,11 @@ If you use [Laravel Boost](https://github.com/laravel/boost), the `fluent-valida
 
 ## Why this package?
 
-If you've ever had to look up whether it's `required_with` or `required_with_all`, or whether the method is `digits_between` or `digitsBetween`, you know the frustration. Fluent rules let your IDE answer that for you. And because each type has its own class, `FluentRule::string()` won't even offer `digits()`.
+If you've ever had to look up whether it's `required_with` or `required_with_all`, or whether the method is `digits_between` or `digitsBetween`, you know the frustration. The IDE answers that for you now. Each type has its own class, so `FluentRule::string()` won't even offer `digits()`.
 
-Beyond autocompletion, `each()` and `children()` let you group parent and child rules together instead of scattering 20 flat dot-notation keys across the file. Labels and messages go right on the rule, so you don't end up maintaining a separate `messages()` array that slowly drifts out of date.
+`each()` and `children()` group parent and child rules instead of scattering 20 flat dot-notation keys. Labels and messages attach to the rule itself, so there's no separate `messages()` array to drift out of sync.
 
-There's also a performance side. Laravel's wildcard validation is O(n²) for large arrays. The `HasFluentRules` trait fixes that, making it [up to 160x faster](#benchmarks) for nested wildcards and up to 69x faster for conditional-heavy payloads.
+Performance is the other half. Laravel's wildcard validation is O(n²) on large arrays; `HasFluentRules` makes it [up to 160x faster](#benchmarks) for nested wildcards, 62x faster for conditional-heavy payloads.
 
 <details>
 <summary><a name="compared-to-rule"></a>Compared to Laravel's <code>Rule</code> class</summary>
@@ -435,9 +438,7 @@ There's also a performance side. Laravel's wildcard validation is O(n²) for lar
 
 ## Performance
 
-FluentRule objects compile to native Laravel format before validation runs. There is no runtime overhead compared to string rules.
-
-When using `HasFluentRules` (FormRequest), `HasFluentValidation` (Livewire), `FluentValidator`, or `RuleSet::validate()`, four optimizations kick in:
+When you use one of the optimized entry points (`HasFluentRules` on a FormRequest, `HasFluentValidation` on a Livewire component, `FluentValidator`, or `RuleSet::validate()`), FluentRule objects compile down to native Laravel format before validation runs and pick up four extra optimizations:
 
 - [**O(n) wildcard expansion**](#on-wildcard-expansion) — replaces Laravel's O(n²) `Arr::dot()` + regex expansion with a single tree walk
 - [**Pre-evaluation of conditional rules**](#pre-evaluation-of-conditional-rules) — resolves `exclude_unless`/`exclude_if` before validation and removes excluded attributes from the rule set
@@ -445,18 +446,18 @@ When using `HasFluentRules` (FormRequest), `HasFluentValidation` (Livewire), `Fl
 - [**Batched database validation**](#batched-database-validation) — turns N `exists`/`unique` queries into a single `whereIn`
 
 > [!NOTE]
-> When using `$request->validate()` or bare `Validator::make()`, FluentRule objects self-validate without these optimizations.
+> When used directly with `$request->validate()` or bare `Validator::make()`, FluentRule objects self-validate: each rule builds an inner `Validator::make(...)` for itself, bypassing the compile-to-native path and the four optimizations above. Correct output, but slower than the optimized entry points.
 
 ### Benchmarks
 
 | Scenario | Optimizations | Native Laravel | Optimized | Speedup |
 |----------|---------------|----------------|-----------|---------|
-| [Product import](#product-import) — 500 items, simple rules | Wildcard, fast-check | ~160ms | **~3ms** | ~46x |
-| [Nested order lines](#nested-order-lines) — 1000 orders × 5 line items | Wildcard, fast-check (nested) | ~2,416ms | **~19ms** | ~125x |
-| [Conditional import](#conditional-import) — 100 items, 47 conditional fields | Wildcard, pre-evaluation | ~2,900ms | **~47ms** | ~62x |
-| [Event scheduling](#event-scheduling) — 100 items, field-ref dates | Wildcard, fast-check (field-ref dates) | ~19ms | **~0.7ms** | ~29x |
+| [Product import](#product-import) — 500 items, simple rules | Wildcard, fast-check | ~163ms | **~3ms** | ~62x |
+| [Nested order lines](#nested-order-lines) — 1000 orders × 5 line items | Wildcard, fast-check (nested) | ~2,491ms | **~15ms** | ~163x |
+| [Conditional import](#conditional-import) — 100 items, 47 conditional fields | Wildcard, pre-evaluation | ~2,928ms | **~47ms** | ~62x |
+| [Event scheduling](#event-scheduling) — 100 items, field-ref dates | Wildcard, fast-check (field-ref dates) | ~19ms | **~0.7ms** | ~28x |
 | [Article submission](#article-submission) — 50 items, custom Rule objects | Wildcard only | ~8ms | **~2ms** | ~3x |
-| [Login form](#login-form) — 3 fields, no wildcards | Fast-check (flat) | ~0.1ms | **~0.02ms** | ~6x |
+| [Login form](#login-form) — 3 fields, no wildcards | Fast-check (flat) | ~0.1ms | **~0.02ms** | ~7x |
 
 All numbers are from `php benchmark.php` (macOS, PHP 8.4, OPcache); CI runs produce the same scenarios on Ubuntu.
 
@@ -470,7 +471,11 @@ Rules like `exclude_unless` and `exclude_if` are evaluated before the validator 
 
 ### Fast-check closures
 
-For 30+ common rules (string, numeric, email, date, array, boolean, in, regex, date comparisons with literal dates, date + size + equality comparisons against wildcard-sibling field references — `after:start_date`, `gte:min_price`, `same:password`, `confirmed`, etc., plus presence conditionals — `required_with`, `required_without`, `required_with_all`, `required_without_all`), the package compiles PHP closures. `is_string($v) && strlen($v) <= 255` runs instead of going through rule parsing, method dispatch, and `BigNumber` size comparison. If a value passes, Laravel's validator never sees it. If it fails, that value falls through to Laravel for the correct error message. Rules that can't be fast-checked (custom Rule objects, closures, `distinct`, `exists`/`unique` with closure callbacks) go through Laravel as normal.
+The package compiles 30+ common rules into PHP closures that bypass Laravel's validator when values pass. Covered rules include the usual type checks (`string`, `numeric`, `email`, `date`, `array`, `boolean`, `in`, `regex`), date comparisons with literal dates, date/size/equality comparisons against wildcard siblings (`after:start_date`, `gte:min_price`, `same:password`, `confirmed`), and the presence-conditional family (`required_with`, `required_without`, `required_with_all`, `required_without_all`).
+
+What the closure does is simpler than what Laravel does. A `string|max:255` rule becomes `is_string($v) && strlen($v) <= 255`. No rule parsing, no method dispatch, no `BigNumber` size comparison. Values that pass never touch the validator. Values that fail fall through to Laravel so the error message stays identical, with no custom-formatting layer to maintain.
+
+Rules that can't be fast-checked (custom Rule objects, closures, `distinct`, `exists`/`unique` with closure callbacks) go through Laravel as normal.
 
 Fast-checks apply to both wildcard rules (`items.*.name`) and flat top-level rules. A simple `RuleSet::from(['name' => 'string|max:255'])->validate($data)` skips Laravel's validator entirely when the value passes.
 
@@ -1028,7 +1033,7 @@ vendor/bin/rector process             # apply them
 vendor/bin/pint                       # fix code style after
 ```
 
-The Rector package covers the full migration surface — pipe-delimited strings, array-based rules, `Rule::` objects, `Password::min()` chains, conditional tuples, closures, custom rule objects, Livewire `#[Rule]` / `#[Validate]` attributes, wildcard grouping, trait insertion, and post-migration chain cleanup. Organized into composable sets:
+The Rector package covers the full migration surface: pipe-delimited strings, array-based rules, `Rule::` objects, `Password::min()` chains, conditional tuples, closures, custom rule objects, Livewire `#[Rule]` / `#[Validate]` attributes, wildcard grouping, trait insertion, and post-migration chain cleanup. Organized into composable sets:
 
 | Set | Includes |
 |-----|----------|
@@ -1042,7 +1047,7 @@ See the [Rector package README](https://github.com/sandermuller/laravel-fluent-v
 
 See [Common migration patterns](resources/boost/skills/fluent-validation/references/migration-patterns.md) for a detailed reference covering rule-type selection, `Rule::` method conversion, BackedEnum handling, and advanced patterns.
 
-The Rector rules aren't just for migration. Run `ALL` (or `SIMPLIFY` on its own) in CI as an ongoing code-quality gate — new validation code written by team members gets cleaned up the same way migrated code does.
+The Rector rules aren't just for migration. Run `ALL` (or `SIMPLIFY` on its own) in CI as an ongoing code-quality gate, so new validation code written by team members gets cleaned up the same way migrated code does.
 
 ### Style: prefer explicit parent rules
 
@@ -1057,11 +1062,11 @@ When writing new rules, define the parent array alongside its wildcard children 
 'items.*.name' => FluentRule::string()->required(),
 ```
 
-Rector's `GroupWildcardRulesToEachRector` synthesizes `FluentRule::array()->nullable()` when no parent rule exists (preserving Laravel's flat-rule null-parity). That's safe, but explicit parents are self-documenting and let you control nullability/required/size at the array level. Existing codebases without explicit parents migrate fine — this is a convention for new code, not a rule.
+Rector's `GroupWildcardRulesToEachRector` synthesizes `FluentRule::array()->nullable()` when no parent rule exists (preserving Laravel's flat-rule null-parity). That's safe, but explicit parents are self-documenting and let you control nullability/required/size at the array level. Existing codebases without explicit parents migrate fine; this is a convention for new code, not a rule.
 
 ### Known limitations & verification workflow
 
-The Rector rules are deliberately conservative — they'll skip abstract classes, custom Validator subclasses, dynamically-built rules, and enum cases in conditional tuples, among others. The full skip list, verbose-skip diagnostics (`FLUENT_VALIDATION_RECTOR_VERBOSE=1`), and a step-by-step post-migration verification checklist (baseline test run → dry-run → apply → diff-size sanity → spot-check → filter-runs → final green) live in the [Rector package README](https://github.com/sandermuller/laravel-fluent-validation-rector#known-limitations). Start there before migrating anything non-trivial.
+The Rector rules are deliberately conservative. They'll skip abstract classes, custom Validator subclasses, dynamically-built rules, and enum cases in conditional tuples, among others. The full skip list, verbose-skip diagnostics (`FLUENT_VALIDATION_RECTOR_VERBOSE=1`), and a step-by-step post-migration verification checklist (baseline test run → dry-run → apply → diff-size sanity → spot-check → filter-runs → final green) live in the [Rector package README](https://github.com/sandermuller/laravel-fluent-validation-rector#known-limitations). Start there before migrating anything non-trivial.
 
 ## Troubleshooting
 
@@ -1085,7 +1090,7 @@ If you think it should be a native method, [open an issue](https://github.com/Sa
 Both traits define `validate()`. For Filament components, use `RuleSet::compileToArrays()` instead of the trait: `$this->validate(RuleSet::compileToArrays($this->rules()))`. This returns `array<string, array<mixed>>` matching Livewire's expected type, so PHPStan is happy. FluentRule works correctly without the trait for simple rules.
 
 **Migration issues (Rector companion)**
-Rector-specific issues (`Attempt to read property 'value' on int`, `array_search(): Argument #2 must be of type array`, post-migration message drift, `SplObjectStorage` crashes, etc.) are tracked in the [laravel-fluent-validation-rector README](https://github.com/sandermuller/laravel-fluent-validation-rector#troubleshooting). Update the Rector companion to the latest version first — most are fixed upstream.
+Rector-specific issues (`Attempt to read property 'value' on int`, `array_search(): Argument #2 must be of type array`, post-migration message drift, `SplObjectStorage` crashes, etc.) are tracked in the [laravel-fluent-validation-rector README](https://github.com/sandermuller/laravel-fluent-validation-rector#troubleshooting). Update the Rector companion to the latest version first; most are fixed upstream.
 
 ## Testing
 
