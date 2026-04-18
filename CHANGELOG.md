@@ -2,6 +2,67 @@
 
 All notable changes to `laravel-fluent-validation` will be documented in this file.
 
+## 1.12.2 - 2026-04-18
+
+Three additions to `FluentRulesTester` and one ergonomics fix on `RuleSet`, all driven by real-world friction the hihaho fleet hit on the first day of 1.12.1 adoption.
+
+### `FluentRulesTester::withRoute()`
+
+Bind route parameters that the FormRequest reads via `$this->route(name)` inside `authorize()` or `rules()`. Without this, FormRequests doing ownership checks (`Gate::allows(Policy::ACTION, $this->route('video'))`) or conditional rule lookups (`exists('videos', 'id', fn ($r) => $r->where('container_id', $this->video()->id))`) couldn't be tested at all — they would dereference null and fatal.
+
+```php
+FluentRulesTester::for(UpdateVideoRequest::class)
+    ->withRoute(['video' => $video])
+    ->with(['title' => 'New title'])
+    ->passes();
+
+```
+Inside the FormRequest:
+
+- `$this->route('video')` returns the bound `$video`
+- `$this->route('video', $default)` returns `$video` (default ignored when key present)
+- `$this->route('missing', $default)` returns `$default`
+
+Re-callable; later calls fully replace earlier parameters (matches `with()`).
+
+### `FluentRulesTester::actingAs()`
+
+Mirrors Laravel's `actingAs($user, $guard = null)` test helper. Sets the authenticated user that `$this->user()` returns inside `authorize()` and `rules()`, scoped to a fluent chain rather than the test class.
+
+```php
+FluentRulesTester::for(UpdateVideoRequest::class)
+    ->actingAs($user)
+    ->with(['title' => 'New title'])
+    ->passes();
+
+```
+Composes with `withRoute()` for the common case of route + user gates:
+
+```php
+FluentRulesTester::for(UpdateVideoRequest::class)
+    ->withRoute(['video' => $video])
+    ->actingAs($user)
+    ->with(['title' => 'New title'])
+    ->passes();
+
+```
+### `RuleSet::only()` / `except()` accept array form
+
+Both methods now accept either variadic strings or a single array, matching `Collection::only`, `Collection::except`, `Arr::only`, and `Arr::except`:
+
+```php
+$ruleSet->only('name', 'email');     // variadic — already worked in 1.12.1
+$ruleSet->only(['name', 'email']);   // array — now also works
+
+```
+The 1.12.1 variadic-only signature was a footgun against the muscle memory built on the rest of the Laravel ecosystem; the first hihaho consumer of 1.12.1 hit `TypeError: Argument #1 must be of type string, array given` immediately on `->only([...])`. Purely additive widening.
+
+### `failsWith()` docblock note
+
+`FluentRule::integer()` compiles to `numeric|integer`, and a non-numeric input fails as `Numeric` (Laravel evaluates `numeric` first), not as `Integer`. The case-insensitive Studly lookup happens against Laravel's actual rule-bag keys, not the FluentRule method name. Documented inline so the surprise lands at the docblock instead of in a test failure.
+
+**Full Changelog**: https://github.com/SanderMuller/laravel-fluent-validation/compare/1.12.1...1.12.2
+
 ## 1.12.1 - 2026-04-18
 
 **Full Changelog**: https://github.com/SanderMuller/laravel-fluent-validation/compare/1.12.0...1.12.1
@@ -47,6 +108,7 @@ FluentRulesTester::for(JsonImportValidator::class, $user, 'sku-')
     ->passes();
 
 
+
 ```
 `with(array $data)` is required before any assertion or escape hatch — calling them sooner raises `LogicException`. `with()` is re-callable, so a single tester can validate multiple data sets without rebuilding.
 
@@ -78,11 +140,13 @@ Three opt-in expectations live in `src/Testing/PestExpectations.php`. Consumers 
 require_once __DIR__ . '/../vendor/sandermuller/laravel-fluent-validation/src/Testing/PestExpectations.php';
 
 
+
 ```
 ```php
 expect($rules)->toPassWith(['email' => 'a@b.test']);
 expect($rules)->toFailOn(['email' => ''], 'email', 'required');
 expect(FluentRule::string()->required())->toBeFluentRuleOf(StringRule::class);
+
 
 
 ```
@@ -97,6 +161,7 @@ $ruleSet->only('name', 'email');           // keep only the named fields
 $ruleSet->except('age');                   // drop the named fields
 $ruleSet->put('name', $rule);              // add or replace a single field's rule (alias of field())
 $ruleSet->get('name', $default = null);    // read a stored rule (uncompiled), or $default if absent
+
 
 
 ```
@@ -139,6 +204,7 @@ RuleSet::from([
 
 
 
+
 ```
 Before 1.11.0, any of those combinations would silently fall through to Laravel's validator because the presence compiler only accepted value-only remainders. 1.11.0's compiler delegates stripped remainders through `compileWithItemContext` so combinations keep all of their speedup.
 
@@ -159,6 +225,7 @@ One new public method on `FastCheckCompiler`:
 
 ```php
 public static function compileWithPresenceConditionals(string $ruleString): ?\Closure
+
 
 
 
@@ -256,6 +323,7 @@ public static function compileWithItemContext(
 
 
 
+
 ```
 Returns `?\Closure(mixed $value, array<string, mixed> $item): bool`. The closure resolves field references like `after:FIELD`, `same:FIELD`, `gt:FIELD` against the passed item array. Passing `$attributeName` is required for `confirmed` rule rewriting (the confirmation field name depends on the attribute being validated).
 
@@ -325,6 +393,7 @@ RuleSet::from([
 
 
 
+
 ```
 For 100 events with the rule set above, the optimized path used to invoke Laravel's validator 300 times (3 date-field-ref rules × 100 items). It now runs entirely in PHP closures.
 
@@ -348,6 +417,7 @@ New public method on `FastCheckCompiler`:
 
 ```php
 public static function compileWithItemContext(string $ruleString): ?\Closure
+
 
 
 
@@ -418,6 +488,7 @@ Users who relied on the previous lenient null behavior will see rules fail where
 
 
 
+
 ```
 **Full Changelog**: https://github.com/SanderMuller/laravel-fluent-validation/compare/1.8.2...1.9.0
 
@@ -457,6 +528,7 @@ class EditUser extends Component implements HasForms
         $validated = $this->validate(); // works as expected
     }
 }
+
 
 
 
@@ -516,6 +588,7 @@ class EditUser extends Component implements HasForms
 
 
 
+
 ```
 `validateFluent()` compiles FluentRule objects, extracts labels and messages, and delegates to Filament's `validate()`. Filament's form-schema validation, error dispatching, and `$this->form->getState()` all work normally.
 
@@ -526,6 +599,7 @@ New convenience method that compiles rules and extracts labels/messages in one c
 ```php
 [$rules, $messages, $attributes] = RuleSet::compileWithMetadata($this->rules());
 $this->validate($rules, $messages, $attributes);
+
 
 
 
@@ -578,6 +652,7 @@ class EditOrder extends Component
 
 
 
+
 ```
 Both `each()` and flat wildcard keys (`'items.*.name' => FluentRule::string()`) continue to work.
 
@@ -588,6 +663,7 @@ Labels from `->label()` and messages from `->message()` are now extracted and pa
 ```php
 // "The Full Name field is required" — not "The name field is required"
 'name' => FluentRule::string('Full Name')->required()->message('Please enter your name'),
+
 
 
 
@@ -610,6 +686,7 @@ All conditional rule methods now accept `BackedEnum` values directly. Previously
 ```php
 // Before: ->excludeUnless('status', Status::DRAFT->value)
 // After:  ->excludeUnless('status', Status::DRAFT)
+
 
 
 
@@ -665,6 +742,7 @@ This applies to `excludeIf`, `excludeUnless`, `requiredIf`, `requiredUnless`, `p
   
   
   
+  
   ```
 
 **Full Changelog**: https://github.com/SanderMuller/laravel-fluent-validation/compare/1.5.0...1.6.0
@@ -702,6 +780,7 @@ This applies to `excludeIf`, `excludeUnless`, `requiredIf`, `requiredUnless`, `p
   
   
   
+  
   ```
 
 **Full Changelog**: https://github.com/SanderMuller/laravel-fluent-validation/compare/1.4.1...1.5.0
@@ -725,6 +804,7 @@ This applies to `excludeIf`, `excludeUnless`, `requiredIf`, `requiredUnless`, `p
       'product_id' => FluentRule::integer()->required()->exists('products', 'id'),
   ]),
   // 500 items × exists rule = 1 query instead of 500
+  
   
   
   
@@ -790,6 +870,7 @@ A `PrecomputedPresenceVerifier` replaces Laravel's default verifier on per-item 
   
   
   
+  
   ```
 - **`RuleSet::stopOnFirstFailure()`** — Stop validating remaining fields after the first failure. Works across top-level fields, wildcard groups, and per-item validation:
   
@@ -801,6 +882,7 @@ A `PrecomputedPresenceVerifier` replaces Laravel's default verifier on per-item 
       ]),
   ])->stopOnFirstFailure()->validate($data);
   // Stops after the first failing field or item
+  
   
   
   
@@ -854,6 +936,7 @@ A `PrecomputedPresenceVerifier` replaces Laravel's default verifier on per-item 
   
   
   
+  
   ```
 - **`RuleSet` is now `Macroable`** — Add composable rule groups to RuleSet:
   
@@ -864,6 +947,7 @@ A `PrecomputedPresenceVerifier` replaces Laravel's default verifier on per-item 
       'zip'    => FluentRule::string()->required()->max(10),
   ]));
   // Usage: RuleSet::make()->withAddress()->field('name', FluentRule::string())
+  
   
   
   
@@ -1073,6 +1157,7 @@ Fluent validation rule builders for Laravel with IDE autocompletion, type safety
   
   
   
+  
   ```
 
 ### Documentation
@@ -1117,6 +1202,7 @@ Fluent validation rule builders for Laravel with IDE autocompletion, type safety
   
   
   
+  
   ```
 
 ### Documentation
@@ -1139,6 +1225,7 @@ Fluent validation rule builders for Laravel with IDE autocompletion, type safety
   ```php
   FluentRule::email(defaults: false)    // basic 'email' validation
   FluentRule::password(defaults: false) // Password::min(8), ignores app config
+  
   
   
   
@@ -1442,6 +1529,7 @@ Tested across two independent codebases:
   
   
   
+  
   ```
 - **PHPStan errors in OptimizedValidator** — Matched parent `Validator::validateAttribute()` signature.
   
@@ -1520,6 +1608,7 @@ Tested across two independent codebases:
   
   
   
+  
   ```
 - FluentFormRequest base class — Combines HasFluentRules compilation with per-attribute
   fast-check optimization via OptimizedValidator. Eligible wildcard rules are fast-checked
@@ -1552,6 +1641,7 @@ Tested across two independent codebases:
   ```php
   FluentRule::string()->unique('users', 'email', fn($r) => $r->ignore($this->user()->id))
   FluentRule::string()->exists('subjects', 'id', fn($r) => $r->where('video_id',          
+  
   
   
   
