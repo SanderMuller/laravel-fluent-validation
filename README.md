@@ -369,7 +369,7 @@ The trait provides full Livewire support. Labels, messages, `each()`, `children(
 **Filament components:** `HasFluentValidation` conflicts with Filament's `InteractsWithForms` (v3/v4) / `InteractsWithSchemas` (v5) because both define `validate()`, `validateOnly()`, `getRules()`, and `getValidationAttributes()`. Use `HasFluentValidationForFilament` instead. It provides the same FluentRule compilation with Filament's error event dispatching preserved:
 
 > [!TIP]
-> If you're migrating an existing Filament codebase, the [Rector companion](https://github.com/sandermuller/laravel-fluent-validation-rector) picks the right trait automatically (`HasFluentValidationForFilament` plus the required 4-method `insteadof` block) whenever `InteractsWithForms` / `InteractsWithSchemas` is used directly on the class. No manual setup of the conflict resolution below.
+> Running the [Rector companion](https://github.com/sandermuller/laravel-fluent-validation-rector) in CI handles the Filament trait selection for you (every run, not just the first). It picks `HasFluentValidationForFilament` plus the required 4-method `insteadof` block whenever `InteractsWithForms` / `InteractsWithSchemas` is used directly on a class. New components written after the initial migration get the same treatment. No manual setup of the conflict resolution below.
 
 ```php
 use Filament\Forms\Concerns\InteractsWithForms;
@@ -1047,7 +1047,7 @@ See the [Rector package README](https://github.com/sandermuller/laravel-fluent-v
 
 See [Common migration patterns](resources/boost/skills/fluent-validation/references/migration-patterns.md) for a detailed reference covering rule-type selection, `Rule::` method conversion, BackedEnum handling, and advanced patterns.
 
-The Rector rules aren't just for migration. Run `ALL` (or `SIMPLIFY` on its own) in CI as an ongoing code-quality gate, so new validation code written by team members gets cleaned up the same way migrated code does.
+The Rector rules aren't just for migration. Run `ALL` (or `SIMPLIFY` on its own) in CI as an ongoing code-quality gate. New validation code (new FormRequests, new Livewire components, new Filament pages) goes through the same converters, grouping, and trait insertion as the initial migration did, so patterns stay consistent as the codebase grows.
 
 ### Style: prefer explicit parent rules
 
