@@ -1,11 +1,14 @@
 <?php declare(strict_types=1);
 
+use Illuminate\Auth\GenericUser;
 use Illuminate\Validation\ValidationException;
 use PHPUnit\Framework\AssertionFailedError;
 use SanderMuller\FluentValidation\Testing\FluentRulesTester;
 use SanderMuller\FluentValidation\Tests\Fixtures\AuthorizedEachFluentFormRequest;
 use SanderMuller\FluentValidation\Tests\Fixtures\ExampleFluentValidator;
+use SanderMuller\FluentValidation\Tests\Fixtures\RouteAwareFluentFormRequest;
 use SanderMuller\FluentValidation\Tests\Fixtures\UnauthorizedFluentFormRequest;
+use SanderMuller\FluentValidation\Tests\Fixtures\UserAwareFluentFormRequest;
 
 // =========================================================================
 // FormRequest class-string — authorized path
@@ -136,4 +139,87 @@ it('validated() throws ValidationException after a FluentValidator fails', funct
             ->with(['name' => 'wrong'])
             ->validated();
     })->toThrow(ValidationException::class);
+});
+
+// =========================================================================
+// withRoute() — bind route parameters for $this->route() inside the FormRequest
+// =========================================================================
+
+it('passes when authorize() reads a matching route parameter via withRoute()', function (): void {
+    FluentRulesTester::for(RouteAwareFluentFormRequest::class)
+        ->withRoute(['owner_id' => 42])
+        ->with(['title' => 'Hello world'])
+        ->passes();
+});
+
+it('records AuthorizationException when withRoute() does not satisfy authorize()', function (): void {
+    FluentRulesTester::for(RouteAwareFluentFormRequest::class)
+        ->withRoute(['owner_id' => 99])
+        ->with(['title' => 'Hello world'])
+        ->fails()
+        ->assertUnauthorized();
+});
+
+it('uses route parameters inside rules() to vary the rule set', function (): void {
+    FluentRulesTester::for(RouteAwareFluentFormRequest::class)
+        ->withRoute(['owner_id' => 42, 'min_length' => 10])
+        ->with(['title' => 'too short'])
+        ->fails()
+        ->failsWith('title', 'min');
+});
+
+it('falls back to defaults when withRoute() omits a key', function (): void {
+    // Default min_length is 3; 'no' fails it.
+    FluentRulesTester::for(RouteAwareFluentFormRequest::class)
+        ->withRoute(['owner_id' => 42])
+        ->with(['title' => 'no'])
+        ->fails()
+        ->failsWith('title', 'min');
+});
+
+it('withRoute() is re-callable and replaces earlier parameters', function (): void {
+    $tester = FluentRulesTester::for(RouteAwareFluentFormRequest::class);
+
+    $tester->withRoute(['owner_id' => 42])->with(['title' => 'Hello world'])->passes();
+    $tester->withRoute(['owner_id' => 99])->with(['title' => 'Hello world'])->fails()->assertUnauthorized();
+});
+
+// =========================================================================
+// actingAs() — set the authenticated user for $this->user() inside the FormRequest
+// =========================================================================
+
+it('passes authorize() when actingAs() supplies the expected user', function (): void {
+    $user = new GenericUser(['id' => 1]);
+
+    FluentRulesTester::for(UserAwareFluentFormRequest::class)
+        ->actingAs($user)
+        ->with(['name' => 'Ada'])
+        ->passes();
+});
+
+it('records AuthorizationException when actingAs() supplies the wrong user', function (): void {
+    $user = new GenericUser(['id' => 99]);
+
+    FluentRulesTester::for(UserAwareFluentFormRequest::class)
+        ->actingAs($user)
+        ->with(['name' => 'Ada'])
+        ->fails()
+        ->assertUnauthorized();
+});
+
+it('actingAs() returns $this for fluent chaining', function (): void {
+    $user = new GenericUser(['id' => 1]);
+    $tester = FluentRulesTester::for(UserAwareFluentFormRequest::class);
+
+    expect($tester->actingAs($user))->toBe($tester);
+});
+
+it('withRoute() and actingAs() compose for route + user FormRequests', function (): void {
+    $user = new GenericUser(['id' => 1]);
+
+    FluentRulesTester::for(RouteAwareFluentFormRequest::class)
+        ->withRoute(['owner_id' => 42])
+        ->actingAs($user)
+        ->with(['title' => 'Hello world'])
+        ->passes();
 });

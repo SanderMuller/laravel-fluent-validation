@@ -3,6 +3,7 @@
 namespace SanderMuller\FluentValidation\Testing;
 
 use Illuminate\Auth\Access\AuthorizationException;
+use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Contracts\Auth\Factory;
 use Illuminate\Contracts\Translation\Translator;
 use Illuminate\Contracts\Validation\ValidationRule;
@@ -43,6 +44,13 @@ final class FluentRulesTester
 
     private ?Validated $result = null;
 
+    /** @var array<string, mixed> */
+    private array $routeParameters = [];
+
+    private ?Authenticatable $actingAs = null;
+
+    private ?string $actingAsGuard = null;
+
     /**
      * @param  class-string<FormRequest>|class-string<FluentValidator>|RuleSet|ValidationRule|array<string, mixed>  $target
      * @param  list<mixed>  $constructorArgs
@@ -65,6 +73,42 @@ final class FluentRulesTester
     public function with(array $data): self
     {
         $this->data = $data;
+        $this->result = null;
+
+        return $this;
+    }
+
+    /**
+     * Bind route parameters that the FormRequest can read via `$this->route(name)`.
+     * Re-callable; later calls fully replace earlier ones (matches `with()`).
+     * Only meaningful for FormRequest class-string targets.
+     *
+     *     ->withRoute(['video' => $video])
+     *     // inside the FormRequest:
+     *     // $this->route('video')          → $video
+     *     // $this->route('video', $other)  → $video (default ignored when present)
+     *     // $this->route('missing', $alt)  → $alt   (default returned)
+     *
+     * @param  array<string, mixed>  $parameters
+     */
+    public function withRoute(array $parameters): self
+    {
+        $this->routeParameters = $parameters;
+        $this->result = null;
+
+        return $this;
+    }
+
+    /**
+     * Set the authenticated user that `$this->user()` returns inside the
+     * FormRequest's `authorize()` and `rules()` methods. Mirrors Laravel's
+     * `actingAs()` test helper. Only meaningful for FormRequest class-string
+     * targets.
+     */
+    public function actingAs(Authenticatable $user, ?string $guard = null): self
+    {
+        $this->actingAs = $user;
+        $this->actingAsGuard = $guard;
         $this->result = null;
 
         return $this;
@@ -115,6 +159,12 @@ final class FluentRulesTester
      * Assert that `$field` failed validation. When `$rule` is given, assert
      * that the field failed *that specific* Laravel rule key (case-insensitive,
      * normalized via Str::studly so callers may pass `required` or `Required`).
+     *
+     * Note: the lookup is against Laravel's actual rule-bag keys, which are
+     * not always 1:1 with the `FluentRule` method name. Most notably,
+     * `FluentRule::integer()` compiles to `numeric|integer` and a non-numeric
+     * input fails as `Numeric` (Laravel evaluates `numeric` first), not as
+     * `Integer`. When in doubt, inspect `errors()->keys()` or pass null.
      */
     public function failsWith(string $field, ?string $rule = null): self
     {
@@ -242,7 +292,15 @@ final class FluentRulesTester
     {
         $request = Request::create('/', 'POST', $data);
 
+        if ($this->routeParameters !== []) {
+            $request->setRouteResolver(fn (): object => $this->makeRouteShim($this->routeParameters));
+        }
+
         if (function_exists('app') && app()->bound('auth')) {
+            if ($this->actingAs instanceof Authenticatable) {
+                resolve(Factory::class)->guard($this->actingAsGuard)->setUser($this->actingAs);
+            }
+
             $request->setUserResolver(static fn (?string $guard = null): mixed => resolve(Factory::class)->guard($guard)->user());
         }
 
@@ -260,6 +318,33 @@ final class FluentRulesTester
         }
 
         return $this->wrap($this->extractValidator($instance));
+    }
+
+    /**
+     * Build a minimal route stand-in for `$request->route(name, default)`.
+     * Laravel's Route::parameter() reads from a parameters map; this shim
+     * exposes the same surface (`parameter()` + `parameters()`) so FormRequests
+     * that introspect routes during `authorize()` or `rules()` Just Work.
+     *
+     * @param  array<string, mixed>  $parameters
+     */
+    private function makeRouteShim(array $parameters): object
+    {
+        return new class ($parameters) {
+            /** @param  array<string, mixed>  $parameters */
+            public function __construct(private readonly array $parameters) {}
+
+            public function parameter(string $name, mixed $default = null): mixed
+            {
+                return $this->parameters[$name] ?? $default;
+            }
+
+            /** @return array<string, mixed> */
+            public function parameters(): array
+            {
+                return $this->parameters;
+            }
+        };
     }
 
     /**
