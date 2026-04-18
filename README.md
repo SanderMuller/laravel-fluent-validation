@@ -44,6 +44,7 @@ Write Laravel validation rules with IDE autocompletion instead of memorizing str
 - [Why this package?](#why-this-package) — DX, type safety, structure, performance
 - [Performance](#performance) — O(n) wildcards, pre-evaluation, fast-check closures, batched DB, benchmarks
 - [RuleSet](#ruleset) — builder, conditional fields, custom Validators
+- [Testing fluent rules](#testing-fluent-rules) — `FluentRulesTester`, Pest expectations
 - [Rule reference](#rule-reference) — all types, modifiers, conditionals, macros
 - [Troubleshooting](#troubleshooting) — common issues and solutions
 
@@ -657,6 +658,10 @@ $validated = RuleSet::make()
 | `RuleSet::from([...])`             | `RuleSet`       | Create from a rules array                                         |
 | `RuleSet::make()->field(...)`      | `RuleSet`       | Fluent builder                                                    |
 | `->merge($ruleSet)`                | `RuleSet`       | Merge another RuleSet or array into this one                      |
+| `->only(...$fields)`               | `RuleSet`       | Keep only the named fields                                        |
+| `->except(...$fields)`             | `RuleSet`       | Drop the named fields                                             |
+| `->put($field, $rule)`             | `RuleSet`       | Add or replace a single field's rule                              |
+| `->get($field, $default = null)`   | `mixed`         | Read a single field's rule (uncompiled), or `$default` if absent  |
 | `->when($cond, $callback)`         | `RuleSet`       | Conditionally add fields (also: `unless`)                         |
 | `->toArray()`                      | `array`         | Flat rules with `each()` expanded to wildcards                    |
 | `->validate($data)`                | `array`         | Validate with full optimization (see [Performance](#performance)) |
@@ -803,6 +808,113 @@ class JsonImportValidator extends FluentValidator
 ```
 
 The attribute has no runtime effect. It's a marker for the Rector rules only. Safe to leave in place after migrating.
+
+---
+
+## Testing fluent rules
+
+`SanderMuller\FluentValidation\Testing\FluentRulesTester` lets you write direct unit tests against fluent rules, `RuleSet`s, `FluentFormRequest` subclasses, and `FluentValidator` subclasses without standing up the HTTP kernel or Livewire harness. It's the package's stable test surface — everything else under `Testing\` is `@internal`.
+
+```php
+use SanderMuller\FluentValidation\Testing\FluentRulesTester;
+
+// 1. Array of rules
+FluentRulesTester::for([
+    'email' => FluentRule::email()->required(),
+])->with(['email' => 'a@b.test'])->passes();
+
+// 2. RuleSet instance
+FluentRulesTester::for(
+    RuleSet::make()->field('name', FluentRule::string()->required()->min(2))
+)->with(['name' => 'Ada'])->passes();
+
+// 3. A single FluentRule (wrapped under the "value" key)
+FluentRulesTester::for(FluentRule::string()->required()->min(3))
+    ->with(['value' => 'hi'])
+    ->fails();
+
+// 4. FormRequest class-string — runs the full FormRequest pipeline,
+//    including authorize(). Call actingAs() before the tester to set
+//    the user that authorize() sees.
+FluentRulesTester::for(StorePostRequest::class)
+    ->with(['title' => 'Hello', 'body' => 'World'])
+    ->failsWith('body', 'min');
+
+// 5. FluentValidator class-string — variadic args after `for(...)`
+//    are forwarded to the FluentValidator subclass constructor after
+//    `$data`, mirroring `new MyValidator($data, $user, $prefix)`.
+FluentRulesTester::for(JsonImportValidator::class, $user, 'sku-')
+    ->with($payload)
+    ->passes();
+```
+
+`with(array $data)` is required before any assertion or escape hatch — calling them sooner raises `LogicException`. `with()` is re-callable, so a single tester can validate multiple data sets:
+
+```php
+$tester = FluentRulesTester::for($rules);
+$tester->with(['qty' => 5])->passes();
+$tester->with(['qty' => 0])->fails();
+```
+
+### Asserting specific failures
+
+`failsWith()` checks `MessageBag::has()` for the field, and (when given) the underlying validator's `failed()` lookup for the rule key. The rule key is normalized via `Str::studly`, so `required` and `Required` both work:
+
+```php
+FluentRulesTester::for($rules)
+    ->with(['name' => 'Jo'])
+    ->failsWith('name', 'min');     // matches Laravel's 'Min' failed-rule key
+```
+
+For codebases that historically asserted on the *rendered* translation message (e.g. `assertJsonValidationErrors([... => [__('validation.min.string', [...])]])`), use `failsWithMessage()`:
+
+```php
+FluentRulesTester::for([
+    'password' => FluentRule::password('Password')->required()->min(8),
+])
+    ->with(['password' => 'short'])
+    ->failsWithMessage('password', 'validation.min.string', [
+        'attribute' => 'Password',
+        'min' => 8,
+    ]);
+```
+
+Replacements are forwarded to the translator verbatim. Pass `:attribute` explicitly when your rules use labels — the validator pre-substitutes the label into the message before the bag stores it, so the comparison value must already match the labeled output.
+
+### Unauthorized FormRequests
+
+When a FormRequest's `authorize()` returns false, the tester records the `AuthorizationException` instead of rethrowing. Surface it via `assertUnauthorized()` (or just `fails()`):
+
+```php
+FluentRulesTester::for(AdminOnlyRequest::class)
+    ->with($payload)
+    ->fails()
+    ->assertUnauthorized();
+```
+
+### Escape hatches
+
+```php
+$bag = FluentRulesTester::for($rules)->with($data)->errors();         // MessageBag
+$ok  = FluentRulesTester::for($rules)->with($data)->validated();      // array, throws ValidationException on failure
+```
+
+### Pest expectations (optional)
+
+If you use Pest, opt in to fluent expectations by `require_once`-ing the expectations file from your `tests/Pest.php`:
+
+```php
+// tests/Pest.php
+require_once __DIR__ . '/../vendor/sandermuller/laravel-fluent-validation/src/Testing/PestExpectations.php';
+```
+
+```php
+expect($rules)->toPassWith(['email' => 'a@b.test']);
+expect($rules)->toFailOn(['email' => ''], 'email', 'required');
+expect(FluentRule::string()->required())->toBeFluentRuleOf(StringRule::class);
+```
+
+The file `class_exists`-guards on `Pest\Expectation`, so requiring it under PHPUnit-only suites is safe — the extensions just don't register.
 
 ---
 
@@ -1124,7 +1236,7 @@ Both traits define `validate()`. For Filament components, use `RuleSet::compileT
 **Migration issues (Rector companion)**
 Rector-specific issues (`Attempt to read property 'value' on int`, `array_search(): Argument #2 must be of type array`, post-migration message drift, `SplObjectStorage` crashes, etc.) are tracked in the [laravel-fluent-validation-rector README](https://github.com/sandermuller/laravel-fluent-validation-rector#troubleshooting). Update the Rector companion to the latest version first; most are fixed upstream.
 
-## Testing
+## Running the package's test suite
 
 ```bash
 composer test

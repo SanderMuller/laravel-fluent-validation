@@ -143,6 +143,22 @@ All rule types support macros via `Macroable`.
 
 See the `fluent-validation-livewire` skill for full Livewire guidance. Key point: add `use HasFluentValidation` to Livewire components. Both flat wildcard keys (`items.*`) and `each()`/`children()` work — the trait handles the expansion.
 
+## Testing Fluent Rules
+
+For unit tests of `FluentRule` chains, `RuleSet`s, `FluentFormRequest` subclasses, and `FluentValidator` subclasses, use `FluentRulesTester` instead of going through `postJson()` or hand-rolling a `validateRules()` helper:
+
+```php
+use SanderMuller\FluentValidation\Testing\FluentRulesTester;
+
+FluentRulesTester::for($rules)->with($data)->passes();
+FluentRulesTester::for(StorePostRequest::class)->with($payload)->failsWith('email', 'email');
+FluentRulesTester::for(JsonImportValidator::class, $user)->with($payload)->passes();
+```
+
+`with(array $data)` is required before any assertion. Variadic args after the target are forwarded to FluentValidator subclass constructors after `$data`. For unauthorized FormRequests, the `AuthorizationException` is recorded — assert via `->fails()` or `->assertUnauthorized()`. `FluentRulesTester` is the only stable test surface; everything else under `Testing\` is `@internal`.
+
+Optional Pest expectations live in `src/Testing/PestExpectations.php` — `require_once` from `tests/Pest.php` to opt in to `expect($rules)->toPassWith($data)`, `->toFailOn($data, $field, $rule)`, `->toBeFluentRuleOf($class)`.
+
 ## Custom Validator Subclasses
 
 Extend `FluentValidator` instead of `Validator`. Handles the full pipeline automatically:
