@@ -431,8 +431,6 @@ Performance is the other half. Laravel's wildcard validation is O(n²) on large 
 | No equivalent                         | `->children([...])` co-locate fixed-key child rules         |
 | No equivalent                         | `->label('Name')` / `->message('...')` inline messages      |
 | No equivalent                         | `->whenInput(fn ($input) => ...)` data-dependent conditions |
-| No equivalent                         | `HasFluentRules` automatic compile + expand optimization    |
-| No equivalent                         | `FluentValidator` base class for custom Validators          |
 
 </details>
 
@@ -662,6 +660,7 @@ $validated = RuleSet::make()
 | `->when($cond, $callback)`         | `RuleSet`       | Conditionally add fields (also: `unless`)                         |
 | `->toArray()`                      | `array`         | Flat rules with `each()` expanded to wildcards                    |
 | `->validate($data)`                | `array`         | Validate with full optimization (see [Performance](#performance)) |
+| `->check($data)`                   | `Validated`     | Validate without throwing. See [errors-as-data](#errors-as-data-with-check) |
 | `->prepare($data)`                 | `PreparedRules` | Expand, extract metadata, compile. For custom Validators          |
 | `->expandWildcards($data)`         | `array`         | Pre-expand wildcards without validating                           |
 | `RuleSet::compile($rules)`         | `array`         | Compile fluent rules to native Laravel format                     |
@@ -670,6 +669,39 @@ $validated = RuleSet::make()
 | `->stopOnFirstFailure()`           | `RuleSet`       | Stop validating after the first field fails                       |
 | `->dump()`                         | `array`         | Returns `{rules, messages, attributes}` for debugging             |
 | `->dd()`                           | `never`         | Dumps and terminates                                              |
+
+### Errors-as-data with `check()`
+
+`validate()` throws `ValidationException` on failure. For import pipelines, batch jobs, and any flow where exceptions are the wrong control structure, use `check()` instead. It returns an immutable `Validated` object:
+
+```php
+use SanderMuller\FluentValidation\RuleSet;
+
+foreach ($rows as $row) {
+    $result = RuleSet::from($rules)->check($row);
+
+    if ($result->fails()) {
+        Log::warning('row rejected', $result->errors()->all());
+        continue;
+    }
+
+    $safe = $result->safe();        // Illuminate\Support\ValidatedInput — gives you ->only(), ->except(), ->collect()
+    $array = $result->validated();  // plain array (throws if the result failed)
+    insert_row($safe->all());
+}
+```
+
+| Method                         | Returns                  | Description                                      |
+|--------------------------------|--------------------------|--------------------------------------------------|
+| `->passes()`                   | `bool`                   | Did validation pass?                             |
+| `->fails()`                    | `bool`                   | Inverse of `passes()`                            |
+| `->errors()`                   | `MessageBag`             | All validation errors (empty bag on success)     |
+| `->firstError($field)`         | `?string`                | First error message for a field, or `null`       |
+| `->validated()`                | `array`                  | Validated data; throws `ValidationException` if it failed |
+| `->safe()`                     | `ValidatedInput`         | Same data as `validated()`, wrapped for `->only()`/`->except()`/`->collect()` access |
+| `->validator()`                | `ValidatorContract`      | Escape hatch for deep Laravel integration (`->after()`, `->sometimes()`, extensions) |
+
+`check()` runs the same internal engine as `validate()` (fast-check closures, wildcard expansion, batched DB queries). There is no double-parse; the result object just wraps the outcome.
 
 ### Rejecting unknown fields
 
