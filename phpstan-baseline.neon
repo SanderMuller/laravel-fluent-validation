@@ -85,7 +85,7 @@ parameters:
 			path: src/PrecomputedPresenceVerifier.php
 
 		-
-			rawMessage: 'Class cognitive complexity is 267, keep it under 80'
+			rawMessage: 'Class cognitive complexity is 269, keep it under 80'
 			identifier: complexity.classLike
 			count: 1
 			path: src/RuleSet.php
@@ -277,7 +277,7 @@ parameters:
 			path: tests/FluentRuleTest.php
 
 		-
-			rawMessage: 'Out of 1189 possible param types, only 1185 - 99.6 %% actually have it. Add more param types to get over 100 %%'
+			rawMessage: 'Out of 1198 possible param types, only 1194 - 99.6 %% actually have it. Add more param types to get over 100 %%'
 			identifier: typeCoverage.paramTypeCoverage
 			count: 1
 			path: tests/HasFluentValidationForFilamentTest.php
@@ -295,7 +295,7 @@ parameters:
 			path: tests/HasFluentValidationForFilamentTest.php
 
 		-
-			rawMessage: 'Out of 1189 possible param types, only 1185 - 99.6 %% actually have it. Add more param types to get over 100 %%'
+			rawMessage: 'Out of 1198 possible param types, only 1194 - 99.6 %% actually have it. Add more param types to get over 100 %%'
 			identifier: typeCoverage.paramTypeCoverage
 			count: 3
 			path: tests/HasFluentValidationTest.php

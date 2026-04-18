@@ -60,16 +60,25 @@ final class RuleSet implements Arrayable
         return $this;
     }
 
-    public function only(string ...$fields): self
+    /**
+     * @param  string|list<string>  ...$fields  Pass either as variadic strings
+     *                                           (`->only('a', 'b')`) or as a single
+     *                                           array (`->only(['a', 'b'])`) — matches
+     *                                           Collection::only / Arr::only semantics.
+     */
+    public function only(string|array ...$fields): self
     {
-        $this->fields = array_intersect_key($this->fields, array_flip($fields));
+        $flat = array_merge(...array_map(static fn (string|array $entry): array => is_array($entry) ? $entry : [$entry], $fields));
+        $this->fields = array_intersect_key($this->fields, array_flip($flat));
 
         return $this;
     }
 
-    public function except(string ...$fields): self
+    /** @param  string|list<string>  ...$fields  Accepts variadic strings or a single array (matches `only()`). */
+    public function except(string|array ...$fields): self
     {
-        $this->fields = array_diff_key($this->fields, array_flip($fields));
+        $flat = array_merge(...array_map(static fn (string|array $entry): array => is_array($entry) ? $entry : [$entry], $fields));
+        $this->fields = array_diff_key($this->fields, array_flip($flat));
 
         return $this;
     }

@@ -1010,6 +1010,41 @@ it('only() with no arguments empties the RuleSet', function (): void {
     expect($rules)->toBeEmpty();
 });
 
+it('only() accepts an array argument (Collection-style)', function (): void {
+    $rules = RuleSet::from([
+        'name' => FluentRule::string()->required(),
+        'email' => FluentRule::email()->required(),
+        'age' => FluentRule::numeric()->nullable(),
+    ])->only(['name', 'email'])->toArray();
+
+    expect($rules)->toHaveKeys(['name', 'email'])
+        ->and($rules)->not->toHaveKey('age');
+});
+
+it('except() accepts an array argument (Collection-style)', function (): void {
+    $rules = RuleSet::from([
+        'name' => FluentRule::string()->required(),
+        'email' => FluentRule::email()->required(),
+        'age' => FluentRule::numeric()->nullable(),
+    ])->except(['email', 'age'])->toArray();
+
+    expect($rules)->toHaveKey('name')
+        ->and($rules)->not->toHaveKey('email')
+        ->and($rules)->not->toHaveKey('age');
+});
+
+it('only() accepts mixed variadic strings and arrays', function (): void {
+    $rules = RuleSet::from([
+        'a' => FluentRule::string()->required(),
+        'b' => FluentRule::string()->required(),
+        'c' => FluentRule::string()->required(),
+        'd' => FluentRule::string()->required(),
+    ])->only('a', ['b', 'c'])->toArray();
+
+    expect($rules)->toHaveKeys(['a', 'b', 'c'])
+        ->and($rules)->not->toHaveKey('d');
+});
+
 it('drops the named fields via except()', function (): void {
     $rules = RuleSet::from([
         'name' => FluentRule::string()->required(),
