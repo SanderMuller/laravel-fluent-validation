@@ -973,6 +973,128 @@ it('later merge overwrites earlier fields', function (): void {
 });
 
 // =========================================================================
+// only() / except()
+// =========================================================================
+
+it('keeps only the named fields via only()', function (): void {
+    $rules = RuleSet::from([
+        'name' => FluentRule::string()->required(),
+        'email' => FluentRule::email()->required(),
+        'age' => FluentRule::numeric()->nullable(),
+    ])->only('name', 'email')->toArray();
+
+    expect($rules)->toHaveKeys(['name', 'email'])
+        ->and($rules)->not->toHaveKey('age');
+});
+
+it('returns the same instance from only() for chaining', function (): void {
+    $ruleSet = RuleSet::from(['name' => FluentRule::string()->required()]);
+
+    expect($ruleSet->only('name'))->toBe($ruleSet);
+});
+
+it('only() with no matching fields produces an empty RuleSet', function (): void {
+    $rules = RuleSet::from(['name' => FluentRule::string()->required()])
+        ->only('missing')
+        ->toArray();
+
+    expect($rules)->toBeEmpty();
+});
+
+it('only() with no arguments empties the RuleSet', function (): void {
+    $rules = RuleSet::from([
+        'name' => FluentRule::string()->required(),
+        'email' => FluentRule::email()->required(),
+    ])->only()->toArray();
+
+    expect($rules)->toBeEmpty();
+});
+
+it('drops the named fields via except()', function (): void {
+    $rules = RuleSet::from([
+        'name' => FluentRule::string()->required(),
+        'email' => FluentRule::email()->required(),
+        'age' => FluentRule::numeric()->nullable(),
+    ])->except('age')->toArray();
+
+    expect($rules)->toHaveKeys(['name', 'email'])
+        ->and($rules)->not->toHaveKey('age');
+});
+
+it('returns the same instance from except() for chaining', function (): void {
+    $ruleSet = RuleSet::from(['name' => FluentRule::string()->required()]);
+
+    expect($ruleSet->except('email'))->toBe($ruleSet);
+});
+
+it('except() with unknown fields is a no-op', function (): void {
+    $rules = RuleSet::from(['name' => FluentRule::string()->required()])
+        ->except('missing')
+        ->toArray();
+
+    expect($rules)->toHaveKey('name');
+});
+
+it('only() and except() compose with merge()', function (): void {
+    $rules = RuleSet::from(['name' => FluentRule::string()->required()])
+        ->merge(['email' => FluentRule::email()->required(), 'age' => 'integer'])
+        ->except('age')
+        ->only('name', 'email')
+        ->toArray();
+
+    expect($rules)->toHaveKeys(['name', 'email'])
+        ->and($rules)->not->toHaveKey('age');
+});
+
+// =========================================================================
+// put() / get()
+// =========================================================================
+
+it('adds a field via put()', function (): void {
+    $rules = RuleSet::make()
+        ->put('name', FluentRule::string()->required())
+        ->toArray();
+
+    expect($rules)->toHaveKey('name');
+});
+
+it('replaces an existing field via put()', function (): void {
+    $rules = RuleSet::from(['name' => FluentRule::string()->max(100)])
+        ->put('name', FluentRule::string()->max(255))
+        ->toArray();
+
+    expect($rules['name']->compiledRules())->toContain('max:255');
+});
+
+it('returns the same instance from put() for chaining', function (): void {
+    $ruleSet = RuleSet::make();
+
+    expect($ruleSet->put('name', FluentRule::string()->required()))->toBe($ruleSet);
+});
+
+it('reads a stored rule via get()', function (): void {
+    $rule = FluentRule::string()->required()->max(255);
+    $ruleSet = RuleSet::make()->put('name', $rule);
+
+    expect($ruleSet->get('name'))->toBe($rule);
+});
+
+it('returns null from get() for an unknown field', function (): void {
+    expect(RuleSet::make()->get('missing'))->toBeNull();
+});
+
+it('returns the default from get() for an unknown field', function (): void {
+    expect(RuleSet::make()->get('missing', 'fallback'))->toBe('fallback');
+});
+
+it('get() does not compile or expand stored rules', function (): void {
+    $rule = FluentRule::string()->required()->max(255);
+    $ruleSet = RuleSet::make()->put('name', $rule);
+
+    expect($ruleSet->get('name'))->toBeInstanceOf(StringRule::class);
+});
+
+// =========================================================================
 // FluentRule::field() — untyped entry point
 // =========================================================================
 

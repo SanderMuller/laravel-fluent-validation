@@ -60,6 +60,34 @@ final class RuleSet implements Arrayable
         return $this;
     }
 
+    public function only(string ...$fields): self
+    {
+        $this->fields = array_intersect_key($this->fields, array_flip($fields));
+
+        return $this;
+    }
+
+    public function except(string ...$fields): self
+    {
+        $this->fields = array_diff_key($this->fields, array_flip($fields));
+
+        return $this;
+    }
+
+    /** Collection-style alias of field(). */
+    public function put(string $field, mixed $rule): self
+    {
+        return $this->field($field, $rule);
+    }
+
+    /**
+     * Read a single field's stored rule (uncompiled), or `$default` when absent.
+     */
+    public function get(string $field, mixed $default = null): mixed
+    {
+        return $this->fields[$field] ?? $default;
+    }
+
     /**
      * Reject input keys that are not present in the rule set.
      * Unknown fields will receive a "prohibited" validation error.
