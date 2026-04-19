@@ -101,6 +101,37 @@ final class RuleSet implements Arrayable, IteratorAggregate
     }
 
     /**
+     * Read-modify-write a single field's rule. The stored rule is cloned (when
+     * an object) before being passed to the callback, so mutations through
+     * chain methods like `->rule(new X)` don't bleed back to prior captures
+     * of the original.
+     *
+     *     $ruleSet->modify('email', fn (FluentRule $rule) => $rule->rule(new AllowedEducationEmail()));
+     *
+     * Throws when the field is not already in the rule set — use `put()` to
+     * add new fields. The throw differentiates `modify` from `put` semantically:
+     * silently creating missing keys would conflate the two.
+     *
+     * @param  \Closure(mixed): mixed  $callback  Receives the clone, returns the replacement rule.
+     *
+     * @throws \LogicException When `$field` is not in the rule set.
+     */
+    public function modify(string $field, \Closure $callback): self
+    {
+        if (! array_key_exists($field, $this->fields)) {
+            throw new \LogicException(
+                "Field [{$field}] is not in the rule set — use put() to add new fields.",
+            );
+        }
+
+        $original = $this->fields[$field];
+        $clone = is_object($original) ? clone $original : $original;
+        $this->fields[$field] = $callback($clone);
+
+        return $this;
+    }
+
+    /**
      * Reject input keys that are not present in the rule set.
      * Unknown fields will receive a "prohibited" validation error.
      */

@@ -1189,6 +1189,73 @@ it('get() does not compile or expand stored rules', function (): void {
 });
 
 // =========================================================================
+// modify() — read-modify-write a single field
+// =========================================================================
+
+it('modify() applies the callback to the stored rule', function (): void {
+    $ruleSet = RuleSet::from([
+        'name' => FluentRule::string()->required(),
+    ]);
+
+    $ruleSet->modify('name', fn (mixed $rule): mixed => $rule->max(255));
+
+    expect($ruleSet->get('name')->compiledRules())->toContain('max:255');
+});
+
+it('modify() passes a clone of the stored rule to the callback', function (): void {
+    $original = FluentRule::string()->required();
+    $ruleSet = RuleSet::from(['name' => $original]);
+
+    $ruleSet->modify('name', function (mixed $rule): mixed {
+        // Mutate the clone — should NOT affect the original captured outside.
+        $rule->max(99);
+
+        return $rule;
+    });
+
+    expect($original->compiledRules())->not->toContain('max:99')
+        ->and($ruleSet->get('name')->compiledRules())->toContain('max:99');
+});
+
+it('modify() throws LogicException when the field is not in the rule set', function (): void {
+    $ruleSet = RuleSet::from(['name' => FluentRule::string()->required()]);
+
+    expect(static fn () => $ruleSet->modify('missing', fn ($r): mixed => $r))
+        ->toThrow(LogicException::class, 'use put() to add new fields');
+});
+
+it('modify() returns the same instance for chaining', function (): void {
+    $ruleSet = RuleSet::from(['name' => FluentRule::string()->required()]);
+
+    expect($ruleSet->modify('name', fn ($r): mixed => $r))->toBe($ruleSet);
+});
+
+it('modify() composes with merge / only / put in a fluent chain', function (): void {
+    $rules = RuleSet::from([
+        'name' => FluentRule::string()->required(),
+    ])
+        ->merge(['email' => FluentRule::email()->required()])
+        ->modify('name', fn (mixed $rule): mixed => $rule->max(255))
+        ->put('age', FluentRule::numeric()->nullable())
+        ->only('name', 'age')
+        ->toArray();
+
+    expect($rules)->toHaveKeys(['name', 'age'])
+        ->and($rules)->not->toHaveKey('email')
+        ->and($rules['name']->compiledRules())->toContain('max:255');
+});
+
+it('modify() can replace the stored rule entirely', function (): void {
+    $ruleSet = RuleSet::from([
+        'value' => FluentRule::string()->required(),
+    ]);
+
+    $ruleSet->modify('value', fn (): NumericRule => FluentRule::numeric()->required()->min(1));
+
+    expect($ruleSet->get('value'))->toBeInstanceOf(NumericRule::class);
+});
+
+// =========================================================================
 // FluentRule::field() — untyped entry point
 // =========================================================================
 
