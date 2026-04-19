@@ -395,6 +395,11 @@ trait HasFieldModifiers
      * converted to string format ('mimetypes:image/jpeg,application/pdf').
      * This is useful when rule parameters are dynamic.
      *
+     * **Mutates the receiver and returns it.** When chaining off a rule
+     * pulled via `RuleSet::get()`, the appended rule persists on the stored
+     * instance — there is no defensive copy. Clone first if you need
+     * isolation: `(clone $ruleSet->get($field))->rule($extra)`.
+     *
      * @param  object|string|array<int, string>  $rule
      */
     public function rule(object|string|array $rule): static
