@@ -13,7 +13,7 @@ it('defineEnvironment sets a fallback app.key when none is configured', function
     // Testbench wipes config on each test — within a normal test the
     // fallback key is present.
     expect(config('app.key'))->not->toBeNull()
-        ->and(config('app.key'))->not->toBe('');
+        ->and(config('app.key'))->not->toBeEmpty();
 });
 
 it('preserves a preconfigured app.key rather than overwriting', function (): void {
