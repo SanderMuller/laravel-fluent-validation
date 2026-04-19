@@ -2,6 +2,7 @@
 
 namespace SanderMuller\FluentValidation\Tests;
 
+use Illuminate\Contracts\Config\Repository;
 use Livewire\LivewireServiceProvider;
 use Orchestra\Testbench\TestCase as Orchestra;
 
@@ -20,12 +21,18 @@ class TestCase extends Orchestra
      * view encryption pipeline requires `app.key`. Local dev envs usually have
      * APP_KEY set, but Testbench's default CI env does not — every Livewire
      * test fails with "No application encryption key has been specified."
-     * Setting a deterministic test-only key here fixes CI without adding a
-     * workflow-level env var, and stays idempotent for local runs that already
-     * have an app key configured.
+     *
+     * Fallback-only: we set a deterministic test-only key ONLY when no key is
+     * already configured. Any subclass test that configures its own key
+     * (directly or via a trait) keeps it — we don't silently clobber
+     * key-sensitive behavior in key-dependent assertions.
      */
     protected function defineEnvironment($app): void
     {
-        $app['config']->set('app.key', 'base64:' . base64_encode(str_repeat('a', 32)));
+        $config = $app->make(Repository::class);
+
+        if ($config->get('app.key') === null || $config->get('app.key') === '') {
+            $config->set('app.key', 'base64:' . base64_encode(str_repeat('a', 32)));
+        }
     }
 }
