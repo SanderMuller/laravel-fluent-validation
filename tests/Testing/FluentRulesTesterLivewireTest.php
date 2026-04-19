@@ -271,6 +271,28 @@ it('without actingAs() the Livewire target sees a null user', function (): void 
         ->failsWith('auth');
 });
 
+it('auth binding does NOT bleed across tester cycles', function (): void {
+    // Codex flagged: applyActingAs() mutated the global guard without
+    // restoring, so a second cycle that omits actingAs() silently inherited
+    // the prior user. Auth-negative assertions would then pass against the
+    // inherited user and hide regressions. Dispatch is now transactional
+    // via try/finally + reflection-based restore.
+
+    $user = new GenericUser(['id' => 42]);
+
+    // Cycle 1: bind a user, dispatch, assert passes.
+    FluentRulesTester::for(AppealLivewireComponent::class)
+        ->actingAs($user)
+        ->call('requireAuthenticatedUser')
+        ->passes();
+
+    // Cycle 2: omit actingAs(). Must see null user — if cycle-1's binding
+    // bleeds, requireAuthenticatedUser() sees $user and passes incorrectly.
+    FluentRulesTester::for(AppealLivewireComponent::class)
+        ->call('requireAuthenticatedUser')
+        ->failsWith('auth');
+});
+
 // =========================================================================
 // Surface assertions also work on Livewire targets
 // =========================================================================

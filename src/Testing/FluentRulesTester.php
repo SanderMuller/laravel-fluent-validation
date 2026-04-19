@@ -534,7 +534,7 @@ final class FluentRulesTester
             $request->setRouteResolver(fn (): object => $this->makeRouteShim($this->routeParameters));
         }
 
-        $this->applyActingAs();
+        $restoreAuth = $this->bindActingAs();
 
         if (function_exists('app') && app()->bound('auth')) {
             $request->setUserResolver(static fn (?string $guard = null): mixed => resolve(Factory::class)->guard($guard)->user());
@@ -546,14 +546,18 @@ final class FluentRulesTester
         $instance->setRedirector(resolve(Redirector::class));
 
         try {
-            $instance->validateResolved();
-        } catch (ValidationException $validationException) {
-            return $this->wrap($validationException->validator);
-        } catch (AuthorizationException) {
-            return $this->wrap($this->buildUnauthorizedValidator());
-        }
+            try {
+                $instance->validateResolved();
+            } catch (ValidationException $validationException) {
+                return $this->wrap($validationException->validator);
+            } catch (AuthorizationException) {
+                return $this->wrap($this->buildUnauthorizedValidator());
+            }
 
-        return $this->wrap($this->extractValidator($instance));
+            return $this->wrap($this->extractValidator($instance));
+        } finally {
+            $restoreAuth();
+        }
     }
 
     /**
@@ -634,48 +638,53 @@ final class FluentRulesTester
             throw new LogicException('runLivewire called without a class-string target.');
         }
 
-        $this->applyActingAs();
+        $restoreAuth = $this->bindActingAs();
 
-        $component = Livewire::test($class, $this->mountParameters);
+        try {
+            $component = Livewire::test($class, $this->mountParameters);
 
-        foreach ($data as $key => $value) {
-            $component->set($key, $value);
+            foreach ($data as $key => $value) {
+                $component->set($key, $value);
+            }
+
+            foreach ($this->pendingSets as [$key, $value]) {
+                $component->set($key, $value);
+            }
+
+            // Dispatch every queued action in order against the same
+            // Testable instance. State mutations from earlier actions
+            // persist for later ones — that's the whole point of
+            // multi-action support.
+            foreach ($this->callQueue as $call) {
+                $component->call($call['method'], ...$call['args']);
+            }
+
+            // Consume the dispatch inputs. After the Validated DTO is
+            // cached the tester can be reused for another cycle; the next
+            // set()/with()/call() builds against a clean slate so prior
+            // cycles don't bleed into the new dispatch's component state.
+            $this->data = null;
+            $this->pendingSets = [];
+            $this->callQueue = [];
+
+            $rawErrors = $component->errors();
+            $errors = $rawErrors instanceof MessageBag ? $rawErrors : new MessageBag();
+
+            $validator = $this->extractLivewireValidator($component);
+
+            if ($validator instanceof ValidatorContract) {
+                return $this->wrap($validator);
+            }
+
+            return new Validated(
+                passes: $errors->isEmpty(),
+                validated: [],
+                errors: $errors,
+                validator: ValidatorFacade::make([], []),
+            );
+        } finally {
+            $restoreAuth();
         }
-
-        foreach ($this->pendingSets as [$key, $value]) {
-            $component->set($key, $value);
-        }
-
-        // Dispatch every queued action in order against the same Testable
-        // instance. State mutations from earlier actions persist for later
-        // ones — that's the whole point of multi-action support.
-        foreach ($this->callQueue as $call) {
-            $component->call($call['method'], ...$call['args']);
-        }
-
-        // Consume the dispatch inputs. After the Validated DTO is cached the
-        // tester can be reused for another cycle; the next set()/with()/call()
-        // builds against a clean slate so prior cycles don't bleed into the
-        // new dispatch's component state.
-        $this->data = null;
-        $this->pendingSets = [];
-        $this->callQueue = [];
-
-        $rawErrors = $component->errors();
-        $errors = $rawErrors instanceof MessageBag ? $rawErrors : new MessageBag();
-
-        $validator = $this->extractLivewireValidator($component);
-
-        if ($validator instanceof ValidatorContract) {
-            return $this->wrap($validator);
-        }
-
-        return new Validated(
-            passes: $errors->isEmpty(),
-            validated: [],
-            errors: $errors,
-            validator: ValidatorFacade::make([], []),
-        );
     }
 
     /**
@@ -704,23 +713,54 @@ final class FluentRulesTester
     }
 
     /**
-     * Apply any `actingAs()` binding to the auth guard. Shared between
-     * `runFormRequest()` and `runLivewire()` so the two target paths have
-     * symmetrical auth behavior — `auth()->user()` returns the bound user
-     * inside the dispatched target's own methods, not just via the
-     * FormRequest's user resolver.
+     * Bind `actingAs()` state onto the auth guard for the duration of a
+     * single dispatch, and return a closure that restores the prior state.
+     *
+     * The restore step is non-optional — callers MUST invoke the returned
+     * closure in a `finally` block. Otherwise the guard retains our user
+     * after the dispatch completes, and a subsequent cycle that omits
+     * `actingAs()` inherits the bound user instead of running
+     * unauthenticated. Auth-negative assertions silently pass against the
+     * inherited user; regressions slip by.
+     *
+     * No-op path: returns a closure that does nothing when there's no
+     * `actingAs()` configured or auth isn't booted.
+     *
+     * @return \Closure():void  Call to restore the prior auth state.
      */
-    private function applyActingAs(): void
+    private function bindActingAs(): \Closure
     {
         if (! $this->actingAs instanceof Authenticatable) {
-            return;
+            return static function (): void {};
         }
 
         if (! function_exists('app') || ! app()->bound('auth')) {
-            return;
+            return static function (): void {};
         }
 
-        resolve(Factory::class)->guard($this->actingAsGuard)->setUser($this->actingAs);
+        $guard = resolve(Factory::class)->guard($this->actingAsGuard);
+        $previousUser = $guard->user();
+        $guard->setUser($this->actingAs);
+
+        return static function () use ($guard, $previousUser): void {
+            if ($previousUser instanceof Authenticatable) {
+                $guard->setUser($previousUser);
+
+                return;
+            }
+
+            // No prior user. Can't call `setUser(null)` — most guards
+            // strict-type on Authenticatable. Can't call `logout()` blindly
+            // either — SessionGuard's logout triggers the remember-token
+            // flush path, which fatals on bare Authenticatable fixtures
+            // (e.g. GenericUser) that don't carry a `remember_token`
+            // attribute. Reflection on the `user` property is the
+            // lowest-surface restore that works across guard types.
+            if (property_exists($guard, 'user')) {
+                $property = new ReflectionProperty($guard, 'user');
+                $property->setValue($guard, null);
+            }
+        };
     }
 
     /**
