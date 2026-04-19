@@ -3,6 +3,7 @@
 [![Latest Version on Packagist](https://img.shields.io/packagist/v/sandermuller/laravel-fluent-validation.svg?style=flat-square)](https://packagist.org/packages/sandermuller/laravel-fluent-validation)
 [![GitHub Tests Action Status](https://img.shields.io/github/actions/workflow/status/sandermuller/laravel-fluent-validation/run-tests.yml?branch=main&label=tests&style=flat-square)](https://github.com/sandermuller/laravel-fluent-validation/actions?query=workflow%3Arun-tests+branch%3Amain)
 [![GitHub Code Style Action Status](https://img.shields.io/github/actions/workflow/status/sandermuller/laravel-fluent-validation/fix-php-code-style-issues.yml?branch=main&label=code%20style&style=flat-square)](https://github.com/sandermuller/laravel-fluent-validation/actions?query=workflow%3A"Fix+PHP+code+style+issues"+branch%3Amain)
+[![Laravel Compatibility](https://badge.laravel.cloud/badge/sandermuller/laravel-fluent-validation?style=flat)](https://packagist.org/packages/sandermuller/laravel-fluent-validation)
 
 Write Laravel validation rules with IDE autocompletion instead of memorizing string syntax. Each rule type exposes only the methods that apply to it: `FluentRule::string()` won't offer `digits()`, `FluentRule::date()` won't offer `mimes()`. `each()` and `children()` keep parent and child rules in one place instead of scattered across dot-notation keys. For large arrays, the `HasFluentRules` trait makes wildcard validation [up to 160x faster](#benchmarks).
 
@@ -677,6 +678,7 @@ $validated = RuleSet::make()
 | `->except(...$fields)`             | `RuleSet`       | Drop the named fields (variadic strings or single array)          |
 | `->put($field, $rule)`             | `RuleSet`       | Add or replace a single field's rule                              |
 | `->get($field, $default = null)`   | `mixed`         | Read a single field's rule (uncompiled), or `$default` if absent  |
+| `->modify($field, fn ($rule))`     | `RuleSet`       | Read-modify-write a single field; clones before callback; throws on missing key |
 | `->all()`                          | `array`         | Collection-style alias of `->toArray()`                           |
 | `[...$ruleSet]`                    | `array`         | Spread support via `IteratorAggregate` — yields `$this->toArray()` shape |
 | `->when($cond, $callback)`         | `RuleSet`       | Conditionally add fields (also: `unless`)                         |
@@ -899,6 +901,105 @@ FluentRulesTester::for([
 ```
 
 Replacements are forwarded to the translator verbatim. Pass `:attribute` explicitly when your rules use labels — the validator pre-substitutes the label into the message before the bag stores it, so the comparison value must already match the labeled output.
+
+For "this field is the *only* thing that should have failed" — surgical regression detection — use `failsOnly()`:
+
+```php
+FluentRulesTester::for($rules)
+    ->with($payload)
+    ->failsOnly('email', 'required');     // raises if any other field also failed
+```
+
+Wildcard error keys are fully expanded (`items.0.name`, `items.1.name`), so `failsOnly` requires exactly one matching key. For "any item under the wildcard failed" use `failsWithAny('items')` instead.
+
+For the negative case — assert specific fields *did not* fail without enumerating the expected failures — use `doesNotFailOn()`:
+
+```php
+FluentRulesTester::for($rules)
+    ->with($payload)
+    ->fails()
+    ->doesNotFailOn('email', 'name');     // these passed even though others failed
+```
+
+`doesNotFailOn` does not assert overall pass/fail — chain it after `fails()` or `passes()` if that matters to the test.
+
+For "did this subtree fail at all?" assertions where you don't care about the specific child key, use `failsWithAny()`:
+
+```php
+FluentRulesTester::for(OfflineSyncRequest::class)
+    ->with($payload)
+    ->failsWithAny('actions.0.payload');     // matches actions.0.payload OR actions.0.payload.stars OR …
+```
+
+`failsWithAny($prefix)` matches the prefix exactly OR any dotted descendant (`$prefix.*`). It is **not** a substring match — `failsWithAny('payload')` will not match `someOther.payload.x`. For substring or regex matching, use `errors()` directly.
+
+### Livewire components
+
+`FluentRulesTester::for(SomeLivewireComponent::class)` auto-detects Livewire `Component` subclasses and routes through `Livewire::test()` so the full `submit()` flow runs (guard clauses, `addError()` branches, computed state, rate-limit gates) — not just the rule set in isolation.
+
+```php
+use SanderMuller\FluentValidation\Testing\FluentRulesTester;
+
+FluentRulesTester::for(AppealPage::class)
+    ->set('type', 'refund')
+    ->set('reason', 'Order arrived damaged in transit.')
+    ->call('submit')
+    ->passes();
+```
+
+`set($key, $value)` and `set([$key => $value])` both work (Livewire-parity). `call('submit')` is required before any assertion — Livewire validation only runs on action dispatch (calling `passes()`/`failsWith()` before `call()` raises `LogicException`).
+
+`with([...])` also works on Livewire targets — it expands to `set($key, $value)` per pair, useful when porting tests that already use the data-shape style:
+
+```php
+FluentRulesTester::for(AppealPage::class)
+    ->with(['type' => 'refund', 'reason' => 'Order arrived damaged in transit.'])
+    ->call('submit')
+    ->passes();
+```
+
+For components with `mount()` parameters:
+
+```php
+FluentRulesTester::for(EditAppealPage::class)
+    ->mount(['appeal' => $appeal])
+    ->call('submit')
+    ->passes();
+```
+
+**Multi-action chains** — when action 1 mutates state that action 2 validates against (modal-open-then-submit, select-then-save), queue both with `call()` + `andCall()`. All queued actions dispatch in order against ONE `Livewire::test()` instance, so state persists:
+
+```php
+FluentRulesTester::for(ImportInteractionsModal::class)
+    ->set('video', $targetVideo)
+    ->call('selectVideo', $sourceVideo->uuid)
+    ->andCall('import')
+    ->failsWith('selectedInteractionIds', 'required');
+```
+
+`andCall()` is a readability alias for `call()` — both append to the action queue. Use whichever reads clearest at the call site.
+
+**Error-bag capture** — both `$this->validate()`-driven failures AND manual `$this->addError(...)` calls surface via `failsWith()`. Pre-validate guards (rate-limit branch → `addError` → return before `validate()`) and post-validate `addError` (quota check after a successful validate()) both work:
+
+```php
+// Pre-validate guard — returns before validate() ever runs.
+FluentRulesTester::for(AppealPage::class)
+    ->set('rateLimited', true)
+    ->call('submit')
+    ->failsWith('reason');
+
+// Post-validate addError — validate() passes, then addError.
+FluentRulesTester::for(AppealPage::class)
+    ->set('type', 'refund')
+    ->set('reason', 'Long enough reason.')
+    ->set('quotaExceeded', true)
+    ->call('submit')
+    ->failsWith('type');
+```
+
+**State is consumed per dispatch.** After one chain resolves, the accumulated `with()` / `set()` / `call()` state clears so reused testers don't leak prior cycles into new ones. Each `->call('submit')` at the tail of a new chain starts from a fresh `Livewire::test()` instance.
+
+`livewire/livewire` is a soft dev dep — the Livewire branch `class_exists`-guards on `\Livewire\Component`. PHPUnit-only suites without Livewire installed see the standard "unsupported target" `LogicException` instead of a hard fatal at autoload time.
 
 ### Route parameters and authenticated user
 

@@ -160,9 +160,30 @@ FluentRulesTester::for(UpdateVideoRequest::class)
     ->actingAs($user)
     ->with($payload)
     ->passes();
+
+// Livewire components — auto-detected. set/call/mount + andCall for multi-action chains.
+FluentRulesTester::for(AppealPage::class)
+    ->set('type', 'refund')
+    ->set('reason', 'Long enough reason.')
+    ->call('openModal')
+    ->andCall('submit')
+    ->passes();
 ```
 
-`with(array $data)` is required before any assertion. Variadic args after the target are forwarded to FluentValidator subclass constructors after `$data`. `withRoute()` and `actingAs()` are re-callable and only meaningful for FormRequest class-string targets. For unauthorized FormRequests, the `AuthorizationException` is recorded — assert via `->fails()` or `->assertUnauthorized()`. `FluentRulesTester` is the only stable test surface; everything else under `Testing\` is `@internal`.
+Target-shape cheatsheet:
+
+| Target | Trigger | Notes |
+|---|---|---|
+| `array<string, mixed>` of rules | `with($data)` | wraps via `RuleSet::from($rules)->check($data)` |
+| `RuleSet` instance | `with($data)` | direct `->check($data)` |
+| Single `ValidationRule` | `with(['value' => $x])` | wrapped under `'value'` key |
+| `FormRequest` class-string | `with($data)` | full `validateResolved()` pipeline; pair with `withRoute()` / `actingAs()` |
+| `FluentValidator` class-string | `with($data)` + variadic ctor args via `for(class, ...$args)` | |
+| Livewire `Component` class-string | `set()`/`with()` then `call()` (+ `andCall()`) | multi-action queue dispatches against one `Livewire::test()` instance; each new chain resets state |
+
+More assertions: `failsWithAny($prefix)` for subtree failures (exact + dotted descendants), `failsOnly($field, $rule = null)` for surgical single-field failures, `doesNotFailOn(...$fields)` for negative assertions, `failsWithMessage($field, $key, $replacements = [])` for rendered-translation matches, `assertUnauthorized()` for FormRequest `authorize()` gate failures. `RuleSet` has `only/except/put/get/modify/all()` + `IteratorAggregate` spread support.
+
+`with(array $data)` is required before any assertion (Livewire targets require `call()` instead — validation only runs on action dispatch). Variadic args after the target are forwarded to FluentValidator subclass constructors after `$data`. `withRoute()` and `actingAs()` are re-callable and only meaningful for FormRequest class-string targets. For unauthorized FormRequests, the `AuthorizationException` is recorded — assert via `->fails()` or `->assertUnauthorized()`. `FluentRulesTester` is the only stable test surface; everything else under `Testing\` is `@internal`.
 
 Optional Pest expectations live in `src/Testing/PestExpectations.php` — `require_once` from `tests/Pest.php` to opt in to `expect($rules)->toPassWith($data)`, `->toFailOn($data, $field, $rule)`, `->toBeFluentRuleOf($class)`.
 
