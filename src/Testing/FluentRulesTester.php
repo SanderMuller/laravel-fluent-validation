@@ -114,10 +114,14 @@ final class FluentRulesTester
     }
 
     /**
-     * Set the authenticated user that `$this->user()` returns inside the
-     * FormRequest's `authorize()` and `rules()` methods. Mirrors Laravel's
-     * `actingAs()` test helper. Only meaningful for FormRequest class-string
-     * targets.
+     * Set the authenticated user that `$this->user()` / `auth()->user()` returns
+     * inside the dispatched target. Mirrors Laravel's `actingAs()` test helper.
+     *
+     * Covers both FormRequest class-string targets (via `$this->user()` inside
+     * `authorize()` / `rules()`) AND Livewire Component class-string targets
+     * (via `auth()->user()` inside `mount()` / action methods / policy gates).
+     * Other target shapes (array, RuleSet, ValidationRule, FluentValidator)
+     * don't involve auth, so the call is a harmless no-op for them.
      */
     public function actingAs(Authenticatable $user, ?string $guard = null): self
     {
@@ -530,11 +534,9 @@ final class FluentRulesTester
             $request->setRouteResolver(fn (): object => $this->makeRouteShim($this->routeParameters));
         }
 
-        if (function_exists('app') && app()->bound('auth')) {
-            if ($this->actingAs instanceof Authenticatable) {
-                resolve(Factory::class)->guard($this->actingAsGuard)->setUser($this->actingAs);
-            }
+        $this->applyActingAs();
 
+        if (function_exists('app') && app()->bound('auth')) {
             $request->setUserResolver(static fn (?string $guard = null): mixed => resolve(Factory::class)->guard($guard)->user());
         }
 
@@ -632,6 +634,8 @@ final class FluentRulesTester
             throw new LogicException('runLivewire called without a class-string target.');
         }
 
+        $this->applyActingAs();
+
         $component = Livewire::test($class, $this->mountParameters);
 
         foreach ($data as $key => $value) {
@@ -697,6 +701,26 @@ final class FluentRulesTester
         $validator = $store->get('testing.validator');
 
         return $validator instanceof ValidatorContract ? $validator : null;
+    }
+
+    /**
+     * Apply any `actingAs()` binding to the auth guard. Shared between
+     * `runFormRequest()` and `runLivewire()` so the two target paths have
+     * symmetrical auth behavior — `auth()->user()` returns the bound user
+     * inside the dispatched target's own methods, not just via the
+     * FormRequest's user resolver.
+     */
+    private function applyActingAs(): void
+    {
+        if (! $this->actingAs instanceof Authenticatable) {
+            return;
+        }
+
+        if (! function_exists('app') || ! app()->bound('auth')) {
+            return;
+        }
+
+        resolve(Factory::class)->guard($this->actingAsGuard)->setUser($this->actingAs);
     }
 
     /**

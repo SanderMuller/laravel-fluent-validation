@@ -935,6 +935,15 @@ FluentRulesTester::for(OfflineSyncRequest::class)
 
 ### Livewire components
 
+Two distinct test shapes. Pick the one that matches what you're asserting:
+
+| Shape | When to use | Target |
+|---|---|---|
+| **Rules-only** | Assert the `rules()` array has the right shape against a specific data payload. Component lifecycle irrelevant. | `for($component->rules())` or `for($ruleSet)`, then `->with($data)->passes()` |
+| **Component-flow** | Drive `wire:model` state, dispatch an action, assert validation fires (or `addError` branches, guard clauses, multi-step flows). | `for(ComponentClass::class)->set(...)->call(...)` |
+
+Don't reach for the class-string target just because the rules live in a Livewire component — use it only when the component's `submit()` flow (guards, `addError`, computed state) matters to the test. Shape-only tests stay on the array/RuleSet targets and `->with()`.
+
 `FluentRulesTester::for(SomeLivewireComponent::class)` auto-detects Livewire `Component` subclasses and routes through `Livewire::test()` so the full `submit()` flow runs (guard clauses, `addError()` branches, computed state, rate-limit gates) — not just the rule set in isolation.
 
 ```php
@@ -1019,7 +1028,7 @@ FluentRulesTester::for(UpdateVideoRequest::class)
 - `$this->route('video', $default)` returns `$video` (default ignored when key present)
 - `$this->route('missing', $default)` returns `$default`
 
-`actingAs($user, $guard = null)` mirrors Laravel's test helper — sets the user on the auth guard before `validateResolved()` runs. Both methods are re-callable; later calls fully replace earlier ones (matching `with()`).
+`actingAs($user, $guard = null)` mirrors Laravel's test helper — sets the user on the auth guard before `validateResolved()` runs (FormRequest) or before `Livewire::test()` (Livewire component). Both methods are re-callable; later calls fully replace earlier ones (matching `with()`). For Livewire targets, `auth()->user()` inside `mount()`, actions, and policy gates returns the bound user.
 
 ### Unauthorized FormRequests
 

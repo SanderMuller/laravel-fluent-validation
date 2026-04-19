@@ -44,6 +44,19 @@ final class AppealLivewireComponent extends Component
         $this->modalOpen = true;
     }
 
+    /**
+     * Assert-auth action — mirrors the auth-aware action patterns
+     * (policy gates, $user->isSuspended() checks inside mount()/actions).
+     * Reads auth()->user() directly; surfaces a known error key when
+     * no user is resolved.
+     */
+    public function requireAuthenticatedUser(): void
+    {
+        if (auth()->user() === null) {
+            $this->addError('auth', 'Authenticated user required.');
+        }
+    }
+
     public function submit(): void
     {
         // Pre-validate guard — rate-limit branch returns BEFORE validate()

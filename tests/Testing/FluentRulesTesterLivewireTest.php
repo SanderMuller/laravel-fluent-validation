@@ -1,5 +1,6 @@
 <?php declare(strict_types=1);
 
+use Illuminate\Auth\GenericUser;
 use Livewire\Component;
 use SanderMuller\FluentValidation\Testing\FluentRulesTester;
 use SanderMuller\FluentValidation\Tests\Fixtures\AppealLivewireComponent;
@@ -245,6 +246,29 @@ it('captures post-validate addError that runs after a successful validate()', fu
         ->set('quotaExceeded', true)
         ->call('submit')
         ->failsWith('type');
+});
+
+// =========================================================================
+// actingAs() covers Livewire targets too (1.13.2 regression — collectiq found
+// that runLivewire() ignored $this->actingAs; auth()->user() was null inside
+// mount() / actions / policy gates).
+// =========================================================================
+
+it('actingAs() binds the auth user for Livewire targets', function (): void {
+    $user = new GenericUser(['id' => 42]);
+
+    FluentRulesTester::for(AppealLivewireComponent::class)
+        ->actingAs($user)
+        ->call('requireAuthenticatedUser')
+        ->passes();
+});
+
+it('without actingAs() the Livewire target sees a null user', function (): void {
+    // Without actingAs(), auth()->user() returns null inside the component.
+    // The fixture's requireAuthenticatedUser() surfaces this as an 'auth' error.
+    FluentRulesTester::for(AppealLivewireComponent::class)
+        ->call('requireAuthenticatedUser')
+        ->failsWith('auth');
 });
 
 // =========================================================================
