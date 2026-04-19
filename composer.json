@@ -20,8 +20,7 @@
         "php": "^8.2",
         "illuminate/contracts": "^11.0||^12.0||^13.0",
         "illuminate/support": "^11.0||^12.0||^13.0",
-        "illuminate/validation": "^11.0||^12.0||^13.0",
-        "sandermuller/validation-kernel": "@dev"
+        "illuminate/validation": "^11.0||^12.0||^13.0"
     },
     "require-dev": {
         "driftingly/rector-laravel": "^2.3",
@@ -67,20 +66,11 @@
         "test-coverage": "vendor/bin/pest --coverage",
         "sync-ai": "vendor/bin/testbench package-boost:sync",
         "qa": [
-            "@format",
             "@rector",
-            "@phpstan"
+            "@format",
+            "@phpstan-simplified"
         ]
     },
-    "repositories": [
-        {
-            "type": "path",
-            "url": "../validation-kernel",
-            "options": {
-                "symlink": true
-            }
-        }
-    ],
     "config": {
         "sort-packages": true,
         "allow-plugins": {
@@ -88,6 +78,5 @@
             "phpstan/extension-installer": true
         }
     },
-    "prefer-stable": true,
-    "minimum-stability": "dev"
+    "prefer-stable": true
 }
