@@ -178,6 +178,21 @@ FluentRule::file()->rule(['mimetypes', ...$types])     // array tuple
 
 To add fields in a child, use the spread operator: `return [...parent::rules(), 'extra' => FluentRule::string()->required()]`. If you need to modify a parent's rule, clone it first since `->rule()` mutates the object: `$rules['type'] = (clone $rules['type'])->rule(new ExtraRule())`.
 
+`rules()` may also return a `RuleSet` directly — `HasFluentRules` (and `HasFluentValidation` for Livewire) auto-unwrap it via `->toArray()` before passing to the validator. This lets you chain `->only/->except/->merge/->put/->get` and return without a terminal `->toArray()` call:
+
+```php
+// Assumes a class-level helper that returns a RuleSet, e.g.
+//   class UserRules { public static function base(): RuleSet { return RuleSet::from([...]); } }
+public function rules(): RuleSet
+{
+    return UserRules::base()
+        ->only(['email', 'password'])
+        ->put('email_confirmation', FluentRule::email()->required()->same('email'));
+}
+```
+
+`RuleSet` also implements `IteratorAggregate`, so spread works on it too: `[...$ruleSet, 'extra' => FluentRule::string()->required()]`.
+
 ## Error messages
 
 ### Labels
@@ -662,6 +677,8 @@ $validated = RuleSet::make()
 | `->except(...$fields)`             | `RuleSet`       | Drop the named fields (variadic strings or single array)          |
 | `->put($field, $rule)`             | `RuleSet`       | Add or replace a single field's rule                              |
 | `->get($field, $default = null)`   | `mixed`         | Read a single field's rule (uncompiled), or `$default` if absent  |
+| `->all()`                          | `array`         | Collection-style alias of `->toArray()`                           |
+| `[...$ruleSet]`                    | `array`         | Spread support via `IteratorAggregate` — yields `$this->toArray()` shape |
 | `->when($cond, $callback)`         | `RuleSet`       | Conditionally add fields (also: `unless`)                         |
 | `->toArray()`                      | `array`         | Flat rules with `each()` expanded to wildcards                    |
 | `->validate($data)`                | `array`         | Validate with full optimization (see [Performance](#performance)) |
