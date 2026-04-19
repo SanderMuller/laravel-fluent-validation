@@ -2,6 +2,7 @@
 
 use SanderMuller\FluentValidation\FluentRule;
 use SanderMuller\FluentValidation\HasFluentValidation;
+use SanderMuller\FluentValidation\RuleSet;
 
 // =========================================================================
 // Test doubles
@@ -128,12 +129,12 @@ class TestableComponentWithUnwrap extends FakeLivewireBase
     /**
      * @param  array<string, mixed>  $rawData
      * @param  array<string, mixed>  $unwrappedData
-     * @param  array<string, mixed>  $rules
+     * @param  array<string, mixed>|RuleSet  $rules
      */
-    public function __construct(public array $rawData, public array $unwrappedData, private array $rules = []) {}
+    public function __construct(public array $rawData, public array $unwrappedData, private array|RuleSet $rules = []) {}
 
-    /** @return array<string, mixed> */
-    public function rules(): array
+    /** @return array<string, mixed>|RuleSet */
+    public function rules(): array|RuleSet
     {
         return $this->rules;
     }
@@ -363,6 +364,28 @@ it('uses unwrapDataForValidation() output when the method exists', function (): 
     // Wildcard expansion must use the unwrapped array, not the raw model-object
     expect($compiled)
         ->toHaveKeys(['items.0.name', 'items.1.name']);
+});
+
+// =========================================================================
+// HasFluentValidation — auto-unwrap RuleSet returned from rules()
+// =========================================================================
+
+it('HasFluentValidation auto-unwraps a RuleSet returned from rules()', function (): void {
+    $ruleSet = RuleSet::from([
+        'name' => FluentRule::string()->required()->min(2),
+    ]);
+
+    $component = new TestableComponentWithUnwrap(
+        rawData: ['name' => 'Ada'],
+        unwrappedData: ['name' => 'Ada'],
+        rules: $ruleSet,
+    );
+
+    $rules = $component->getRules();
+
+    expect($rules)->toHaveKey('name')
+        ->and($rules['name'])->toContain('required')
+        ->and($rules['name'])->toContain('min:2');
 });
 
 // =========================================================================

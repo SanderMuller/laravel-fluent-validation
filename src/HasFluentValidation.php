@@ -216,6 +216,12 @@ trait HasFluentValidation
             return [];
         }
 
+        // Auto-unwrap: rules() may return either a plain array or a RuleSet
+        // (mirrors HasFluentRules' FormRequest behavior).
+        if ($rules instanceof RuleSet) {
+            $rules = $rules->toArray();
+        }
+
         return $this->toNullableArray($rules) ?? [];
     }
 

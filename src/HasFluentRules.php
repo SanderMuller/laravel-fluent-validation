@@ -34,14 +34,19 @@ trait HasFluentRules
 {
     protected function createDefaultValidator(ValidationFactory $factory): Validator
     {
-        /** @var array<string, mixed> $rules */
+        /** @var array<string, mixed>|RuleSet $rules */
         $rules = method_exists($this, 'rules') // @phpstan-ignore function.alreadyNarrowedType
             ? $this->container->call([$this, 'rules'])
             : [];
 
         /** @var array<string, mixed> $data */
         $data = $this->validationData();
-        $prepared = RuleSet::from($rules)->prepare($data);
+
+        // Auto-unwrap: rules() may return either a plain array or a RuleSet
+        // (the latter pattern lets callers chain ->only/->except/->merge
+        // before returning, eliminating a terminal ->toArray() call).
+        $ruleSet = $rules instanceof RuleSet ? $rules : RuleSet::from($rules);
+        $prepared = $ruleSet->prepare($data);
 
         // Pre-exclude rules whose exclude_unless/exclude_if conditions
         // don't match the actual data. This happens BEFORE the validator

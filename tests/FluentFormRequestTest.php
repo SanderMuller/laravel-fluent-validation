@@ -13,6 +13,7 @@ use Illuminate\Validation\Validator;
 use SanderMuller\FluentValidation\FluentFormRequest;
 use SanderMuller\FluentValidation\FluentRule;
 use SanderMuller\FluentValidation\OptimizedValidator;
+use SanderMuller\FluentValidation\RuleSet;
 
 // =========================================================================
 // Unit: OptimizedValidator fast check compilation
@@ -1300,6 +1301,79 @@ it('does not stop on first failure by default', function (): void {
 // =========================================================================
 // Helper
 // =========================================================================
+
+// =========================================================================
+// HasFluentRules — auto-unwrap RuleSet returned from rules()
+// =========================================================================
+
+it('auto-unwraps a RuleSet returned from rules()', function (): void {
+    $formRequest = new class extends FluentFormRequest {
+        public static RuleSet $testRuleSet;
+
+        public function rules(): RuleSet
+        {
+            return self::$testRuleSet;
+        }
+
+        public function authorize(): bool
+        {
+            return true;
+        }
+    };
+
+    $formRequest::$testRuleSet = RuleSet::from([
+        'name' => FluentRule::string()->required()->min(2),
+    ]);
+
+    $request = Request::create('/test', 'POST', ['name' => 'Ada']);
+    $instance = $formRequest::createFrom($request);
+    $instance->setContainer(app());
+    $instance->setRedirector(resolve(Redirector::class));
+
+    $factory = resolve(Factory::class);
+    $validator = (fn () => $this->createDefaultValidator($factory))->call($instance);
+
+    expect($validator->passes())->toBeTrue()
+        ->and($validator->validated())->toBe(['name' => 'Ada']);
+});
+
+it('still accepts a plain array from rules() (no regression)', function (): void {
+    $formRequest = createFluentFormRequest(
+        rules: ['name' => FluentRule::string()->required()],
+        data: ['name' => 'Ada'],
+    );
+
+    $factory = resolve(Factory::class);
+    $validator = (fn () => $this->createDefaultValidator($factory))->call($formRequest);
+
+    expect($validator->passes())->toBeTrue();
+});
+
+it('auto-unwraps a RuleSet built via fluent chain in rules()', function (): void {
+    $formRequest = new class extends FluentFormRequest {
+        public function rules(): RuleSet
+        {
+            return RuleSet::make()
+                ->field('name', FluentRule::string()->required())
+                ->merge(['email' => FluentRule::email()->required()]);
+        }
+
+        public function authorize(): bool
+        {
+            return true;
+        }
+    };
+
+    $request = Request::create('/test', 'POST', ['name' => 'Ada', 'email' => 'a@b.test']);
+    $instance = $formRequest::createFrom($request);
+    $instance->setContainer(app());
+    $instance->setRedirector(resolve(Redirector::class));
+
+    $factory = resolve(Factory::class);
+    $validator = (fn () => $this->createDefaultValidator($factory))->call($instance);
+
+    expect($validator->passes())->toBeTrue();
+});
 
 /**
  * @param array<string, mixed> $rules
