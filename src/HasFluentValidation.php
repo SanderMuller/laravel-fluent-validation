@@ -97,7 +97,7 @@ trait HasFluentValidation
 
         $result = $this->fluentMetadataCache !== null ? $this->fluentMetadataCache['messages'] : [];
 
-        if (method_exists($this, 'messages')) { // @phpstan-ignore function.alreadyNarrowedType
+        if (method_exists($this, 'messages')) { // @phpstan-ignore function.alreadyNarrowedType,function.impossibleType
             /** @var array<string, string> */
             $result = array_merge($result, (array) $this->messages()); // @phpstan-ignore argument.type
         } elseif (property_exists($this, 'messages')) { // @phpstan-ignore function.alreadyNarrowedType
@@ -131,7 +131,7 @@ trait HasFluentValidation
 
         $result = $this->fluentMetadataCache !== null ? $this->fluentMetadataCache['attributes'] : [];
 
-        if (method_exists($this, 'validationAttributes')) { // @phpstan-ignore function.alreadyNarrowedType
+        if (method_exists($this, 'validationAttributes')) { // @phpstan-ignore function.alreadyNarrowedType,function.impossibleType
             /** @var array<string, string> */
             $result = array_merge($result, (array) $this->validationAttributes()); // @phpstan-ignore argument.type
         } elseif (property_exists($this, 'validationAttributes')) { // @phpstan-ignore function.alreadyNarrowedType
