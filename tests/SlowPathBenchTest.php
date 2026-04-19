@@ -161,6 +161,69 @@ it('benchmarks batched exists vs native exists', function (): void {
     expect($batchMedian)->toBeLessThan($nativeMedian);
 })->group('benchmark');
 
+it('benchmarks presence conditionals with nested dependent fields vs native', function (): void {
+    // 500 contacts, each with a nested `profile.birthdate` dependent field.
+    // FastCheckCompiler::compileWithPresenceConditionals rejects dotted field
+    // names at its identifier regex — so without RuleSet::reduceRulesForItem
+    // pre-evaluation, the postcode rule would fall through to Laravel. With
+    // pre-eval the rule is rewritten to plain `required`/dropped per item
+    // and the remainder fast-checks as usual.
+    $contacts = array_map(static fn (int $i): array => $i % 2 === 0 ? [
+        'first_name' => "Contact {$i}",
+        'last_name' => 'Test',
+        'postcode' => "12{$i}AB",
+        'profile' => [],
+        'phone' => '+31612345' . str_pad((string) $i, 3, '0', STR_PAD_LEFT),
+    ] : [
+        'first_name' => "Contact {$i}",
+        'last_name' => 'Test',
+        'profile' => ['birthdate' => '1990-01-01'],
+        'phone' => '+31612345' . str_pad((string) $i, 3, '0', STR_PAD_LEFT),
+    ], range(1, 500));
+
+    $nativeRules = [
+        'contacts' => 'required|array',
+        'contacts.*.first_name' => 'required|string|max:255',
+        'contacts.*.last_name' => 'required|string|max:255',
+        'contacts.*.postcode' => 'required_without:contacts.*.profile.birthdate|nullable|string|max:10',
+        'contacts.*.profile.birthdate' => 'nullable|date',
+        'contacts.*.phone' => 'nullable|string|max:20',
+    ];
+    $data = ['contacts' => $contacts];
+
+    // Warmup
+    Validator::make($data, $nativeRules)->validate();
+
+    $nativeMedian = benchmarkMedian(
+        fn () => Validator::make($data, $nativeRules)->validate(),
+        3,
+    );
+
+    $ruleSetFn = fn () => RuleSet::from([
+        'contacts' => FluentRule::array()->required()->each([
+            'first_name' => FluentRule::string()->required()->max(255),
+            'last_name' => FluentRule::string()->required()->max(255),
+            'postcode' => FluentRule::field()->requiredWithout('profile.birthdate')->nullable()->rule('string')->rule('max:10'),
+            'profile.birthdate' => FluentRule::date()->nullable(),
+            'phone' => FluentRule::string()->nullable()->max(20),
+        ]),
+    ])->validate($data);
+
+    $ruleSetFn(); // warmup
+    $ruleSetMedian = benchmarkMedian($ruleSetFn, 5);
+
+    $speedup = $nativeMedian / $ruleSetMedian;
+
+    fprintf(STDERR, "\n  Benchmark: 500 contacts × required_without:profile.birthdate (nested dependent)\n");
+    fprintf(STDERR, "  %-40s %8s %8s\n", 'Approach', 'Time', 'Speedup');
+    fprintf(STDERR, "  %s\n", str_repeat('─', 60));
+    fprintf(STDERR, "  %-40s %7.1fms %8s\n", 'Native Laravel', $nativeMedian, '1x');
+    fprintf(STDERR, "  %-40s %7.1fms %7.1fx\n", 'RuleSet (pre-eval + fast-check)', $ruleSetMedian, $speedup);
+    fprintf(STDERR, "\n");
+
+    expect($ruleSetMedian)->toBeLessThan($nativeMedian);
+})->group('benchmark');
+
 function benchmarkMedian(Closure $fn, int $iterations): float
 {
     $times = [];

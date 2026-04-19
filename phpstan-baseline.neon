@@ -85,7 +85,7 @@ parameters:
 			path: src/PrecomputedPresenceVerifier.php
 
 		-
-			rawMessage: 'Class cognitive complexity is 271, keep it under 80'
+			rawMessage: 'Class cognitive complexity is 340, keep it under 80'
 			identifier: complexity.classLike
 			count: 1
 			path: src/RuleSet.php
@@ -103,7 +103,7 @@ parameters:
 			path: src/RuleSet.php
 
 		-
-			rawMessage: 'Cognitive complexity for "SanderMuller\FluentValidation\RuleSet::validateItems()" is 47, keep it under 20'
+			rawMessage: 'Cognitive complexity for "SanderMuller\FluentValidation\RuleSet::validateItems()" is 49, keep it under 20'
 			identifier: complexity.functionLike
 			count: 1
 			path: src/RuleSet.php
@@ -277,7 +277,7 @@ parameters:
 			path: tests/FluentRuleTest.php
 
 		-
-			rawMessage: 'Out of 1284 possible param types, only 1275 - 99.2 %% actually have it. Add more param types to get over 100 %%'
+			rawMessage: 'Out of 1317 possible param types, only 1308 - 99.3 %% actually have it. Add more param types to get over 100 %%'
 			identifier: typeCoverage.paramTypeCoverage
 			count: 1
 			path: tests/HasFluentValidationForFilamentTest.php
@@ -295,25 +295,25 @@ parameters:
 			path: tests/HasFluentValidationForFilamentTest.php
 
 		-
-			rawMessage: 'Out of 1284 possible param types, only 1275 - 99.2 %% actually have it. Add more param types to get over 100 %%'
+			rawMessage: 'Out of 1317 possible param types, only 1308 - 99.3 %% actually have it. Add more param types to get over 100 %%'
 			identifier: typeCoverage.paramTypeCoverage
 			count: 3
 			path: tests/HasFluentValidationTest.php
 
 		-
-			rawMessage: 'Out of 1284 possible param types, only 1275 - 99.2 %% actually have it. Add more param types to get over 100 %%'
+			rawMessage: 'Out of 1317 possible param types, only 1308 - 99.3 %% actually have it. Add more param types to get over 100 %%'
 			identifier: typeCoverage.paramTypeCoverage
 			count: 2
 			path: tests/RuleSetTest.php
 
 		-
-			rawMessage: 'Out of 1284 possible param types, only 1275 - 99.2 %% actually have it. Add more param types to get over 100 %%'
+			rawMessage: 'Out of 1317 possible param types, only 1308 - 99.3 %% actually have it. Add more param types to get over 100 %%'
 			identifier: typeCoverage.paramTypeCoverage
 			count: 1
 			path: tests/Fixtures/AppealLivewireComponent.php
 
 		-
-			rawMessage: 'Out of 1284 possible param types, only 1275 - 99.2 %% actually have it. Add more param types to get over 100 %%'
+			rawMessage: 'Out of 1317 possible param types, only 1308 - 99.3 %% actually have it. Add more param types to get over 100 %%'
 			identifier: typeCoverage.paramTypeCoverage
 			count: 2
 			path: tests/TestCase.php
