@@ -10,13 +10,16 @@ use Illuminate\Support\MessageBag;
 use Illuminate\Support\Traits\Conditionable;
 use Illuminate\Support\Traits\Macroable;
 use Illuminate\Validation\ValidationException;
+use IteratorAggregate;
 use ReflectionProperty;
 use SanderMuller\FluentValidation\Rules\ArrayRule;
+use Traversable;
 
 /**
  * @implements Arrayable<string, mixed>
+ * @implements IteratorAggregate<string, mixed>
  */
-final class RuleSet implements Arrayable
+final class RuleSet implements Arrayable, IteratorAggregate
 {
     use Conditionable;
     use Macroable;
@@ -122,6 +125,30 @@ final class RuleSet implements Arrayable
     public function toArray(): array
     {
         return $this->flatten();
+    }
+
+    /**
+     * Collection-style alias of `toArray()`. Catches the muscle-memory
+     * `->all()` reach that two devs in one downstream audit hit independently;
+     * aliasing is friction-free vs throwing `BadMethodCallException`.
+     *
+     * @return array<string, mixed>
+     */
+    public function all(): array
+    {
+        return $this->flatten();
+    }
+
+    /**
+     * Spread support: `[...$ruleSet, 'extra' => $rule]` works without an
+     * explicit `->toArray()` call. Matches the Collection / Arrayable
+     * sibling shape.
+     *
+     * @return Traversable<string, mixed>
+     */
+    public function getIterator(): Traversable
+    {
+        yield from $this->flatten();
     }
 
     /**

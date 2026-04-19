@@ -943,6 +943,65 @@ it('supports unless()', function (): void {
 });
 
 // =========================================================================
+// IteratorAggregate — array spread support
+// =========================================================================
+
+it('supports array spread via IteratorAggregate', function (): void {
+    $ruleSet = RuleSet::from([
+        'name' => FluentRule::string()->required(),
+        'email' => FluentRule::email()->required(),
+    ]);
+
+    $merged = [...$ruleSet, 'extra' => FluentRule::string()->nullable()];
+
+    expect($merged)->toHaveKeys(['name', 'email', 'extra']);
+});
+
+it('IteratorAggregate yields nothing for an empty RuleSet', function (): void {
+    expect(iterator_to_array(RuleSet::make()))->toBe([]);
+});
+
+it('IteratorAggregate yields the same keys as toArray()', function (): void {
+    $ruleSet = RuleSet::from([
+        'name' => FluentRule::string()->required(),
+        'items' => FluentRule::array()->each([
+            'qty' => FluentRule::numeric()->required(),
+        ]),
+    ]);
+
+    $iterated = iterator_to_array($ruleSet);
+
+    // Each call to flatten() clones ArrayRule via withoutEachRules(), so
+    // strict equality on object identity won't hold — compare the key shape.
+    expect(array_keys($iterated))->toBe(array_keys($ruleSet->toArray()));
+});
+
+// =========================================================================
+// all() — Collection-style alias of toArray()
+// =========================================================================
+
+it('all() returns the same value as toArray()', function (): void {
+    $ruleSet = RuleSet::from([
+        'name' => FluentRule::string()->required(),
+        'email' => FluentRule::email()->required(),
+    ]);
+
+    expect($ruleSet->all())->toBe($ruleSet->toArray());
+});
+
+it('all() works with each() expansion same as toArray()', function (): void {
+    $ruleSet = RuleSet::from([
+        'items' => FluentRule::array()->each([
+            'name' => FluentRule::string()->required(),
+        ]),
+    ]);
+
+    // Same caveat as the iterator test: flatten() clones, so compare keys.
+    expect(array_keys($ruleSet->all()))->toBe(array_keys($ruleSet->toArray()))
+        ->and($ruleSet->all())->toHaveKey('items.*.name');
+});
+
+// =========================================================================
 // merge()
 // =========================================================================
 
