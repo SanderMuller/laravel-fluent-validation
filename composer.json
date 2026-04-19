@@ -20,13 +20,15 @@
         "php": "^8.2",
         "illuminate/contracts": "^11.0||^12.0||^13.0",
         "illuminate/support": "^11.0||^12.0||^13.0",
-        "illuminate/validation": "^11.0||^12.0||^13.0"
+        "illuminate/validation": "^11.0||^12.0||^13.0",
+        "sandermuller/validation-kernel": "@dev"
     },
     "require-dev": {
         "driftingly/rector-laravel": "^2.3",
         "larastan/larastan": "^3.9.3",
         "laravel/boost": "^2.4.2",
         "laravel/pint": "^1.29",
+        "livewire/livewire": "^3.0||^4.0",
         "mrpunyapal/rector-pest": "^0.2.7",
         "nunomaduro/collision": "^8.0",
         "orchestra/testbench": "^9.0||^10.11",
@@ -48,7 +50,10 @@
     "autoload": {
         "psr-4": {
             "SanderMuller\\FluentValidation\\": "src/"
-        }
+        },
+        "files": [
+            "src/compat/legacy-aliases.php"
+        ]
     },
     "autoload-dev": {
         "psr-4": {
@@ -70,6 +75,15 @@
             "@phpstan"
         ]
     },
+    "repositories": [
+        {
+            "type": "path",
+            "url": "../validation-kernel",
+            "options": {
+                "symlink": true
+            }
+        }
+    ],
     "config": {
         "sort-packages": true,
         "allow-plugins": {
@@ -77,5 +91,6 @@
             "phpstan/extension-installer": true
         }
     },
-    "prefer-stable": true
+    "prefer-stable": true,
+    "minimum-stability": "dev"
 }
