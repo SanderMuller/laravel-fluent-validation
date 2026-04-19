@@ -14,4 +14,18 @@ class TestCase extends Orchestra
             LivewireServiceProvider::class,
         ];
     }
+
+    /**
+     * Livewire's `Testable::call()` renders a Blade view under the hood; the
+     * view encryption pipeline requires `app.key`. Local dev envs usually have
+     * APP_KEY set, but Testbench's default CI env does not — every Livewire
+     * test fails with "No application encryption key has been specified."
+     * Setting a deterministic test-only key here fixes CI without adding a
+     * workflow-level env var, and stays idempotent for local runs that already
+     * have an app key configured.
+     */
+    protected function defineEnvironment($app): void
+    {
+        $app['config']->set('app.key', 'base64:' . base64_encode(str_repeat('a', 32)));
+    }
 }
