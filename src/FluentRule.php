@@ -5,6 +5,7 @@ namespace SanderMuller\FluentValidation;
 use Illuminate\Contracts\Support\Arrayable;
 use Illuminate\Support\Traits\Macroable;
 use Illuminate\Validation\Rules\AnyOf;
+use SanderMuller\FluentValidation\Rules\AcceptedRule;
 use SanderMuller\FluentValidation\Rules\ArrayRule;
 use SanderMuller\FluentValidation\Rules\BooleanRule;
 use SanderMuller\FluentValidation\Rules\DateRule;
@@ -56,6 +57,13 @@ class FluentRule
         $booleanRule = new BooleanRule();
 
         return $label !== null ? $booleanRule->label($label) : $booleanRule;
+    }
+
+    public static function accepted(?string $label = null): AcceptedRule
+    {
+        $acceptedRule = new AcceptedRule();
+
+        return $label !== null ? $acceptedRule->label($label) : $acceptedRule;
     }
 
     /** @param  Arrayable<array-key, string|\BackedEnum>|list<string|\BackedEnum>|null  $keys */

@@ -48,12 +48,20 @@ All comparison methods accept `DateTimeInterface|string`:
 
 ## Boolean
 
-`FluentRule::boolean()` validates that the value is `true`, `false`, `1`, `0`, `'1'`, or `'0'`. It does NOT accept `'yes'`, `'on'`, `'no'`, `'off'` — use `accepted()` or `declined()` for those.
+`FluentRule::boolean()` validates that the value is `true`, `false`, `1`, `0`, `'1'`, or `'0'`. It does NOT accept `'yes'`, `'on'`, `'no'`, `'off'`.
 
 - `accepted()` — value must be `'yes'`, `'on'`, `'1'`, `1`, `true`, or `'true'`
 - `acceptedIf($field, ...$values)` — accepted only when another field has a given value
 - `declined()` — value must be `'no'`, `'off'`, `'0'`, `0`, `false`, or `'false'`
 - `declinedIf($field, ...$values)` — declined only when another field has a given value
+
+**Footgun:** `FluentRule::boolean()->accepted()` compiles to `boolean|accepted` — `boolean` rejects `'yes'` / `'on'` which `accepted` permits. For HTML-form-style inputs, use the standalone `FluentRule::accepted()` factory (below) instead.
+
+## Accepted
+
+`FluentRule::accepted()` is the permissive checkbox/opt-in rule (no `boolean` base). Accepts `true`, `1`, `'1'`, `'yes'`, `'on'`. Use this for terms-of-service, consent, marketing opt-in, and similar HTML form fields where the browser may post `'yes'` or `'on'`.
+
+- `acceptedIf($field, ...$values)` — conditional; replaces the unconditional base
 
 ## Array
 

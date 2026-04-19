@@ -45,6 +45,7 @@ After running Rector, review these manual follow-ups:
 | `'required\|integer'` | `FluentRule::integer()->required()` | Shorthand for `numeric()->integer()` |
 | `'required\|email'` | `FluentRule::email()->required()` | Has `email` type |
 | `'required\|boolean'` | `FluentRule::boolean()->required()` | Has `boolean` type |
+| `'required\|accepted'` | `FluentRule::accepted()->required()` | Permissive; accepts `'yes'`/`'on'`. Do NOT chain `->accepted()` on `boolean()` — `boolean` rejects those values |
 | `'required\|date'` | `FluentRule::date()->required()` | Has `date` type |
 | `'required'` (no type) | `FluentRule::field()->required()` | No type constraint |
 | `'email'` (no required) | `FluentRule::email()` | Validates when present |

@@ -33,6 +33,7 @@ use SanderMuller\FluentValidation\RuleSet;
 | `FluentRule::date('Label?')` | `DateRule` | `'date'` |
 | `FluentRule::dateTime('Label?')` | `DateRule` | `'date_format:Y-m-d H:i:s'` |
 | `FluentRule::boolean('Label?')` | `BooleanRule` | `'boolean'` |
+| `FluentRule::accepted('Label?')` | `AcceptedRule` | `'accepted'` (permissive; no `boolean` base) |
 | `FluentRule::array(keys?, label:?)` | `ArrayRule` | `'array'` |
 | `FluentRule::email('Label?')` | `EmailRule` | `'string'` + `'email'` |
 | `FluentRule::password(min?, label:?)` | `PasswordRule` | `'string'` + `Password` |

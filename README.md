@@ -109,7 +109,7 @@ class StorePostRequest extends FormRequest
             'body'     => FluentRule::string()->required(),
             'email'    => FluentRule::email('Email')->required()->unique('users'),
             'date'     => FluentRule::date('Publish Date')->required()->afterToday(),
-            'agree'    => FluentRule::boolean()->accepted(),
+            'agree'    => FluentRule::accepted(),
             'avatar'   => FluentRule::image()->nullable()->max('2mb'),
             'tags'     => FluentRule::array(label: 'Tags')->required()->each(
                               FluentRule::string()->max(50)
@@ -1151,6 +1151,15 @@ FluentRule::dateTime()->afterToday()                     // shortcut for format(
 FluentRule::boolean()->accepted()->declined()
 FluentRule::boolean()->acceptedIf('role', 'admin')->declinedIf('type', 'free')
 ```
+
+**Accepted** — standalone factory for the permissive `accepted` family without a strict `boolean` base. Useful for terms-of-service / opt-in checkboxes where form posts deliver `'yes'` or `'on'` values that Laravel's `boolean` rule rejects:
+
+```php
+FluentRule::accepted()                          // true | 1 | '1' | 'yes' | 'on' | 'true'
+FluentRule::accepted()->acceptedIf('role', 'admin')
+```
+
+> **Footgun:** `FluentRule::boolean()->accepted()` compiles to `boolean|accepted` — `boolean` rejects `'yes'` / `'on'` which `accepted` would otherwise permit. Use `FluentRule::accepted()` when the input shape is HTML-form-ish.
 
 **Array** — size, structure, allowed keys:
 

@@ -726,6 +726,92 @@ it('validates boolean with declinedIf', function (): void {
 });
 
 // =========================================================================
+// AcceptedRule — standalone accepted factory (permissive; no boolean base)
+// =========================================================================
+
+it('FluentRule::accepted() validates permissive accepted values', function (): void {
+    // Match Laravel's `$acceptable = ['yes', 'on', '1', 1, true, 'true']`.
+    foreach (['yes', 'on', '1', 1, true, 'true'] as $truthy) {
+        $v = makeValidator(['tos' => $truthy], ['tos' => FluentRule::accepted()]);
+        expect($v->passes())->toBeTrue();
+    }
+});
+
+it('FluentRule::accepted() rejects non-accepted values', function (): void {
+    foreach (['no', 'off', '0', 0, false, ''] as $falsy) {
+        $v = makeValidator(['tos' => $falsy], ['tos' => FluentRule::accepted()]);
+        expect($v->passes())->toBeFalse();
+    }
+});
+
+it('FluentRule::accepted() does not combine with strict boolean (no footgun)', function (): void {
+    // Regression: FluentRule::boolean()->accepted() compiles to `boolean|accepted` —
+    // `boolean` rejects 'yes'/'on' which `accepted` permits. The standalone
+    // factory avoids that pairing.
+    $v = makeValidator(['tos' => 'yes'], ['tos' => FluentRule::accepted()]);
+    expect($v->passes())->toBeTrue();
+
+    $v = makeValidator(['tos' => 'yes'], ['tos' => FluentRule::boolean()->accepted()]);
+    expect($v->passes())->toBeFalse();
+});
+
+it('FluentRule::accepted() supports label', function (): void {
+    $v = makeValidator(
+        ['agree' => false],
+        ['agree' => FluentRule::accepted('Terms Agreement')->required()]
+    );
+    expect($v->passes())->toBeFalse()
+        ->and($v->errors()->first('agree'))->toContain('Terms Agreement');
+});
+
+it('FluentRule::accepted()->acceptedIf() replaces unconditional accepted', function (): void {
+    $v = makeValidator(
+        ['tos' => false, 'country' => 'DE'],
+        ['tos' => FluentRule::accepted()->acceptedIf('country', 'US')]
+    );
+    expect($v->passes())->toBeTrue();
+
+    $v = makeValidator(
+        ['tos' => false, 'country' => 'US'],
+        ['tos' => FluentRule::accepted()->acceptedIf('country', 'US')]
+    );
+    expect($v->passes())->toBeFalse();
+
+    $v = makeValidator(
+        ['tos' => true, 'country' => 'US'],
+        ['tos' => FluentRule::accepted()->acceptedIf('country', 'US')]
+    );
+    expect($v->passes())->toBeTrue();
+});
+
+it('FluentRule::accepted()->required()->acceptedIf() preserves required', function (): void {
+    // Regression: acceptedIf() must only strip the 'accepted' base, not
+    // wipe prior modifiers like required / nullable (which also land in
+    // $this->constraints via addRule()).
+    $v = makeValidator(
+        [],
+        ['tos' => FluentRule::accepted()->required()->acceptedIf('country', 'US')]
+    );
+    expect($v->passes())->toBeFalse()
+        ->and($v->errors()->first('tos'))->toContain('required');
+});
+
+it('FluentRule::accepted()->nullable() allows null without accepted check', function (): void {
+    $v = makeValidator(
+        ['tos' => null],
+        ['tos' => FluentRule::accepted()->nullable()]
+    );
+    expect($v->passes())->toBeTrue();
+});
+
+it('FluentRule::accepted() is case-sensitive (rejects YES / ON / TRUE)', function (): void {
+    foreach (['YES', 'ON', 'Yes', 'On', 'TRUE'] as $upper) {
+        $v = makeValidator(['tos' => $upper], ['tos' => FluentRule::accepted()]);
+        expect($v->passes())->toBeFalse();
+    }
+});
+
+// =========================================================================
 // ArrayRule — requiredArrayKeys / BackedEnum keys
 // =========================================================================
 
