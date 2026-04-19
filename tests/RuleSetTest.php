@@ -958,7 +958,7 @@ it('supports array spread via IteratorAggregate', function (): void {
 });
 
 it('IteratorAggregate yields nothing for an empty RuleSet', function (): void {
-    expect(iterator_to_array(RuleSet::make()))->toBe([]);
+    expect(iterator_to_array(RuleSet::make()))->toBeEmpty();
 });
 
 it('IteratorAggregate yields the same keys as toArray()', function (): void {
