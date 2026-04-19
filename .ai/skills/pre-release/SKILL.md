@@ -150,24 +150,42 @@ Run `benchmark.php --ci` **at least twice** — single runs have variance. If th
 
 Local green ≠ CI green. The matrix job runs against a Testbench-bootstrapped app in a clean env that usually differs from the dev machine — missing `APP_KEY`, no cached auth user, different PHP/Laravel combos. Local passes frequently, CI fails. A green tag on a red CI is a broken release (see 1.13.1: every Livewire test failed in CI with "No application encryption key has been specified" while 2,081 tests passed locally).
 
+**Scope is per-commit, not per-run.** This repo has multiple workflows with different triggers — `gh run watch` follows a single run and will silently skip other workflows that also have opinions about the same SHA. Enumerate by commit SHA and wait for every matching run:
+
 ```bash
 git push
-gh run watch --exit-status || true                       # blocks until the latest run for HEAD finishes
-# or, for explicit picking:
-gh run list --branch main --limit 1 --json databaseId,status,conclusion
-gh run view <id> --json status,conclusion
+SHA=$(git rev-parse HEAD)
+
+# List every workflow run tied to this SHA, across all workflows/triggers
+gh run list --commit "$SHA" --json databaseId,name,event,status,conclusion
+
+# Wait for every run to reach a terminal state, then assert all success
+while true; do
+    running=$(gh run list --commit "$SHA" --json status -q '[.[] | select(.status != "completed")] | length')
+    [ "$running" -eq 0 ] && break
+    sleep 15
+done
+
+failed=$(gh run list --commit "$SHA" --json conclusion,name -q '[.[] | select(.conclusion != "success" and .conclusion != "skipped")] | length')
+[ "$failed" -eq 0 ] || { echo "CI red on $SHA"; gh run list --commit "$SHA"; exit 1; }
 ```
 
-Pass criteria: every job in the workflow matrix reports `conclusion: success`. If ANY conclusion is `failure`, `cancelled`, or `timed_out`:
+Pass criteria: every run for this commit has `conclusion` in `{success, skipped}`. Skipped is fine — path-filtered workflows (e.g. `on: push: paths: ['**.php']`) are expected to skip when the release commit touches docs only.
+
+**Don't rely on a "latest run" heuristic.** `gh run list --branch main --limit 1` may pick a run from a completely different push — the commit-SHA filter is the only reliable anchor.
+
+On failure:
 
 1. Pull the failure log via `gh run view <id> --log-failed` (or via API if `--log-failed` is empty: `gh api /repos/<owner>/<repo>/actions/jobs/<job-id>/logs`).
 2. Reproduce locally — often requires the same env shape as CI (blank APP_KEY, clean composer.lock install, specific PHP/Laravel combo).
 3. Fix with a new commit on the same branch.
-4. Push and re-run this step.
+4. Push and re-run step 7 against the new HEAD.
 
 **Do NOT write release notes or tag until CI is green.** Release notes claim "tests pass on X/Y/Z"; CI is the evidence. Skipping this step reduces downstream trust.
 
-**Exception — push-triggered workflows only:** if CI only runs on `push` (not `pull_request`), then push to main IS the CI trigger and this step runs post-push. For repos with PR-gated CI, push to a feature branch first, wait green, then push-to-main + tag.
+**Workflows only triggered by PR (e.g. `benchmark.yml` with `on: pull_request`)** won't appear in the commit-SHA enumeration for a direct push-to-main. That's intentional — those workflows guarded the merge, not the release. If a workflow is release-critical (not pre-merge-critical), change its trigger to `push` + `pull_request` so it runs on both.
+
+**Workflows triggered by `release` (e.g. `release-benchmark`, `update-changelog`)** run AFTER tag creation, not before. They're outside this gate by design — their job is to decorate the release after it ships, not to gate whether it ships.
 
 ## Quick Reference
 
@@ -181,7 +199,7 @@ Pass criteria: every job in the workflow matrix reports `conclusion: success`. I
 | 5b. Boost docs     | `vendor/bin/testbench package-boost:sync \|\| true`              | `.ai/` ↔ generated files in sync          |
 | 6a. Hot-path bench | snapshot baseline → `php benchmark.php --ci \|\| true` (2+ runs) | no >10% regression / speedup-notch drop   |
 | 6b. DB-batch bench | `vendor/bin/pest --group=benchmark \|\| true`                    | no timing regression vs last release      |
-| 7. CI green-light  | `git push && gh run watch --exit-status`                         | every matrix job `conclusion: success`    |
+| 7. CI green-light  | `git push` then assert `gh run list --commit "$(git rev-parse HEAD)"` all complete + no failure | every run for the SHA in `{success, skipped}` |
 
 ## Release Notes
 

@@ -277,7 +277,7 @@ parameters:
 			path: tests/FluentRuleTest.php
 
 		-
-			rawMessage: 'Out of 1231 possible param types, only 1223 - 99.3 %% actually have it. Add more param types to get over 100 %%'
+			rawMessage: 'Out of 1232 possible param types, only 1223 - 99.2 %% actually have it. Add more param types to get over 100 %%'
 			identifier: typeCoverage.paramTypeCoverage
 			count: 1
 			path: tests/HasFluentValidationForFilamentTest.php
@@ -295,27 +295,27 @@ parameters:
 			path: tests/HasFluentValidationForFilamentTest.php
 
 		-
-			rawMessage: 'Out of 1231 possible param types, only 1223 - 99.3 %% actually have it. Add more param types to get over 100 %%'
+			rawMessage: 'Out of 1232 possible param types, only 1223 - 99.2 %% actually have it. Add more param types to get over 100 %%'
 			identifier: typeCoverage.paramTypeCoverage
 			count: 3
 			path: tests/HasFluentValidationTest.php
 
 		-
-			rawMessage: 'Out of 1231 possible param types, only 1223 - 99.3 %% actually have it. Add more param types to get over 100 %%'
+			rawMessage: 'Out of 1232 possible param types, only 1223 - 99.2 %% actually have it. Add more param types to get over 100 %%'
 			identifier: typeCoverage.paramTypeCoverage
 			count: 2
 			path: tests/RuleSetTest.php
 
 		-
-			rawMessage: 'Out of 1231 possible param types, only 1223 - 99.3 %% actually have it. Add more param types to get over 100 %%'
+			rawMessage: 'Out of 1232 possible param types, only 1223 - 99.2 %% actually have it. Add more param types to get over 100 %%'
 			identifier: typeCoverage.paramTypeCoverage
 			count: 1
 			path: tests/Fixtures/AppealLivewireComponent.php
 
 		-
-			rawMessage: 'Out of 1231 possible param types, only 1223 - 99.3 %% actually have it. Add more param types to get over 100 %%'
+			rawMessage: 'Out of 1232 possible param types, only 1223 - 99.2 %% actually have it. Add more param types to get over 100 %%'
 			identifier: typeCoverage.paramTypeCoverage
-			count: 1
+			count: 2
 			path: tests/TestCase.php
 
 		-
