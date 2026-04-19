@@ -50,10 +50,7 @@
     "autoload": {
         "psr-4": {
             "SanderMuller\\FluentValidation\\": "src/"
-        },
-        "files": [
-            "src/compat/legacy-aliases.php"
-        ]
+        }
     },
     "autoload-dev": {
         "psr-4": {
