@@ -25,6 +25,8 @@ Run the checks **in this order**. Each must pass before moving to the next. Fix 
 
 Always append `|| true` to verification commands so output is captured even on failure (per repo `CLAUDE.md` rule). Pass/fail is determined from the captured output, not the exit status alone.
 
+**The order is 1 → 2 → 3 → 4 → 5 → 6 → commit → push → 7 → 8 (draft notes).** Do not jump from step 6 straight to drafting release notes. The release-notes file is the **last** artefact produced by this skill, written only after the changes have been committed, pushed, and CI is green on that exact SHA. Writing notes earlier claims facts ("tests pass on CI matrix", "2,092 tests / 2,941 assertions") that are not yet proven. If you find yourself about to `Write` a file under `internal/release-notes-<version>.md` and the last thing you did was run benchmarks, stop — you skipped commit/push/CI.
+
 ### 1. Rector
 
 ```bash
@@ -188,6 +190,35 @@ On failure:
 
 **Workflows triggered by `release` (e.g. `release-benchmark`, `update-changelog`)** run AFTER tag creation, not before. They're outside this gate by design — their job is to decorate the release after it ships, not to gate whether it ships.
 
+### 8. Release notes (ONLY after step 7 CI-green)
+
+This is where agents most commonly slip: running the local gauntlet (steps 1-6), then jumping straight to `Write internal/release-notes-<version>.md` without committing, pushing, or watching CI. **Do not do that.** Notes claim CI-matrix facts; CI must have produced those facts first.
+
+**Preflight — run these three commands and confirm all three before you create the release-notes file.** If any fail, you are not ready to draft notes; go back to whichever earlier step is incomplete.
+
+```bash
+# 1. Working tree must be clean — the commit landed, nothing is uncommitted
+git status --short || true
+
+# 2. HEAD must be pushed — local SHA == origin/main SHA
+[ "$(git rev-parse HEAD)" = "$(git rev-parse origin/main)" ] && echo "pushed" || echo "NOT pushed"
+
+# 3. Every CI run for this SHA must be terminal + {success, skipped} — same query as step 7
+SHA=$(git rev-parse HEAD)
+gh run list --commit "$SHA" --json name,status,conclusion
+```
+
+Only when (1) status is empty, (2) echoes `pushed`, and (3) every run is `completed` + `{success, skipped}` may you `Write` to `internal/release-notes-<version>.md`.
+
+Draft into `internal/release-notes-<version>.md`. The user reads the draft, creates the tag, and publishes the release themselves — do not cut the tag, do not run `gh release create`, do not push tags. Once the release-notes file exists and CI is green, report "ready to tag" and stop.
+
+For release notes that claim a performance improvement or regression fix, cite the before/after benchmark numbers explicitly.
+
+**CI handles two things automatically — do not do them manually:**
+
+- **Benchmark table** is appended between `<!-- benchmark-start -->` / `<!-- benchmark-end -->` markers in the release body by `.github/workflows/release-benchmark.yml`. Verify via `gh release view <tag>`.
+- **`CHANGELOG.md`** is prepended with the release body by `.github/workflows/update-changelog.yml` on release publish. Do not edit `CHANGELOG.md` manually as part of the release PR. See the `release-automation` guideline for details.
+
 ## Quick Reference
 
 | Step               | Command                                                          | Pass criteria                             |
@@ -200,18 +231,9 @@ On failure:
 | 5b. Boost docs     | `vendor/bin/testbench package-boost:sync \|\| true`              | `.ai/` ↔ generated files in sync          |
 | 6a. Hot-path bench | snapshot baseline → `php benchmark.php --ci \|\| true` (2+ runs) | no >10% regression / speedup-notch drop   |
 | 6b. DB-batch bench | `vendor/bin/pest --group=benchmark \|\| true`                    | no timing regression vs last release      |
-| 7. CI green-light  | `git push` then assert `gh run list --commit "$(git rev-parse HEAD)"` all complete + no failure | every run for the SHA in `{success, skipped}` |
-
-## Release Notes
-
-Only draft release notes **after all 7 steps pass, including CI green on the pushed commit**. Draft them in `internal/release-notes-<version>.md`. The user reads the draft, creates the tag, and publishes the release themselves — do not cut the tag, do not run `gh release create`, do not push tags. Once the release-notes file exists and CI is green, report "ready to tag" and stop.
-
-For release notes that claim a performance improvement or regression fix, cite the before/after benchmark numbers explicitly.
-
-**CI handles two things automatically — do not do them manually:**
-
-- **Benchmark table** is appended between `<!-- benchmark-start -->` / `<!-- benchmark-end -->` markers in the release body by `.github/workflows/release-benchmark.yml`. Verify via `gh release view <tag>`.
-- **`CHANGELOG.md`** is prepended with the release body by `.github/workflows/update-changelog.yml` on release publish. Do not edit `CHANGELOG.md` manually as part of the release PR. See the `release-automation` guideline for details.
+| **commit + push**  | user confirms changes + `git push`                               | HEAD pushed to `origin/main`              |
+| 7. CI green-light  | `gh run list --commit "$(git rev-parse HEAD)"` all complete + no failure | every run for the SHA in `{success, skipped}` |
+| 8. Release notes   | preflight (clean tree + pushed + CI green) → `Write internal/release-notes-<version>.md` | file exists only after steps 1-7 all passed |
 
 ## Important
 
@@ -220,3 +242,4 @@ For release notes that claim a performance improvement or regression fix, cite t
 - Step 5a and 5b are the most common source of silent drift — the README and shipped skills are read by downstream users, and bloat accumulates fast. Delete stale content before adding new.
 - Step 6a and 6b are complementary, not redundant: 6a covers validation closure performance, 6b covers DB query amplification. Skipping either leaves a real blind spot.
 - Step 7 is the non-skippable gate: CI runs against a clean env (no ambient APP_KEY, no cached auth user, fresh composer install) and frequently catches env-shape bugs that local dev never sees. If the push+watch feels slow, that's the point — waiting 2 minutes for CI green is cheaper than tagging a broken release.
+- Step 8 (release notes) is gated by step 7 — **the release-notes file must not exist on disk until CI is green on the pushed commit.** If you catch yourself about to `Write` a release-notes file after running benchmarks locally, stop: you are about to fabricate facts that the CI matrix has not yet established. Run the step-8 preflight commands first; if any of the three conditions is not satisfied, the draft is premature.
