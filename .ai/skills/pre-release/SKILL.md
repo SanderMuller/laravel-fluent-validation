@@ -11,12 +11,13 @@ Run this full gauntlet before pushing commits that may be tagged as a release or
 
 Activate when:
 - About to push commits that will land in a release
-- About to tag a release (`gh release create`)
 - About to write or update release notes
 - User says "ship it", "cut a release", "pre-push", "release checklist"
 - A feature/fix is fully implemented and quality-gated
 
 Do NOT use mid-development — this is a completion-level skill.
+
+**The user cuts the tag, not you.** This skill's job ends with "release notes drafted + CI green on the pushed commit." The user runs `git tag` and creates the GitHub release themselves — tagging is irreversible-ish and a release-visibility decision that the user owns. Do NOT suggest, demonstrate, or execute tag/release-create commands. State that the release is ready to tag and leave the next step to the user.
 
 ## Workflow
 
@@ -181,7 +182,7 @@ On failure:
 3. Fix with a new commit on the same branch.
 4. Push and re-run step 7 against the new HEAD.
 
-**Do NOT write release notes or tag until CI is green.** Release notes claim "tests pass on X/Y/Z"; CI is the evidence. Skipping this step reduces downstream trust.
+**Do NOT write release notes until CI is green.** Release notes claim "tests pass on X/Y/Z"; CI is the evidence. Skipping this step reduces downstream trust. (The user handles tag creation — once release notes are drafted against a green CI, the skill's job is done.)
 
 **Workflows only triggered by PR (e.g. `benchmark.yml` with `on: pull_request`)** won't appear in the commit-SHA enumeration for a direct push-to-main. That's intentional — those workflows guarded the merge, not the release. If a workflow is release-critical (not pre-merge-critical), change its trigger to `push` + `pull_request` so it runs on both.
 
@@ -203,7 +204,7 @@ On failure:
 
 ## Release Notes
 
-Only draft release notes **after all 7 steps pass, including CI green on the pushed commit**. Draft them in `internal/release-notes-<version>.md`, then paste the contents as the GitHub release body. Tag only after release notes exist.
+Only draft release notes **after all 7 steps pass, including CI green on the pushed commit**. Draft them in `internal/release-notes-<version>.md`. The user reads the draft, creates the tag, and publishes the release themselves — do not cut the tag, do not run `gh release create`, do not push tags. Once the release-notes file exists and CI is green, report "ready to tag" and stop.
 
 For release notes that claim a performance improvement or regression fix, cite the before/after benchmark numbers explicitly.
 
