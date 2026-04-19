@@ -146,6 +146,29 @@ If any regression is detected:
 
 Run `benchmark.php --ci` **at least twice** — single runs have variance. If the two runs disagree on regression, run a third.
 
+### 7. CI green-light gate (after push, before release notes + tag)
+
+Local green ≠ CI green. The matrix job runs against a Testbench-bootstrapped app in a clean env that usually differs from the dev machine — missing `APP_KEY`, no cached auth user, different PHP/Laravel combos. Local passes frequently, CI fails. A green tag on a red CI is a broken release (see 1.13.1: every Livewire test failed in CI with "No application encryption key has been specified" while 2,081 tests passed locally).
+
+```bash
+git push
+gh run watch --exit-status || true                       # blocks until the latest run for HEAD finishes
+# or, for explicit picking:
+gh run list --branch main --limit 1 --json databaseId,status,conclusion
+gh run view <id> --json status,conclusion
+```
+
+Pass criteria: every job in the workflow matrix reports `conclusion: success`. If ANY conclusion is `failure`, `cancelled`, or `timed_out`:
+
+1. Pull the failure log via `gh run view <id> --log-failed` (or via API if `--log-failed` is empty: `gh api /repos/<owner>/<repo>/actions/jobs/<job-id>/logs`).
+2. Reproduce locally — often requires the same env shape as CI (blank APP_KEY, clean composer.lock install, specific PHP/Laravel combo).
+3. Fix with a new commit on the same branch.
+4. Push and re-run this step.
+
+**Do NOT write release notes or tag until CI is green.** Release notes claim "tests pass on X/Y/Z"; CI is the evidence. Skipping this step reduces downstream trust.
+
+**Exception — push-triggered workflows only:** if CI only runs on `push` (not `pull_request`), then push to main IS the CI trigger and this step runs post-push. For repos with PR-gated CI, push to a feature branch first, wait green, then push-to-main + tag.
+
 ## Quick Reference
 
 | Step               | Command                                                          | Pass criteria                             |
@@ -158,10 +181,11 @@ Run `benchmark.php --ci` **at least twice** — single runs have variance. If th
 | 5b. Boost docs     | `vendor/bin/testbench package-boost:sync \|\| true`              | `.ai/` ↔ generated files in sync          |
 | 6a. Hot-path bench | snapshot baseline → `php benchmark.php --ci \|\| true` (2+ runs) | no >10% regression / speedup-notch drop   |
 | 6b. DB-batch bench | `vendor/bin/pest --group=benchmark \|\| true`                    | no timing regression vs last release      |
+| 7. CI green-light  | `git push && gh run watch --exit-status`                         | every matrix job `conclusion: success`    |
 
 ## Release Notes
 
-Only draft release notes **after** all steps pass. Draft them in `internal/release-notes-<version>.md`, then paste the contents as the GitHub release body.
+Only draft release notes **after all 7 steps pass, including CI green on the pushed commit**. Draft them in `internal/release-notes-<version>.md`, then paste the contents as the GitHub release body. Tag only after release notes exist.
 
 For release notes that claim a performance improvement or regression fix, cite the before/after benchmark numbers explicitly.
 
@@ -176,3 +200,4 @@ For release notes that claim a performance improvement or regression fix, cite t
 - Do not push if any step fails. Fix, then restart the checklist from step 1 — earlier steps may re-break after a later fix.
 - Step 5a and 5b are the most common source of silent drift — the README and shipped skills are read by downstream users, and bloat accumulates fast. Delete stale content before adding new.
 - Step 6a and 6b are complementary, not redundant: 6a covers validation closure performance, 6b covers DB query amplification. Skipping either leaves a real blind spot.
+- Step 7 is the non-skippable gate: CI runs against a clean env (no ambient APP_KEY, no cached auth user, fresh composer install) and frequently catches env-shape bugs that local dev never sees. If the push+watch feels slow, that's the point — waiting 2 minutes for CI green is cheaper than tagging a broken release.
