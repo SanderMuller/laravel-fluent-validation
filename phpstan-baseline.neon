@@ -6,41 +6,45 @@ parameters:
 			count: 1
 			path: src/BatchDatabaseChecker.php
 
+		# Hot-path closure builders: complexity comes from intentional
+		# inlining (size, in/regex, date comparisons) to avoid closure
+		# allocation + call overhead on every validated item.
+		# Factoring out hurts benchmark numbers; keep inlined + baselined.
 		-
-			rawMessage: 'Class cognitive complexity is 275, keep it under 80'
+			rawMessage: 'Class cognitive complexity is 118, keep it under 80'
 			identifier: complexity.classLike
 			count: 1
-			path: src/FastCheckCompiler.php
+			path: src/FastCheck/CoreValueCompiler.php
 
 		-
-			rawMessage: 'Cognitive complexity for "SanderMuller\FluentValidation\FastCheckCompiler::addDateChecks()" is 23, keep it under 20'
+			rawMessage: 'Cognitive complexity for "SanderMuller\FluentValidation\FastCheck\CoreValueCompiler::buildClosure()" is 52, keep it under 20'
 			identifier: complexity.functionLike
 			count: 1
-			path: src/FastCheckCompiler.php
+			path: src/FastCheck/CoreValueCompiler.php
 
 		-
-			rawMessage: 'Cognitive complexity for "SanderMuller\FluentValidation\FastCheckCompiler::buildClosure()" is 53, keep it under 20'
+			rawMessage: 'Cognitive complexity for "SanderMuller\FluentValidation\FastCheck\CoreValueCompiler::addDateChecks()" is 23, keep it under 20'
 			identifier: complexity.functionLike
 			count: 1
-			path: src/FastCheckCompiler.php
+			path: src/FastCheck/CoreValueCompiler.php
 
 		-
-			rawMessage: 'Cognitive complexity for "SanderMuller\FluentValidation\FastCheckCompiler::buildItemAwareClosure()" is 59, keep it under 20'
-			identifier: complexity.functionLike
+			rawMessage: 'Class cognitive complexity is 101, keep it under 80'
+			identifier: complexity.classLike
 			count: 1
-			path: src/FastCheckCompiler.php
+			path: src/FastCheck/ItemContextCompiler.php
 
 		-
-			rawMessage: 'Cognitive complexity for "SanderMuller\FluentValidation\FastCheckCompiler::compileWithPresenceConditionals()" is 25, keep it under 20'
+			rawMessage: 'Cognitive complexity for "SanderMuller\FluentValidation\FastCheck\ItemContextCompiler::buildItemAwareClosure()" is 59, keep it under 20'
 			identifier: complexity.functionLike
 			count: 1
-			path: src/FastCheckCompiler.php
+			path: src/FastCheck/ItemContextCompiler.php
 
 		-
-			rawMessage: 'Cognitive complexity for "SanderMuller\FluentValidation\FastCheckCompiler::parseWithItemContext()" is 23, keep it under 20'
+			rawMessage: 'Cognitive complexity for "SanderMuller\FluentValidation\FastCheck\PresenceConditionalCompiler::compile()" is 25, keep it under 20'
 			identifier: complexity.functionLike
 			count: 1
-			path: src/FastCheckCompiler.php
+			path: src/FastCheck/PresenceConditionalCompiler.php
 
 		-
 			rawMessage: 'Cognitive complexity for "SanderMuller\FluentValidation\FluentFormRequest::preExcludeRules()" is 21, keep it under 20'
@@ -55,16 +59,25 @@ parameters:
 			path: src/OptimizedValidator.php
 
 		-
-			rawMessage: 'Class cognitive complexity is 277, keep it under 80'
+			rawMessage: 'Class cognitive complexity is 131, keep it under 80'
 			identifier: complexity.classLike
 			count: 1
 			path: src/RuleSet.php
 
+		# Relocated verbatim from RuleSet in Phase 2a. buildFastChecks branches
+		# over field-shape × closure-type (wildcard vs flat × item-aware vs
+		# value-only) — structural complexity that refactoring would only move.
 		-
-			rawMessage: 'Cognitive complexity for "SanderMuller\FluentValidation\RuleSet::buildFastChecks()" is 46, keep it under 20'
+			rawMessage: 'Class cognitive complexity is 91, keep it under 80'
+			identifier: complexity.classLike
+			count: 1
+			path: src/Internal/ItemRuleCompiler.php
+
+		-
+			rawMessage: 'Cognitive complexity for "SanderMuller\FluentValidation\Internal\ItemRuleCompiler::buildFastChecks()" is 46, keep it under 20'
 			identifier: complexity.functionLike
 			count: 1
-			path: src/RuleSet.php
+			path: src/Internal/ItemRuleCompiler.php
 
 		-
 			rawMessage: 'Cognitive complexity for "SanderMuller\FluentValidation\RuleSet::validateInternal()" is 25, keep it under 20'
@@ -72,11 +85,16 @@ parameters:
 			count: 1
 			path: src/RuleSet.php
 
+		# Phase 2b: RuleSet::validateItems body relocated verbatim to
+		# ItemValidator::validate. Complexity is identical (49) — the loop's
+		# nested fast-check → dispatch-cache → validator-cache structure
+		# carries the score, and refactoring those caches has measurable
+		# perf cost (per-item validator reuse + dispatch reduction).
 		-
-			rawMessage: 'Cognitive complexity for "SanderMuller\FluentValidation\RuleSet::validateItems()" is 49, keep it under 20'
+			rawMessage: 'Cognitive complexity for "SanderMuller\FluentValidation\Internal\ItemValidator::validate()" is 49, keep it under 20'
 			identifier: complexity.functionLike
 			count: 1
-			path: src/RuleSet.php
+			path: src/Internal/ItemValidator.php
 
 		-
 			rawMessage: 'Cognitive complexity for "AnonymousClass76dabe554b3ccb5045e167af68715137::preExcludeRules()" is 21, keep it under 20'
@@ -85,7 +103,7 @@ parameters:
 			path: tests/BatchDatabaseValidationTest.php
 
 		-
-			rawMessage: 'Cognitive complexity for "AnonymousClass420d6bbea2864404c724b63698d04cf0::preExcludeRules()" is 21, keep it under 20'
+			rawMessage: 'Cognitive complexity for "AnonymousClass031d7b24ee71b5e2323f72b30a7e0f4f::preExcludeRules()" is 21, keep it under 20'
 			identifier: complexity.functionLike
 			count: 1
-			path: tests/ExpandsWildcardsTest.php
+			path: src/HasFluentRules.php

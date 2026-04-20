@@ -1,0 +1,92 @@
+name: laravel-dev-master
+
+# Nightly early-warning leg: runs the test suite against
+# laravel/framework:dev-master + orchestra/testbench:dev-master to catch
+# upstream breaking changes (rule-string parser, Validator::$customMessages,
+# Rule::in/exists/unique shape) before they ship as tagged releases.
+#
+# On failure, upserts a single tracking issue titled "Laravel dev-master
+# regression" — created on the first fail, commented on subsequent fails.
+
+permissions:
+  contents: read
+  issues: write
+
+on:
+  schedule:
+    - cron: '0 6 * * *'
+  workflow_dispatch:
+
+jobs:
+  test:
+    # Silence forks — only run on the canonical repo.
+    if: github.repository == 'sandermuller/laravel-fluent-validation'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    name: P8.4 - L-dev-master - prefer-stable - ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: 8.4
+          extensions: dom, curl, libxml, mbstring, zip, pcntl, pdo, sqlite, pdo_sqlite, bcmath, soap, intl, gd, exif, iconv, imagick, fileinfo
+          coverage: none
+
+      - name: Install dependencies (dev-master)
+        id: install
+        run: |
+          composer require "laravel/framework:dev-master" "orchestra/testbench:dev-master" --no-interaction --no-update
+          composer update --prefer-stable --prefer-dist --no-interaction
+
+      - name: List Installed Dependencies
+        run: composer show -D
+
+      - name: Execute tests
+        id: tests
+        run: vendor/bin/pest --ci
+
+      - name: Look up existing tracking issue
+        id: lookup
+        if: always() && failure()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          issue_number=$(gh issue list --state open --search 'in:title "Laravel dev-master regression"' --json number --jq '.[0].number // empty')
+          echo "issue_number=${issue_number}" >> "$GITHUB_OUTPUT"
+
+      - name: Compose failure body
+        if: always() && failure()
+        run: |
+          cat > /tmp/regression-body.md <<EOF
+          Nightly \`laravel/framework:dev-master\` run failed.
+
+          - **Run:** <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}>
+          - **Matrix:** PHP 8.4 × laravel:dev-master × testbench:dev-master × prefer-stable × ubuntu-latest
+          - **Commit:** ${{ github.sha }}
+          - **Install outcome:** ${{ steps.install.outcome }}
+          - **Test outcome:** ${{ steps.tests.outcome }}
+
+          Failure mode — check the install step first: if \`composer require\` / \`composer update\` failed, the break is in dependency resolution (removed package, changed constraint, abandoned dep). Otherwise inspect the test step for runtime regressions: rule-string parser format, \`Validator::\$customMessages\` shape, \`Rule::in()\` / \`Rule::exists()\` / \`Rule::unique()\` return types.
+          EOF
+
+      - name: Create tracking issue
+        if: always() && failure() && steps.lookup.outputs.issue_number == ''
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh issue create \
+            --title "Laravel dev-master regression" \
+            --body-file /tmp/regression-body.md
+
+      - name: Comment on existing issue
+        if: always() && failure() && steps.lookup.outputs.issue_number != ''
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ISSUE_NUMBER: ${{ steps.lookup.outputs.issue_number }}
+        run: |
+          gh issue comment "$ISSUE_NUMBER" --body-file /tmp/regression-body.md

@@ -12,6 +12,9 @@ use Illuminate\Support\Traits\Macroable;
 use Illuminate\Validation\ValidationException;
 use IteratorAggregate;
 use ReflectionProperty;
+use SanderMuller\FluentValidation\Internal\ItemErrorCollector;
+use SanderMuller\FluentValidation\Internal\ItemRuleCompiler;
+use SanderMuller\FluentValidation\Internal\ItemValidator;
 use SanderMuller\FluentValidation\Rules\ArrayRule;
 use Traversable;
 
@@ -32,6 +35,16 @@ final class RuleSet implements Arrayable, IteratorAggregate
     private bool $stopOnFirstFailure = false;
 
     private ?string $errorBag = null;
+
+    private readonly ItemRuleCompiler $ruleCompiler;
+
+    private readonly ItemErrorCollector $errorCollector;
+
+    public function __construct()
+    {
+        $this->ruleCompiler = new ItemRuleCompiler();
+        $this->errorCollector = new ItemErrorCollector();
+    }
 
     public static function make(): self
     {
@@ -363,7 +376,7 @@ final class RuleSet implements Arrayable, IteratorAggregate
             }
 
             if (! $hasDottedKey) {
-                [$fastChecks, $slowRules] = $this->buildFastChecks($compiled);
+                [$fastChecks, $slowRules] = $this->ruleCompiler->buildFastChecks($compiled);
 
                 if ($slowRules === [] && $fastChecks !== []) {
                     $allPass = true;
@@ -511,294 +524,8 @@ final class RuleSet implements Arrayable, IteratorAggregate
      */
     private function validateItems(array $items, array $itemRules, array $itemMessages, array $itemAttributes, string $parent, bool $isScalar, bool $stopOnFirstFailure = false): array
     {
-        $conditionalFields = $this->analyzeConditionals($itemRules);
-        $hasPresenceConditionals = PresenceConditionalReducer::hasAny($itemRules);
-
-        // Presence conditionals (required_without:FIELD) depend on arbitrary
-        // sibling fields within each item, so two items sharing the same
-        // dispatch-field value can still reduce to different rule sets. Skip
-        // the dispatch cache when presence conditionals are in play.
-        $dispatchField = $hasPresenceConditionals
-            ? null
-            : $this->findCommonDispatchField($conditionalFields);
-        /** @var array<string, array<string, mixed>> $rulesByDispatch */
-        $rulesByDispatch = [];
-        /** @var array<string, array{0: array<string, \Closure(array<string, mixed>): bool>, 1: array<string, mixed>}> $fastChecksByDispatch */
-        $fastChecksByDispatch = [];
-
-        [$fastChecks, $originalSlowRules] = $this->buildFastChecks($itemRules);
-        /** @var array<string, \Illuminate\Validation\Validator> $validatorCache */
-        $validatorCache = [];
-        /** @var array<string, list<string>> $errors */
-        $errors = [];
-
-        // Batch database validation: for rules without conditionals, pre-query
-        // all exists/unique values in one shot and set a precomputed verifier
-        // on per-item validators so they skip individual DB queries. Presence
-        // conditionals can drop or rewrite rules per item, so the batched set
-        // would no longer match the per-item rule set — disable batching.
-        $batchVerifier = null;
-        if ($conditionalFields === [] && ! $hasPresenceConditionals && BatchDatabaseChecker::isAvailable()) {
-            $batchVerifier = $this->buildBatchVerifier($originalSlowRules, $items, $isScalar);
-        }
-
-        foreach ($items as $index => $item) {
-            /** @var array<string, mixed> $itemData */
-            $itemData = $isScalar ? ['_v' => $item] : (is_array($item) ? $item : []);
-
-            // Get effective rules — use dispatch cache if available.
-            if ($dispatchField !== null) {
-                $rawDispatch = $itemData[$dispatchField] ?? '';
-                $dispatchValue = is_scalar($rawDispatch) ? (string) $rawDispatch : '';
-
-                if (! isset($rulesByDispatch[$dispatchValue])) {
-                    $rulesByDispatch[$dispatchValue] = $this->reduceRulesForItem($itemRules, $itemData, $conditionalFields, $itemMessages);
-                    // Build fast checks for the stripped (conditional-free) rules.
-                    $fastChecksByDispatch[$dispatchValue] = $this->buildFastChecks($rulesByDispatch[$dispatchValue]);
-                }
-
-                $effectiveRules = $rulesByDispatch[$dispatchValue];
-                [$dispatchFastChecks, $dispatchSlowRules] = $fastChecksByDispatch[$dispatchValue];
-            } elseif ($conditionalFields !== [] || $hasPresenceConditionals) {
-                $effectiveRules = $this->reduceRulesForItem($itemRules, $itemData, $conditionalFields, $itemMessages);
-                [$dispatchFastChecks, $dispatchSlowRules] = $this->buildFastChecks($effectiveRules);
-            } else {
-                $effectiveRules = $itemRules;
-                $dispatchFastChecks = $fastChecks;
-                $dispatchSlowRules = $originalSlowRules;
-            }
-
-            if ($dispatchFastChecks !== []) {
-                $fastPass = $this->passesAllFastChecks(array_values($dispatchFastChecks), $itemData);
-
-                if ($fastPass && $dispatchSlowRules === []) {
-                    continue;
-                }
-
-                if ($fastPass) {
-                    $reducedSlowRules = $dispatchSlowRules;
-
-                    if ($reducedSlowRules === []) {
-                        continue;
-                    }
-
-                    $cacheKey = $this->ruleCacheKey($reducedSlowRules);
-
-                    if (! isset($validatorCache[$cacheKey])) {
-                        $validatorCache[$cacheKey] = Validator::make($itemData, $reducedSlowRules, $itemMessages, $itemAttributes);
-
-                        if ($batchVerifier instanceof PrecomputedPresenceVerifier) {
-                            $validatorCache[$cacheKey]->setPresenceVerifier($batchVerifier);
-                        }
-                    } else {
-                        $validatorCache[$cacheKey]->setData($itemData);
-                    }
-
-                    if (! $validatorCache[$cacheKey]->passes()) {
-                        $this->collectErrors($validatorCache[$cacheKey], $parent, $index, $isScalar, $errors);
-
-                        if ($stopOnFirstFailure) {
-                            return $errors;
-                        }
-                    }
-
-                    continue;
-                }
-            }
-
-            $cacheKey = $this->ruleCacheKey($effectiveRules);
-
-            if (! isset($validatorCache[$cacheKey])) {
-                $validatorCache[$cacheKey] = Validator::make($itemData, $effectiveRules, $itemMessages, $itemAttributes);
-
-                if ($batchVerifier instanceof PrecomputedPresenceVerifier) {
-                    $validatorCache[$cacheKey]->setPresenceVerifier($batchVerifier);
-                }
-            } else {
-                $validatorCache[$cacheKey]->setData($itemData);
-            }
-
-            if (! $validatorCache[$cacheKey]->passes()) {
-                $this->collectErrors($validatorCache[$cacheKey], $parent, $index, $isScalar, $errors);
-
-                if ($stopOnFirstFailure) {
-                    return $errors;
-                }
-            }
-        }
-
-        return $errors;
-    }
-
-    /**
-     * Analyze conditional rules (exclude_unless/exclude_if) in item rules.
-     * Returns a map of field → condition info for fast per-item evaluation.
-     *
-     * @param  array<string, mixed>  $itemRules
-     * @return array<string, array{action: string, field: string, values: list<string>}>
-     */
-    private function analyzeConditionals(array $itemRules): array
-    {
-        $conditionals = [];
-
-        foreach ($itemRules as $field => $rules) {
-            if (! is_array($rules)) {
-                continue;
-            }
-
-            foreach ($rules as $rule) {
-                if (is_array($rule) && count($rule) >= 3
-                    && ($rule[0] === 'exclude_unless' || $rule[0] === 'exclude_if')
-                    && is_string($rule[1])) {
-                    $conditionals[$field] = [
-                        'action' => $rule[0],
-                        'field' => $rule[1],
-                        'values' => array_map(static fn (mixed $v): string => is_scalar($v) ? (string) $v : '', array_values(array_slice($rule, 2))),
-                    ];
-                    break;
-                }
-            }
-        }
-
-        return $conditionals;
-    }
-
-    /**
-     * Reduce item rules by evaluating conditional exclusions against the item data.
-     *
-     * @param  array<string, mixed>  $itemRules
-     * @param  array<string, mixed>  $itemData
-     * @param  array<string, array{action: string, field: string, values: list<string>}>  $conditionalFields
-     * @param  array<string, string>  $itemMessages
-     * @return array<string, mixed>
-     */
-    private function reduceRulesForItem(array $itemRules, array $itemData, array $conditionalFields, array $itemMessages = []): array
-    {
-        foreach ($conditionalFields as $field => $condition) {
-            $rawValue = $itemData[$condition['field']] ?? '';
-            $actualValue = is_scalar($rawValue) ? (string) $rawValue : '';
-
-            $shouldExclude = ($condition['action'] === 'exclude_unless' && ! in_array($actualValue, $condition['values'], true))
-                || ($condition['action'] === 'exclude_if' && in_array($actualValue, $condition['values'], true));
-
-            if ($shouldExclude) {
-                unset($itemRules[$field]);
-            } else {
-                // Condition matched — strip the conditional tuple so only the
-                // actual validation rules remain. This enables fast-checking.
-                $itemRules[$field] = $this->stripConditionalTuples($itemRules[$field]);
-            }
-        }
-
-        foreach ($itemRules as $field => $rule) {
-            $itemRules[$field] = PresenceConditionalReducer::apply($rule, (string) $field, $itemData, $itemMessages);
-        }
-
-        return $itemRules;
-    }
-
-    /**
-     * Strip exclude_unless/exclude_if tuples from a rule array, leaving
-     * only the actual validation rules. Joins remaining strings into a
-     * pipe-delimited string when possible.
-     */
-    private function stripConditionalTuples(mixed $rules): mixed
-    {
-        if (! is_array($rules)) {
-            return $rules;
-        }
-
-        $stripped = [];
-
-        foreach ($rules as $rule) {
-            if (is_array($rule) && isset($rule[0]) && is_string($rule[0])
-                && in_array($rule[0], ['exclude_unless', 'exclude_if', 'required_if', 'required_unless'], true)) {
-                continue;
-            }
-
-            // Stringify Stringable objects (Rule::in, Rule::notIn) so the
-            // result can be fast-checked as a pipe-joined string.
-            $stripped[] = $rule instanceof \Stringable ? (string) $rule : $rule;
-        }
-
-        // If all remaining rules are strings, join them for faster parsing.
-        $allStrings = true;
-        foreach ($stripped as $rule) {
-            if (! is_string($rule)) {
-                $allStrings = false;
-                break;
-            }
-        }
-
-        if ($allStrings && $stripped !== []) {
-            return implode('|', array_map(static fn (mixed $v): string => is_scalar($v) ? (string) $v : '', $stripped));
-        }
-
-        return $stripped;
-    }
-
-    /**
-     * Find a common dispatch field if ALL conditionals reference the same field.
-     * Returns the field name (e.g., "type") or null if conditions reference
-     * different fields or there are no conditionals.
-     *
-     * @param  array<string, array{action: string, field: string, values: list<string>}>  $conditionalFields
-     */
-    private function findCommonDispatchField(array $conditionalFields): ?string
-    {
-        if ($conditionalFields === []) {
-            return null;
-        }
-
-        $field = null;
-
-        foreach ($conditionalFields as $condition) {
-            if ($field === null) {
-                $field = $condition['field'];
-            } elseif ($field !== $condition['field']) {
-                return null; // Multiple fields — can't dispatch.
-            }
-        }
-
-        return $field;
-    }
-
-    /**
-     * Generate a cache key for a rule set to reuse validators.
-     *
-     * @param  array<string, mixed>  $rules
-     */
-    private function ruleCacheKey(array $rules): string
-    {
-        return implode(',', array_keys($rules));
-    }
-
-    /**
-     * @param  array<string, list<string>>  $errors
-     */
-    private function collectErrors(\Illuminate\Validation\Validator $validator, string $parent, int|string $index, bool $isScalar, array &$errors): void
-    {
-        /** @var array<string, list<string>> $itemErrors */
-        $itemErrors = $validator->errors()->toArray();
-        foreach ($itemErrors as $field => $fieldErrors) {
-            $fullPath = $isScalar ? "{$parent}.{$index}" : "{$parent}.{$index}.{$field}";
-            $errors[$fullPath] = $fieldErrors;
-        }
-    }
-
-    /**
-     * @param  list<\Closure(array<string, mixed>): bool>  $fastChecks
-     * @param  array<string, mixed>  $itemData
-     */
-    private function passesAllFastChecks(array $fastChecks, array $itemData): bool
-    {
-        foreach ($fastChecks as $fastCheck) {
-            if (! $fastCheck($itemData)) {
-                return false;
-            }
-        }
-
-        return true;
+        return (new ItemValidator($stopOnFirstFailure, $this->ruleCompiler, $this->errorCollector))
+            ->validate($items, $itemRules, $itemMessages, $itemAttributes, $parent, $isScalar);
     }
 
     /**
@@ -874,140 +601,6 @@ final class RuleSet implements Arrayable, IteratorAggregate
         }
 
         throw new ValidationException($errorValidator);
-    }
-
-    /**
-     * Build fast-check closures for eligible fields.
-     * Returns fast checks for compilable fields and the remaining slow rules.
-     *
-     * @param  array<string, mixed>  $compiledRules
-     * @return array{0: list<\Closure(array<string, mixed>): bool>, 1: array<string, mixed>}
-     */
-    private function buildFastChecks(array $compiledRules): array
-    {
-        $checks = [];
-        $slowRules = [];
-
-        foreach ($compiledRules as $field => $rule) {
-            if (! is_string($rule)) {
-                $slowRules[$field] = $rule;
-
-                continue;
-            }
-
-            $valueCheck = FastCheckCompiler::compile($rule);
-            $itemAwareCheck = null;
-
-            if (! $valueCheck instanceof \Closure) {
-                // Pass the within-item attribute name so `confirmed` can
-                // rewrite to `same:${attr}_confirmation`. For `items.*.password`
-                // the attribute is `password`; for flat `password` it's the
-                // key itself.
-                $attributeName = str_contains($field, '*.')
-                    ? explode('.*.', $field, 2)[1]
-                    : $field;
-
-                $itemAwareCheck = FastCheckCompiler::compileWithItemContext($rule, $attributeName)
-                    ?? FastCheckCompiler::compileWithPresenceConditionals($rule);
-
-                if (! $itemAwareCheck instanceof \Closure) {
-                    $slowRules[$field] = $rule;
-
-                    continue;
-                }
-            }
-
-            // Nested wildcard field (e.g., options.*.label): expand and check each item
-            if (str_contains($field, '*.')) {
-                $parts = explode('.*.', $field, 2);
-                $parentField = $parts[0];
-                $childField = $parts[1];
-
-                if ($itemAwareCheck instanceof \Closure) {
-                    $checks[] = static function (array $data) use ($parentField, $childField, $itemAwareCheck): bool {
-                        $items = $data[$parentField] ?? null;
-                        if (! is_array($items)) {
-                            return true;
-                        }
-
-                        foreach ($items as $item) {
-                            if (! is_array($item)) {
-                                return false;
-                            }
-
-                            /** @var array<string, mixed> $item */
-                            if (! $itemAwareCheck($item[$childField] ?? null, $item)) {
-                                return false;
-                            }
-                        }
-
-                        return true;
-                    };
-                } else {
-                    $checks[] = static function (array $data) use ($parentField, $childField, $valueCheck): bool {
-                        $items = $data[$parentField] ?? null;
-                        if (! is_array($items)) {
-                            return true;
-                        }
-
-                        foreach ($items as $item) {
-                            if (! is_array($item)) {
-                                return false;
-                            }
-
-                            if (! $valueCheck($item[$childField] ?? null)) {
-                                return false;
-                            }
-                        }
-
-                        return true;
-                    };
-                }
-            } elseif ($field === '*') {
-                // Scalar each: value is in '_v' key
-                if ($itemAwareCheck instanceof \Closure) {
-                    $checks[] = static function (array $data) use ($itemAwareCheck): bool {
-                        /** @var array<string, mixed> $data — caller guarantees string-keyed. */
-                        return $itemAwareCheck($data['_v'] ?? null, $data);
-                    };
-                } else {
-                    $checks[] = static fn (array $data): bool => $valueCheck($data['_v'] ?? null);
-                }
-            } elseif ($itemAwareCheck instanceof \Closure) {
-                $checks[] = static function (array $data) use ($field, $itemAwareCheck): bool {
-                    /** @var array<string, mixed> $data — caller guarantees string-keyed. */
-                    return $itemAwareCheck($data[$field] ?? null, $data);
-                };
-            } else {
-                $checks[] = static fn (array $data): bool => $valueCheck($data[$field] ?? null);
-            }
-        }
-
-        return [$checks, $slowRules];
-    }
-
-    /**
-     * Build a PrecomputedPresenceVerifier by batching all exists/unique values
-     * from slow rules across all items in a single whereIn query.
-     *
-     * @param  array<string, mixed>  $slowRules
-     * @param  array<int|string, mixed>  $items
-     */
-    private function buildBatchVerifier(array $slowRules, array $items, bool $isScalar): ?PrecomputedPresenceVerifier
-    {
-        $batchableFields = BatchDatabaseChecker::findBatchableRules($slowRules);
-
-        if ($batchableFields === []) {
-            return null;
-        }
-
-        $groups = BatchDatabaseChecker::collectValues($batchableFields, $items, $isScalar);
-
-        if ($groups === []) {
-            return null;
-        }
-
-        return BatchDatabaseChecker::buildVerifier($groups);
     }
 
     /**

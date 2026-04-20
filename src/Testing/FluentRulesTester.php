@@ -37,6 +37,8 @@ use SanderMuller\FluentValidation\Validated;
  * `with()` is required before any assertion or escape hatch. Calling `passes()`,
  * `fails()`, `failsWith()`, `errors()`, or `validated()` without first calling
  * `with()` raises a LogicException.
+ *
+ * @api Public testing surface — signatures stable under semver from 1.17.0.
  */
 final class FluentRulesTester
 {
@@ -73,6 +75,8 @@ final class FluentRulesTester
     ) {}
 
     /**
+     * @api
+     *
      * @param  class-string<FormRequest>|class-string<FluentValidator>|class-string<Component>|RuleSet|ValidationRule|array<string, mixed>  $target
      * @param  mixed  ...$constructorArgs  Forwarded to FluentValidator subclass constructors after `$data`. Ignored for non-class targets.
      */
@@ -81,7 +85,11 @@ final class FluentRulesTester
         return new self($target, array_values($constructorArgs));
     }
 
-    /** @param  array<string, mixed>  $data */
+    /**
+     * @api
+     *
+     * @param  array<string, mixed>  $data
+     */
     public function with(array $data): self
     {
         $this->data = $data;
@@ -103,6 +111,8 @@ final class FluentRulesTester
      *     // $this->route('video', $other)  → $video (default ignored when present)
      *     // $this->route('missing', $alt)  → $alt   (default returned)
      *
+     * @api
+     *
      * @param  array<string, mixed>  $parameters
      */
     public function withRoute(array $parameters): self
@@ -122,6 +132,8 @@ final class FluentRulesTester
      * (via `auth()->user()` inside `mount()` / action methods / policy gates).
      * Other target shapes (array, RuleSet, ValidationRule, FluentValidator)
      * don't involve auth, so the call is a harmless no-op for them.
+     *
+     * @api
      */
     public function actingAs(Authenticatable $user, ?string $guard = null): self
     {
@@ -138,6 +150,8 @@ final class FluentRulesTester
      * (`set(['name' => 'value', 'role' => 'admin'])`) — matches Livewire's API.
      * Re-callable; later calls override earlier values for the same key.
      * Only meaningful for Livewire component class-string targets.
+     *
+     * @api
      *
      * @param  string|array<string, mixed>  $key
      */
@@ -172,6 +186,8 @@ final class FluentRulesTester
      *
      * The accumulated queue clears after each chain dispatches, so reused
      * testers don't leak prior cycles into subsequent ones.
+     *
+     * @api
      */
     public function call(string $method, mixed ...$args): self
     {
@@ -189,6 +205,8 @@ final class FluentRulesTester
      *     ->andCall('submit')
      *
      * Functionally identical to `call()` — both append to the action queue.
+     *
+     * @api
      */
     public function andCall(string $method, mixed ...$args): self
     {
@@ -198,6 +216,8 @@ final class FluentRulesTester
     /**
      * Mount the Livewire component with the given parameters. Skip when the
      * component takes no `mount()` args. Re-callable.
+     *
+     * @api
      *
      * @param  array<string, mixed>  $parameters
      */
@@ -213,6 +233,8 @@ final class FluentRulesTester
      * Assert that the FormRequest's `authorize()` gate returned false.
      * Surfaces the recorded AuthorizationException without rethrowing.
      * Only meaningful for FormRequest class-string targets.
+     *
+     * @api
      */
     public function assertUnauthorized(): self
     {
@@ -224,6 +246,7 @@ final class FluentRulesTester
         return $this;
     }
 
+    /** @api */
     public function passes(): self
     {
         $result = $this->resolve();
@@ -237,6 +260,7 @@ final class FluentRulesTester
         return $this;
     }
 
+    /** @api */
     public function fails(): self
     {
         $result = $this->resolve();
@@ -260,6 +284,8 @@ final class FluentRulesTester
      * `FluentRule::integer()` compiles to `numeric|integer` and a non-numeric
      * input fails as `Numeric` (Laravel evaluates `numeric` first), not as
      * `Integer`. When in doubt, inspect `errors()->keys()` or pass null.
+     *
+     * @api
      */
     public function failsWith(string $field, ?string $rule = null): self
     {
@@ -304,6 +330,8 @@ final class FluentRulesTester
      * test triggering failures across multiple wildcard items will fail
      * `failsOnly` — that's intended strictness. Use `failsWithAny('items')`
      * for "any item failed."
+     *
+     * @api
      */
     public function failsOnly(string $field, ?string $rule = null): self
     {
@@ -350,6 +378,8 @@ final class FluentRulesTester
      *
      *     ->fails()
      *     ->doesNotFailOn('email', 'name')   // these passed, even if other fields failed
+     *
+     * @api
      */
     public function doesNotFailOn(string ...$fields): self
     {
@@ -378,6 +408,8 @@ final class FluentRulesTester
      * Inclusive prefix-match only — does NOT match free-floating substrings
      * (`failsWithAny('payload')` will not match `actions.0.payload.stars`).
      * For substring/regex matching, use `errors()` directly.
+     *
+     * @api
      */
     public function failsWithAny(string $prefix): self
     {
@@ -414,6 +446,8 @@ final class FluentRulesTester
      *
      *     ->failsWithMessage('email', 'validation.required', ['attribute' => 'Email'])
      *
+     * @api
+     *
      * @param  array<string, mixed>  $replacements
      */
     public function failsWithMessage(string $field, string $translationKey, array $replacements = []): self
@@ -440,12 +474,17 @@ final class FluentRulesTester
         return $this;
     }
 
+    /** @api */
     public function errors(): MessageBag
     {
         return $this->resolve()->errors();
     }
 
-    /** @return array<string, mixed> */
+    /**
+     * @api
+     *
+     * @return array<string, mixed>
+     */
     public function validated(): array
     {
         return $this->resolve()->validated();
