@@ -14,14 +14,16 @@ use Illuminate\Support\Arr;
  * fast-check), or leave it intact (active with an override — the
  * original rule name must survive so translator lookups still fire).
  *
- * Moved out of `RuleSet` as part of the 1.16 baseline-reduction sprint
- * to reduce `RuleSet`'s cognitive complexity.
- *
  * @internal Implementation detail of `RuleSet`. Not part of the public API.
  */
 final class PresenceConditionalReducer
 {
-    /** @var list<string> Ordered longest-prefix-first for `str_starts_with` disambiguation. */
+    /**
+     * Longest-prefix-first order for `str_starts_with` disambiguation so
+     * `required_with_all:x` resolves to `required_with_all` not `required_with`.
+     *
+     * @var list<string>
+     */
     private const RULE_NAMES = [
         'required_without_all',
         'required_with_all',

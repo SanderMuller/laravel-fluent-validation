@@ -278,6 +278,7 @@ final class FastCheckCompiler
     {
         $config = [
             'required' => false, 'filled' => false,
+            'prohibited' => false,
             'nullable' => false, 'sometimes' => false,
             'string' => false, 'numeric' => false, 'integer' => false,
             'boolean' => false, 'array' => false, 'email' => false, 'date' => false,
@@ -331,7 +332,7 @@ final class FastCheckCompiler
         // 'filled' not fast-checkable: distinguishing absent vs present-null
         // requires presence tracking the closure doesn't have.
         $boolFlags = [
-            'required', 'string', 'numeric', 'boolean',
+            'required', 'prohibited', 'string', 'numeric', 'boolean',
             'array', 'email', 'date', 'url', 'ip', 'uuid', 'ulid',
             'accepted', 'declined',
         ];
@@ -440,6 +441,7 @@ final class FastCheckCompiler
     {
         $config = [
             'required' => false, 'filled' => false,
+            'prohibited' => false,
             'nullable' => false, 'sometimes' => false,
             'string' => false, 'numeric' => false, 'integer' => false,
             'boolean' => false, 'array' => false, 'email' => false, 'date' => false,
@@ -815,6 +817,7 @@ final class FastCheckCompiler
     {
         // Pre-extract typed values for the hot path closure.
         $required = (bool) $c['required'];
+        $prohibited = (bool) $c['prohibited'];
         $nullable = (bool) $c['nullable'];
         $accepted = (bool) $c['accepted'];
         $declined = (bool) $c['declined'];
@@ -842,12 +845,26 @@ final class FastCheckCompiler
         $hasInRegex = $in !== null || $notIn !== null || $regex !== null || $notRegex !== null;
 
         return static function (mixed $value) use (
-            $required, $nullable, $hasImplicit,
+            $required, $prohibited, $nullable, $hasImplicit,
             $isString, $isNumeric, $isInteger, $isArray,
             $min, $max, $hasSize,
             $in, $notIn, $regex, $notRegex, $hasInRegex,
             $checks
         ): bool {
+            // `prohibited` is the inverse of `required` — the value must be
+            // empty per Laravel's `validateRequired` rules (null, '', [],
+            // whitespace-only string, empty Countable).
+            if ($prohibited) {
+                if ($value === null || $value === '' || $value === []) {
+                    return true;
+                }
+                if (is_string($value) && trim($value) === '') {
+                    return true;
+                }
+
+                return is_countable($value) && count($value) < 1;
+            }
+
             // Presence gates (inlined for hot-path perf).
             // Explicit === comparisons beat in_array() here — avoids allocating
             // the [null, '', []] literal array on every closure call.
