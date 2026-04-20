@@ -2,6 +2,8 @@
 
 namespace SanderMuller\FluentValidation;
 
+use Symfony\Component\HttpFoundation\File\File;
+
 /**
  * Compiles pipe-delimited rule strings into fast PHP closures
  * that validate a single value without invoking Laravel's validator.
@@ -139,9 +141,10 @@ final class FastCheckCompiler
      *   - null
      *   - string whose `trim()` is ''
      *   - array or Countable with count() === 0
+     *   - File / UploadedFile whose path string is empty
      *
      * Used by presence-conditional gates on both sides — sibling
-     * presence and target required check.
+     * presence and target required check — and by bare `prohibited`.
      */
     private static function isLaravelEmpty(mixed $value): bool
     {
@@ -159,6 +162,10 @@ final class FastCheckCompiler
 
         if ($value instanceof \Countable) {
             return count($value) === 0;
+        }
+
+        if ($value instanceof File) {
+            return (string) $value->getPath() === '';
         }
 
         return false;
@@ -315,6 +322,24 @@ final class FastCheckCompiler
             && $config['integer'] === false
         ) {
             return null;
+        }
+
+        // `prohibited` combined with type/format/size/... rules requires
+        // distinguishing "value is explicitly null" from "value is absent"
+        // — Laravel runs non-implicit rules for explicitly-null values but
+        // skips them for absent ones. The closure receives `null` in both
+        // cases and can't tell them apart. So fast-check only when
+        // prohibited stands alone (possibly with nullable/sometimes).
+        if ($config['prohibited'] === true) {
+            foreach ($config as $key => $value) {
+                if (in_array($key, ['prohibited', 'nullable', 'sometimes'], true)) {
+                    continue;
+                }
+
+                if ($value !== false && $value !== null) {
+                    return null;
+                }
+            }
         }
 
         return $config;
@@ -501,6 +526,22 @@ final class FastCheckCompiler
             && $config['integer'] === false
         ) {
             return null;
+        }
+
+        // Same prohibited-combination guard as parse(): `prohibited` alone
+        // (possibly with nullable/sometimes) is fast-checkable, but combined
+        // with any sibling/date/size/type rule it hits the absent-vs-null
+        // ambiguity that the closure can't resolve. Fall back to slow path.
+        if ($config['prohibited'] === true) {
+            foreach ($config as $key => $value) {
+                if (in_array($key, ['prohibited', 'nullable', 'sometimes'], true)) {
+                    continue;
+                }
+
+                if ($value !== false && $value !== null) {
+                    return null;
+                }
+            }
         }
 
         // date_format + date field-ref is a Laravel-only code path.
@@ -851,19 +892,12 @@ final class FastCheckCompiler
             $in, $notIn, $regex, $notRegex, $hasInRegex,
             $checks
         ): bool {
-            // `prohibited` is the inverse of `required` — the value must be
-            // empty per Laravel's `validateRequired` rules (null, '', [],
-            // whitespace-only string, empty Countable).
+            // `prohibited` — value must be empty per Laravel's `validateRequired`.
+            // Parse only admits this closure when prohibited stands alone
+            // (possibly with nullable/sometimes), so no contradictory
+            // required/accepted/declined can coexist.
             if ($prohibited) {
-                if ($value === null || $value === '' || $value === []) {
-                    return true;
-                }
-
-                if (is_string($value) && trim($value) === '') {
-                    return true;
-                }
-
-                return is_countable($value) && count($value) < 1;
+                return self::isLaravelEmpty($value);
             }
 
             // Presence gates (inlined for hot-path perf).
