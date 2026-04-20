@@ -858,6 +858,7 @@ final class FastCheckCompiler
                 if ($value === null || $value === '' || $value === []) {
                     return true;
                 }
+
                 if (is_string($value) && trim($value) === '') {
                     return true;
                 }
