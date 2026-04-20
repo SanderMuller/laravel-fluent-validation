@@ -55,7 +55,7 @@ parameters:
 			path: src/OptimizedValidator.php
 
 		-
-			rawMessage: 'Class cognitive complexity is 274, keep it under 80'
+			rawMessage: 'Class cognitive complexity is 277, keep it under 80'
 			identifier: complexity.classLike
 			count: 1
 			path: src/RuleSet.php
@@ -67,7 +67,7 @@ parameters:
 			path: src/RuleSet.php
 
 		-
-			rawMessage: 'Cognitive complexity for "SanderMuller\FluentValidation\RuleSet::validate()" is 25, keep it under 20'
+			rawMessage: 'Cognitive complexity for "SanderMuller\FluentValidation\RuleSet::validateInternal()" is 25, keep it under 20'
 			identifier: complexity.functionLike
 			count: 1
 			path: src/RuleSet.php

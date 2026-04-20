@@ -31,6 +31,8 @@ final class RuleSet implements Arrayable, IteratorAggregate
 
     private bool $stopOnFirstFailure = false;
 
+    private ?string $errorBag = null;
+
     public static function make(): self
     {
         return new self();
@@ -148,6 +150,24 @@ final class RuleSet implements Arrayable, IteratorAggregate
     public function stopOnFirstFailure(): self
     {
         $this->stopOnFirstFailure = true;
+
+        return $this;
+    }
+
+    /**
+     * Route the thrown `ValidationException` into a named error bag.
+     *
+     * Mirrors `Validator::validateWithBag($name, ...)` — useful when multiple
+     * forms share a page and each needs its own error bag so their messages
+     * don't collide. The bag only applies to the exception thrown by
+     * `validate()` on failure; `check()`'s `Validated` result is unaffected
+     * (it never throws, and the `MessageBag` it exposes has no "default" name).
+     *
+     *     RuleSet::from($rules)->withBag('updatePassword')->validate($input);
+     */
+    public function withBag(string $name): self
+    {
+        $this->errorBag = $name;
 
         return $this;
     }
@@ -291,6 +311,32 @@ final class RuleSet implements Arrayable, IteratorAggregate
      * @throws ValidationException
      */
     public function validate(array $data, array $messages = [], array $attributes = []): array
+    {
+        if ($this->errorBag !== null) {
+            // Trap every ValidationException from the inner pipeline and
+            // stamp the error bag before rethrowing. Mirrors Laravel's
+            // `Validator::validateWithBag`.
+            try {
+                return $this->validateInternal($data, $messages, $attributes);
+            } catch (ValidationException $validationException) {
+                $validationException->errorBag = $this->errorBag;
+
+                throw $validationException;
+            }
+        }
+
+        return $this->validateInternal($data, $messages, $attributes);
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     * @param  array<string, string>  $messages
+     * @param  array<string, string>  $attributes
+     * @return array<string, mixed>
+     *
+     * @throws ValidationException
+     */
+    private function validateInternal(array $data, array $messages, array $attributes): array
     {
         [$topRules, $wildcardGroups] = $this->separateRules();
 
