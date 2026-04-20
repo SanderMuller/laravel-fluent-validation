@@ -43,6 +43,17 @@ parameters:
             identifier: trait.unused
             reportUnmatched: false
         - identifier: ternary.condNotBoolean
+        # FluentRuleContract's when/unless match Laravel's Conditionable trait
+        # signature exactly (untyped $value, no return type) — adding native
+        # types here would break LSP compatibility with the trait.
+        -
+            identifier: typeCoverage.paramTypeCoverage
+            path: src/Contracts/FluentRuleContract.php
+            reportUnmatched: false
+        -
+            identifier: typeCoverage.returnTypeCoverage
+            path: src/Contracts/FluentRuleContract.php
+            reportUnmatched: false
 
         # Pest $this->fail() in closures — PHPStan can't resolve $this to TestCase
         -

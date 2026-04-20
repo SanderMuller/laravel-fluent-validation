@@ -6,6 +6,7 @@ use BackedEnum;
 use Closure;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Support\Fluent;
+use Illuminate\Support\HigherOrderWhenProxy;
 
 /**
  * Contract implemented by every rule class shipped in
@@ -42,11 +43,18 @@ interface FluentRuleContract extends ValidationRule
 
     public function label(string $label): static;
 
+    public function getLabel(): ?string;
+
     public function message(string $message): static;
 
     public function messageFor(string $rule, string $message): static;
 
     public function fieldMessage(string $message): static;
+
+    /**
+     * @return array<string, string>
+     */
+    public function getCustomMessages(): array;
 
     // ---------- Presence / prohibition modifiers ----------
 
@@ -130,6 +138,33 @@ interface FluentRuleContract extends ValidationRule
     // ---------- Conditional dispatch ----------
 
     /**
+     * Apply `$callback` to this rule when `$value` is truthy; otherwise
+     * optionally apply `$default`. Inherited from Laravel's `Conditionable`
+     * trait — on the contract so downstream code can narrow to
+     * `FluentRuleContract` and still chain `when()` / `unless()`.
+     *
+     * Return type omitted to match Laravel's `Conditionable` trait exactly
+     * — adding a return type here (including `mixed`) would trip
+     * `Declaration must be compatible` at class-load time. The effective
+     * return is `$this|\Illuminate\Conditionable\HigherOrderWhenProxy`
+     * depending on whether a callback is supplied.
+     *
+     * @param  mixed  $value
+     * @param  (callable(static, mixed): mixed)|null  $callback
+     * @param  (callable(static, mixed): mixed)|null  $default
+     * @return static|HigherOrderWhenProxy
+     */
+    public function when($value = null, ?callable $callback = null, ?callable $default = null);
+
+    /**
+     * @param  mixed  $value
+     * @param  (callable(static, mixed): mixed)|null  $callback
+     * @param  (callable(static, mixed): mixed)|null  $default
+     * @return static|HigherOrderWhenProxy
+     */
+    public function unless($value = null, ?callable $callback = null, ?callable $default = null);
+
+    /**
      * @param  Closure(Fluent<string, mixed>): bool  $condition
      * @param  Closure(static): static|string|list<string>  $rules
      * @param  Closure(static): static|string|list<string>  $defaultRules
@@ -137,6 +172,13 @@ interface FluentRuleContract extends ValidationRule
     public function whenInput(Closure $condition, Closure|string|array $rules, Closure|string|array $defaultRules = []): static;
 
     // ---------- Self-compilation ----------
+
+    /**
+     * Whether `compiledRules()` can safely return a pipe-string form
+     * (true) vs must return the array form (false, when the rule set
+     * contains non-stringifiable objects).
+     */
+    public function canCompile(): bool;
 
     /**
      * @return string|list<string|object>
@@ -147,4 +189,13 @@ interface FluentRuleContract extends ValidationRule
      * @return list<string|object>
      */
     public function toArray(): array;
+
+    /**
+     * Expand this rule into a flat `[nestedAttribute => rule]` map for
+     * the given parent attribute. Used by `each()` / `children()` and
+     * by `RuleSet::expand` to fan out nested rule sets.
+     *
+     * @return array<string, mixed>
+     */
+    public function buildNestedRules(string $attribute): array;
 }

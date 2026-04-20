@@ -101,3 +101,35 @@ it('interface surface is callable via contract-typed reference (chaining preserv
     expect(makeValidator(['x' => null], ['x' => $result])->fails())->toBeTrue()
         ->and(makeValidator(['x' => 'ok'], ['x' => $result])->passes())->toBeTrue();
 });
+
+it('when() and unless() are callable on a contract-typed reference (Conditionable surface)', function (): void {
+    // Codex regression coverage: downstream helpers accepting a
+    // FluentRuleContract must be able to chain ->when() / ->unless()
+    // without narrowing back to a concrete rule class.
+    //
+    // `when()` with a callback returns `static`; chain continues. Since
+    // the static return on a `FluentRuleContract` reference narrows to
+    // `FluentRuleContract`, the callback receives `$r` typed as the
+    // concrete class via the trait's template binding.
+    // The callback receives `$this` — at the interface level it's typed as
+    // FluentRuleContract, so we narrow via an instanceof guard before calling
+    // a type-specific method. Downstream consumers pick their own concrete
+    // type when they know it.
+    $apply = function (FluentRuleContract $rule, bool $strict): FluentRuleContract {
+        /** @var FluentRuleContract $result */
+        $result = $rule
+            ->required()
+            ->when($strict, static fn (FluentRuleContract $r): FluentRuleContract => $r instanceof StringRule ? $r->min(8) : $r)
+            ->unless($strict, static fn (FluentRuleContract $r): FluentRuleContract => $r instanceof StringRule ? $r->min(2) : $r);
+
+        return $result;
+    };
+
+    $strictRule = $apply(FluentRule::string(), true);
+    $laxRule = $apply(FluentRule::string(), false);
+
+    expect(makeValidator(['x' => 'short'], ['x' => $strictRule])->fails())->toBeTrue()
+        ->and(makeValidator(['x' => 'longenough'], ['x' => $strictRule])->passes())->toBeTrue()
+        ->and(makeValidator(['x' => 'short'], ['x' => $laxRule])->passes())->toBeTrue()
+        ->and(makeValidator(['x' => 'x'], ['x' => $laxRule])->fails())->toBeTrue();
+});
