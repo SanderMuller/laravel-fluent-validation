@@ -136,7 +136,27 @@ class StorePostRequest extends FluentFormRequest
 FluentRule objects implement Laravel's `ValidationRule` interface, so they also work in `Validator::make()`, `Rule::forEach()`, and `Rule::when()`. For inline validation outside form requests, prefer [`RuleSet::validate()`](#ruleset) over `Validator::make()`; it gives you the same optimizations as `HasFluentRules`. Use [`->when()`](#conditional-rules) to handle create and update in a single form request.
 
 > [!NOTE]
-> `FluentRule` is a static factory, not a base class. `FluentRule::string()` returns a `StringRule`, `FluentRule::email()` returns an `EmailRule`, etc. For PHPDoc type hints, reference the concrete rule class or `ValidationRule`, not `FluentRule`.
+> `FluentRule` is a static factory, not a base class. `FluentRule::string()` returns a `StringRule`, `FluentRule::email()` returns an `EmailRule`, etc. For PHPDoc type hints, reference `FluentRuleContract` (see below) or Laravel's `ValidationRule`, not `FluentRule` itself.
+
+#### Typing your `rules()` return
+
+Every shipped rule class implements `SanderMuller\FluentValidation\Contracts\FluentRuleContract` — a single stable type alias covering the full shared modifier and conditional surface. Use it instead of enumerating concrete types:
+
+```php
+use SanderMuller\FluentValidation\Contracts\FluentRuleContract;
+
+/** @return array<string, FluentRuleContract> */
+public function rules(): array
+{
+    return [
+        'name'  => FluentRule::string()->required()->min(2),
+        'email' => FluentRule::email()->required()->unique('users'),
+        'age'   => FluentRule::numeric()->nullable()->integer()->min(0),
+    ];
+}
+```
+
+`FluentRuleContract extends Illuminate\Contracts\Validation\ValidationRule`, so downstream code already typed against Laravel's native contract keeps working. Type-specific methods (e.g. `StringRule::email()`, `NumericRule::integer()`, `ImageRule::dimensions()`) stay on their concrete classes — narrow to the concrete type when you need to call them.
 
 ### Migrating existing rules
 
@@ -764,9 +784,24 @@ $validated = RuleSet::from([
 
 The same applies inside wildcard arrays. If the first item fails, the rest are skipped.
 
-### Using with `validateWithBag` or custom Validator instances
+### Named error bags (`withBag`)
 
-If you need a `Validator` instance directly (for `validateWithBag`, custom error bags, or manual inspection), you may use the `prepare()` method:
+Multiple forms on one page (Fortify's update-password + reset-password, a Livewire multi-card screen, etc.) need separate error bags so their validation messages don't collide. Chain `->withBag($name)` on the rule set; the thrown `ValidationException`'s `errorBag` is set to that name:
+
+```php
+RuleSet::from([
+    'current_password' => FluentRule::string()->required()->currentPassword(),
+    'password'         => FluentRule::string()->required()->min(12),
+])
+    ->withBag('updatePassword')
+    ->validate($input);
+```
+
+Mirrors Laravel's `Validator::validateWithBag()` without forcing you back to the `Validator::make(...)` incantation. Only affects the thrown exception's bag — `check()` never throws and is unaffected.
+
+### Using with a raw `Validator` instance
+
+If you still need to touch the `Validator` directly (inspection, non-standard extensions), `prepare()` gives you the compiled pieces:
 
 ```php
 $prepared = RuleSet::from($rules)->prepare($request->all());
@@ -778,7 +813,7 @@ $validator = Validator::make(
     $prepared->attributes,
 );
 
-$validator->validateWithBag('myBag');
+$validator->validate();
 ```
 
 ### Using with custom Validators

@@ -21,6 +21,21 @@ For deeper guidance, read the relevant reference file before implementing:
 ```php
 use SanderMuller\FluentValidation\FluentRule;
 use SanderMuller\FluentValidation\RuleSet;
+use SanderMuller\FluentValidation\Contracts\FluentRuleContract; // for rules() return types
+```
+
+Every rule class in `Rules/*` implements `FluentRuleContract` (which itself extends Laravel's `ValidationRule`). Use it as the single return type for `rules()` instead of enumerating concrete classes:
+
+```php
+/** @return array<string, FluentRuleContract> */
+public function rules(): array
+{
+    return [
+        'name'  => FluentRule::string()->required()->min(2),
+        'age'   => FluentRule::numeric()->nullable()->integer(),
+        'email' => FluentRule::email()->required(),
+    ];
+}
 ```
 
 ## Available Rule Types
