@@ -11,14 +11,6 @@ use Illuminate\Validation\Rules\Unique;
 use Illuminate\Validation\ValidationException;
 use Illuminate\Validation\Validator;
 use SanderMuller\FluentValidation\FluentRule;
-use SanderMuller\FluentValidation\Rules\ArrayRule;
-use SanderMuller\FluentValidation\Rules\BooleanRule;
-use SanderMuller\FluentValidation\Rules\DateRule;
-use SanderMuller\FluentValidation\Rules\EmailRule;
-use SanderMuller\FluentValidation\Rules\FileRule;
-use SanderMuller\FluentValidation\Rules\ImageRule;
-use SanderMuller\FluentValidation\Rules\NumericRule;
-use SanderMuller\FluentValidation\Rules\PasswordRule;
 use SanderMuller\FluentValidation\Rules\StringRule;
 use SanderMuller\FluentValidation\RuleSet;
 
@@ -216,22 +208,10 @@ it('validates nested array each() standalone', function (): void {
 // Factory methods return correct types
 // =========================================================================
 
-it('returns correct rule types from factory', function (): void {
-    expect(FluentRule::string())->toBeInstanceOf(StringRule::class)
-        ->and(FluentRule::numeric())->toBeInstanceOf(NumericRule::class)
-        ->and(FluentRule::date())->toBeInstanceOf(DateRule::class)
-        ->and(FluentRule::dateTime())->toBeInstanceOf(DateRule::class)
-        ->and(FluentRule::boolean())->toBeInstanceOf(BooleanRule::class)
-        ->and(FluentRule::array())->toBeInstanceOf(ArrayRule::class)
-        ->and(FluentRule::email())->toBeInstanceOf(EmailRule::class)
-        ->and(FluentRule::file())->toBeInstanceOf(FileRule::class)
-        ->and(FluentRule::image())->toBeInstanceOf(ImageRule::class)
-        ->and(FluentRule::password())->toBeInstanceOf(PasswordRule::class);
-
-    if (class_exists(AnyOf::class)) {
-        expect(FluentRule::anyOf(['string', 'integer']))->toBeInstanceOf(AnyOf::class);
-    }
-});
+// Factory return types are guaranteed by native PHP return-type declarations.
+// Every `FluentRule::string()` etc. returns its concrete rule class at the
+// type-system level — Pest + PHPStan catch mismatches statically, so a
+// runtime `toBeInstanceOf` chain here is dead code.
 
 // =========================================================================
 // anyOf (Laravel 13+)
@@ -1475,8 +1455,7 @@ it('compileToArrays wraps standalone objects in arrays', function (): void {
         'field' => $rule,
     ]);
 
-    expect($compiled['field'])->toBeArray()
-        ->and($compiled['field'][0])->toBe($rule);
+    expect($compiled['field'][0])->toBe($rule);
 });
 
 it('compileToArrays handles mixed fluent and string rules', function (): void {
@@ -2024,8 +2003,7 @@ it('toArray returns array from object-compiled rules', function (): void {
     $rule = FluentRule::string()->required()->rule(new class implements ValidationRule {
         public function validate(string $attribute, mixed $value, Closure $fail): void {}
     });
-    expect($rule->toArray())->toBeArray()
-        ->toMatchArray([0 => 'required', 1 => 'string']);
+    expect($rule->toArray())->toMatchArray([0 => 'required', 1 => 'string']);
 });
 
 it('RuleSet dump returns rules messages and attributes', function (): void {

@@ -89,6 +89,7 @@ final class FastCheckCompiler
         }
 
         return static function (mixed $value, array $item) use ($conditions, $checkRest): bool {
+            /** @var array<string, mixed> $item — contract established by the outer method. */
             $active = false;
             foreach ($conditions as $condition) {
                 if (self::presenceConditionActive($condition['type'], $condition['fields'], $item)) {
@@ -763,7 +764,7 @@ final class FastCheckCompiler
     private static function sizePair(mixed $value, mixed $ref, bool $isNumeric, bool $isInteger, bool $isArray): ?array
     {
         if ($isNumeric || $isInteger) {
-            if (! is_numeric($ref)) {
+            if (! is_numeric($ref) || ! is_numeric($value)) {
                 return null;
             }
 
@@ -771,7 +772,7 @@ final class FastCheckCompiler
         }
 
         if ($isArray) {
-            if (! is_array($ref)) {
+            if (! is_array($ref) || ! is_array($value)) {
                 return null;
             }
 
@@ -779,11 +780,11 @@ final class FastCheckCompiler
         }
 
         // Default: string length comparison (under `string` rule).
-        if (! is_string($ref)) {
+        if (! is_string($ref) || ! is_string($value)) {
             return null;
         }
 
-        return [mb_strlen((string) $value), mb_strlen($ref)];
+        return [mb_strlen($value), mb_strlen($ref)];
     }
 
     /**
@@ -875,7 +876,9 @@ final class FastCheckCompiler
                 } elseif ($isArray && is_array($value)) {
                     $size = count($value);
                 } elseif (($isNumeric || $isInteger) && is_numeric($value)) {
-                    $size = $value + 0;
+                    // is_numeric narrows to int|float|numeric-string; +0
+                    // promotes string to int/float uniformly.
+                    $size = is_string($value) ? $value + 0 : $value;
                 } else {
                     $size = null;
                 }
@@ -982,19 +985,18 @@ final class FastCheckCompiler
         }
 
         // Laravel's alpha/alpha_dash/alpha_num accept strings and numbers,
-        // but reject bools, arrays, and null.
-        $stringlike = static fn (mixed $v): bool => is_string($v) || is_int($v) || is_float($v);
-
+        // but reject bools, arrays, and null. Inline the type guard in each
+        // closure so PHPStan narrows `$v` to string|int|float before the cast.
         if (($c['alpha'] ?? false) === true) {
-            $checks[] = static fn (mixed $v): bool => $stringlike($v) && (bool) preg_match('/\A[a-zA-Z]+\z/u', (string) $v);
+            $checks[] = static fn (mixed $v): bool => (is_string($v) || is_int($v) || is_float($v)) && (bool) preg_match('/\A[a-zA-Z]+\z/u', (string) $v);
         }
 
         if (($c['alphaDash'] ?? false) === true) {
-            $checks[] = static fn (mixed $v): bool => $stringlike($v) && (bool) preg_match('/\A[a-zA-Z0-9_-]+\z/u', (string) $v);
+            $checks[] = static fn (mixed $v): bool => (is_string($v) || is_int($v) || is_float($v)) && (bool) preg_match('/\A[a-zA-Z0-9_-]+\z/u', (string) $v);
         }
 
         if (($c['alphaNum'] ?? false) === true) {
-            $checks[] = static fn (mixed $v): bool => $stringlike($v) && (bool) preg_match('/\A[a-zA-Z0-9]+\z/u', (string) $v);
+            $checks[] = static fn (mixed $v): bool => (is_string($v) || is_int($v) || is_float($v)) && (bool) preg_match('/\A[a-zA-Z0-9]+\z/u', (string) $v);
         }
     }
 

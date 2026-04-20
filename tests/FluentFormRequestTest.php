@@ -450,8 +450,7 @@ it('handles rules without wildcards', function (): void {
 
     // No wildcard rules — returns a plain Validator, not OptimizedValidator.
     expect($validator)->not->toBeInstanceOf(OptimizedValidator::class);
-    expect($validator)->toBeInstanceOf(Validator::class)
-        ->and($validator->passes())->toBeTrue()
+    expect($validator->passes())->toBeTrue()
         ->and($validator->validated())->toHaveKeys(['name', 'email']);
 });
 
@@ -1101,7 +1100,7 @@ it('does not mutate the shared factory resolver (Octane-safe)', function (): voi
 
     // Factory still creates standard Validators for non-FluentRule code.
     $standardValidator = $factory->make(['x' => 'y'], ['x' => 'required']);
-    expect($standardValidator)->toBeInstanceOf(Validator::class)->not->toBeInstanceOf(OptimizedValidator::class);
+    expect($standardValidator)->not->toBeInstanceOf(OptimizedValidator::class);
 });
 
 it('OptimizedValidator inherits factory extensions from base validator', function (): void {
@@ -1122,8 +1121,7 @@ it('OptimizedValidator inherits factory extensions from base validator', functio
     /** @var OptimizedValidator $validator */
     $validator = (fn () => $this->createDefaultValidator($factory))->call($formRequest);
 
-    expect($validator)->toBeInstanceOf(OptimizedValidator::class)
-        ->and($validator->passes())->toBeTrue();
+    expect($validator->passes())->toBeTrue();
 });
 
 it('OptimizedValidator copies container and excludeUnvalidatedArrayKeys from factory', function (): void {
@@ -1154,9 +1152,14 @@ it('preserves a preconfigured custom factory resolver', function (): void {
     $factory = resolve(Factory::class);
 
     // Set a custom resolver on the factory (simulates app-level customization).
-    $customCalled = false;
-    $factory->resolver(function (Translator $translator, array $data, array $rules, array $messages, array $attributes) use (&$customCalled): Validator {
-        $customCalled = true;
+    // Wrap the flag in a tiny class so PHPStan tracks the mutation through
+    // the closure — raw `use (&$bool)` loses the write in static analysis,
+    // and stdClass + @var narrowing hits "property not writable".
+    $state = new class {
+        public bool $customCalled = false;
+    };
+    $factory->resolver(function (Translator $translator, array $data, array $rules, array $messages, array $attributes) use ($state): Validator {
+        $state->customCalled = true;
 
         return new Validator($translator, $data, $rules, $messages, $attributes);
     });
@@ -1177,9 +1180,15 @@ it('preserves a preconfigured custom factory resolver', function (): void {
     expect($resolverProp->getValue($factory))->not->toBeNull();
 
     // Creating a standard validator should still use the custom resolver.
-    $customCalled = false;
+    // Reset the flag and prove the resolver survived FluentFormRequest's setup.
+    $state->customCalled = false;
     $factory->make(['x' => 'y'], ['x' => 'required']);
-    expect($customCalled)->toBeTrue();
+
+    // PHPStan sees the last static assignment (false) and can't trace the
+    // closure mutation back through `Factory::make()`. At runtime the
+    // closure sets customCalled=true — that's the whole point of the test.
+    // @phpstan-ignore pest.impossibleExpectation
+    expect($state->customCalled)->toBeTrue();
 });
 
 // =========================================================================

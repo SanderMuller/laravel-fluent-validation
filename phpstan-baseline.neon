@@ -1,25 +1,13 @@
 parameters:
 	ignoreErrors:
 		-
-			rawMessage: 'Parameter #1 $callback of function array_map expects (callable(mixed): mixed)|null, Closure(bool|float|GMP|int|resource|string|null): string given.'
-			identifier: argument.type
+			rawMessage: 'Class cognitive complexity is 81, keep it under 80'
+			identifier: complexity.classLike
 			count: 1
 			path: src/BatchDatabaseChecker.php
 
 		-
-			rawMessage: Binary operation "+" between mixed and 0 results in an error.
-			identifier: binaryOp.invalid
-			count: 1
-			path: src/FastCheckCompiler.php
-
-		-
-			rawMessage: Cannot cast mixed to string.
-			identifier: cast.string
-			count: 4
-			path: src/FastCheckCompiler.php
-
-		-
-			rawMessage: 'Class cognitive complexity is 253, keep it under 80'
+			rawMessage: 'Class cognitive complexity is 257, keep it under 80'
 			identifier: complexity.classLike
 			count: 1
 			path: src/FastCheckCompiler.php
@@ -31,7 +19,7 @@ parameters:
 			path: src/FastCheckCompiler.php
 
 		-
-			rawMessage: 'Cognitive complexity for "SanderMuller\FluentValidation\FastCheckCompiler::buildClosure()" is 48, keep it under 20'
+			rawMessage: 'Cognitive complexity for "SanderMuller\FluentValidation\FastCheckCompiler::buildClosure()" is 52, keep it under 20'
 			identifier: complexity.functionLike
 			count: 1
 			path: src/FastCheckCompiler.php
@@ -49,24 +37,6 @@ parameters:
 			path: src/FastCheckCompiler.php
 
 		-
-			rawMessage: 'Parameter #1 $value of function count expects array|Countable, mixed given.'
-			identifier: argument.type
-			count: 1
-			path: src/FastCheckCompiler.php
-
-		-
-			rawMessage: 'Parameter #2 of closure expects array<string, mixed>, array given.'
-			identifier: argument.type
-			count: 1
-			path: src/FastCheckCompiler.php
-
-		-
-			rawMessage: 'Parameter #3 $item of static method SanderMuller\FluentValidation\FastCheckCompiler::presenceConditionActive() expects array<string, mixed>, array given.'
-			identifier: argument.type
-			count: 1
-			path: src/FastCheckCompiler.php
-
-		-
 			rawMessage: 'Cognitive complexity for "SanderMuller\FluentValidation\FluentFormRequest::preExcludeRules()" is 21, keep it under 20'
 			identifier: complexity.functionLike
 			count: 1
@@ -79,13 +49,7 @@ parameters:
 			path: src/OptimizedValidator.php
 
 		-
-			rawMessage: Cannot cast mixed to string.
-			identifier: cast.string
-			count: 1
-			path: src/PrecomputedPresenceVerifier.php
-
-		-
-			rawMessage: 'Class cognitive complexity is 340, keep it under 80'
+			rawMessage: 'Class cognitive complexity is 274, keep it under 80'
 			identifier: complexity.classLike
 			count: 1
 			path: src/RuleSet.php
@@ -109,43 +73,7 @@ parameters:
 			path: src/RuleSet.php
 
 		-
-			rawMessage: 'Method SanderMuller\FluentValidation\RuleSet::compileToArrays() has parameter $rules with no value type specified in iterable type array.'
-			identifier: missingType.iterableValue
-			count: 1
-			path: src/RuleSet.php
-
-		-
-			rawMessage: 'Parameter #1 $rules of static method SanderMuller\FluentValidation\RuleSet::compile() expects array<string, mixed>, array given.'
-			identifier: argument.type
-			count: 1
-			path: src/RuleSet.php
-
-		-
-			rawMessage: 'Parameter #2 of closure expects array<string, mixed>, array given.'
-			identifier: argument.type
-			count: 2
-			path: src/RuleSet.php
-
-		-
-			rawMessage: 'Parameter #2 of closure expects array<string, mixed>, array<mixed> given.'
-			identifier: argument.type
-			count: 1
-			path: src/RuleSet.php
-
-		-
-			rawMessage: 'Call to method ignoring() of internal interface Pest\Arch\Contracts\ArchExpectation from outside its root namespace Pest.'
-			identifier: method.internalInterface
-			count: 2
-			path: tests/ArchTest.php
-
-		-
-			rawMessage: 'Calling toBeInt() on Expectation<int> will always pass — the assertion is redundant.'
-			identifier: pest.redundantExpectation
-			count: 1
-			path: tests/BatchDatabaseValidationTest.php
-
-		-
-			rawMessage: 'Cognitive complexity for "AnonymousClass3648ab0e78c61a66a145908b66b5b36f::preExcludeRules()" is 21, keep it under 20'
+			rawMessage: 'Cognitive complexity for "AnonymousClass76dabe554b3ccb5045e167af68715137::preExcludeRules()" is 21, keep it under 20'
 			identifier: complexity.functionLike
 			count: 1
 			path: tests/BatchDatabaseValidationTest.php
@@ -155,189 +83,3 @@ parameters:
 			identifier: complexity.functionLike
 			count: 1
 			path: tests/ExpandsWildcardsTest.php
-
-		-
-			rawMessage: 'Calling toBeTrue() on Expectation<true> will always pass — the assertion is redundant.'
-			identifier: pest.redundantExpectation
-			count: 7
-			path: tests/FastCheckParityTest.php
-
-		-
-			rawMessage: 'Offset ''value'' on array{value: ''2030-05-01''|''2030-06-10'', start: ''2030-06-01''}|array{value: ''bar'', other: ''bar''}|array{value: ''foo'', trigger: ''x'', other: ''bar''|''foo''}|array{value: 3|10, a: ''x'', b?: ''y'', min: 5} on left side of ?? always exists and is not nullable.'
-			identifier: nullCoalesce.offset
-			count: 1
-			path: tests/FastCheckParityTest.php
-
-		-
-			rawMessage: 'Parameter #2 of closure expects array<string, mixed>, array given.'
-			identifier: argument.type
-			count: 6
-			path: tests/FastCheckParityTest.php
-
-		-
-			rawMessage: 'Parameter #3 of function sprintf is expected to be string by placeholder #2 ("%%s"), string|false given.'
-			identifier: argument.type
-			count: 5
-			path: tests/FastCheckParityTest.php
-
-		-
-			rawMessage: 'Parameter #4 of function sprintf is expected to be string by placeholder #3 ("%%s"), string|false given.'
-			identifier: argument.type
-			count: 1
-			path: tests/FastCheckParityTest.php
-
-		-
-			rawMessage: 'Calling toBeInstanceOf() on Expectation<Illuminate\Validation\Validator> will always pass — the assertion is redundant.'
-			identifier: pest.redundantExpectation
-			count: 2
-			path: tests/FluentFormRequestTest.php
-
-		-
-			rawMessage: 'Calling toBeInstanceOf() on Expectation<SanderMuller\FluentValidation\OptimizedValidator> will always pass — the assertion is redundant.'
-			identifier: pest.redundantExpectation
-			count: 1
-			path: tests/FluentFormRequestTest.php
-
-		-
-			rawMessage: 'Calling toBeTrue() on Expectation<false> will always fail.'
-			identifier: pest.impossibleExpectation
-			count: 1
-			path: tests/FluentFormRequestTest.php
-
-		-
-			rawMessage: 'Calling toBeArray() on Expectation<array<mixed>> will always pass — the assertion is redundant.'
-			identifier: pest.redundantExpectation
-			count: 1
-			path: tests/FluentRuleTest.php
-
-		-
-			rawMessage: 'Calling toBeArray() on Expectation<list<object|string>> will always pass — the assertion is redundant.'
-			identifier: pest.redundantExpectation
-			count: 1
-			path: tests/FluentRuleTest.php
-
-		-
-			rawMessage: 'Calling toBeInstanceOf() on Expectation<Illuminate\Validation\Rules\AnyOf> will always pass — the assertion is redundant.'
-			identifier: pest.redundantExpectation
-			count: 1
-			path: tests/FluentRuleTest.php
-
-		-
-			rawMessage: 'Calling toBeInstanceOf() on Expectation<SanderMuller\FluentValidation\Rules\ArrayRule> will always pass — the assertion is redundant.'
-			identifier: pest.redundantExpectation
-			count: 1
-			path: tests/FluentRuleTest.php
-
-		-
-			rawMessage: 'Calling toBeInstanceOf() on Expectation<SanderMuller\FluentValidation\Rules\BooleanRule> will always pass — the assertion is redundant.'
-			identifier: pest.redundantExpectation
-			count: 1
-			path: tests/FluentRuleTest.php
-
-		-
-			rawMessage: 'Calling toBeInstanceOf() on Expectation<SanderMuller\FluentValidation\Rules\DateRule> will always pass — the assertion is redundant.'
-			identifier: pest.redundantExpectation
-			count: 2
-			path: tests/FluentRuleTest.php
-
-		-
-			rawMessage: 'Calling toBeInstanceOf() on Expectation<SanderMuller\FluentValidation\Rules\EmailRule> will always pass — the assertion is redundant.'
-			identifier: pest.redundantExpectation
-			count: 1
-			path: tests/FluentRuleTest.php
-
-		-
-			rawMessage: 'Calling toBeInstanceOf() on Expectation<SanderMuller\FluentValidation\Rules\FileRule> will always pass — the assertion is redundant.'
-			identifier: pest.redundantExpectation
-			count: 1
-			path: tests/FluentRuleTest.php
-
-		-
-			rawMessage: 'Calling toBeInstanceOf() on Expectation<SanderMuller\FluentValidation\Rules\ImageRule> will always pass — the assertion is redundant.'
-			identifier: pest.redundantExpectation
-			count: 1
-			path: tests/FluentRuleTest.php
-
-		-
-			rawMessage: 'Calling toBeInstanceOf() on Expectation<SanderMuller\FluentValidation\Rules\NumericRule> will always pass — the assertion is redundant.'
-			identifier: pest.redundantExpectation
-			count: 1
-			path: tests/FluentRuleTest.php
-
-		-
-			rawMessage: 'Calling toBeInstanceOf() on Expectation<SanderMuller\FluentValidation\Rules\PasswordRule> will always pass — the assertion is redundant.'
-			identifier: pest.redundantExpectation
-			count: 1
-			path: tests/FluentRuleTest.php
-
-		-
-			rawMessage: 'Calling toBeInstanceOf() on Expectation<SanderMuller\FluentValidation\Rules\StringRule> will always pass — the assertion is redundant.'
-			identifier: pest.redundantExpectation
-			count: 1
-			path: tests/FluentRuleTest.php
-
-		-
-			rawMessage: 'Out of 1317 possible param types, only 1308 - 99.3 %% actually have it. Add more param types to get over 100 %%'
-			identifier: typeCoverage.paramTypeCoverage
-			count: 1
-			path: tests/HasFluentValidationForFilamentTest.php
-
-		-
-			rawMessage: 'Property FakeFilamentBase::$lastValidateCall (array{rules: mixed, messages: array<string, string>, attributes: array<string, string>}) does not accept array{rules: mixed, messages: array<mixed>, attributes: array<mixed>}.'
-			identifier: assign.propertyType
-			count: 1
-			path: tests/HasFluentValidationForFilamentTest.php
-
-		-
-			rawMessage: 'Property FakeFilamentBase::$lastValidateOnlyCall (array{field: string, rules: mixed, messages: array<string, string>, attributes: array<string, string>}) does not accept array{field: string, rules: mixed, messages: array<mixed>, attributes: array<mixed>}.'
-			identifier: assign.propertyType
-			count: 1
-			path: tests/HasFluentValidationForFilamentTest.php
-
-		-
-			rawMessage: 'Out of 1317 possible param types, only 1308 - 99.3 %% actually have it. Add more param types to get over 100 %%'
-			identifier: typeCoverage.paramTypeCoverage
-			count: 3
-			path: tests/HasFluentValidationTest.php
-
-		-
-			rawMessage: 'Out of 1317 possible param types, only 1308 - 99.3 %% actually have it. Add more param types to get over 100 %%'
-			identifier: typeCoverage.paramTypeCoverage
-			count: 2
-			path: tests/RuleSetTest.php
-
-		-
-			rawMessage: 'Out of 1317 possible param types, only 1308 - 99.3 %% actually have it. Add more param types to get over 100 %%'
-			identifier: typeCoverage.paramTypeCoverage
-			count: 1
-			path: tests/Fixtures/AppealLivewireComponent.php
-
-		-
-			rawMessage: 'Out of 1317 possible param types, only 1308 - 99.3 %% actually have it. Add more param types to get over 100 %%'
-			identifier: typeCoverage.paramTypeCoverage
-			count: 2
-			path: tests/TestCase.php
-
-		-
-			rawMessage: 'Calling toBeInstanceOf() on Expectation<Illuminate\Contracts\Validation\Validator> will always pass — the assertion is redundant.'
-			identifier: pest.redundantExpectation
-			count: 1
-			path: tests/RuleSetTest.php
-
-		-
-			rawMessage: 'Parameter #1 $values of method SanderMuller\FluentValidation\Rules\StringRule::in() expects array<int, mixed>|class-string<BackedEnum>|Illuminate\Contracts\Support\Arrayable<(int|string), mixed>, Illuminate\Support\Collection<int, string> given.'
-			identifier: argument.type
-			count: 1
-			path: tests/RuleSetTest.php
-
-		-
-			rawMessage: 'Parameter #1 $values of method SanderMuller\FluentValidation\Rules\StringRule::notIn() expects array<int, mixed>|Illuminate\Contracts\Support\Arrayable<(int|string), mixed>|int|string, Illuminate\Support\Collection<int, string> given.'
-			identifier: argument.type
-			count: 1
-			path: tests/RuleSetTest.php
-
-		-
-			rawMessage: 'Calling toBeTrue() on Expectation<true> will always pass — the assertion is redundant.'
-			identifier: pest.redundantExpectation
-			count: 1
-			path: tests/SlowPathBenchTest.php

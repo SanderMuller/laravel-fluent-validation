@@ -4,7 +4,6 @@ namespace SanderMuller\FluentValidation;
 
 use Illuminate\Contracts\Support\Arrayable;
 use Illuminate\Contracts\Validation\ValidationRule;
-use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\MessageBag;
@@ -467,7 +466,7 @@ final class RuleSet implements Arrayable, IteratorAggregate
     private function validateItems(array $items, array $itemRules, array $itemMessages, array $itemAttributes, string $parent, bool $isScalar, bool $stopOnFirstFailure = false): array
     {
         $conditionalFields = $this->analyzeConditionals($itemRules);
-        $hasPresenceConditionals = $this->hasPresenceConditionals($itemRules);
+        $hasPresenceConditionals = PresenceConditionalReducer::hasAny($itemRules);
 
         // Presence conditionals (required_without:FIELD) depend on arbitrary
         // sibling fields within each item, so two items sharing the same
@@ -646,292 +645,10 @@ final class RuleSet implements Arrayable, IteratorAggregate
         }
 
         foreach ($itemRules as $field => $rule) {
-            $itemRules[$field] = $this->applyPresenceConditionals($rule, (string) $field, $itemData, $itemMessages);
+            $itemRules[$field] = PresenceConditionalReducer::apply($rule, (string) $field, $itemData, $itemMessages);
         }
 
         return $itemRules;
-    }
-
-    /**
-     * Detect presence-conditional rules in pipe-string or list form.
-     * Phase 1 scope: single-param `required_without:FIELD`.
-     *
-     * @param  array<string, mixed>  $itemRules
-     */
-    private function hasPresenceConditionals(array $itemRules): bool
-    {
-        foreach ($itemRules as $rule) {
-            if (is_string($rule) && $this->stringContainsPresenceConditional($rule)) {
-                return true;
-            }
-
-            if (is_array($rule)) {
-                foreach ($rule as $sub) {
-                    if (is_string($sub) && $this->stringContainsPresenceConditional($sub)) {
-                        return true;
-                    }
-                }
-            }
-        }
-
-        return false;
-    }
-
-    private function stringContainsPresenceConditional(string $rule): bool
-    {
-        if (str_contains($rule, '|')) {
-            foreach (explode('|', $rule) as $part) {
-                if ($this->parsePresenceRule($part) !== null) {
-                    return true;
-                }
-            }
-
-            return false;
-        }
-
-        return $this->parsePresenceRule($rule) !== null;
-    }
-
-    /**
-     * Return `[ruleName, rawParam]` when `$rule` is one of the recognized
-     * presence conditionals, otherwise null. The longest-prefix match matters:
-     * `required_with_all:x` must resolve to `required_with_all`, not `required_with`.
-     *
-     * @return array{0: string, 1: string}|null
-     */
-    private function parsePresenceRule(string $rule): ?array
-    {
-        // Longest prefix first to disambiguate `required_with` vs `required_with_all`.
-        $ordered = ['required_without_all', 'required_with_all', 'required_without', 'required_with'];
-        foreach ($ordered as $name) {
-            $prefix = $name . ':';
-            if (str_starts_with($rule, $prefix)) {
-                return [$name, substr($rule, strlen($prefix))];
-            }
-        }
-
-        return null;
-    }
-
-    /**
-     * Rewrite presence-conditional rules for a single field against item data.
-     * Handles pipe-joined strings and list-of-rules shape.
-     *
-     * @param  array<string, mixed>   $itemData
-     * @param  array<string, string>  $itemMessages
-     */
-    private function applyPresenceConditionals(mixed $rule, string $field, array $itemData, array $itemMessages): mixed
-    {
-        if (is_string($rule)) {
-            if (! str_contains($rule, '|')) {
-                $rewritten = $this->rewritePresenceConditional($rule, $field, $itemData, $itemMessages);
-
-                return $rewritten ?? '';
-            }
-
-            $parts = [];
-            foreach (explode('|', $rule) as $part) {
-                $rewritten = $this->rewritePresenceConditional($part, $field, $itemData, $itemMessages);
-                if ($rewritten !== null) {
-                    $parts[] = $rewritten;
-                }
-            }
-
-            return implode('|', $parts);
-        }
-
-        if (! is_array($rule)) {
-            return $rule;
-        }
-
-        $out = [];
-        foreach ($rule as $sub) {
-            if (is_string($sub)) {
-                $rewritten = $this->rewritePresenceConditional($sub, $field, $itemData, $itemMessages);
-                if ($rewritten !== null) {
-                    $out[] = $rewritten;
-                }
-
-                continue;
-            }
-
-            $out[] = $sub;
-        }
-
-        return $out;
-    }
-
-    /**
-     * Rewrite one rule string: drop when the presence conditional is inactive,
-     * collapse to plain `required` when active and no custom message overrides
-     * the original rule name, otherwise return unchanged.
-     *
-     * All four rule names + single- and multi-param forms are covered.
-     *
-     * @param  array<string, mixed>   $itemData
-     * @param  array<string, string>  $itemMessages
-     */
-    private function rewritePresenceConditional(string $rule, string $field, array $itemData, array $itemMessages): ?string
-    {
-        $parsed = $this->parsePresenceRule($rule);
-        if ($parsed === null) {
-            return $rule;
-        }
-
-        [$ruleName, $rawParam] = $parsed;
-
-        // Malformed rule: no parameters at all (`required_with_all:`).
-        // Laravel's behavior for this shape is quirky and tied to implicit-rule
-        // short-circuits — simplest correct course is to leave the rule intact
-        // and let Laravel decide, rather than risk a verdict divergence on
-        // pathological input.
-        if ($rawParam === '') {
-            return $rule;
-        }
-
-        // Match Laravel's `ValidationRuleParser::parseParameters`: `str_getcsv`
-        // with CSV semantics (handles quoted commas, preserves `null` for
-        // empty slots between commas). Using `explode` instead silently
-        // diverges on stray leading/trailing commas and CSV-quoted fields.
-        $params = str_getcsv($rawParam, ',', '"', '\\');
-
-        if (! $this->evaluatePresenceRule($ruleName, $params, $itemData)) {
-            return null;
-        }
-
-        if ($this->hasCustomPresenceMessage($field, $ruleName, $itemMessages)) {
-            return $rule;
-        }
-
-        return 'required';
-    }
-
-    /**
-     * Activation predicate for every supported presence conditional. Single-
-     * param inputs are the phase 1+2 scope; `$params` is a list for phase 3
-     * multi-param readiness without reshaping this helper.
-     *
-     * | rule                    | active when                    |
-     * |-------------------------|--------------------------------|
-     * | `required_with`         | ANY of `$params` present       |
-     * | `required_without`      | ANY of `$params` absent        |
-     * | `required_with_all`     | ALL of `$params` present       |
-     * | `required_without_all`  | ALL of `$params` absent        |
-     *
-     * @param  list<?string>          $params  May contain `null` entries when `str_getcsv`
-     *                                         resolved an empty slot (matches Laravel's
-     *                                         `Arr::get($data, null)` → full-item semantics).
-     * @param  array<string, mixed>   $itemData
-     */
-    private function evaluatePresenceRule(string $ruleName, array $params, array $itemData): bool
-    {
-        $anyPresent = false;
-        $allPresent = true;
-
-        foreach ($params as $param) {
-            if ($this->fieldPresentForPresenceCheck($itemData, $param)) {
-                $anyPresent = true;
-            } else {
-                $allPresent = false;
-            }
-        }
-
-        return match ($ruleName) {
-            'required_with' => $anyPresent,
-            'required_without' => ! $allPresent,
-            'required_with_all' => $allPresent,
-            'required_without_all' => ! $anyPresent,
-            default => false,
-        };
-    }
-
-    /**
-     * Mirror Laravel's `validateRequired` — null, trim-empty string, empty
-     * Countable, and missing UploadedFile path all count as absent. The
-     * dependent-field parameter may be a nested path
-     * (`required_without:profile.birthdate`), so resolve via `data_get`
-     * instead of direct array-key lookup.
-     *
-     * @param  array<string, mixed>  $itemData
-     */
-    private function fieldPresentForPresenceCheck(array $itemData, ?string $field): bool
-    {
-        $marker = new \stdClass();
-        // A `null` key mirrors `Arr::get($data, null)` and resolves to the
-        // full item (that's how Laravel treats a null parameter slot).
-        $value = $field === null ? $itemData : data_get($itemData, $field, $marker);
-
-        if ($value === $marker || $value === null) {
-            return false;
-        }
-
-        if (is_string($value) && trim($value) === '') {
-            return false;
-        }
-
-        if (is_countable($value) && count($value) < 1) {
-            return false;
-        }
-
-        if ($value instanceof UploadedFile) {
-            return (string) $value->getPath() !== '';
-        }
-
-        return true;
-    }
-
-    /**
-     * Check whether the user has supplied a custom message for the original
-     * rule name. Checks both the `$messages` map passed to `RuleSet::check`
-     * and the translator's `validation.custom.{field}.{rule}` keys. If either
-     * source has an override, the reducer must NOT rewrite the rule, or the
-     * override will be bypassed at message-formatting time.
-     *
-     * @param  array<string, string>  $itemMessages
-     */
-    private function hasCustomPresenceMessage(string $field, string $ruleName, array $itemMessages): bool
-    {
-        // Inside wildcard-item reduction, `$field` is the item-local key
-        // (e.g. `postcode`), but user-supplied messages typically come in
-        // via the original wildcard form (`addresses.*.postcode.required_without`).
-        // Match any message whose key equals `{field}.{rule}` or ends with
-        // `.{field}.{rule}` — covers bare-field, wildcard-prefixed, and
-        // any parent-prefixed variant.
-        $suffix = '.' . $field . '.' . $ruleName;
-        $exactKey = $field . '.' . $ruleName;
-        foreach (array_keys($itemMessages) as $key) {
-            $key = (string) $key;
-            if ($key === $exactKey || str_ends_with($key, $suffix)) {
-                return true;
-            }
-        }
-
-        if (function_exists('trans')) {
-            // Direct lookup covers the bare-field translator override
-            // (`validation.custom.postcode.required_without`).
-            $translatorKey = 'validation.custom.' . $field . '.' . $ruleName;
-            $translated = trans($translatorKey);
-            if (is_string($translated) && $translated !== $translatorKey) {
-                return true;
-            }
-
-            // Wildcard-keyed translator overrides
-            // (`validation.custom.addresses.*.postcode.required_without`)
-            // are resolved via Laravel's `Str::is()` against the flattened
-            // `validation.custom` namespace. Mirror Validator::getCustomMessageFromTranslator.
-            $custom = trans('validation.custom');
-            if (is_array($custom)) {
-                $shortKey = $field . '.' . $ruleName;
-                foreach (array_keys(Arr::dot($custom)) as $customKey) {
-                    $customKey = (string) $customKey;
-                    if ($customKey === $shortKey || str_ends_with($customKey, '.' . $shortKey)) {
-                        return true;
-                    }
-                }
-            }
-        }
-
-        return false;
     }
 
     /**
@@ -1172,6 +889,7 @@ final class RuleSet implements Arrayable, IteratorAggregate
                                 return false;
                             }
 
+                            /** @var array<string, mixed> $item */
                             if (! $itemAwareCheck($item[$childField] ?? null, $item)) {
                                 return false;
                             }
@@ -1202,12 +920,18 @@ final class RuleSet implements Arrayable, IteratorAggregate
             } elseif ($field === '*') {
                 // Scalar each: value is in '_v' key
                 if ($itemAwareCheck instanceof \Closure) {
-                    $checks[] = static fn (array $data): bool => $itemAwareCheck($data['_v'] ?? null, $data);
+                    $checks[] = static function (array $data) use ($itemAwareCheck): bool {
+                        /** @var array<string, mixed> $data — caller guarantees string-keyed. */
+                        return $itemAwareCheck($data['_v'] ?? null, $data);
+                    };
                 } else {
                     $checks[] = static fn (array $data): bool => $valueCheck($data['_v'] ?? null);
                 }
             } elseif ($itemAwareCheck instanceof \Closure) {
-                $checks[] = static fn (array $data): bool => $itemAwareCheck($data[$field] ?? null, $data);
+                $checks[] = static function (array $data) use ($field, $itemAwareCheck): bool {
+                    /** @var array<string, mixed> $data — caller guarantees string-keyed. */
+                    return $itemAwareCheck($data[$field] ?? null, $data);
+                };
             } else {
                 $checks[] = static fn (array $data): bool => $valueCheck($data[$field] ?? null);
             }
@@ -1405,7 +1129,10 @@ final class RuleSet implements Arrayable, IteratorAggregate
         return [self::compile($flattened), $messages, $attributes];
     }
 
-    /** @return array<string, array<mixed>> */
+    /**
+     * @param  array<string, mixed>  $rules
+     * @return array<string, array<mixed>>
+     */
     public static function compileToArrays(array $rules): array
     {
         $compiled = self::compile($rules);

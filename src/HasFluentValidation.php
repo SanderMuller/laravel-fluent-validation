@@ -192,7 +192,7 @@ trait HasFluentValidation
         $rulesFromOutside = array_merge_recursive(
             ...array_map(
                 /** @return array<string, mixed> */
-                fn ($i): array => (array) value($i),
+                fn (mixed $i): array => (array) value($i),
                 $outside,
             ),
         );

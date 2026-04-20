@@ -102,7 +102,8 @@ it('benchmarks all code paths', function (): void {
 
     fprintf(STDERR, "\n");
 
-    expect(true)->toBeTrue();
+    // Real behavioral check: the native baseline actually executed.
+    expect($nativeMedian)->toBeGreaterThan(0);
 })->group('benchmark');
 
 it('benchmarks batched exists vs native exists', function (): void {

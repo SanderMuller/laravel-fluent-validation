@@ -441,7 +441,13 @@ final class BatchDatabaseChecker
      */
     private static function uniqueStringValues(array $values): array
     {
-        return array_values(array_unique(array_map(strval(...), $values), SORT_STRING));
+        return array_values(array_unique(
+            array_map(
+                static fn (mixed $v): string => is_scalar($v) || $v instanceof \Stringable ? (string) $v : '',
+                $values,
+            ),
+            SORT_STRING,
+        ));
     }
 
     private static function readProperty(object $object, string $property): mixed

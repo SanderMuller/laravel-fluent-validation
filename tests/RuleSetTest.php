@@ -1220,14 +1220,14 @@ it('modify() passes a clone of the stored rule to the callback', function (): vo
 it('modify() throws LogicException when the field is not in the rule set', function (): void {
     $ruleSet = RuleSet::from(['name' => FluentRule::string()->required()]);
 
-    expect(static fn () => $ruleSet->modify('missing', fn ($r): mixed => $r))
+    expect(static fn () => $ruleSet->modify('missing', fn (mixed $r): mixed => $r))
         ->toThrow(LogicException::class, 'use put() to add new fields');
 });
 
 it('modify() returns the same instance for chaining', function (): void {
     $ruleSet = RuleSet::from(['name' => FluentRule::string()->required()]);
 
-    expect($ruleSet->modify('name', fn ($r): mixed => $r))->toBe($ruleSet);
+    expect($ruleSet->modify('name', fn (mixed $r): mixed => $r))->toBe($ruleSet);
 });
 
 it('modify() composes with merge / only / put in a fluent chain', function (): void {
@@ -1917,6 +1917,10 @@ it('partial fast-check catches single invalid item among many valid', function (
 
 it('in() accepts Arrayable (Collection)', function (): void {
     $collection = collect(['admin', 'editor', 'viewer']);
+    // Collection<int, string> satisfies Arrayable<array-key, mixed> at runtime;
+    // PHPStan's generic invariance produces a false positive here, which is
+    // exactly the misfire this test is guarding against.
+    // @phpstan-ignore argument.type
     $rule = FluentRule::string()->required()->in($collection);
     $compiled = $rule->compiledRules();
 
@@ -1933,6 +1937,8 @@ it('in() accepts Arrayable (Collection)', function (): void {
 
 it('notIn() accepts Arrayable (Collection)', function (): void {
     $collection = collect(['banned', 'suspended']);
+    // Same generic-invariance false positive as in() sibling test.
+    // @phpstan-ignore argument.type
     $rule = FluentRule::string()->required()->notIn($collection);
 
     $validator = makeValidator(['status' => 'active'], ['status' => $rule]);
@@ -2292,7 +2298,10 @@ it('check() exposes underlying validator via escape hatch', function (): void {
         'name' => FluentRule::string()->required(),
     ])->check(['name' => '']);
 
-    expect($result->validator())->toBeInstanceOf(Illuminate\Contracts\Validation\Validator::class);
+    // Escape hatch contract: validator() is callable and returns a validator
+    // whose error bag reflects the failed run. Native return type already
+    // guarantees the instance shape; behavior is what matters.
+    expect($result->validator()->errors()->has('name'))->toBeTrue();
 });
 
 it('check() safe() returns ValidatedInput on success', function (): void {

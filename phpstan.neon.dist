@@ -87,3 +87,10 @@ parameters:
             identifier: method.notFound
             path: tests/ArchTest.php
             reportUnmatched: false
+        # Pest Arch's ArchExpectation interface is marked @internal but its
+        # fluent API (->ignoring(), ->toOnlyUse(), etc.) is precisely how the
+        # public Arch API is meant to be used.
+        -
+            identifier: method.internalInterface
+            path: tests/ArchTest.php
+            reportUnmatched: false

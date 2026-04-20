@@ -415,8 +415,9 @@ it('precomputed verifier falls back to original verifier for unknown lookups', f
     // (alice has no username column in our test table, so the count would be based on actual DB)
     // The key point: it doesn't return 0 blindly — it delegates to the real verifier.
     $count = $verifier->getCount('users', 'username', 'alice@example.com');
-    // Returns whatever the real DB says — the point is it didn't crash or return 0 blindly
-    expect($count)->toBeInt();
+    // The point is it didn't crash or return 0 blindly — delegated to the real
+    // verifier. Non-negative is the minimum sane contract.
+    expect($count)->toBeGreaterThanOrEqual(0);
 });
 
 // =========================================================================

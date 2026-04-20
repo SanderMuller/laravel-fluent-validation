@@ -221,19 +221,19 @@ For release notes that claim a performance improvement or regression fix, cite t
 
 ## Quick Reference
 
-| Step               | Command                                                          | Pass criteria                             |
-|--------------------|------------------------------------------------------------------|-------------------------------------------|
-| 1. Rector          | `vendor/bin/rector process \|\| true`                            | 0 files changed                           |
-| 2. Pint            | `vendor/bin/pint --dirty --format agent \|\| true`               | clean                                     |
-| 3. Tests           | `vendor/bin/pest \|\| true`                                      | 0 failures                                |
-| 4. PHPStan         | `vendor/bin/phpstan analyse --memory-limit=2G \|\| true`         | 0 errors                                  |
-| 5a. README         | manual scan vs `git log <last-tag>..HEAD`                        | no stale claims; all changed rules listed |
-| 5b. Boost docs     | `vendor/bin/testbench package-boost:sync \|\| true`              | `.ai/` ↔ generated files in sync          |
-| 6a. Hot-path bench | snapshot baseline → `php benchmark.php --ci \|\| true` (2+ runs) | no >10% regression / speedup-notch drop   |
-| 6b. DB-batch bench | `vendor/bin/pest --group=benchmark \|\| true`                    | no timing regression vs last release      |
-| **commit + push**  | user confirms changes + `git push`                               | HEAD pushed to `origin/main`              |
-| 7. CI green-light  | `gh run list --commit "$(git rev-parse HEAD)"` all complete + no failure | every run for the SHA in `{success, skipped}` |
-| 8. Release notes   | preflight (clean tree + pushed + CI green) → `Write internal/release-notes-<version>.md` | file exists only after steps 1-7 all passed |
+| Step               | Command                                                                                  | Pass criteria                                 |
+|--------------------|------------------------------------------------------------------------------------------|-----------------------------------------------|
+| 1. Rector          | `vendor/bin/rector process \|\| true`                                                    | 0 files changed                               |
+| 2. Pint            | `vendor/bin/pint --dirty --format agent \|\| true`                                       | clean                                         |
+| 3. Tests           | `vendor/bin/pest \|\| true`                                                              | 0 failures                                    |
+| 4. PHPStan         | `vendor/bin/phpstan analyse --memory-limit=2G \|\| true`                                 | 0 errors                                      |
+| 5a. README         | manual scan vs `git log <last-tag>..HEAD`                                                | no stale claims; all changed rules listed     |
+| 5b. Boost docs     | `vendor/bin/testbench package-boost:sync \|\| true`                                      | `.ai/` ↔ generated files in sync              |
+| 6a. Hot-path bench | snapshot baseline → `php benchmark.php --ci \|\| true` (2+ runs)                         | no >10% regression / speedup-notch drop       |
+| 6b. DB-batch bench | `vendor/bin/pest --group=benchmark \|\| true`                                            | no timing regression vs last release          |
+| **commit + push**  | user confirms changes + `git push`                                                       | HEAD pushed to `origin/main`                  |
+| 7. CI green-light  | `gh run list --commit "$(git rev-parse HEAD)"` all complete + no failure                 | every run for the SHA in `{success, skipped}` |
+| 8. Release notes   | preflight (clean tree + pushed + CI green) → `Write internal/release-notes-<version>.md` | file exists only after steps 1-7 all passed   |
 
 ## Important
 

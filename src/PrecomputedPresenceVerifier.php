@@ -40,7 +40,11 @@ final class PrecomputedPresenceVerifier implements DatabasePresenceVerifierInter
         $map = [];
 
         foreach ($values as $v) {
-            if ($v !== null) {
+            if ($v === null) {
+                continue;
+            }
+
+            if (is_scalar($v) || $v instanceof \Stringable) {
                 $map[(string) $v] = true;
             }
         }

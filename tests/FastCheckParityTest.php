@@ -107,9 +107,8 @@ it('fast-check closure verdict matches Laravel validator', function (string $rul
 
     if (! $closure instanceof Closure) {
         // Rule not fast-checkable — nothing to compare.
-        expect(true)->toBeTrue();
+        $this->markTestSkipped('Rule not fast-checkable — no closure to compare.');
 
-        return;
     }
 
     $fastResult = $closure($value);
@@ -171,7 +170,7 @@ function itemAwareDateParityGrid(): iterable
 
     foreach ($rules as $rule) {
         foreach ($items as $itemLabel => $item) {
-            $value = $item['value'] ?? null;
+            $value = $item['value'];
             yield "{$rule} :: {$itemLabel}" => [$rule, $value, $item];
         }
     }
@@ -182,11 +181,11 @@ it('item-aware fast-check verdict matches Laravel validator for date field-refs'
 
     if (! $closure instanceof Closure) {
         // Rule not item-aware fast-checkable — skip.
-        expect(true)->toBeTrue();
+        $this->markTestSkipped('Rule not fast-checkable — no closure to compare.');
 
-        return;
     }
 
+    /** @var array<string, mixed> $item */
     $fastResult = $closure($value, $item);
 
     // Laravel needs the full item context for field-ref rules.
@@ -197,7 +196,7 @@ it('item-aware fast-check verdict matches Laravel validator for date field-refs'
         sprintf(
             'Parity drift for rule "%s" on item %s: fast=%s, Laravel=%s',
             $rule,
-            json_encode($item, JSON_UNESCAPED_SLASHES),
+            (string) json_encode($item, JSON_UNESCAPED_SLASHES),
             $fastResult ? 'pass' : 'fail',
             $laravelResult ? 'pass' : 'fail',
         ),
@@ -244,7 +243,7 @@ function itemAwareSameDifferentParityGrid(): iterable
 
     foreach ($rules as $rule) {
         foreach ($items as $itemLabel => $item) {
-            $value = $item['value'] ?? null;
+            $value = $item['value'];
             yield "{$rule} :: {$itemLabel}" => [$rule, $value, $item];
         }
     }
@@ -255,11 +254,11 @@ it('item-aware fast-check verdict matches Laravel validator for same/different f
 
     if (! $closure instanceof Closure) {
         // Rule not yet item-aware fast-checkable — skip (implementation pending).
-        expect(true)->toBeTrue();
+        $this->markTestSkipped('Rule not fast-checkable — no closure to compare.');
 
-        return;
     }
 
+    /** @var array<string, mixed> $item */
     $fastResult = $closure($value, $item);
     $laravelResult = Validator::make($item, ['value' => $rule])->passes();
 
@@ -268,7 +267,7 @@ it('item-aware fast-check verdict matches Laravel validator for same/different f
         sprintf(
             'Parity drift for rule "%s" on item %s: fast=%s, Laravel=%s',
             $rule,
-            json_encode($item, JSON_UNESCAPED_SLASHES),
+            (string) json_encode($item, JSON_UNESCAPED_SLASHES),
             $fastResult ? 'pass' : 'fail',
             $laravelResult ? 'pass' : 'fail',
         ),
@@ -371,11 +370,11 @@ it('item-aware fast-check verdict matches Laravel validator for confirmed rule',
     $closure = FastCheckCompiler::compileWithItemContext($rule, $attr);
 
     if (! $closure instanceof Closure) {
-        expect(true)->toBeTrue();
+        $this->markTestSkipped('Rule not fast-checkable — no closure to compare.');
 
-        return;
     }
 
+    /** @var array<string, mixed> $item */
     $fastResult = $closure($value, $item);
 
     // Laravel sees the rule under the attribute name — the attribute's key
@@ -388,7 +387,7 @@ it('item-aware fast-check verdict matches Laravel validator for confirmed rule',
             'Parity drift for rule "%s" on attr "%s" with item %s: fast=%s, Laravel=%s',
             $rule,
             $attr,
-            json_encode($item, JSON_UNESCAPED_SLASHES),
+            (string) json_encode($item, JSON_UNESCAPED_SLASHES),
             $fastResult ? 'pass' : 'fail',
             $laravelResult ? 'pass' : 'fail',
         ),
@@ -451,7 +450,7 @@ function itemAwarePresenceConditionalParityGrid(): iterable
 
     foreach ($rules as $rule) {
         foreach ($items as $itemLabel => $item) {
-            $value = $item['value'] ?? null;
+            $value = $item['value'];
             yield "{$rule} :: {$itemLabel}" => [$rule, $value, $item];
         }
     }
@@ -461,11 +460,11 @@ it('presence-conditional fast-check matches Laravel for required_with family', f
     $closure = FastCheckCompiler::compileWithPresenceConditionals($rule);
 
     if (! $closure instanceof Closure) {
-        expect(true)->toBeTrue();
+        $this->markTestSkipped('Rule not fast-checkable — no closure to compare.');
 
-        return;
     }
 
+    /** @var array<string, mixed> $item */
     $fastResult = $closure($value, $item);
     $laravelResult = Validator::make($item, ['value' => $rule])->passes();
 
@@ -474,7 +473,7 @@ it('presence-conditional fast-check matches Laravel for required_with family', f
         sprintf(
             'Parity drift for rule "%s" on item %s: fast=%s, Laravel=%s',
             $rule,
-            json_encode($item, JSON_UNESCAPED_SLASHES),
+            (string) json_encode($item, JSON_UNESCAPED_SLASHES),
             $fastResult ? 'pass' : 'fail',
             $laravelResult ? 'pass' : 'fail',
         ),
@@ -530,7 +529,7 @@ function itemAwarePresenceComposedParityGrid(): iterable
     ];
 
     foreach ($cases as $label => [$rule, $item]) {
-        $value = $item['value'] ?? null;
+        $value = $item['value'];
         yield $label => [$rule, $value, $item];
     }
 }
@@ -541,11 +540,11 @@ it('presence-conditional composes with item-aware field-ref rules', function (st
     if (! $closure instanceof Closure) {
         // Still slow-path — assert skip silently. The targeted test below
         // enforces that specific combinations DO compose.
-        expect(true)->toBeTrue();
+        $this->markTestSkipped('Rule not fast-checkable — no closure to compare.');
 
-        return;
     }
 
+    /** @var array<string, mixed> $item */
     $fastResult = $closure($value, $item);
     $laravelResult = Validator::make($item, ['value' => $rule])->passes();
 
@@ -554,7 +553,7 @@ it('presence-conditional composes with item-aware field-ref rules', function (st
         sprintf(
             'Parity drift for rule "%s" on item %s: fast=%s, Laravel=%s',
             $rule,
-            json_encode($item, JSON_UNESCAPED_SLASHES),
+            (string) json_encode($item, JSON_UNESCAPED_SLASHES),
             $fastResult ? 'pass' : 'fail',
             $laravelResult ? 'pass' : 'fail',
         ),
@@ -654,7 +653,7 @@ function itemAwareSizeComparisonParityGrid(): iterable
 
     foreach ($rules as $rule) {
         foreach ($items as $itemLabel => $item) {
-            $value = $item['value'] ?? null;
+            $value = $item['value'];
             yield "{$rule} :: {$itemLabel}" => [$rule, $value, $item];
         }
     }
@@ -664,11 +663,11 @@ it('item-aware fast-check verdict matches Laravel validator for size comparisons
     $closure = FastCheckCompiler::compileWithItemContext($rule);
 
     if (! $closure instanceof Closure) {
-        expect(true)->toBeTrue();
+        $this->markTestSkipped('Rule not fast-checkable — no closure to compare.');
 
-        return;
     }
 
+    /** @var array<string, mixed> $item */
     $fastResult = $closure($value, $item);
     $laravelResult = Validator::make($item, ['value' => $rule])->passes();
 
@@ -677,7 +676,7 @@ it('item-aware fast-check verdict matches Laravel validator for size comparisons
         sprintf(
             'Parity drift for rule "%s" on item %s: fast=%s, Laravel=%s',
             $rule,
-            json_encode($item, JSON_UNESCAPED_SLASHES),
+            (string) json_encode($item, JSON_UNESCAPED_SLASHES),
             $fastResult ? 'pass' : 'fail',
             $laravelResult ? 'pass' : 'fail',
         ),

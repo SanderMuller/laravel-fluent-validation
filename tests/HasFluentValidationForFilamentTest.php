@@ -13,10 +13,10 @@ use SanderMuller\FluentValidation\HasFluentValidationForFilament;
  */
 class FakeFilamentBase
 {
-    /** @var array{rules: mixed, messages: array<string, string>, attributes: array<string, string>} */
+    /** @var array{rules: mixed, messages: array<mixed>, attributes: array<mixed>} */
     public array $lastValidateCall = ['rules' => null, 'messages' => [], 'attributes' => []];
 
-    /** @var array{field: string, rules: mixed, messages: array<string, string>, attributes: array<string, string>} */
+    /** @var array{field: string, rules: mixed, messages: array<mixed>, attributes: array<mixed>} */
     public array $lastValidateOnlyCall = ['field' => '', 'rules' => null, 'messages' => [], 'attributes' => []];
 
     public function validate(mixed $rules = null, mixed $messages = [], mixed $attributes = []): mixed

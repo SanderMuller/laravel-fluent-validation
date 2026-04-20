@@ -8,8 +8,11 @@ use Orchestra\Testbench\TestCase as Orchestra;
 
 class TestCase extends Orchestra
 {
-    /** @return list<class-string> */
-    protected function getPackageProviders($app): array
+    /**
+     * @param  \Illuminate\Foundation\Application  $app
+     * @return list<class-string>
+     */
+    protected function getPackageProviders(mixed $app): array
     {
         return [
             LivewireServiceProvider::class,
@@ -26,8 +29,10 @@ class TestCase extends Orchestra
      * already configured. Any subclass test that configures its own key
      * (directly or via a trait) keeps it — we don't silently clobber
      * key-sensitive behavior in key-dependent assertions.
+     *
+     * @param  \Illuminate\Foundation\Application  $app
      */
-    protected function defineEnvironment($app): void
+    protected function defineEnvironment(mixed $app): void
     {
         $config = $app->make(Repository::class);
 
