@@ -87,7 +87,7 @@ it('end-to-end: validation works through the FluentRuleContract type alias', fun
 });
 
 it('interface surface is callable via contract-typed reference (chaining preserves contract)', function (): void {
-    $build = (fn(FluentRuleContract $rule): FluentRuleContract => $rule
+    $build = (fn (FluentRuleContract $rule): FluentRuleContract => $rule
         ->required()
         ->nullable()
         ->bail()
