@@ -1,13 +1,10 @@
 <?php declare(strict_types=1);
 
 use Illuminate\Contracts\Validation\Factory;
-use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Http\Request;
-use Illuminate\Routing\Redirector;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Validation\ValidationException;
 use SanderMuller\FluentValidation\FluentRule;
-use SanderMuller\FluentValidation\HasFluentRules;
 
 // =========================================================================
 // Unit: createDefaultValidator() directly
@@ -165,41 +162,3 @@ it('works with nested each() rules', function (): void {
 
     expect($validator->passes())->toBeTrue();
 });
-
-// =========================================================================
-// Helper
-// =========================================================================
-
-/**
- * @param array<string, mixed> $rules
- * @param array<array-key, mixed> $data
- */
-function createFormRequest(array $rules, array $data): FormRequest
-{
-    $formRequest = new class extends FormRequest {
-        use HasFluentRules;
-
-        /** @var array<string, mixed> */
-        public static array $testRules = [];
-
-        /** @return array<string, mixed> */
-        public function rules(): array
-        {
-            return self::$testRules;
-        }
-
-        public function authorize(): bool
-        {
-            return true;
-        }
-    };
-
-    $formRequest::$testRules = $rules;
-
-    $request = Request::create('/test', 'POST', $data);
-    $anonymousClassffb6530a01d09c039cba4cf2f03e5fc7 = $formRequest::createFrom($request);
-    $anonymousClassffb6530a01d09c039cba4cf2f03e5fc7->setContainer(app());
-    $anonymousClassffb6530a01d09c039cba4cf2f03e5fc7->setRedirector(resolve(Redirector::class));
-
-    return $anonymousClassffb6530a01d09c039cba4cf2f03e5fc7;
-}

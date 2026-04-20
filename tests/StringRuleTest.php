@@ -3,6 +3,7 @@
 use Illuminate\Contracts\Validation\ValidationRule;
 use SanderMuller\FluentValidation\FluentRule;
 use SanderMuller\FluentValidation\Rules\StringRule;
+use SanderMuller\FluentValidation\Tests\Fixtures\TestStringEnum;
 
 // =========================================================================
 // StringRule — field modifiers

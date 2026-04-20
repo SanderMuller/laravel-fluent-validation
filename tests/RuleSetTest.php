@@ -12,6 +12,7 @@ use SanderMuller\FluentValidation\Rules\ArrayRule;
 use SanderMuller\FluentValidation\Rules\NumericRule;
 use SanderMuller\FluentValidation\Rules\StringRule;
 use SanderMuller\FluentValidation\RuleSet;
+use SanderMuller\FluentValidation\Tests\Fixtures\TestStringEnum;
 use SanderMuller\FluentValidation\WildcardExpander;
 
 // =========================================================================

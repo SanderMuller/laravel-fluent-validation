@@ -13,6 +13,9 @@ use Illuminate\Validation\Validator;
 use SanderMuller\FluentValidation\FluentRule;
 use SanderMuller\FluentValidation\Rules\StringRule;
 use SanderMuller\FluentValidation\RuleSet;
+use SanderMuller\FluentValidation\Tests\Fixtures\TestArrayKeyEnum;
+use SanderMuller\FluentValidation\Tests\Fixtures\TestIntEnum;
+use SanderMuller\FluentValidation\Tests\Fixtures\TestStringEnum;
 
 // =========================================================================
 // BooleanRule
@@ -2049,27 +2052,3 @@ it('supports macros on RuleSet', function (): void {
     $validated = RuleSet::make()->withName()->validate(['name' => 'John']);
     expect($validated['name'])->toBe('John');
 });
-
-// =========================================================================
-// Enums for testing
-// =========================================================================
-
-enum TestStringEnum: string
-{
-    case Active = 'active';
-    case Inactive = 'inactive';
-}
-
-enum TestIntEnum: int
-{
-    case Low = 1;
-    case Medium = 2;
-    case High = 3;
-}
-
-enum TestArrayKeyEnum: string
-{
-    case Low = 'low';
-    case Medium = 'medium';
-    case High = 'high';
-}
