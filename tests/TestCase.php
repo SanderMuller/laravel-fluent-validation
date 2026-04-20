@@ -3,13 +3,14 @@
 namespace SanderMuller\FluentValidation\Tests;
 
 use Illuminate\Contracts\Config\Repository;
+use Illuminate\Foundation\Application;
 use Livewire\LivewireServiceProvider;
 use Orchestra\Testbench\TestCase as Orchestra;
 
 class TestCase extends Orchestra
 {
     /**
-     * @param  \Illuminate\Foundation\Application  $app
+     * @param  Application  $app
      * @return list<class-string>
      */
     protected function getPackageProviders(mixed $app): array
@@ -30,7 +31,7 @@ class TestCase extends Orchestra
      * (directly or via a trait) keeps it — we don't silently clobber
      * key-sensitive behavior in key-dependent assertions.
      *
-     * @param  \Illuminate\Foundation\Application  $app
+     * @param  Application  $app
      */
     protected function defineEnvironment(mixed $app): void
     {
