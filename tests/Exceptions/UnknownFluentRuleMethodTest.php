@@ -1,5 +1,6 @@
 <?php declare(strict_types=1);
 
+use SanderMuller\FluentValidation\Exceptions\TypedBuilderHint;
 use SanderMuller\FluentValidation\Exceptions\UnknownFluentRuleMethod;
 use SanderMuller\FluentValidation\FluentRule;
 use SanderMuller\FluentValidation\Rules\FieldRule;
@@ -68,59 +69,61 @@ it('dispatches non-Closure invokable macros (e.g. object with __invoke)', functi
     expect(FluentRule::field()->__call('invokableMacro', ['x']))->toBe('invokable:x');
 });
 
-// Hint-table parity — one assertion per row. Source of truth: TypedBuilderHint::for().
-// When the table changes, this dataset changes in lockstep.
-dataset('hintTableRows', [
-    ['min', 'FluentRule::numeric()', '->min(...)'],
-    ['max', 'FluentRule::numeric()', '->max(...)'],
-    ['between', 'FluentRule::numeric()', '->between(...)'],
-    ['exactly', "Laravel's `size:` rule", '->exactly(...)'],
-    ['size', "renames Laravel's `size:` rule to `exactly()`", '->exactly(...)'],
-    ['gt', '->greaterThan(FIELD)', 'FluentRule::numeric()'],
-    ['gte', '->greaterThanOrEqualTo(FIELD)', 'FluentRule::numeric()'],
-    ['lt', '->lessThan(FIELD)', 'FluentRule::numeric()'],
-    ['lte', '->lessThanOrEqualTo(FIELD)', 'FluentRule::numeric()'],
-    ['digits', 'FluentRule::numeric()', '->digits(...)'],
-    ['digitsBetween', 'FluentRule::numeric()', '->digitsBetween(...)'],
-    ['decimal', 'FluentRule::numeric()', '->decimal(...)'],
-    ['multipleOf', 'FluentRule::numeric()', '->multipleOf(...)'],
-    ['integer', 'FluentRule::numeric()', '->integer(...)'],
-    ['email', 'FluentRule::string()', '->email(...)'],
-    ['url', 'FluentRule::string()', '->url(...)'],
-    ['uuid', 'FluentRule::string()', '->uuid(...)'],
-    ['ulid', 'FluentRule::string()', '->ulid(...)'],
-    ['ip', 'FluentRule::string()', '->ip(...)'],
-    ['regex', 'FluentRule::string()', '->regex(...)'],
-    ['alpha', 'FluentRule::string()', '->alpha(...)'],
-    ['alphaDash', 'FluentRule::string()', '->alphaDash(...)'],
-    ['startsWith', 'FluentRule::string()', '->startsWith(...)'],
-    ['endsWith', 'FluentRule::string()', '->endsWith(...)'],
-    ['lowercase', 'FluentRule::string()', '->lowercase(...)'],
-    ['uppercase', 'FluentRule::string()', '->uppercase(...)'],
-    ['json', 'FluentRule::string()', '->json(...)'],
-    ['ascii', 'FluentRule::string()', '->ascii(...)'],
-    ['dateFormat', 'FluentRule::string()', '->dateFormat(...)'],
-    ['alphaNum', 'FluentRule::string()->alphaNumeric(...)', 'alphaNumeric'],
-    ['contains', 'FluentRule::array()->contains(...)', '`array()`'],
-    ['before', 'FluentRule::date()', '->before(...)'],
-    ['after', 'FluentRule::date()', '->after(...)'],
-    ['beforeOrEqual', 'FluentRule::date()', '->beforeOrEqual(...)'],
-    ['afterOrEqual', 'FluentRule::date()', '->afterOrEqual(...)'],
-    ['nowOrFuture', 'FluentRule::date()', '->nowOrFuture(...)'],
-    ['nowOrPast', 'FluentRule::date()', '->nowOrPast(...)'],
-    ['format', 'FluentRule::date()->format(...)', 'FluentRule::string()->regex(...)'],
-    ['accepted', 'FluentRule::accepted()', 'rejects'],
-    ['declined', 'FluentRule::boolean()->declined(...)', "->rule('declined')"],
-    ['mimes', 'FluentRule::file()', '->mimes(...)'],
-    ['mimetypes', 'FluentRule::file()', '->mimetypes(...)'],
-    ['extensions', 'FluentRule::file()', '->extensions(...)'],
-    ['dimensions', 'FluentRule::image()', '->dimensions(...)'],
-]);
+// Coverage invariant — every method on a typed builder that is NOT on
+// FieldRule must produce a non-null hint, and that hint must appear
+// verbatim in the thrown exception message. The source of truth is
+// reflection on the typed builder classes, so new rule methods added
+// later are automatically exercised here.
+dataset('knownFootgunMethods', fn (): array => array_map(
+    static fn (string $method): array => [$method],
+    TypedBuilderHint::knownMethods(),
+));
 
-it('includes the hint text in the thrown exception message', function (string $method, string $needle1, string $needle2): void {
+it('produces a non-null hint for every known footgun method', function (string $method): void {
+    expect(TypedBuilderHint::for($method))->not->toBeNull();
+})->with('knownFootgunMethods');
+
+it('includes the method name and the hint in the thrown exception message', function (string $method): void {
+    $hint = TypedBuilderHint::for($method);
     $message = UnknownFluentRuleMethod::on($method)->getMessage();
 
-    expect($message)->toContain($method)
-        ->toContain($needle1)
-        ->toContain($needle2);
-})->with('hintTableRows');
+    expect($message)
+        ->toContain($method)
+        ->toContain($hint);
+})->with('knownFootgunMethods');
+
+// Spot checks — anchor specific hint wording so reflection changes that
+// accidentally drop a well-known typed builder from a hint are flagged.
+it('points `accepted` at the dedicated FluentRule::accepted() factory (not boolean)', function (): void {
+    $hint = TypedBuilderHint::for('accepted');
+
+    expect($hint)
+        ->toContain('FluentRule::accepted()')
+        ->toContain('rejects')
+        ->not->toStartWith('Use `FluentRule::boolean()->accepted()`');
+});
+
+it('points `size` at the renamed `exactly` method', function (): void {
+    expect(TypedBuilderHint::for('size'))->toContain('exactly');
+});
+
+it('names every typed builder hosting `min` (string/numeric/array/file/image/password)', function (): void {
+    $hint = TypedBuilderHint::for('min');
+
+    expect($hint)
+        ->toContain('FluentRule::string()')
+        ->toContain('FluentRule::numeric()')
+        ->toContain('FluentRule::array()')
+        ->toContain('FluentRule::file()')
+        ->toContain('FluentRule::image()')
+        ->toContain('FluentRule::password()');
+});
+
+it('covers the typed-only methods the prior hand-coded table missed', function (string $method): void {
+    expect(TypedBuilderHint::knownMethods())->toContain($method);
+})->with([
+    'ipv4', 'ipv6', 'macAddress', 'notRegex', 'timezone', 'hexColor',
+    'currentPassword', 'maxDigits', 'minDigits',
+    'beforeToday', 'afterToday', 'betweenOrEqual', 'dateEquals',
+    'acceptedIf', 'declinedIf', 'allowSvg', 'width', 'ratio',
+]);

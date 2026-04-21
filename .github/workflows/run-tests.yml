@@ -82,8 +82,23 @@ jobs:
       # resolve `Facades\Livewire\...\GenerateSignedUploadUrl` at bootstrap
       # — a race between the real-time facade stream wrapper registration
       # and the provider boot that surfaces on `prefer-lowest` + random
-      # Pest seed orderings. A single retry with a fresh seed smooths it
-      # while still surfacing real regressions (both attempts must fail).
+      # Pest seed orderings. Retry *only* when the first-attempt failure
+      # matches that specific error signature; any other failure fails
+      # the job immediately so we don't mask seed-dependent regressions.
       - name: Execute tests
         shell: bash
-        run: vendor/bin/pest --ci --parallel || vendor/bin/pest --ci --parallel
+        run: |
+          set +e
+          vendor/bin/pest --ci --parallel 2>&1 | tee pest-output.log
+          status=${PIPESTATUS[0]}
+          set -e
+          if [ "$status" -eq 0 ]; then
+            exit 0
+          fi
+          if grep -q 'Facades\\Livewire\\Features\\SupportFileUploads\\GenerateSignedUploadUrl' pest-output.log; then
+            echo "::warning ::Livewire real-time-facade bootstrap race detected — retrying once with a fresh Pest seed"
+            vendor/bin/pest --ci --parallel
+          else
+            echo "Test failure is not the known Livewire bootstrap race — failing without retry"
+            exit "$status"
+          fi

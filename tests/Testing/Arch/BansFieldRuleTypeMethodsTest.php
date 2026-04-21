@@ -36,6 +36,13 @@ it('does not flag ::field()->min() on an unrelated class', function (): void {
     expect($violations)->toBeEmpty();
 });
 
+it('flags typed-only methods that the prior hand-coded table missed (ipv4)', function (): void {
+    $violations = BansFieldRuleTypeMethods::scope(FIXTURE_DIR . '/violating_ipv4.php');
+
+    expect($violations)->toHaveCount(1)
+        ->and($violations[0])->toEndWith('violating_ipv4.php');
+});
+
 it('flags violations through an aliased import (use FluentRule as Rule)', function (): void {
     $violations = BansFieldRuleTypeMethods::scope(FIXTURE_DIR . '/violating_aliased.php');
 
@@ -52,10 +59,11 @@ it('does not flag an unrelated class with the same short name FluentRule', funct
 it('walks a directory recursively and returns sorted absolute paths', function (): void {
     $violations = BansFieldRuleTypeMethods::scope(FIXTURE_DIR);
 
-    expect($violations)->toHaveCount(3)
+    expect($violations)->toHaveCount(4)
         ->and($violations[0])->toEndWith('violating_aliased.php')
         ->and($violations[1])->toEndWith('violating_chained.php')
-        ->and($violations[2])->toEndWith('violating_direct.php');
+        ->and($violations[2])->toEndWith('violating_direct.php')
+        ->and($violations[3])->toEndWith('violating_ipv4.php');
 });
 
 it('returns an empty array for a non-existent path', function (): void {
