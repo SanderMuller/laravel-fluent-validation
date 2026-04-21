@@ -1,9 +1,14 @@
 name: laravel-dev-master
 
 # Nightly early-warning leg: runs the test suite against
-# laravel/framework:dev-master + orchestra/testbench:dev-master to catch
+# laravel/framework:dev-master + orchestra/testbench:*@dev to catch
 # upstream breaking changes (rule-string parser, Validator::$customMessages,
 # Rule::in/exists/unique shape) before they ship as tagged releases.
+#
+# Testbench uses numbered dev branches (`11.x-dev` is current; bumps as
+# new majors ship). `*@dev` tells Composer to pick the newest dev build
+# that also satisfies our other constraints — no manual version bumps
+# as Testbench evolves.
 #
 # On failure, upserts a single tracking issue titled "Laravel dev-master
 # regression" — created on the first fail, commented on subsequent fails.
@@ -24,7 +29,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
 
-    name: P8.4 - L-dev-master - prefer-stable - ubuntu-latest
+    name: P8.4 - L-dev-master - testbench-newest-dev - ubuntu-latest
 
     steps:
       - name: Checkout code
@@ -40,7 +45,7 @@ jobs:
       - name: Install dependencies (dev-master)
         id: install
         run: |
-          composer require "laravel/framework:dev-master" "orchestra/testbench:dev-master" --no-interaction --no-update
+          composer require "laravel/framework:dev-master" "orchestra/testbench:*@dev" --no-interaction --no-update
           composer update --prefer-stable --prefer-dist --no-interaction
 
       - name: List Installed Dependencies
@@ -66,7 +71,7 @@ jobs:
           Nightly \`laravel/framework:dev-master\` run failed.
 
           - **Run:** <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}>
-          - **Matrix:** PHP 8.4 × laravel:dev-master × testbench:dev-master × prefer-stable × ubuntu-latest
+          - **Matrix:** PHP 8.4 × laravel:dev-master × testbench:*@dev × prefer-stable × ubuntu-latest
           - **Commit:** ${{ github.sha }}
           - **Install outcome:** ${{ steps.install.outcome }}
           - **Test outcome:** ${{ steps.tests.outcome }}
