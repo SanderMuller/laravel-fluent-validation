@@ -1,7 +1,7 @@
 ---
 name: implement-spec
 description: "Implements a specification file phase-by-phase with progress tracking. Activates when: implementing a spec, building from a spec, starting a spec phase, or when user mentions: implement spec, spec file, implement phase, build spec, start phase."
-argument-hint: [spec file path, e.g. specs/wildcard-performance.md]
+argument-hint: [spec file path, e.g. internal/specs/wildcard-performance.md]
 ---
 
 # Implement Spec

@@ -16,10 +16,10 @@ Writes structured specification files designed for phased implementation with bu
 
 ## Spec File Location
 
-Write specs to `specs/{feature-name}.md` (kebab-case). Subdirectories for related specs are fine:
+Write specs to `internal/specs/{feature-name}.md` (kebab-case). Subdirectories for related specs are fine:
 
 ```
-specs/
+internal/specs/
 ├── wildcard-performance-optimization.md
 ├── polymorphic-field-support.md
 └── cleanup/

@@ -17,7 +17,7 @@ Activate when:
 
 Do NOT use mid-development — this is a completion-level skill.
 
-**The user cuts the tag, not you.** This skill's job ends with "release notes drafted + CI green on the pushed commit." The user runs `git tag` and creates the GitHub release themselves — tagging is irreversible-ish and a release-visibility decision that the user owns. Do NOT suggest, demonstrate, or execute tag/release-create commands. State that the release is ready to tag and leave the next step to the user.
+**The user cuts the tag, not you.** The user runs `git tag` and creates the GitHub release themselves — tagging is irreversible-ish and a release-visibility decision that the user owns. Do NOT suggest, demonstrate, or execute tag/release-create commands. State that the release is ready to tag and leave the tag creation to the user. The skill's job ends only once step 9b (post-tag watch) has confirmed the tag-ref and release-event workflows are green — "tag cut" is not the finish line.
 
 ## Workflow
 
@@ -25,7 +25,7 @@ Run the checks **in this order**. Each must pass before moving to the next. Fix 
 
 Always append `|| true` to verification commands so output is captured even on failure (per repo `CLAUDE.md` rule). Pass/fail is determined from the captured output, not the exit status alone.
 
-**The order is 1 → 2 → 3 → 4 → 5 → 6 → commit → push → 7 → 8 (draft notes).** Do not jump from step 6 straight to drafting release notes. The release-notes file is the **last** artefact produced by this skill, written only after the changes have been committed, pushed, and CI is green on that exact SHA. Writing notes earlier claims facts ("tests pass on CI matrix", "2,092 tests / 2,941 assertions") that are not yet proven. If you find yourself about to `Write` a file under `internal/release-notes-<version>.md` and the last thing you did was run benchmarks, stop — you skipped commit/push/CI.
+**The order is 1 → 2 → 3 → 4 → 5 → 6 → commit → push → 7 → 8 (draft notes) → user cuts tag → 9a (pre-tag gate, just before `gh release create`) → 9b (post-tag watch).** Do not jump from step 6 straight to drafting release notes. The release-notes file is written only after the changes have been committed, pushed, and CI is green on that exact SHA (step 7). Writing notes earlier claims facts ("tests pass on CI matrix", "2,092 tests / 2,941 assertions") that are not yet proven. If you find yourself about to `Write` a file under `internal/release-notes-<version>.md` and the last thing you did was run benchmarks, stop — you skipped commit/push/CI. And if the tag is cut without step 9a's live-remote + CI re-check, or without waiting on step 9b's tag-ref runs, the release ships on unverified facts even if steps 1-8 all passed.
 
 ### 1. Rector
 
@@ -50,6 +50,8 @@ vendor/bin/pest || true
 ```
 
 Must show 0 failures. Includes the parity suite (`FastCheckParityTest`) which guards Laravel behavioral equivalence. `benchmark`-group tests are excluded from the default run — they are covered in step 6b below.
+
+**Local green ≠ CI green for this step.** Pest runs parallel on one OS/PHP/Laravel combo locally. The CI matrix includes Windows + `prefer-lowest` legs where `pest --parallel` has historically raced filesystem ops (e.g. `PackageManifest::write()` → `rename()`), producing failures invisible on macOS. Do not let a local pass relax step 7 rigor — step 7 is the authoritative test gate across the matrix. See 1.17.1: local green, Windows P8.2 `prefer-lowest` red, tag cut anyway because step 7 was skipped.
 
 ### 4. PHPStan
 
@@ -159,13 +161,19 @@ Local green ≠ CI green. The matrix job runs against a Testbench-bootstrapped a
 git push
 SHA=$(git rev-parse HEAD)
 
+# Settle — GitHub takes several seconds to register runs against the new SHA.
+# Querying too early returns an empty list; `running=0` would falsely signal green.
+sleep 20
+
 # List every workflow run tied to this SHA, across all workflows/triggers
 gh run list --commit "$SHA" --json databaseId,name,event,status,conclusion
 
-# Wait for every run to reach a terminal state, then assert all success
+# Wait for every run to reach a terminal state, then assert all success.
+# `total > 0` guard prevents the empty-list → zero-running false green.
 while true; do
+    total=$(gh run list --commit "$SHA" --json databaseId -q 'length')
     running=$(gh run list --commit "$SHA" --json status -q '[.[] | select(.status != "completed")] | length')
-    [ "$running" -eq 0 ] && break
+    [ "$total" -gt 0 ] && [ "$running" -eq 0 ] && break
     sleep 15
 done
 
@@ -190,6 +198,8 @@ On failure:
 
 **Workflows triggered by `release` (e.g. `release-benchmark`, `update-changelog`)** run AFTER tag creation, not before. They're outside this gate by design — their job is to decorate the release after it ships, not to gate whether it ships.
 
+**`on: push` workflows re-fire on the tag-ref push.** Creating a release pushes a tag ref; any workflow that triggers on `push` (including `run-tests`) runs again against that tag ref. Those runs are *not* part of this pre-tag gate — they happen after tag creation. They can surface environment-shape failures (Windows fs races, prefer-lowest combos) that the main-branch run narrowly missed. Step 9 (post-tag watch) handles them.
+
 ### 8. Release notes (ONLY after step 7 CI-green)
 
 This is where agents most commonly slip: running the local gauntlet (steps 1-6), then jumping straight to `Write internal/release-notes-<version>.md` without committing, pushing, or watching CI. **Do not do that.** Notes claim CI-matrix facts; CI must have produced those facts first.
@@ -212,12 +222,103 @@ Only when (1) status is empty, (2) echoes `pushed`, and (3) every run is `comple
 
 Draft into `internal/release-notes-<version>.md`. The user reads the draft, creates the tag, and publishes the release themselves — do not cut the tag, do not run `gh release create`, do not push tags. Once the release-notes file exists and CI is green, report "ready to tag" and stop.
 
+**Pin the verified SHA in the notes file.** The very first line of the notes file must be an HTML comment recording the green SHA. GitHub strips HTML comments when rendering the release body, so this is invisible to readers but greppable by step 9:
+
+```markdown
+<!-- verified-sha: 4387b6845b45def9c6ad80e638990f81b74bfb19 -->
+
+# <version>
+
+...
+```
+
+The SHA in that line is the exact `git rev-parse HEAD` that step 7 proved green. Step 9's pre-tag gate fails closed if the SHA in the notes file does not match the current HEAD (i.e. someone landed more commits between notes draft and tag).
+
 For release notes that claim a performance improvement or regression fix, cite the before/after benchmark numbers explicitly.
 
 **CI handles two things automatically — do not do them manually:**
 
 - **Benchmark table** is appended between `<!-- benchmark-start -->` / `<!-- benchmark-end -->` markers in the release body by `.github/workflows/release-benchmark.yml`. Verify via `gh release view <tag>`.
 - **`CHANGELOG.md`** is prepended with the release body by `.github/workflows/update-changelog.yml` on release publish. Do not edit `CHANGELOG.md` manually as part of the release PR. See the `release-automation` guideline for details.
+
+### 9. Pre-tag gate + post-tag watch (the step 1.17.1 lacked)
+
+Step 7 proves CI green at draft time. Step 9 proves CI is *still* green at tag time, and catches failures that only show up on the tag-ref push.
+
+**9a. Pre-tag gate — run immediately before `gh release create` / GitHub release publish.** This is the one-liner the user runs (not the agent) in the same terminal, seconds before cutting the tag. It re-verifies three things: HEAD hasn't drifted since notes draft, the notes file pins this exact SHA, and CI is still all green.
+
+```bash
+SHA=$(git rev-parse HEAD)
+VERSION="<version>"  # e.g. 1.17.2
+NOTES="internal/release-notes-${VERSION}.md"
+
+# A. Notes file exists and pins this SHA (anchored regex — tolerant of surrounding blank lines,
+#    strict about the line itself so a rewrite of the SHA breaks the gate)
+grep -qE "^<!-- verified-sha: $SHA -->$" "$NOTES" || { echo "NOTES SHA DRIFT — HEAD=$SHA, notes say $(grep verified-sha "$NOTES")"; exit 1; }
+
+# B. HEAD matches the LIVE remote tip of main — not the cached tracking ref.
+#    `git rev-parse origin/main` is stale until an explicit fetch and would
+#    let a concurrent push slip through. `ls-remote` always hits the remote.
+LIVE_TIP=$(git ls-remote origin refs/heads/main | awk '{print $1}')
+[ "$SHA" = "$LIVE_TIP" ] || { echo "HEAD DRIFT — HEAD=$SHA live origin/main=$LIVE_TIP"; exit 1; }
+
+# C. Every CI run for this SHA still terminal + {success, skipped}
+failed=$(gh run list --commit "$SHA" --json conclusion -q '[.[] | select(.conclusion != "success" and .conclusion != "skipped")] | length')
+running=$(gh run list --commit "$SHA" --json status -q '[.[] | select(.status != "completed")] | length')
+[ "$running" -eq 0 ] && [ "$failed" -eq 0 ] || { echo "CI NOT GREEN — running=$running failed=$failed"; gh run list --commit "$SHA"; exit 1; }
+
+echo "OK to tag $VERSION at $SHA"
+```
+
+The `ls-remote` call is the key difference from the step 8 preflight, which uses the local tracking ref `origin/main`. Step 8 runs right after push when the tracking ref is fresh; step 9a can run minutes or hours later, after the user has context-switched, and the only safe way to prove HEAD is still the tip is to ask the remote directly.
+
+If any check fails, do NOT tag. Fix the drift / failure, re-run steps 7-8 for the new SHA, then retry 9a.
+
+**9b. Post-tag watch.** Creating the release pushes a tag ref, which re-fires `on: push` workflows (including `run-tests`) against that ref. Watch those runs — they are not part of the pre-tag gate and can fail even when 9a passed (Windows fs races, prefer-lowest combos that narrowly missed the main-branch run). Also watch `release`-event decorators (`release-benchmark`, `update-changelog`).
+
+**Do not use `gh run list --branch "$TAG"`.** The `--branch` flag's semantics for tag refs are undocumented — it sometimes works, sometimes returns empty. The reliable selector is the *tag's commit SHA* plus a jq filter on `headBranch == $TAG`. Both `push`-event (tag-ref re-fire) and `release`-event runs attach to that SHA with `headBranch` set to the tag name.
+
+**Run 9b strictly after `gh release create` has completed.** The tag must already exist on the remote; fetch it locally before resolving the SHA.
+
+```bash
+TAG="$VERSION"
+git fetch --tags origin --quiet
+TAG_SHA=$(git rev-list -n 1 "$TAG")  # the commit the tag points at
+
+# All runs attached to the tag SHA, then filter to those whose headBranch is the tag ref.
+# This cleanly picks up both the `push`-event tag re-fires and the `release`-event decorators,
+# and excludes the main-branch runs that step 7 already gated.
+gh run list --commit "$TAG_SHA" \
+  --json databaseId,name,event,headBranch,status,conclusion \
+  -q "[.[] | select(.headBranch == \"$TAG\")]"
+
+# Wait until every tag-scoped run is terminal, then assert all success.
+# `waited` bounds the loop at ~15 min so a hung run doesn't block indefinitely.
+# If `total` stays 0 past the first 90s, the tag was likely created without firing
+# push/release workflows (rare — e.g. re-using an existing tag) — investigate manually.
+waited=0
+while [ "$waited" -lt 900 ]; do
+    running=$(gh run list --commit "$TAG_SHA" --json status,headBranch \
+      -q "[.[] | select(.headBranch == \"$TAG\") | select(.status != \"completed\")] | length")
+    total=$(gh run list --commit "$TAG_SHA" --json databaseId,headBranch \
+      -q "[.[] | select(.headBranch == \"$TAG\")] | length")
+    [ "$total" -gt 0 ] && [ "$running" -eq 0 ] && break
+    sleep 15
+    waited=$((waited + 15))
+done
+[ "$total" -gt 0 ] || { echo "NO TAG-REF RUNS after ${waited}s — investigate"; exit 1; }
+
+failed=$(gh run list --commit "$TAG_SHA" --json conclusion,headBranch,name \
+  -q "[.[] | select(.headBranch == \"$TAG\") | select(.conclusion != \"success\" and .conclusion != \"skipped\")] | length")
+[ "$failed" -eq 0 ] || { echo "TAG-REF CI RED on $TAG ($TAG_SHA)"; gh run list --commit "$TAG_SHA"; exit 1; }
+```
+
+Wait until terminal. If red:
+1. Investigate (same as step 7 failure drill).
+2. If the failure reveals a real bug (not just flake): fix on `main`, cut a patch release (`1.17.2` after `1.17.1`). Do not rewrite the tag.
+3. If `update-changelog` failed: `CHANGELOG.md` won't be prepended — re-run the workflow once the underlying cause is fixed, or prepend the entry manually (rare).
+
+**Rule:** the skill is not "done" until 9b goes green. "Tag cut" is not the finish line; "tag-ref CI green + release-event workflows green" is.
 
 ## Quick Reference
 
@@ -233,7 +334,9 @@ For release notes that claim a performance improvement or regression fix, cite t
 | 6b. DB-batch bench | `vendor/bin/pest --group=benchmark \|\| true`                                            | no timing regression vs last release          |
 | **commit + push**  | user confirms changes + `git push`                                                       | HEAD pushed to `origin/main`                  |
 | 7. CI green-light  | `gh run list --commit "$(git rev-parse HEAD)"` all complete + no failure                 | every run for the SHA in `{success, skipped}` |
-| 8. Release notes   | preflight (clean tree + pushed + CI green) → `Write internal/release-notes-<version>.md` | file exists only after steps 1-7 all passed   |
+| 8. Release notes   | preflight (clean tree + pushed + CI green) → `Write internal/release-notes-<version>.md` | first line is `<!-- verified-sha: $SHA -->`   |
+| 9a. Pre-tag gate   | one-liner asserts SHA-drift, push state, CI-still-green immediately before `gh release create` | prints `OK to tag`                      |
+| 9b. Post-tag watch | `gh run list --commit "$TAG_SHA"` filtered by `headBranch == $TAG`                       | tag-ref + release-event workflows all green   |
 
 ## Important
 
@@ -243,3 +346,5 @@ For release notes that claim a performance improvement or regression fix, cite t
 - Step 6a and 6b are complementary, not redundant: 6a covers validation closure performance, 6b covers DB query amplification. Skipping either leaves a real blind spot.
 - Step 7 is the non-skippable gate: CI runs against a clean env (no ambient APP_KEY, no cached auth user, fresh composer install) and frequently catches env-shape bugs that local dev never sees. If the push+watch feels slow, that's the point — waiting 2 minutes for CI green is cheaper than tagging a broken release.
 - Step 8 (release notes) is gated by step 7 — **the release-notes file must not exist on disk until CI is green on the pushed commit.** If you catch yourself about to `Write` a release-notes file after running benchmarks locally, stop: you are about to fabricate facts that the CI matrix has not yet established. Run the step-8 preflight commands first; if any of the three conditions is not satisfied, the draft is premature.
+- Step 9 closes the 1.17.1 gap. 9a re-verifies the live remote tip (`git ls-remote`, not the cached `origin/main`) so a concurrent push can't slip a stale commit through. 9b uses `--commit "$TAG_SHA"` + a jq filter on `headBranch == $TAG` (not `--branch "$TAG"`, whose tag-ref semantics are undocumented and unreliable) so the tag-ref `on: push` re-fires and `on: release` decorators are both caught. Run both every time, even for one-commit patch releases.
+- `pest --parallel` on Windows `prefer-lowest` has a known FS race in `PackageManifest::write()` → `rename()`. Do not assume local parallel-pest green proves CI-matrix green. Step 7 + 9b are the authoritative test gates.
