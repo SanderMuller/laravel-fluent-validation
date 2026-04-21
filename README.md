@@ -1441,6 +1441,8 @@ FluentRule::file()->required()->min('2mb');  // file size
 
 For belt-and-suspenders coverage in downstream apps, the package ships a Pest/PHPUnit arch helper that scans source for the footgun at test time — see `SanderMuller\FluentValidation\Testing\Arch\BansFieldRuleTypeMethods` (requires `nikic/php-parser` as a dev dep).
 
+The related smell `FluentRule::field()->rule('min:1')` (or any `->rule('some_type_rule:...')` on `field()`) works at runtime — the string goes through Laravel's rule pipeline — but the field clearly *has* a base type, so the typed builder is more idiomatic: `FluentRule::numeric()->min(1)` is shorter, lets the IDE autocomplete the parameter, and lets the [Rector companion](https://github.com/sandermuller/laravel-fluent-validation-rector) simplify it automatically. If you see `->rule('min:1')` / `->rule('max:...')` / `->rule('regex:...')` etc. on `field()`, pick the typed builder that matches.
+
 **`HasFluentValidation` conflicts with Filament's `InteractsWithSchemas`**
 Both traits define `validate()`. For Filament components, use `RuleSet::compileToArrays()` instead of the trait: `$this->validate(RuleSet::compileToArrays($this->rules()))`. This returns `array<string, array<mixed>>` matching Livewire's expected type, so PHPStan is happy. FluentRule works correctly without the trait for simple rules.
 
