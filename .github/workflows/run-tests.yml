@@ -88,9 +88,9 @@ jobs:
       #      Surfaces on `prefer-lowest` + random Pest seed orderings.
       #
       #   2. Testbench bootstrap/cache file-lock race (Windows) —
-      #      `rename(...\bootstrap\cache\...\services.php): Access is
-      #      denied (code: 5)` when parallel workers touch the same
-      #      cached bootstrap file simultaneously.
+      #      `rename(...\bootstrap\cache\*.php): Access is denied`
+      #      (services.php / packages.php / etc.) when parallel workers
+      #      touch the same cached bootstrap file simultaneously.
       #
       # Both are environmental, order-dependent, and resolved by a
       # single re-run with a fresh seed + fresh process pool.
@@ -104,7 +104,7 @@ jobs:
           if [ "$status" -eq 0 ]; then
             exit 0
           fi
-          if grep -qE 'Facades\\Livewire\\Features\\SupportFileUploads\\GenerateSignedUploadUrl|bootstrap[\\/]cache[\\/\\\\].*services\.php.*Access is denied' pest-output.log; then
+          if grep -qE 'Facades\\Livewire\\Features\\SupportFileUploads\\GenerateSignedUploadUrl|bootstrap.cache.*\.php.*Access is denied' pest-output.log; then
             echo "::warning ::Known CI bootstrap race detected — retrying once with a fresh Pest seed"
             vendor/bin/pest --ci --parallel
           else
