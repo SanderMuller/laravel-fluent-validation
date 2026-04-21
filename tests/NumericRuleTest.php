@@ -218,3 +218,58 @@ it('compiles numeric with inArrayKeys rule', function (): void {
     $numericRule = FluentRule::numeric()->inArrayKeys('options.*');
     expect($numericRule->compiledRules())->toBe('numeric|in_array_keys:options.*');
 });
+
+// =========================================================================
+// NumericRule — positive / negative / nonNegative / nonPositive
+// =========================================================================
+
+it('validates positive', function (): void {
+    $v = makeValidator(['n' => 1], ['n' => FluentRule::numeric()->positive()]);
+    expect($v->passes())->toBeTrue();
+
+    $v = makeValidator(['n' => 0], ['n' => FluentRule::numeric()->positive()]);
+    expect($v->passes())->toBeFalse();
+
+    $v = makeValidator(['n' => -1], ['n' => FluentRule::numeric()->positive()]);
+    expect($v->passes())->toBeFalse();
+});
+
+it('validates negative', function (): void {
+    $v = makeValidator(['n' => -1], ['n' => FluentRule::numeric()->negative()]);
+    expect($v->passes())->toBeTrue();
+
+    $v = makeValidator(['n' => 0], ['n' => FluentRule::numeric()->negative()]);
+    expect($v->passes())->toBeFalse();
+
+    $v = makeValidator(['n' => 1], ['n' => FluentRule::numeric()->negative()]);
+    expect($v->passes())->toBeFalse();
+});
+
+it('validates nonNegative', function (): void {
+    $v = makeValidator(['n' => 0], ['n' => FluentRule::numeric()->nonNegative()]);
+    expect($v->passes())->toBeTrue();
+
+    $v = makeValidator(['n' => 5], ['n' => FluentRule::numeric()->nonNegative()]);
+    expect($v->passes())->toBeTrue();
+
+    $v = makeValidator(['n' => -1], ['n' => FluentRule::numeric()->nonNegative()]);
+    expect($v->passes())->toBeFalse();
+});
+
+it('validates nonPositive', function (): void {
+    $v = makeValidator(['n' => 0], ['n' => FluentRule::numeric()->nonPositive()]);
+    expect($v->passes())->toBeTrue();
+
+    $v = makeValidator(['n' => -5], ['n' => FluentRule::numeric()->nonPositive()]);
+    expect($v->passes())->toBeTrue();
+
+    $v = makeValidator(['n' => 1], ['n' => FluentRule::numeric()->nonPositive()]);
+    expect($v->passes())->toBeFalse();
+});
+
+it('compiles sign helpers', function (): void {
+    expect(FluentRule::numeric()->positive()->compiledRules())->toBe('numeric|gt:0')
+        ->and(FluentRule::numeric()->negative()->compiledRules())->toBe('numeric|lt:0')
+        ->and(FluentRule::numeric()->nonNegative()->compiledRules())->toBe('numeric|gte:0')
+        ->and(FluentRule::numeric()->nonPositive()->compiledRules())->toBe('numeric|lte:0');
+});

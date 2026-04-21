@@ -103,6 +103,26 @@ class NumericRule implements DataAwareRule, FluentRuleContract, ValidationRule, 
         return $this->addRule('multiple_of:' . $value);
     }
 
+    public function positive(): static
+    {
+        return $this->addRule('gt:0');
+    }
+
+    public function negative(): static
+    {
+        return $this->addRule('lt:0');
+    }
+
+    public function nonNegative(): static
+    {
+        return $this->addRule('gte:0');
+    }
+
+    public function nonPositive(): static
+    {
+        return $this->addRule('lte:0');
+    }
+
     public function same(string $field): static
     {
         return $this->addRule('same:' . $field);

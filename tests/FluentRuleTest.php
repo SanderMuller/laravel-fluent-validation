@@ -1925,7 +1925,112 @@ it('passes label through convenience shortcuts', function (): void {
     expect(FluentRule::url('Website')->getLabel())->toBe('Website')
         ->and(FluentRule::uuid('ID')->getLabel())->toBe('ID')
         ->and(FluentRule::ulid('ID')->getLabel())->toBe('ID')
-        ->and(FluentRule::ip('Address')->getLabel())->toBe('Address');
+        ->and(FluentRule::ip('Address')->getLabel())->toBe('Address')
+        ->and(FluentRule::ipv4('Address')->getLabel())->toBe('Address')
+        ->and(FluentRule::ipv6('Address')->getLabel())->toBe('Address')
+        ->and(FluentRule::macAddress('MAC')->getLabel())->toBe('MAC')
+        ->and(FluentRule::json('Payload')->getLabel())->toBe('Payload')
+        ->and(FluentRule::timezone('TZ')->getLabel())->toBe('TZ')
+        ->and(FluentRule::hexColor('Color')->getLabel())->toBe('Color')
+        ->and(FluentRule::activeUrl('Link')->getLabel())->toBe('Link')
+        ->and(FluentRule::regex('/^\d+$/', 'Code')->getLabel())->toBe('Code')
+        ->and(FluentRule::list('Tags')->getLabel())->toBe('Tags')
+        ->and(FluentRule::declined('TOS')->getLabel())->toBe('TOS')
+        ->and(FluentRule::enum(TestStringEnum::class, label: 'Status')->getLabel())->toBe('Status');
+});
+
+it('validates ipv4 shortcut', function (): void {
+    $v = makeValidator(['address' => '192.168.1.1'], ['address' => FluentRule::ipv4()->required()]);
+    expect($v->passes())->toBeTrue();
+
+    $v = makeValidator(['address' => '::1'], ['address' => FluentRule::ipv4()->required()]);
+    expect($v->passes())->toBeFalse();
+});
+
+it('validates ipv6 shortcut', function (): void {
+    $v = makeValidator(['address' => '::1'], ['address' => FluentRule::ipv6()->required()]);
+    expect($v->passes())->toBeTrue();
+
+    $v = makeValidator(['address' => '192.168.1.1'], ['address' => FluentRule::ipv6()->required()]);
+    expect($v->passes())->toBeFalse();
+});
+
+it('validates macAddress shortcut', function (): void {
+    $v = makeValidator(['mac' => '00:1A:2B:3C:4D:5E'], ['mac' => FluentRule::macAddress()->required()]);
+    expect($v->passes())->toBeTrue();
+
+    $v = makeValidator(['mac' => 'not-a-mac'], ['mac' => FluentRule::macAddress()->required()]);
+    expect($v->passes())->toBeFalse();
+});
+
+it('validates json shortcut', function (): void {
+    $v = makeValidator(['data' => '{"a":1}'], ['data' => FluentRule::json()->required()]);
+    expect($v->passes())->toBeTrue();
+
+    $v = makeValidator(['data' => '{not json'], ['data' => FluentRule::json()->required()]);
+    expect($v->passes())->toBeFalse();
+});
+
+it('validates timezone shortcut', function (): void {
+    $v = makeValidator(['tz' => 'Europe/Amsterdam'], ['tz' => FluentRule::timezone()->required()]);
+    expect($v->passes())->toBeTrue();
+
+    $v = makeValidator(['tz' => 'Not/A_Zone'], ['tz' => FluentRule::timezone()->required()]);
+    expect($v->passes())->toBeFalse();
+});
+
+it('validates hexColor shortcut', function (): void {
+    $v = makeValidator(['color' => '#ff00aa'], ['color' => FluentRule::hexColor()->required()]);
+    expect($v->passes())->toBeTrue();
+
+    $v = makeValidator(['color' => 'red'], ['color' => FluentRule::hexColor()->required()]);
+    expect($v->passes())->toBeFalse();
+});
+
+it('validates regex shortcut', function (): void {
+    $v = makeValidator(['code' => '12345'], ['code' => FluentRule::regex('/^\d+$/')->required()]);
+    expect($v->passes())->toBeTrue();
+
+    $v = makeValidator(['code' => 'abc'], ['code' => FluentRule::regex('/^\d+$/')->required()]);
+    expect($v->passes())->toBeFalse();
+});
+
+it('validates list shortcut', function (): void {
+    $v = makeValidator(['tags' => ['a', 'b']], ['tags' => FluentRule::list()->required()]);
+    expect($v->passes())->toBeTrue();
+
+    $v = makeValidator(['tags' => ['x' => 1]], ['tags' => FluentRule::list()->required()]);
+    expect($v->passes())->toBeFalse();
+});
+
+it('validates enum shortcut', function (): void {
+    $v = makeValidator(['status' => 'active'], ['status' => FluentRule::enum(TestStringEnum::class)->required()]);
+    expect($v->passes())->toBeTrue();
+
+    $v = makeValidator(['status' => 'nope'], ['status' => FluentRule::enum(TestStringEnum::class)->required()]);
+    expect($v->passes())->toBeFalse();
+});
+
+it('validates declined shortcut', function (): void {
+    $v = makeValidator(['tos' => 'no'], ['tos' => FluentRule::declined()]);
+    expect($v->passes())->toBeTrue();
+
+    $v = makeValidator(['tos' => 'yes'], ['tos' => FluentRule::declined()]);
+    expect($v->passes())->toBeFalse();
+});
+
+it('validates declinedIf', function (): void {
+    $v = makeValidator(
+        ['under_18' => 'yes', 'has_consent' => 'no'],
+        ['has_consent' => FluentRule::declined()->declinedIf('under_18', 'yes')]
+    );
+    expect($v->passes())->toBeTrue();
+
+    $v = makeValidator(
+        ['under_18' => 'yes', 'has_consent' => 'yes'],
+        ['has_consent' => FluentRule::declined()->declinedIf('under_18', 'yes')]
+    );
+    expect($v->passes())->toBeFalse();
 });
 
 // =========================================================================

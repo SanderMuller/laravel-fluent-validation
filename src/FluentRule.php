@@ -9,6 +9,7 @@ use SanderMuller\FluentValidation\Rules\AcceptedRule;
 use SanderMuller\FluentValidation\Rules\ArrayRule;
 use SanderMuller\FluentValidation\Rules\BooleanRule;
 use SanderMuller\FluentValidation\Rules\DateRule;
+use SanderMuller\FluentValidation\Rules\DeclinedRule;
 use SanderMuller\FluentValidation\Rules\EmailRule;
 use SanderMuller\FluentValidation\Rules\FieldRule;
 use SanderMuller\FluentValidation\Rules\FileRule;
@@ -66,6 +67,13 @@ class FluentRule
         return $label !== null ? $acceptedRule->label($label) : $acceptedRule;
     }
 
+    public static function declined(?string $label = null): DeclinedRule
+    {
+        $declinedRule = new DeclinedRule();
+
+        return $label !== null ? $declinedRule->label($label) : $declinedRule;
+    }
+
     /** @param  Arrayable<array-key, string|\BackedEnum>|list<string|\BackedEnum>|null  $keys */
     public static function array(Arrayable|array|null $keys = null, ?string $label = null): ArrayRule
     {
@@ -120,6 +128,57 @@ class FluentRule
     public static function ip(?string $label = null): StringRule
     {
         return self::string($label)->ip();
+    }
+
+    public static function ipv4(?string $label = null): StringRule
+    {
+        return self::string($label)->ipv4();
+    }
+
+    public static function ipv6(?string $label = null): StringRule
+    {
+        return self::string($label)->ipv6();
+    }
+
+    public static function macAddress(?string $label = null): StringRule
+    {
+        return self::string($label)->macAddress();
+    }
+
+    public static function json(?string $label = null): StringRule
+    {
+        return self::string($label)->json();
+    }
+
+    public static function timezone(?string $label = null): StringRule
+    {
+        return self::string($label)->timezone();
+    }
+
+    public static function hexColor(?string $label = null): StringRule
+    {
+        return self::string($label)->hexColor();
+    }
+
+    public static function activeUrl(?string $label = null): StringRule
+    {
+        return self::string($label)->activeUrl();
+    }
+
+    public static function regex(string $pattern, ?string $label = null): StringRule
+    {
+        return self::string($label)->regex($pattern);
+    }
+
+    public static function list(?string $label = null): ArrayRule
+    {
+        return self::array(label: $label)->list();
+    }
+
+    /** @param  class-string  $type */
+    public static function enum(string $type, ?\Closure $callback = null, ?string $label = null): FieldRule
+    {
+        return self::field($label)->enum($type, $callback);
     }
 
     public static function field(?string $label = null): FieldRule

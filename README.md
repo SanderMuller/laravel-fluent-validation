@@ -464,7 +464,7 @@ Performance is the other half. Laravel's wildcard validation is O(n²) on large 
 | `Rule::unique('users')->where(...)`   | `->unique('users', 'col', fn($r) => $r->where(...))`        |
 | `Rule::exists('roles')->where(...)`   | `->exists('roles', 'col', fn($r) => $r->where(...))`        |
 | `Rule::in([...])`                     | `FluentRule::string()->in([...])`                           |
-| `Rule::enum(Status::class)`           | `FluentRule::string()->enum(Status::class)`                 |
+| `Rule::enum(Status::class)`           | `FluentRule::enum(Status::class)` / `::string()->enum(...)` |
 | `Rule::anyOf([...])`                  | `FluentRule::anyOf([...])`                                  |
 | No equivalent                         | `->each([...])` co-locate wildcard child rules              |
 | No equivalent                         | `->children([...])` co-locate fixed-key child rules         |
@@ -1117,10 +1117,13 @@ FluentRule::string()->alpha()->alphaDash()->alphaNumeric()  // also: alpha(ascii
 FluentRule::string()->regex('/^[A-Z]+$/')->notRegex('/\d/')
 FluentRule::string()->startsWith('prefix_')->endsWith('.txt')  // also: doesntStartWith(), doesntEndWith()
 FluentRule::string()->lowercase()->uppercase()
-FluentRule::string()->url()->uuid()->ulid()->json()->ip()->macAddress()->timezone()->hexColor()->encoding('UTF-8')
+FluentRule::string()->url()->uuid()->ulid()->json()->ip()->ipv4()->ipv6()->macAddress()->timezone()->hexColor()->activeUrl()->encoding('UTF-8')
 FluentRule::string()->confirmed()->currentPassword()->same('field')->different('field')
 FluentRule::string()->inArray('values.*')->inArrayKeys('values.*')->distinct()
 ```
+
+> [!TIP]
+> Top-level shortcuts for the most common single-rule strings: `FluentRule::url()`, `uuid()`, `ulid()`, `ip()`, `ipv4()`, `ipv6()`, `macAddress()`, `json()`, `timezone()`, `hexColor()`, `activeUrl()`, `regex($pattern)`. All accept an optional `$label`. Each is `FluentRule::string()->X()` — use the shortcut when the string type is the only constraint beyond the format.
 
 </details>
 
@@ -1161,6 +1164,8 @@ FluentRule::integer()->required()->min(0)              // shorthand for numeric(
 FluentRule::numeric()->integer(strict: true)->decimal(2)->min(0)->max(100)->between(1, 99)
 FluentRule::numeric()->digits(4)->digitsBetween(4, 6)->minDigits(3)->maxDigits(5)->multipleOf(5)
 FluentRule::numeric()->greaterThan('field')->lessThan('field')  // also: greaterThanOrEqualTo(), lessThanOrEqualTo()
+FluentRule::numeric()->positive()->negative()          // gt:0 / lt:0 — sign-only helpers
+FluentRule::numeric()->nonNegative()->nonPositive()    // gte:0 / lte:0 — allow zero
 ```
 
 </details>
@@ -1189,19 +1194,22 @@ FluentRule::boolean()->accepted()->declined()
 FluentRule::boolean()->acceptedIf('role', 'admin')->declinedIf('type', 'free')
 ```
 
-**Accepted** — standalone factory for the permissive `accepted` family without a strict `boolean` base. Useful for terms-of-service / opt-in checkboxes where form posts deliver `'yes'` or `'on'` values that Laravel's `boolean` rule rejects:
+**Accepted / Declined** — standalone factories for the permissive `accepted`/`declined` families without a strict `boolean` base. Useful for terms-of-service / opt-in checkboxes where form posts deliver `'yes'` or `'on'` values that Laravel's `boolean` rule rejects:
 
 ```php
 FluentRule::accepted()                          // true | 1 | '1' | 'yes' | 'on' | 'true'
 FluentRule::accepted()->acceptedIf('role', 'admin')
+FluentRule::declined()                          // false | 0 | '0' | 'no' | 'off' | 'false'
+FluentRule::declined()->declinedIf('under_18', 'yes')
 ```
 
-> **Footgun:** `FluentRule::boolean()->accepted()` compiles to `boolean|accepted` — `boolean` rejects `'yes'` / `'on'` which `accepted` would otherwise permit. Use `FluentRule::accepted()` when the input shape is HTML-form-ish.
+> **Footgun:** `FluentRule::boolean()->accepted()` compiles to `boolean|accepted` — `boolean` rejects `'yes'` / `'on'` which `accepted` would otherwise permit. Use `FluentRule::accepted()` (or `::declined()`) when the input shape is HTML-form-ish.
 
 **Array** — size, structure, allowed keys:
 
 ```php
 FluentRule::array()->min(1)->max(10)->between(1, 5)->exactly(3)->list()
+FluentRule::list()                    // shortcut for array()->list() — sequentially-indexed
 FluentRule::array()->requiredArrayKeys('name', 'email')->contains('required_value')
 FluentRule::array(['name', 'email'])  // restrict allowed keys
 FluentRule::array(MyEnum::cases())    // BackedEnum keys
@@ -1252,6 +1260,7 @@ FluentRule::string()->in(StatusEnum::class)          // all enum values
 FluentRule::string()->notIn(DeprecatedStatus::class)
 FluentRule::string()->enum(StatusEnum::class)
 FluentRule::string()->enum(StatusEnum::class, fn ($r) => $r->only(StatusEnum::Active))
+FluentRule::enum(StatusEnum::class)   // top-level shortcut — returns an untyped FieldRule
 FluentRule::string()->unique('users', 'email')
 FluentRule::string()->unique('users', 'email', fn ($r) => $r->ignore($this->user()->id))
 FluentRule::string()->exists('roles', 'name')
