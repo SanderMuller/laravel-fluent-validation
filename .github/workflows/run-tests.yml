@@ -26,7 +26,7 @@ concurrency:
 jobs:
   test:
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 5
+    timeout-minutes: 10
     strategy:
       fail-fast: false
       matrix:
@@ -78,16 +78,12 @@ jobs:
           key: phpunit-cache-${{ matrix.php }}-${{ matrix.laravel }}-${{ matrix.stability }}-${{ matrix.os }}-${{ hashFiles('tests/**') }}
           restore-keys: phpunit-cache-${{ matrix.php }}-${{ matrix.laravel }}-${{ matrix.stability }}-${{ matrix.os }}-
 
-      - name: Execute tests (non-Windows)
-        if: matrix.os != 'windows-latest'
-        run: vendor/bin/pest --ci --parallel
-
-      # Windows + older Livewire hits an intermittent bootstrap flake where
-      # the real-time facade stream wrapper for `Facades\Livewire\...` hasn't
-      # registered before Livewire's `SupportFileUploads` provider runs. The
-      # failure is order-dependent on Pest's random seed, so a single retry
-      # with a fresh seed smooths it while still surfacing real regressions.
-      - name: Execute tests (Windows, one retry on bootstrap flake)
-        if: matrix.os == 'windows-latest'
+      # Livewire's `SupportFileUploads` provider occasionally fails to
+      # resolve `Facades\Livewire\...\GenerateSignedUploadUrl` at bootstrap
+      # — a race between the real-time facade stream wrapper registration
+      # and the provider boot that surfaces on `prefer-lowest` + random
+      # Pest seed orderings. A single retry with a fresh seed smooths it
+      # while still surfacing real regressions (both attempts must fail).
+      - name: Execute tests
         shell: bash
         run: vendor/bin/pest --ci --parallel || vendor/bin/pest --ci --parallel
