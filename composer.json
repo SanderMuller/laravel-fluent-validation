@@ -46,6 +46,9 @@
         "tomasvotruba/cognitive-complexity": "^1.1",
         "tomasvotruba/type-coverage": "^2.1"
     },
+    "suggest": {
+        "nikic/php-parser": "^5.0 — required by SanderMuller\\FluentValidation\\Testing\\Arch\\BansFieldRuleTypeMethods, an opt-in Pest/PHPUnit arch helper that bans type-specific method calls on the untyped FluentRule::field() builder."
+    },
     "autoload": {
         "psr-4": {
             "SanderMuller\\FluentValidation\\": "src/"

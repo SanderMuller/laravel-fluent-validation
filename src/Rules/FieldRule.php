@@ -2,12 +2,14 @@
 
 namespace SanderMuller\FluentValidation\Rules;
 
+use Closure;
 use Illuminate\Contracts\Validation\DataAwareRule;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Contracts\Validation\ValidatorAwareRule;
 use Illuminate\Support\Traits\Conditionable;
 use Illuminate\Support\Traits\Macroable;
 use SanderMuller\FluentValidation\Contracts\FluentRuleContract;
+use SanderMuller\FluentValidation\Exceptions\UnknownFluentRuleMethod;
 use SanderMuller\FluentValidation\Rules\Concerns\HasEmbeddedRules;
 use SanderMuller\FluentValidation\Rules\Concerns\HasFieldModifiers;
 use SanderMuller\FluentValidation\Rules\Concerns\SelfValidates;
@@ -94,5 +96,52 @@ class FieldRule implements DataAwareRule, FluentRuleContract, ValidationRule, Va
     protected function buildValidationRules(): array
     {
         return [...$this->reorderConstraints($this->constraints), ...$this->rules];
+    }
+
+    /**
+     * Mirrors `Macroable::__call` dispatch exactly except for the
+     * "no macro registered" branch, which throws a typed exception
+     * pointing at the correct typed builder instead of a bare
+     * `BadMethodCallException`. See `UnknownFluentRuleMethod`.
+     *
+     * @param  array<int, mixed>  $parameters
+     */
+    public function __call(string $method, array $parameters): mixed
+    {
+        if (! static::hasMacro($method)) {
+            throw UnknownFluentRuleMethod::on($method);
+        }
+
+        $macro = static::$macros[$method];
+
+        if ($macro instanceof Closure) {
+            $macro = $macro->bindTo($this, static::class);
+        }
+
+        if (! is_callable($macro)) {
+            throw UnknownFluentRuleMethod::on($method);
+        }
+
+        return $macro(...$parameters);
+    }
+
+    /** @param  array<int, mixed>  $parameters */
+    public static function __callStatic(string $method, array $parameters): mixed
+    {
+        if (! static::hasMacro($method)) {
+            throw UnknownFluentRuleMethod::on($method);
+        }
+
+        $macro = static::$macros[$method];
+
+        if ($macro instanceof Closure) {
+            $macro = $macro->bindTo(null, static::class);
+        }
+
+        if (! is_callable($macro)) {
+            throw UnknownFluentRuleMethod::on($method);
+        }
+
+        return $macro(...$parameters);
     }
 }

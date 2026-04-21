@@ -1423,6 +1423,22 @@ PHP's `mergeRecursive` deconstructs objects into arrays. Use `(clone $parentRule
 Use `->rule('method_name')` as an escape hatch for any Laravel rule not yet available as a fluent method. Accepts strings, objects, and `['rule', ...$params]` tuples.
 If you think it should be a native method, [open an issue](https://github.com/SanderMuller/laravel-fluent-validation/issues) and we'll add it.
 
+**`UnknownFluentRuleMethod: FluentRule::field() has no method ...()`**
+`FluentRule::field()` is the untyped builder — it carries no base type constraint. Modifiers (`required`, `nullable`, `present`, conditional presence), `children()`, `same`/`different`/`confirmed`, and the embedded-rule factories (`exists`, `unique`, `enum`, `in`, `notIn`) all work on it, plus the `->rule(...)` escape hatch. What it intentionally does *not* expose is **type-specific rules** — `min`, `max`, `regex`, `email`, `digits`, `mimes`, `before`, `after`, `contains`, etc. Those live on the typed builders so the base-type constraint is always implicit. The exception message names the builder(s) that expose the method you called; pick the one matching your field's type:
+
+```php
+// Before — UnknownFluentRuleMethod: FluentRule::field() has no method min()
+FluentRule::field()->required()->min(5);
+
+// After — chain on a typed builder
+FluentRule::numeric()->required()->min(5);   // numeric value
+FluentRule::string()->required()->min(5);    // string length
+FluentRule::array()->required()->min(5);     // element count
+FluentRule::file()->required()->min('2mb');  // file size
+```
+
+For belt-and-suspenders coverage in downstream apps, the package ships a Pest/PHPUnit arch helper that scans source for the footgun at test time — see `SanderMuller\FluentValidation\Testing\Arch\BansFieldRuleTypeMethods` (requires `nikic/php-parser` as a dev dep).
+
 **`HasFluentValidation` conflicts with Filament's `InteractsWithSchemas`**
 Both traits define `validate()`. For Filament components, use `RuleSet::compileToArrays()` instead of the trait: `$this->validate(RuleSet::compileToArrays($this->rules()))`. This returns `array<string, array<mixed>>` matching Livewire's expected type, so PHPStan is happy. FluentRule works correctly without the trait for simple rules.
 

@@ -59,6 +59,8 @@ public function rules(): array
 
 All factory methods accept an optional label that replaces `:attribute` in error messages.
 
+**`FluentRule::field()` is the untyped builder** — use it when no base type constraint applies. It supports modifiers (`required`, `nullable`, `present`, conditional presence), `children()`, `same`/`different`/`confirmed`, embedded-rule factories (`exists`, `unique`, `enum`, `in`, `notIn`), and the `->rule(...)` escape hatch. **Do not** chain type-specific methods (`min`, `max`, `regex`, `email`, `digits`, `mimes`, `before`/`after`, `contains`, etc.) on `field()` — those live on the typed builders (`string()`, `numeric()`, `array()`, `date()`, `file()`, `boolean()`). Calling one on `field()` throws `UnknownFluentRuleMethod` at runtime with a hint pointing at the correct typed builder. When generating code, pick the typed builder matching the field's type for any rule that constrains the value itself.
+
 ## Quick Usage
 
 ```php

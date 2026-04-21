@@ -12,6 +12,9 @@ parameters:
         - src
         - tests
 
+    excludePaths:
+        - tests/Fixtures/MacroableFootgun
+
     level: max
 
     type_coverage:

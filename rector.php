@@ -25,6 +25,7 @@ return RectorConfig::configure()
         __DIR__ . '/src',
         __DIR__ . '/tests',
     ])
+    ->withSkipPath(__DIR__ . '/tests/Fixtures/MacroableFootgun')
     ->withPreparedSets(
         deadCode: true,
         codeQuality: true,
