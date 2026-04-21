@@ -78,23 +78,39 @@ jobs:
           key: phpunit-cache-${{ matrix.php }}-${{ matrix.laravel }}-${{ matrix.stability }}-${{ matrix.os }}-${{ hashFiles('tests/**') }}
           restore-keys: phpunit-cache-${{ matrix.php }}-${{ matrix.laravel }}-${{ matrix.stability }}-${{ matrix.os }}-
 
-      # Retry *only* for known CI bootstrap races; any other failure
-      # fails the job without retry so we don't mask seed-dependent
-      # regressions. Currently retried:
-      #
-      #   1. Livewire real-time-facade race — `Facades\Livewire\...\
-      #      GenerateSignedUploadUrl` not found because the stream
-      #      wrapper registers after `SupportFileUploads::provide()`.
-      #      Surfaces on `prefer-lowest` + random Pest seed orderings.
-      #
-      #   2. Testbench bootstrap/cache file-lock race (Windows) —
-      #      `rename(...\bootstrap\cache\*.php): Access is denied`
-      #      (services.php / packages.php / etc.) when parallel workers
-      #      touch the same cached bootstrap file simultaneously.
-      #
-      # Both are environmental, order-dependent, and resolved by a
-      # single re-run with a fresh seed + fresh process pool.
-      - name: Execute tests
+      # Windows: run sequentially. Pest's parallel runner spawns workers
+      # that race on Testbench's shared bootstrap/cache/*.php and
+      # storage/framework/cache/* rename-swaps, which Windows denies
+      # (`Access is denied (code: 5)`). Sequential execution eliminates
+      # the race; the time cost is acceptable for a single matrix leg.
+      - name: Execute tests (Windows — sequential to avoid file-rename race)
+        if: matrix.os == 'windows-latest'
+        shell: bash
+        run: |
+          set +e
+          vendor/bin/pest --ci 2>&1 | tee pest-output.log
+          status=${PIPESTATUS[0]}
+          set -e
+          if [ "$status" -eq 0 ]; then
+            exit 0
+          fi
+          # Livewire real-time-facade race — the stream wrapper for
+          # `Facades\Livewire\...\GenerateSignedUploadUrl` occasionally
+          # registers after `SupportFileUploads::provide()` on
+          # `prefer-lowest` + certain Pest seeds. One retry with a fresh
+          # seed resolves it; any other first-attempt failure fails the
+          # job without retry.
+          if grep -q 'Facades\\Livewire\\Features\\SupportFileUploads\\GenerateSignedUploadUrl' pest-output.log; then
+            echo "::warning ::Livewire real-time-facade bootstrap race detected — retrying once with a fresh Pest seed"
+            vendor/bin/pest --ci
+          else
+            echo "Test failure is not the known Livewire bootstrap race — failing without retry"
+            exit "$status"
+          fi
+
+      # Non-Windows: parallel runner is safe and ~3x faster.
+      - name: Execute tests (non-Windows — parallel)
+        if: matrix.os != 'windows-latest'
         shell: bash
         run: |
           set +e
@@ -104,10 +120,10 @@ jobs:
           if [ "$status" -eq 0 ]; then
             exit 0
           fi
-          if grep -qE 'Facades\\Livewire\\Features\\SupportFileUploads\\GenerateSignedUploadUrl|bootstrap.cache.*\.php.*Access is denied' pest-output.log; then
-            echo "::warning ::Known CI bootstrap race detected — retrying once with a fresh Pest seed"
+          if grep -q 'Facades\\Livewire\\Features\\SupportFileUploads\\GenerateSignedUploadUrl' pest-output.log; then
+            echo "::warning ::Livewire real-time-facade bootstrap race detected — retrying once with a fresh Pest seed"
             vendor/bin/pest --ci --parallel
           else
-            echo "Test failure is not a known bootstrap race — failing without retry"
+            echo "Test failure is not the known Livewire bootstrap race — failing without retry"
             exit "$status"
           fi
