@@ -167,9 +167,11 @@ final class TypedBuilderHint
             if ($method->isStatic()) {
                 continue;
             }
+
             if ($method->isConstructor()) {
                 continue;
             }
+
             $name = $method->getName();
             if (str_starts_with($name, '__')) {
                 continue;
