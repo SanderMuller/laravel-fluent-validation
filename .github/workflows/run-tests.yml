@@ -78,13 +78,22 @@ jobs:
           key: phpunit-cache-${{ matrix.php }}-${{ matrix.laravel }}-${{ matrix.stability }}-${{ matrix.os }}-${{ hashFiles('tests/**') }}
           restore-keys: phpunit-cache-${{ matrix.php }}-${{ matrix.laravel }}-${{ matrix.stability }}-${{ matrix.os }}-
 
-      # Livewire's `SupportFileUploads` provider occasionally fails to
-      # resolve `Facades\Livewire\...\GenerateSignedUploadUrl` at bootstrap
-      # — a race between the real-time facade stream wrapper registration
-      # and the provider boot that surfaces on `prefer-lowest` + random
-      # Pest seed orderings. Retry *only* when the first-attempt failure
-      # matches that specific error signature; any other failure fails
-      # the job immediately so we don't mask seed-dependent regressions.
+      # Retry *only* for known CI bootstrap races; any other failure
+      # fails the job without retry so we don't mask seed-dependent
+      # regressions. Currently retried:
+      #
+      #   1. Livewire real-time-facade race — `Facades\Livewire\...\
+      #      GenerateSignedUploadUrl` not found because the stream
+      #      wrapper registers after `SupportFileUploads::provide()`.
+      #      Surfaces on `prefer-lowest` + random Pest seed orderings.
+      #
+      #   2. Testbench bootstrap/cache file-lock race (Windows) —
+      #      `rename(...\bootstrap\cache\...\services.php): Access is
+      #      denied (code: 5)` when parallel workers touch the same
+      #      cached bootstrap file simultaneously.
+      #
+      # Both are environmental, order-dependent, and resolved by a
+      # single re-run with a fresh seed + fresh process pool.
       - name: Execute tests
         shell: bash
         run: |
@@ -95,10 +104,10 @@ jobs:
           if [ "$status" -eq 0 ]; then
             exit 0
           fi
-          if grep -q 'Facades\\Livewire\\Features\\SupportFileUploads\\GenerateSignedUploadUrl' pest-output.log; then
-            echo "::warning ::Livewire real-time-facade bootstrap race detected — retrying once with a fresh Pest seed"
+          if grep -qE 'Facades\\Livewire\\Features\\SupportFileUploads\\GenerateSignedUploadUrl|bootstrap[\\/]cache[\\/\\\\].*services\.php.*Access is denied' pest-output.log; then
+            echo "::warning ::Known CI bootstrap race detected — retrying once with a fresh Pest seed"
             vendor/bin/pest --ci --parallel
           else
-            echo "Test failure is not the known Livewire bootstrap race — failing without retry"
+            echo "Test failure is not a known bootstrap race — failing without retry"
             exit "$status"
           fi
