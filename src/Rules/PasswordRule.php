@@ -26,6 +26,8 @@ class PasswordRule implements DataAwareRule, FluentRuleContract, ValidationRule,
 
     public function __construct(?int $min = null, bool $defaults = true)
     {
+        $this->seedLastConstraint('password');
+
         $this->password = $min !== null
             ? Password::min($min)
             : ($defaults ? Password::default() : Password::min(8));
@@ -80,9 +82,9 @@ class PasswordRule implements DataAwareRule, FluentRuleContract, ValidationRule,
         return $this;
     }
 
-    public function confirmed(): static
+    public function confirmed(?string $message = null): static
     {
-        return $this->addRule('confirmed');
+        return $this->addRule('confirmed', $message);
     }
 
     public function canCompile(): bool

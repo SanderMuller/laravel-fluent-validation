@@ -9,6 +9,11 @@ class ImageRule extends FileRule
     /** @var list<string> */
     protected array $constraints = ['image'];
 
+    protected function defaultConstraintName(): string
+    {
+        return 'image';
+    }
+
     public function allowSvg(): static
     {
         $this->constraints = array_values(array_map(
@@ -19,43 +24,43 @@ class ImageRule extends FileRule
         return $this;
     }
 
-    public function dimensions(Dimensions $dimensions): static
+    public function dimensions(Dimensions $dimensions, ?string $message = null): static
     {
-        return $this->addRule($dimensions);
+        return $this->addRule($dimensions, $message);
     }
 
-    public function width(int $value): static
+    public function width(int $value, ?string $message = null): static
     {
-        return $this->dimensions(new Dimensions(['width' => $value]));
+        return $this->dimensions(new Dimensions(['width' => $value]), $message);
     }
 
-    public function height(int $value): static
+    public function height(int $value, ?string $message = null): static
     {
-        return $this->dimensions(new Dimensions(['height' => $value]));
+        return $this->dimensions(new Dimensions(['height' => $value]), $message);
     }
 
-    public function minWidth(int $value): static
+    public function minWidth(int $value, ?string $message = null): static
     {
-        return $this->dimensions(new Dimensions(['min_width' => $value]));
+        return $this->dimensions(new Dimensions(['min_width' => $value]), $message);
     }
 
-    public function maxWidth(int $value): static
+    public function maxWidth(int $value, ?string $message = null): static
     {
-        return $this->dimensions(new Dimensions(['max_width' => $value]));
+        return $this->dimensions(new Dimensions(['max_width' => $value]), $message);
     }
 
-    public function minHeight(int $value): static
+    public function minHeight(int $value, ?string $message = null): static
     {
-        return $this->dimensions(new Dimensions(['min_height' => $value]));
+        return $this->dimensions(new Dimensions(['min_height' => $value]), $message);
     }
 
-    public function maxHeight(int $value): static
+    public function maxHeight(int $value, ?string $message = null): static
     {
-        return $this->dimensions(new Dimensions(['max_height' => $value]));
+        return $this->dimensions(new Dimensions(['max_height' => $value]), $message);
     }
 
-    public function ratio(float|string $value): static
+    public function ratio(float|string $value, ?string $message = null): static
     {
-        return $this->dimensions(new Dimensions(['ratio' => $value]));
+        return $this->dimensions(new Dimensions(['ratio' => $value]), $message);
     }
 }

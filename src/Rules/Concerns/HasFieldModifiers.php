@@ -30,6 +30,18 @@ trait HasFieldModifiers
     private array $customMessages = [];
 
     /**
+     * Seed $lastConstraint for rule classes whose defining constraint
+     * is property-initialised (e.g. `protected array $constraints = ['string']`)
+     * rather than added via addRule(). Called from factory constructors so
+     * `FluentRule::string()->message('...')` binds to 'string' without the
+     * caller knowing the initialisation internals.
+     */
+    protected function seedLastConstraint(string $name): void
+    {
+        $this->lastConstraint = $name;
+    }
+
+    /**
      * Set the human-readable label for this field.
      * Used as the :attribute replacement in error messages.
      */
@@ -97,9 +109,13 @@ trait HasFieldModifiers
     /**
      * Strings are appended to $constraints. Objects are appended to $rules.
      *
+     * When $message is non-null, writes it to customMessages under the
+     * resolved $lastConstraint key. Throws LogicException if $message is
+     * set but no rule was added (e.g. an early-return branch in a caller).
+     *
      * @param  array<int, string>|string|object  $rules
      */
-    protected function addRule(array|string|object $rules): static
+    protected function addRule(array|string|object $rules, ?string $message = null): static
     {
         $this->compiledCache = null;
 
@@ -123,6 +139,14 @@ trait HasFieldModifiers
             // Track last constraint name: 'min:2' → 'min', 'required' → 'required'
             $last = is_array($rules) ? end($rules) : $rules;
             $this->lastConstraint = is_string($last) ? explode(':', $last, 2)[0] : null;
+        }
+
+        if ($message !== null) {
+            if ($this->lastConstraint === null) {
+                throw new \LogicException('message parameter has no rule to bind to');
+            }
+
+            $this->customMessages[$this->lastConstraint] = $message;
         }
 
         return $this;
@@ -151,24 +175,24 @@ trait HasFieldModifiers
         return $this->addRule('nullable');
     }
 
-    public function required(): static
+    public function required(?string $message = null): static
     {
-        return $this->addRule('required');
+        return $this->addRule('required', $message);
     }
 
-    public function sometimes(): static
+    public function sometimes(?string $message = null): static
     {
-        return $this->addRule('sometimes');
+        return $this->addRule('sometimes', $message);
     }
 
-    public function filled(): static
+    public function filled(?string $message = null): static
     {
-        return $this->addRule('filled');
+        return $this->addRule('filled', $message);
     }
 
-    public function present(): static
+    public function present(?string $message = null): static
     {
-        return $this->addRule('present');
+        return $this->addRule('present', $message);
     }
 
     public function presentIf(string $field, string|int|bool|\BackedEnum ...$values): static
@@ -191,9 +215,9 @@ trait HasFieldModifiers
         return $this->addRule('present_with_all:' . implode(',', $fields));
     }
 
-    public function prohibited(): static
+    public function prohibited(?string $message = null): static
     {
-        return $this->addRule('prohibited');
+        return $this->addRule('prohibited', $message);
     }
 
     public function exclude(): static
@@ -201,9 +225,9 @@ trait HasFieldModifiers
         return $this->addRule('exclude');
     }
 
-    public function missing(): static
+    public function missing(?string $message = null): static
     {
-        return $this->addRule('missing');
+        return $this->addRule('missing', $message);
     }
 
     public function missingIf(string $field, string|int|bool|\BackedEnum ...$values): static
@@ -267,14 +291,14 @@ trait HasFieldModifiers
         return $this->addRule('required_without_all:' . implode(',', $fields));
     }
 
-    public function requiredIfAccepted(string $field): static
+    public function requiredIfAccepted(string $field, ?string $message = null): static
     {
-        return $this->addRule('required_if_accepted:' . $field);
+        return $this->addRule('required_if_accepted:' . $field, $message);
     }
 
-    public function requiredIfDeclined(string $field): static
+    public function requiredIfDeclined(string $field, ?string $message = null): static
     {
-        return $this->addRule('required_if_declined:' . $field);
+        return $this->addRule('required_if_declined:' . $field, $message);
     }
 
     public function excludeIf(Closure|bool|string $field, string|int|bool|\BackedEnum ...$values): static
@@ -345,14 +369,14 @@ trait HasFieldModifiers
         return $this->addRule('prohibits:' . implode(',', $fields));
     }
 
-    public function prohibitedIfAccepted(string $field): static
+    public function prohibitedIfAccepted(string $field, ?string $message = null): static
     {
-        return $this->addRule('prohibited_if_accepted:' . $field);
+        return $this->addRule('prohibited_if_accepted:' . $field, $message);
     }
 
-    public function prohibitedIfDeclined(string $field): static
+    public function prohibitedIfDeclined(string $field, ?string $message = null): static
     {
-        return $this->addRule('prohibited_if_declined:' . $field);
+        return $this->addRule('prohibited_if_declined:' . $field, $message);
     }
 
     /**
@@ -402,15 +426,15 @@ trait HasFieldModifiers
      *
      * @param  object|string|array<int, string>  $rule
      */
-    public function rule(object|string|array $rule): static
+    public function rule(object|string|array $rule, ?string $message = null): static
     {
         if (is_array($rule)) {
             $params = array_slice($rule, 1);
 
-            return $this->addRule($params === [] ? $rule[0] : $rule[0] . ':' . implode(',', $params));
+            return $this->addRule($params === [] ? $rule[0] : $rule[0] . ':' . implode(',', $params), $message);
         }
 
-        return $this->addRule($rule);
+        return $this->addRule($rule, $message);
     }
 
     /**

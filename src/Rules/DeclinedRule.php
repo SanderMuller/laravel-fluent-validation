@@ -21,8 +21,14 @@ class DeclinedRule implements DataAwareRule, FluentRuleContract, ValidationRule,
     /** @var list<string> */
     protected array $constraints = ['declined'];
 
+    public function __construct()
+    {
+        $this->seedLastConstraint('declined');
+    }
+
     public function declinedIf(string $field, string|int|bool ...$values): static
     {
+        // Variadic-trailing signature — `message:` unavailable here.
         $this->constraints = array_values(array_filter(
             $this->constraints,
             static fn (string $rule): bool => $rule !== 'declined',

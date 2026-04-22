@@ -60,19 +60,19 @@ class FieldRule implements DataAwareRule, FluentRuleContract, ValidationRule, Va
         return $this->childRules;
     }
 
-    public function same(string $field): static
+    public function same(string $field, ?string $message = null): static
     {
-        return $this->addRule('same:' . $field);
+        return $this->addRule('same:' . $field, $message);
     }
 
-    public function different(string $field): static
+    public function different(string $field, ?string $message = null): static
     {
-        return $this->addRule('different:' . $field);
+        return $this->addRule('different:' . $field, $message);
     }
 
-    public function confirmed(): static
+    public function confirmed(?string $message = null): static
     {
-        return $this->addRule('confirmed');
+        return $this->addRule('confirmed', $message);
     }
 
     /** @return array<string, mixed> */

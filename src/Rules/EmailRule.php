@@ -27,7 +27,10 @@ class EmailRule implements DataAwareRule, FluentRuleContract, ValidationRule, Va
     /** @var list<string> */
     protected array $modes = [];
 
-    public function __construct(protected bool $useDefaults = true) {}
+    public function __construct(protected bool $useDefaults = true)
+    {
+        $this->seedLastConstraint('email');
+    }
 
     public function rfcCompliant(bool $strict = false): static
     {
@@ -64,24 +67,24 @@ class EmailRule implements DataAwareRule, FluentRuleContract, ValidationRule, Va
 
     // -- String-like constraints that make sense on email fields --
 
-    public function max(int $value): static
+    public function max(int $value, ?string $message = null): static
     {
-        return $this->addRule('max:' . $value);
+        return $this->addRule('max:' . $value, $message);
     }
 
-    public function confirmed(): static
+    public function confirmed(?string $message = null): static
     {
-        return $this->addRule('confirmed');
+        return $this->addRule('confirmed', $message);
     }
 
-    public function same(string $field): static
+    public function same(string $field, ?string $message = null): static
     {
-        return $this->addRule('same:' . $field);
+        return $this->addRule('same:' . $field, $message);
     }
 
-    public function different(string $field): static
+    public function different(string $field, ?string $message = null): static
     {
-        return $this->addRule('different:' . $field);
+        return $this->addRule('different:' . $field, $message);
     }
 
     /** @return string|list<string|object> */

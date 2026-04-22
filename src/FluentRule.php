@@ -22,25 +22,44 @@ class FluentRule
 {
     use Macroable;
 
-    public static function string(?string $label = null): StringRule
+    public static function string(?string $label = null, ?string $message = null): StringRule
     {
         $stringRule = new StringRule();
+        if ($label !== null) {
+            $stringRule->label($label);
+        }
 
-        return $label !== null ? $stringRule->label($label) : $stringRule;
+        if ($message !== null) {
+            $stringRule->message($message);
+        }
+
+        return $stringRule;
     }
 
-    public static function numeric(?string $label = null): NumericRule
+    public static function numeric(?string $label = null, ?string $message = null): NumericRule
     {
         $numericRule = new NumericRule();
+        if ($label !== null) {
+            $numericRule->label($label);
+        }
 
-        return $label !== null ? $numericRule->label($label) : $numericRule;
+        if ($message !== null) {
+            $numericRule->message($message);
+        }
+
+        return $numericRule;
     }
 
-    public static function integer(?string $label = null): NumericRule
+    public static function integer(?string $label = null, ?string $message = null): NumericRule
     {
-        return self::numeric($label)->integer();
+        return self::numeric($label)->integer(message: $message);
     }
 
+    /**
+     * `message:` is deferred — DateRule's error-lookup key varies at
+     * build time (`'date'` vs `'date_format:...'`). Use `->messageFor()`
+     * or `->message()` after calling a specific method like `before()`.
+     */
     public static function date(?string $label = null): DateRule
     {
         $dateRule = new DateRule();
@@ -48,137 +67,194 @@ class FluentRule
         return $label !== null ? $dateRule->label($label) : $dateRule;
     }
 
+    /** Deferred for the same reason as `::date()`. */
     public static function dateTime(?string $label = null): DateRule
     {
         return self::date($label)->format('Y-m-d H:i:s');
     }
 
-    public static function boolean(?string $label = null): BooleanRule
+    public static function boolean(?string $label = null, ?string $message = null): BooleanRule
     {
         $booleanRule = new BooleanRule();
+        if ($label !== null) {
+            $booleanRule->label($label);
+        }
 
-        return $label !== null ? $booleanRule->label($label) : $booleanRule;
+        if ($message !== null) {
+            $booleanRule->message($message);
+        }
+
+        return $booleanRule;
     }
 
-    public static function accepted(?string $label = null): AcceptedRule
+    public static function accepted(?string $label = null, ?string $message = null): AcceptedRule
     {
         $acceptedRule = new AcceptedRule();
+        if ($label !== null) {
+            $acceptedRule->label($label);
+        }
 
-        return $label !== null ? $acceptedRule->label($label) : $acceptedRule;
+        if ($message !== null) {
+            $acceptedRule->message($message);
+        }
+
+        return $acceptedRule;
     }
 
-    public static function declined(?string $label = null): DeclinedRule
+    public static function declined(?string $label = null, ?string $message = null): DeclinedRule
     {
         $declinedRule = new DeclinedRule();
+        if ($label !== null) {
+            $declinedRule->label($label);
+        }
 
-        return $label !== null ? $declinedRule->label($label) : $declinedRule;
+        if ($message !== null) {
+            $declinedRule->message($message);
+        }
+
+        return $declinedRule;
     }
 
     /** @param  Arrayable<array-key, string|\BackedEnum>|list<string|\BackedEnum>|null  $keys */
-    public static function array(Arrayable|array|null $keys = null, ?string $label = null): ArrayRule
+    public static function array(Arrayable|array|null $keys = null, ?string $label = null, ?string $message = null): ArrayRule
     {
         $arrayRule = new ArrayRule($keys);
+        if ($label !== null) {
+            $arrayRule->label($label);
+        }
 
-        return $label !== null ? $arrayRule->label($label) : $arrayRule;
+        if ($message !== null) {
+            $arrayRule->message($message);
+        }
+
+        return $arrayRule;
     }
 
-    public static function file(?string $label = null): FileRule
+    public static function file(?string $label = null, ?string $message = null): FileRule
     {
         $fileRule = new FileRule();
+        if ($label !== null) {
+            $fileRule->label($label);
+        }
 
-        return $label !== null ? $fileRule->label($label) : $fileRule;
+        if ($message !== null) {
+            $fileRule->message($message);
+        }
+
+        return $fileRule;
     }
 
-    public static function email(?string $label = null, bool $defaults = true): EmailRule
+    public static function email(?string $label = null, bool $defaults = true, ?string $message = null): EmailRule
     {
         $emailRule = new EmailRule($defaults);
+        if ($label !== null) {
+            $emailRule->label($label);
+        }
 
-        return $label !== null ? $emailRule->label($label) : $emailRule;
+        if ($message !== null) {
+            $emailRule->message($message);
+        }
+
+        return $emailRule;
     }
 
-    public static function image(?string $label = null): ImageRule
+    public static function image(?string $label = null, ?string $message = null): ImageRule
     {
         $imageRule = new ImageRule();
+        if ($label !== null) {
+            $imageRule->label($label);
+        }
 
-        return $label !== null ? $imageRule->label($label) : $imageRule;
+        if ($message !== null) {
+            $imageRule->message($message);
+        }
+
+        return $imageRule;
     }
 
-    public static function password(?int $min = null, ?string $label = null, bool $defaults = true): PasswordRule
+    public static function password(?int $min = null, ?string $label = null, bool $defaults = true, ?string $message = null): PasswordRule
     {
         $passwordRule = new PasswordRule($min, $defaults);
+        if ($label !== null) {
+            $passwordRule->label($label);
+        }
 
-        return $label !== null ? $passwordRule->label($label) : $passwordRule;
+        if ($message !== null) {
+            $passwordRule->message($message);
+        }
+
+        return $passwordRule;
     }
 
-    public static function url(?string $label = null): StringRule
+    public static function url(?string $label = null, ?string $message = null): StringRule
     {
-        return self::string($label)->url();
+        return self::string($label)->url($message);
     }
 
-    public static function uuid(?string $label = null): StringRule
+    public static function uuid(?string $label = null, ?string $message = null): StringRule
     {
-        return self::string($label)->uuid();
+        return self::string($label)->uuid($message);
     }
 
-    public static function ulid(?string $label = null): StringRule
+    public static function ulid(?string $label = null, ?string $message = null): StringRule
     {
-        return self::string($label)->ulid();
+        return self::string($label)->ulid($message);
     }
 
-    public static function ip(?string $label = null): StringRule
+    public static function ip(?string $label = null, ?string $message = null): StringRule
     {
-        return self::string($label)->ip();
+        return self::string($label)->ip($message);
     }
 
-    public static function ipv4(?string $label = null): StringRule
+    public static function ipv4(?string $label = null, ?string $message = null): StringRule
     {
-        return self::string($label)->ipv4();
+        return self::string($label)->ipv4($message);
     }
 
-    public static function ipv6(?string $label = null): StringRule
+    public static function ipv6(?string $label = null, ?string $message = null): StringRule
     {
-        return self::string($label)->ipv6();
+        return self::string($label)->ipv6($message);
     }
 
-    public static function macAddress(?string $label = null): StringRule
+    public static function macAddress(?string $label = null, ?string $message = null): StringRule
     {
-        return self::string($label)->macAddress();
+        return self::string($label)->macAddress($message);
     }
 
-    public static function json(?string $label = null): StringRule
+    public static function json(?string $label = null, ?string $message = null): StringRule
     {
-        return self::string($label)->json();
+        return self::string($label)->json($message);
     }
 
-    public static function timezone(?string $label = null): StringRule
+    public static function timezone(?string $label = null, ?string $message = null): StringRule
     {
-        return self::string($label)->timezone();
+        return self::string($label)->timezone($message);
     }
 
-    public static function hexColor(?string $label = null): StringRule
+    public static function hexColor(?string $label = null, ?string $message = null): StringRule
     {
-        return self::string($label)->hexColor();
+        return self::string($label)->hexColor($message);
     }
 
-    public static function activeUrl(?string $label = null): StringRule
+    public static function activeUrl(?string $label = null, ?string $message = null): StringRule
     {
-        return self::string($label)->activeUrl();
+        return self::string($label)->activeUrl($message);
     }
 
-    public static function regex(string $pattern, ?string $label = null): StringRule
+    public static function regex(string $pattern, ?string $label = null, ?string $message = null): StringRule
     {
-        return self::string($label)->regex($pattern);
+        return self::string($label)->regex($pattern, $message);
     }
 
-    public static function list(?string $label = null): ArrayRule
+    public static function list(?string $label = null, ?string $message = null): ArrayRule
     {
-        return self::array(label: $label)->list();
+        return self::array(label: $label)->list($message);
     }
 
     /** @param  class-string  $type */
-    public static function enum(string $type, ?\Closure $callback = null, ?string $label = null): FieldRule
+    public static function enum(string $type, ?\Closure $callback = null, ?string $label = null, ?string $message = null): FieldRule
     {
-        return self::field($label)->enum($type, $callback);
+        return self::field($label)->enum($type, $callback, $message);
     }
 
     public static function field(?string $label = null): FieldRule

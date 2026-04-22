@@ -23,134 +23,152 @@ class NumericRule implements DataAwareRule, FluentRuleContract, ValidationRule, 
     /** @var list<string> */
     protected array $constraints = ['numeric'];
 
-    public function between(int|float $min, int|float $max): static
+    public function __construct()
     {
-        return $this->addRule('between:' . $min . ',' . $max);
+        $this->seedLastConstraint('numeric');
     }
 
-    public function decimal(int $min, ?int $max = null): static
+    public function between(int|float $min, int|float $max, ?string $message = null): static
+    {
+        return $this->addRule('between:' . $min . ',' . $max, $message);
+    }
+
+    public function decimal(int $min, ?int $max = null, ?string $message = null): static
     {
         $r = 'decimal:' . $min;
         if ($max !== null) {
             $r .= ',' . $max;
         }
 
-        return $this->addRule($r);
+        return $this->addRule($r, $message);
     }
 
-    public function different(string $field): static
+    public function different(string $field, ?string $message = null): static
     {
-        return $this->addRule('different:' . $field);
+        return $this->addRule('different:' . $field, $message);
     }
 
-    public function digits(int $length): static
+    /**
+     * Composite method — adds `integer` then `digits:N`. `message:` binds to
+     * `digits` (the semantically meaningful sub-rule). To message `integer`,
+     * use `->messageFor('integer', '...')`.
+     */
+    public function digits(int $length, ?string $message = null): static
     {
-        return $this->integer()->addRule('digits:' . $length);
+        return $this->integer()->addRule('digits:' . $length, $message);
     }
 
-    public function digitsBetween(int $min, int $max): static
+    /**
+     * Composite method — adds `integer` then `digits_between:min,max`.
+     * `message:` binds to `digits_between`. Target `integer` via `messageFor()`.
+     */
+    public function digitsBetween(int $min, int $max, ?string $message = null): static
     {
-        return $this->integer()->addRule('digits_between:' . $min . ',' . $max);
+        return $this->integer()->addRule('digits_between:' . $min . ',' . $max, $message);
     }
 
-    public function greaterThan(string $field): static
+    public function greaterThan(string $field, ?string $message = null): static
     {
-        return $this->addRule('gt:' . $field);
+        return $this->addRule('gt:' . $field, $message);
     }
 
-    public function greaterThanOrEqualTo(string $field): static
+    public function greaterThanOrEqualTo(string $field, ?string $message = null): static
     {
-        return $this->addRule('gte:' . $field);
+        return $this->addRule('gte:' . $field, $message);
     }
 
-    public function integer(bool $strict = false): static
+    public function integer(bool $strict = false, ?string $message = null): static
     {
-        return $this->addRule($strict ? 'integer:strict' : 'integer');
+        return $this->addRule($strict ? 'integer:strict' : 'integer', $message);
     }
 
-    public function lessThan(string $field): static
+    public function lessThan(string $field, ?string $message = null): static
     {
-        return $this->addRule('lt:' . $field);
+        return $this->addRule('lt:' . $field, $message);
     }
 
-    public function lessThanOrEqualTo(string $field): static
+    public function lessThanOrEqualTo(string $field, ?string $message = null): static
     {
-        return $this->addRule('lte:' . $field);
+        return $this->addRule('lte:' . $field, $message);
     }
 
-    public function max(int|float $value): static
+    public function max(int|float $value, ?string $message = null): static
     {
-        return $this->addRule('max:' . $value);
+        return $this->addRule('max:' . $value, $message);
     }
 
-    public function maxDigits(int $value): static
+    public function maxDigits(int $value, ?string $message = null): static
     {
-        return $this->addRule('max_digits:' . $value);
+        return $this->addRule('max_digits:' . $value, $message);
     }
 
-    public function min(int|float $value): static
+    public function min(int|float $value, ?string $message = null): static
     {
-        return $this->addRule('min:' . $value);
+        return $this->addRule('min:' . $value, $message);
     }
 
-    public function minDigits(int $value): static
+    public function minDigits(int $value, ?string $message = null): static
     {
-        return $this->addRule('min_digits:' . $value);
+        return $this->addRule('min_digits:' . $value, $message);
     }
 
-    public function multipleOf(int|float $value): static
+    public function multipleOf(int|float $value, ?string $message = null): static
     {
-        return $this->addRule('multiple_of:' . $value);
+        return $this->addRule('multiple_of:' . $value, $message);
     }
 
-    public function positive(): static
+    public function positive(?string $message = null): static
     {
-        return $this->addRule('gt:0');
+        return $this->addRule('gt:0', $message);
     }
 
-    public function negative(): static
+    public function negative(?string $message = null): static
     {
-        return $this->addRule('lt:0');
+        return $this->addRule('lt:0', $message);
     }
 
-    public function nonNegative(): static
+    public function nonNegative(?string $message = null): static
     {
-        return $this->addRule('gte:0');
+        return $this->addRule('gte:0', $message);
     }
 
-    public function nonPositive(): static
+    public function nonPositive(?string $message = null): static
     {
-        return $this->addRule('lte:0');
+        return $this->addRule('lte:0', $message);
     }
 
-    public function same(string $field): static
+    public function same(string $field, ?string $message = null): static
     {
-        return $this->addRule('same:' . $field);
+        return $this->addRule('same:' . $field, $message);
     }
 
-    public function exactly(int $value): static
+    /**
+     * Composite method — adds `integer` then `size:N`. `message:` binds to
+     * `size`. Target `integer` via `messageFor()`.
+     */
+    public function exactly(int $value, ?string $message = null): static
     {
-        return $this->integer()->addRule('size:' . $value);
+        return $this->integer()->addRule('size:' . $value, $message);
     }
 
-    public function confirmed(): static
+    public function confirmed(?string $message = null): static
     {
-        return $this->addRule('confirmed');
+        return $this->addRule('confirmed', $message);
     }
 
-    public function inArray(string $field): static
+    public function inArray(string $field, ?string $message = null): static
     {
-        return $this->addRule('in_array:' . $field);
+        return $this->addRule('in_array:' . $field, $message);
     }
 
-    public function inArrayKeys(string $field): static
+    public function inArrayKeys(string $field, ?string $message = null): static
     {
-        return $this->addRule('in_array_keys:' . $field);
+        return $this->addRule('in_array_keys:' . $field, $message);
     }
 
-    public function distinct(?string $mode = null): static
+    public function distinct(?string $mode = null, ?string $message = null): static
     {
-        return $this->addRule($mode ? 'distinct:' . $mode : 'distinct');
+        return $this->addRule($mode ? 'distinct:' . $mode : 'distinct', $message);
     }
 
     /** @return list<string|object> */

@@ -33,89 +33,98 @@ class DateRule implements DataAwareRule, FluentRuleContract, ValidationRule, Val
         return $this;
     }
 
-    public function beforeToday(): static
+    public function beforeToday(?string $message = null): static
     {
-        return $this->before('today');
+        return $this->before('today', $message);
     }
 
-    public function afterToday(): static
+    public function afterToday(?string $message = null): static
     {
-        return $this->after('today');
+        return $this->after('today', $message);
     }
 
-    public function todayOrBefore(): static
+    public function todayOrBefore(?string $message = null): static
     {
-        return $this->beforeOrEqual('today');
+        return $this->beforeOrEqual('today', $message);
     }
 
-    public function todayOrAfter(): static
+    public function todayOrAfter(?string $message = null): static
     {
-        return $this->afterOrEqual('today');
+        return $this->afterOrEqual('today', $message);
     }
 
-    public function past(): static
+    public function past(?string $message = null): static
     {
-        return $this->before('now');
+        return $this->before('now', $message);
     }
 
-    public function future(): static
+    public function future(?string $message = null): static
     {
-        return $this->after('now');
+        return $this->after('now', $message);
     }
 
-    public function nowOrPast(): static
+    public function nowOrPast(?string $message = null): static
     {
-        return $this->beforeOrEqual('now');
+        return $this->beforeOrEqual('now', $message);
     }
 
-    public function nowOrFuture(): static
+    public function nowOrFuture(?string $message = null): static
     {
-        return $this->afterOrEqual('now');
+        return $this->afterOrEqual('now', $message);
     }
 
-    public function before(DateTimeInterface|string $date): static
+    public function before(DateTimeInterface|string $date, ?string $message = null): static
     {
-        return $this->addRule('before:' . $this->formatDate($date));
+        return $this->addRule('before:' . $this->formatDate($date), $message);
     }
 
-    public function after(DateTimeInterface|string $date): static
+    public function after(DateTimeInterface|string $date, ?string $message = null): static
     {
-        return $this->addRule('after:' . $this->formatDate($date));
+        return $this->addRule('after:' . $this->formatDate($date), $message);
     }
 
-    public function beforeOrEqual(DateTimeInterface|string $date): static
+    public function beforeOrEqual(DateTimeInterface|string $date, ?string $message = null): static
     {
-        return $this->addRule('before_or_equal:' . $this->formatDate($date));
+        return $this->addRule('before_or_equal:' . $this->formatDate($date), $message);
     }
 
-    public function afterOrEqual(DateTimeInterface|string $date): static
+    public function afterOrEqual(DateTimeInterface|string $date, ?string $message = null): static
     {
-        return $this->addRule('after_or_equal:' . $this->formatDate($date));
+        return $this->addRule('after_or_equal:' . $this->formatDate($date), $message);
     }
 
-    public function between(DateTimeInterface|string $from, DateTimeInterface|string $to): static
+    /**
+     * Composite method — adds `after:$from` then `before:$to`.
+     * `message:` binds to the `before` sub-rule (semantic last). Target the
+     * `after` sub-rule via `messageFor('after', '...')`.
+     */
+    public function between(DateTimeInterface|string $from, DateTimeInterface|string $to, ?string $message = null): static
     {
-        return $this->after($from)->before($to);
+        return $this->after($from)->before($to, $message);
     }
 
-    public function betweenOrEqual(DateTimeInterface|string $from, DateTimeInterface|string $to): static
+    /**
+     * Composite method — adds `after_or_equal:$from` then `before_or_equal:$to`.
+     * `message:` binds to the `before_or_equal` sub-rule.
+     */
+    public function betweenOrEqual(DateTimeInterface|string $from, DateTimeInterface|string $to, ?string $message = null): static
     {
-        return $this->afterOrEqual($from)->beforeOrEqual($to);
+        return $this->afterOrEqual($from)->beforeOrEqual($to, $message);
     }
 
-    public function dateEquals(DateTimeInterface|string $date): static
+    public function dateEquals(DateTimeInterface|string $date, ?string $message = null): static
     {
-        return $this->addRule('date_equals:' . $this->formatDate($date));
+        return $this->addRule('date_equals:' . $this->formatDate($date), $message);
     }
 
-    public function same(string $field): static
+    public function same(string $field, ?string $message = null): static
     {
-        return $this->addRule('same:' . $field);
+        return $this->addRule('same:' . $field, $message);
     }
 
-    public function different(string $field): static
+    public function different(string $field, ?string $message = null): static
     {
-        return $this->addRule('different:' . $field);
+        return $this->addRule('different:' . $field, $message);
     }
 
     protected function formatDate(DateTimeInterface|string $date): string

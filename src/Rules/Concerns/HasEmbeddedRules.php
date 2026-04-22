@@ -8,7 +8,7 @@ use Illuminate\Validation\Rule;
 
 trait HasEmbeddedRules
 {
-    public function unique(string $table, ?string $column = null, ?Closure $callback = null): static
+    public function unique(string $table, ?string $column = null, ?Closure $callback = null, ?string $message = null): static
     {
         $rule = Rule::unique($table, $column ?? 'NULL');
 
@@ -16,10 +16,10 @@ trait HasEmbeddedRules
             $callback($rule);
         }
 
-        return $this->addRule($rule);
+        return $this->addRule($rule, $message);
     }
 
-    public function exists(string $table, ?string $column = null, ?Closure $callback = null): static
+    public function exists(string $table, ?string $column = null, ?Closure $callback = null, ?string $message = null): static
     {
         $rule = Rule::exists($table, $column ?? 'NULL');
 
@@ -27,11 +27,11 @@ trait HasEmbeddedRules
             $callback($rule);
         }
 
-        return $this->addRule($rule);
+        return $this->addRule($rule, $message);
     }
 
     /** @param  class-string  $type */
-    public function enum(string $type, ?Closure $callback = null): static
+    public function enum(string $type, ?Closure $callback = null, ?string $message = null): static
     {
         $enum = Rule::enum($type);
 
@@ -39,21 +39,21 @@ trait HasEmbeddedRules
             $callback($enum);
         }
 
-        return $this->addRule($enum);
+        return $this->addRule($enum, $message);
     }
 
     /** @param  Arrayable<array-key, mixed>|array<int, mixed>|class-string<\BackedEnum>  $values */
-    public function in(Arrayable|array|string $values): static
+    public function in(Arrayable|array|string $values, ?string $message = null): static
     {
         if (is_string($values) && enum_exists($values)) {
             $values = $values::cases();
         }
 
-        return $this->addRule(Rule::in($values instanceof Arrayable ? $values->toArray() : $values));
+        return $this->addRule(Rule::in($values instanceof Arrayable ? $values->toArray() : $values), $message);
     }
 
     /** @param  Arrayable<array-key, mixed>|array<int, mixed>|class-string<\BackedEnum>|string|int  $values */
-    public function notIn(Arrayable|array|string|int $values): static
+    public function notIn(Arrayable|array|string|int $values, ?string $message = null): static
     {
         if (is_string($values) && enum_exists($values)) {
             $values = $values::cases();
@@ -61,6 +61,6 @@ trait HasEmbeddedRules
             $values = [$values];
         }
 
-        return $this->addRule(Rule::notIn($values instanceof Arrayable ? $values->toArray() : $values));
+        return $this->addRule(Rule::notIn($values instanceof Arrayable ? $values->toArray() : $values), $message);
     }
 }

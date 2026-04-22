@@ -34,6 +34,8 @@ class ArrayRule implements DataAwareRule, FluentRuleContract, ValidationRule, Va
     /** @param  Arrayable<array-key, string|\BackedEnum>|list<string|\BackedEnum>|null  $keys */
     public function __construct(Arrayable|array|null $keys = null)
     {
+        $this->seedLastConstraint('array');
+
         if (is_null($keys)) {
             $this->keys = [];
 
@@ -89,29 +91,29 @@ class ArrayRule implements DataAwareRule, FluentRuleContract, ValidationRule, Va
         return $clone;
     }
 
-    public function min(int $value): static
+    public function min(int $value, ?string $message = null): static
     {
-        return $this->addRule('min:' . $value);
+        return $this->addRule('min:' . $value, $message);
     }
 
-    public function max(int $value): static
+    public function max(int $value, ?string $message = null): static
     {
-        return $this->addRule('max:' . $value);
+        return $this->addRule('max:' . $value, $message);
     }
 
-    public function between(int $min, int $max): static
+    public function between(int $min, int $max, ?string $message = null): static
     {
-        return $this->addRule('between:' . $min . ',' . $max);
+        return $this->addRule('between:' . $min . ',' . $max, $message);
     }
 
-    public function exactly(int $value): static
+    public function exactly(int $value, ?string $message = null): static
     {
-        return $this->addRule('size:' . $value);
+        return $this->addRule('size:' . $value, $message);
     }
 
-    public function list(): static
+    public function list(?string $message = null): static
     {
-        return $this->addRule('list');
+        return $this->addRule('list', $message);
     }
 
     public function requiredArrayKeys(string ...$keys): static
@@ -119,9 +121,9 @@ class ArrayRule implements DataAwareRule, FluentRuleContract, ValidationRule, Va
         return $this->addRule('required_array_keys:' . implode(',', $keys));
     }
 
-    public function distinct(?string $mode = null): static
+    public function distinct(?string $mode = null, ?string $message = null): static
     {
-        return $this->addRule($mode ? 'distinct:' . $mode : 'distinct');
+        return $this->addRule($mode ? 'distinct:' . $mode : 'distinct', $message);
     }
 
     public function contains(string|int ...$values): static

@@ -23,34 +23,39 @@ class StringRule implements DataAwareRule, FluentRuleContract, ValidationRule, V
     /** @var list<string> */
     protected array $constraints = ['string'];
 
-    public function alpha(bool $ascii = false): static
+    public function __construct()
     {
-        return $this->addRule($ascii ? 'alpha:ascii' : 'alpha');
+        $this->seedLastConstraint('string');
     }
 
-    public function alphaDash(bool $ascii = false): static
+    public function alpha(bool $ascii = false, ?string $message = null): static
     {
-        return $this->addRule($ascii ? 'alpha_dash:ascii' : 'alpha_dash');
+        return $this->addRule($ascii ? 'alpha:ascii' : 'alpha', $message);
     }
 
-    public function alphaNumeric(bool $ascii = false): static
+    public function alphaDash(bool $ascii = false, ?string $message = null): static
     {
-        return $this->addRule($ascii ? 'alpha_num:ascii' : 'alpha_num');
+        return $this->addRule($ascii ? 'alpha_dash:ascii' : 'alpha_dash', $message);
     }
 
-    public function ascii(): static
+    public function alphaNumeric(bool $ascii = false, ?string $message = null): static
     {
-        return $this->addRule('ascii');
+        return $this->addRule($ascii ? 'alpha_num:ascii' : 'alpha_num', $message);
     }
 
-    public function encoding(string $encoding): static
+    public function ascii(?string $message = null): static
     {
-        return $this->addRule('encoding:' . $encoding);
+        return $this->addRule('ascii', $message);
     }
 
-    public function between(int $min, int $max): static
+    public function encoding(string $encoding, ?string $message = null): static
     {
-        return $this->addRule('between:' . $min . ',' . $max);
+        return $this->addRule('encoding:' . $encoding, $message);
+    }
+
+    public function between(int $min, int $max, ?string $message = null): static
+    {
+        return $this->addRule('between:' . $min . ',' . $max, $message);
     }
 
     public function doesntEndWith(string ...$values): static
@@ -68,24 +73,24 @@ class StringRule implements DataAwareRule, FluentRuleContract, ValidationRule, V
         return $this->addRule('ends_with:' . implode(',', $values));
     }
 
-    public function exactly(int $value): static
+    public function exactly(int $value, ?string $message = null): static
     {
-        return $this->addRule('size:' . $value);
+        return $this->addRule('size:' . $value, $message);
     }
 
-    public function lowercase(): static
+    public function lowercase(?string $message = null): static
     {
-        return $this->addRule('lowercase');
+        return $this->addRule('lowercase', $message);
     }
 
-    public function max(int $value): static
+    public function max(int $value, ?string $message = null): static
     {
-        return $this->addRule('max:' . $value);
+        return $this->addRule('max:' . $value, $message);
     }
 
-    public function min(int $value): static
+    public function min(int $value, ?string $message = null): static
     {
-        return $this->addRule('min:' . $value);
+        return $this->addRule('min:' . $value, $message);
     }
 
     public function startsWith(string ...$values): static
@@ -93,79 +98,79 @@ class StringRule implements DataAwareRule, FluentRuleContract, ValidationRule, V
         return $this->addRule('starts_with:' . implode(',', $values));
     }
 
-    public function uppercase(): static
+    public function uppercase(?string $message = null): static
     {
-        return $this->addRule('uppercase');
+        return $this->addRule('uppercase', $message);
     }
 
-    public function url(): static
+    public function url(?string $message = null): static
     {
-        return $this->addRule('url');
+        return $this->addRule('url', $message);
     }
 
-    public function activeUrl(): static
+    public function activeUrl(?string $message = null): static
     {
-        return $this->addRule('active_url');
+        return $this->addRule('active_url', $message);
     }
 
-    public function uuid(): static
+    public function uuid(?string $message = null): static
     {
-        return $this->addRule('uuid');
+        return $this->addRule('uuid', $message);
     }
 
-    public function ulid(): static
+    public function ulid(?string $message = null): static
     {
-        return $this->addRule('ulid');
+        return $this->addRule('ulid', $message);
     }
 
-    public function json(): static
+    public function json(?string $message = null): static
     {
-        return $this->addRule('json');
+        return $this->addRule('json', $message);
     }
 
-    public function ip(): static
+    public function ip(?string $message = null): static
     {
-        return $this->addRule('ip');
+        return $this->addRule('ip', $message);
     }
 
-    public function ipv4(): static
+    public function ipv4(?string $message = null): static
     {
-        return $this->addRule('ipv4');
+        return $this->addRule('ipv4', $message);
     }
 
-    public function ipv6(): static
+    public function ipv6(?string $message = null): static
     {
-        return $this->addRule('ipv6');
+        return $this->addRule('ipv6', $message);
     }
 
-    public function macAddress(): static
+    public function macAddress(?string $message = null): static
     {
-        return $this->addRule('mac_address');
+        return $this->addRule('mac_address', $message);
     }
 
-    public function regex(string $pattern): static
+    public function regex(string $pattern, ?string $message = null): static
     {
-        return $this->addRule('regex:' . $pattern);
+        return $this->addRule('regex:' . $pattern, $message);
     }
 
-    public function notRegex(string $pattern): static
+    public function notRegex(string $pattern, ?string $message = null): static
     {
-        return $this->addRule('not_regex:' . $pattern);
+        return $this->addRule('not_regex:' . $pattern, $message);
     }
 
-    public function timezone(): static
+    public function timezone(?string $message = null): static
     {
-        return $this->addRule('timezone');
+        return $this->addRule('timezone', $message);
     }
 
-    public function hexColor(): static
+    public function hexColor(?string $message = null): static
     {
-        return $this->addRule('hex_color');
+        return $this->addRule('hex_color', $message);
     }
 
-    public function date(): static
+    public function date(?string $message = null): static
     {
-        return $this->addRule('date');
+        return $this->addRule('date', $message);
     }
 
     public function email(string ...$modes): static
@@ -173,44 +178,44 @@ class StringRule implements DataAwareRule, FluentRuleContract, ValidationRule, V
         return $this->addRule($modes === [] ? 'email' : 'email:' . implode(',', $modes));
     }
 
-    public function dateFormat(string $format): static
+    public function dateFormat(string $format, ?string $message = null): static
     {
-        return $this->addRule('date_format:' . $format);
+        return $this->addRule('date_format:' . $format, $message);
     }
 
-    public function confirmed(): static
+    public function confirmed(?string $message = null): static
     {
-        return $this->addRule('confirmed');
+        return $this->addRule('confirmed', $message);
     }
 
-    public function currentPassword(?string $guard = null): static
+    public function currentPassword(?string $guard = null, ?string $message = null): static
     {
-        return $this->addRule($guard ? 'current_password:' . $guard : 'current_password');
+        return $this->addRule($guard ? 'current_password:' . $guard : 'current_password', $message);
     }
 
-    public function same(string $field): static
+    public function same(string $field, ?string $message = null): static
     {
-        return $this->addRule('same:' . $field);
+        return $this->addRule('same:' . $field, $message);
     }
 
-    public function different(string $field): static
+    public function different(string $field, ?string $message = null): static
     {
-        return $this->addRule('different:' . $field);
+        return $this->addRule('different:' . $field, $message);
     }
 
-    public function inArray(string $field): static
+    public function inArray(string $field, ?string $message = null): static
     {
-        return $this->addRule('in_array:' . $field);
+        return $this->addRule('in_array:' . $field, $message);
     }
 
-    public function inArrayKeys(string $field): static
+    public function inArrayKeys(string $field, ?string $message = null): static
     {
-        return $this->addRule('in_array_keys:' . $field);
+        return $this->addRule('in_array_keys:' . $field, $message);
     }
 
-    public function distinct(?string $mode = null): static
+    public function distinct(?string $mode = null, ?string $message = null): static
     {
-        return $this->addRule($mode ? 'distinct:' . $mode : 'distinct');
+        return $this->addRule($mode ? 'distinct:' . $mode : 'distinct', $message);
     }
 
     /** @return list<string|object> */

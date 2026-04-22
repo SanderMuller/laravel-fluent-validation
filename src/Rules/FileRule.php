@@ -21,24 +21,38 @@ class FileRule implements DataAwareRule, FluentRuleContract, ValidationRule, Val
     /** @var list<string> */
     protected array $constraints = ['file'];
 
-    public function min(int|string $size): static
+    public function __construct()
     {
-        return $this->addRule('min:' . $this->toKilobytes($size));
+        $this->seedLastConstraint($this->defaultConstraintName());
     }
 
-    public function max(int|string $size): static
+    /**
+     * Hook for subclasses (ImageRule) to override which constraint name
+     * seeds $lastConstraint without re-implementing __construct.
+     */
+    protected function defaultConstraintName(): string
     {
-        return $this->addRule('max:' . $this->toKilobytes($size));
+        return 'file';
     }
 
-    public function between(int|string $min, int|string $max): static
+    public function min(int|string $size, ?string $message = null): static
     {
-        return $this->addRule('between:' . $this->toKilobytes($min) . ',' . $this->toKilobytes($max));
+        return $this->addRule('min:' . $this->toKilobytes($size), $message);
     }
 
-    public function exactly(int|string $size): static
+    public function max(int|string $size, ?string $message = null): static
     {
-        return $this->addRule('size:' . $this->toKilobytes($size));
+        return $this->addRule('max:' . $this->toKilobytes($size), $message);
+    }
+
+    public function between(int|string $min, int|string $max, ?string $message = null): static
+    {
+        return $this->addRule('between:' . $this->toKilobytes($min) . ',' . $this->toKilobytes($max), $message);
+    }
+
+    public function exactly(int|string $size, ?string $message = null): static
+    {
+        return $this->addRule('size:' . $this->toKilobytes($size), $message);
     }
 
     public function extensions(string ...$extensions): static

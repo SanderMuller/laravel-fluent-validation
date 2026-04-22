@@ -207,6 +207,92 @@ it('validates nested array each() standalone', function (): void {
     expect($v->passes())->toBeFalse();
 });
 
+it('validates array children() with fixed-key rules standalone', function (): void {
+    $v = makeValidator(
+        ['search' => ['value' => 'php', 'regex' => false]],
+        ['search' => FluentRule::array()->required()->children([
+            'value' => FluentRule::string()->required(),
+            'regex' => FluentRule::boolean()->required(),
+        ])]
+    );
+
+    expect($v->passes())->toBeTrue();
+
+    $v = makeValidator(
+        ['search' => ['value' => '', 'regex' => 'yes']],
+        ['search' => FluentRule::array()->required()->children([
+            'value' => FluentRule::string()->required(),
+            'regex' => FluentRule::boolean()->required(),
+        ])]
+    );
+
+    expect($v->passes())->toBeFalse()
+        ->and($v->errors()->keys())
+        ->toContain('search.value')
+        ->toContain('search.regex')
+        ->not->toContain('search');
+});
+
+it('validates nested children() standalone', function (): void {
+    $v = makeValidator(
+        ['config' => ['db' => ['host' => 'localhost', 'port' => 5432]]],
+        ['config' => FluentRule::array()->required()->children([
+            'db' => FluentRule::array()->required()->children([
+                'host' => FluentRule::string()->required(),
+                'port' => FluentRule::numeric()->required()->integer(),
+            ]),
+        ])]
+    );
+
+    expect($v->passes())->toBeTrue();
+
+    $v = makeValidator(
+        ['config' => ['db' => ['host' => 'localhost', 'port' => 'nope']]],
+        ['config' => FluentRule::array()->required()->children([
+            'db' => FluentRule::array()->required()->children([
+                'host' => FluentRule::string()->required(),
+                'port' => FluentRule::numeric()->required()->integer(),
+            ]),
+        ])]
+    );
+
+    expect($v->passes())->toBeFalse()
+        ->and($v->errors()->keys())->toContain('config.db.port');
+});
+
+it('validates each() + children() combined standalone', function (): void {
+    $v = makeValidator(
+        ['items' => [
+            ['action' => ['type' => 'click', 'target' => 'btn']],
+            ['action' => ['type' => 'hover', 'target' => 'link']],
+        ]],
+        ['items' => FluentRule::array()->required()->each([
+            'action' => FluentRule::array()->required()->children([
+                'type' => FluentRule::string()->required(),
+                'target' => FluentRule::string()->required(),
+            ]),
+        ])]
+    );
+
+    expect($v->passes())->toBeTrue();
+
+    $v = makeValidator(
+        ['items' => [
+            ['action' => ['type' => 'click', 'target' => 'btn']],
+            ['action' => ['type' => '', 'target' => 'link']],
+        ]],
+        ['items' => FluentRule::array()->required()->each([
+            'action' => FluentRule::array()->required()->children([
+                'type' => FluentRule::string()->required(),
+                'target' => FluentRule::string()->required(),
+            ]),
+        ])]
+    );
+
+    expect($v->passes())->toBeFalse()
+        ->and($v->errors()->keys())->toContain('items.1.action.type');
+});
+
 // =========================================================================
 // Factory methods return correct types
 // =========================================================================
@@ -650,8 +736,8 @@ it('uses message after requiredIf with closure', function (): void {
         ->and($validator->errors()->first('name'))->toBe('Conditionally required!');
 });
 
-it('throws when message is called before any rule', function (): void {
-    FluentRule::string()->message('This should throw');
+it('throws when message is called on a truly empty chain (no implicit constraint)', function (): void {
+    FluentRule::field()->message('This should throw');
 })->throws(LogicException::class, 'message() must be called after a rule method');
 
 it('supports multiple messages on different rules', function (): void {
