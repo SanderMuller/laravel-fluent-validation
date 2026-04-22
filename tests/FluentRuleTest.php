@@ -1,8 +1,12 @@
 <?php declare(strict_types=1);
 
+use Illuminate\Contracts\Support\Arrayable;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Support\Fluent;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\AnyOf;
+use Illuminate\Validation\Rules\Contains;
+use Illuminate\Validation\Rules\DoesntContain;
 use Illuminate\Validation\Rules\Enum;
 use Illuminate\Validation\Rules\ExcludeIf;
 use Illuminate\Validation\Rules\Exists;
@@ -16,6 +20,7 @@ use SanderMuller\FluentValidation\RuleSet;
 use SanderMuller\FluentValidation\Tests\Fixtures\TestArrayKeyEnum;
 use SanderMuller\FluentValidation\Tests\Fixtures\TestIntEnum;
 use SanderMuller\FluentValidation\Tests\Fixtures\TestStringEnum;
+use SanderMuller\FluentValidation\Tests\Fixtures\TestUnitEnum;
 
 // =========================================================================
 // BooleanRule
@@ -1946,6 +1951,232 @@ it('validates doesntContain on array', function (): void {
     );
     expect($v->passes())->toBeFalse();
 })->skip(! method_exists(Validator::class, 'validateDoesntContain'), 'doesnt_contain requires Laravel 12+'); // @phpstan-ignore function.alreadyNarrowedType
+
+// -------------------------------------------------------------------------
+// contains/doesntContain — object-form parity with Rule::contains()
+// -------------------------------------------------------------------------
+
+it('contains preserves value containing a comma (CSV-quoted)', function (): void {
+    $v = makeValidator(
+        ['tags' => ['a,b', 'other']],
+        ['tags' => FluentRule::array()->contains('a,b')]
+    );
+    expect($v->passes())->toBeTrue();
+
+    // Without the quote-escaping, 'a,b' would be split into ['a', 'b']
+    // and the validator would require both 'a' AND 'b' to be present.
+    $v = makeValidator(
+        ['tags' => ['a', 'b']],
+        ['tags' => FluentRule::array()->contains('a,b')]
+    );
+    expect($v->passes())->toBeFalse();
+});
+
+it('contains preserves value containing double quotes (escaped)', function (): void {
+    $v = makeValidator(
+        ['tags' => ['he said "hi"', 'other']],
+        ['tags' => FluentRule::array()->contains('he said "hi"')]
+    );
+    expect($v->passes())->toBeTrue();
+});
+
+it('contains accepts BackedEnum by its value', function (): void {
+    $v = makeValidator(
+        ['statuses' => ['active', 'other']],
+        ['statuses' => FluentRule::array()->contains(TestStringEnum::Active)]
+    );
+    expect($v->passes())->toBeTrue();
+});
+
+it('contains accepts UnitEnum by its name', function (): void {
+    $v = makeValidator(
+        ['flags' => ['Foo']],
+        ['flags' => FluentRule::array()->contains(TestUnitEnum::Foo)]
+    );
+    expect($v->passes())->toBeTrue();
+});
+
+it('contains accepts Arrayable input (single arg expanded)', function (): void {
+    $arrayable = new class implements Arrayable {
+        /** @return array<int, mixed> */
+        public function toArray(): array
+        {
+            return ['php'];
+        }
+    };
+
+    $v = makeValidator(
+        ['tags' => ['php', 'laravel']],
+        ['tags' => FluentRule::array()->contains($arrayable)]
+    );
+    expect($v->passes())->toBeTrue();
+});
+
+it('contains accepts single-array input (equivalent to varargs)', function (): void {
+    $varargs = FluentRule::array()->contains('a', 'b');
+    $array = FluentRule::array()->contains(['a', 'b']);
+
+    $data = ['tags' => ['a', 'b', 'c']];
+
+    expect(makeValidator($data, ['tags' => $varargs])->passes())->toBeTrue()
+        ->and(makeValidator($data, ['tags' => $array])->passes())->toBeTrue();
+});
+
+it('contains variadic passthrough still works', function (): void {
+    $v = makeValidator(
+        ['tags' => ['a', 'b', 'c']],
+        ['tags' => FluentRule::array()->contains('a', 'b')]
+    );
+    expect($v->passes())->toBeTrue();
+});
+
+it('contains ->message() binds to the "contains" rule key', function (): void {
+    $rule = FluentRule::array()->contains('php')->message('Must contain PHP.');
+
+    expect($rule->getCustomMessages())->toBe(['contains' => 'Must contain PHP.']);
+
+    $v = makeValidator(
+        ['tags' => ['laravel']],
+        ['tags' => FluentRule::array()->contains('php')->message('Must contain PHP.')]
+    );
+    expect($v->passes())->toBeFalse()
+        ->and($v->errors()->first('tags'))->toBe('Must contain PHP.');
+});
+
+it('doesntContain ->message() binds to the "doesnt_contain" rule key', function (): void {
+    $rule = FluentRule::array()->doesntContain('banned')->message('Must not contain banned.');
+
+    expect($rule->getCustomMessages())->toBe(['doesnt_contain' => 'Must not contain banned.']);
+})->skip(! class_exists(DoesntContain::class), 'doesnt_contain requires Laravel 12+');
+
+it('doesntContain on Laravel 11 throws RuntimeException', function (): void {
+    FluentRule::array()->doesntContain('banned');
+})
+    ->throws(RuntimeException::class, 'doesntContain() requires Laravel 12+.')
+    ->skip(class_exists(DoesntContain::class), 'Only applies on Laravel <12');
+
+it('doesntContain preserves value containing a comma (CSV-quoted)', function (): void {
+    $v = makeValidator(
+        ['tags' => ['other']],
+        ['tags' => FluentRule::array()->doesntContain('a,b')]
+    );
+    expect($v->passes())->toBeTrue();
+
+    $v = makeValidator(
+        ['tags' => ['a,b', 'other']],
+        ['tags' => FluentRule::array()->doesntContain('a,b')]
+    );
+    expect($v->passes())->toBeFalse();
+})->skip(! class_exists(DoesntContain::class), 'doesnt_contain requires Laravel 12+');
+
+it('doesntContain accepts BackedEnum by its value', function (): void {
+    $v = makeValidator(
+        ['statuses' => ['inactive']],
+        ['statuses' => FluentRule::array()->doesntContain(TestStringEnum::Active)]
+    );
+    expect($v->passes())->toBeTrue();
+
+    $v = makeValidator(
+        ['statuses' => ['active']],
+        ['statuses' => FluentRule::array()->doesntContain(TestStringEnum::Active)]
+    );
+    expect($v->passes())->toBeFalse();
+})->skip(! class_exists(DoesntContain::class), 'doesnt_contain requires Laravel 12+');
+
+it('doesntContain accepts Arrayable + single-array input', function (): void {
+    $arrayable = new class implements Arrayable {
+        /** @return array<int, mixed> */
+        public function toArray(): array
+        {
+            return ['banned'];
+        }
+    };
+
+    $v = makeValidator(
+        ['tags' => ['php']],
+        ['tags' => FluentRule::array()->doesntContain($arrayable)]
+    );
+    expect($v->passes())->toBeTrue();
+
+    // Single-array — equivalent to varargs
+    $v = makeValidator(
+        ['tags' => ['php', 'laravel']],
+        ['tags' => FluentRule::array()->doesntContain(['banned', 'evil'])]
+    );
+    expect($v->passes())->toBeTrue();
+})->skip(! class_exists(DoesntContain::class), 'doesnt_contain requires Laravel 12+');
+
+it('contains handles variadic BackedEnum values', function (): void {
+    $v = makeValidator(
+        ['statuses' => ['active', 'inactive']],
+        ['statuses' => FluentRule::array()->contains(
+            TestStringEnum::Active,
+            TestStringEnum::Inactive,
+        )]
+    );
+    expect($v->passes())->toBeTrue();
+
+    $v = makeValidator(
+        ['statuses' => ['active']], // missing 'inactive'
+        ['statuses' => FluentRule::array()->contains(
+            TestStringEnum::Active,
+            TestStringEnum::Inactive,
+        )]
+    );
+    expect($v->passes())->toBeFalse();
+});
+
+it('contains rejects multi-array varargs with a clear error', function (): void {
+    FluentRule::array()->contains(['a'], ['b']);
+})->throws(InvalidArgumentException::class, 'does not accept multiple array or Arrayable arguments');
+
+it('doesntContain rejects multi-array varargs with a clear error', function (): void {
+    FluentRule::array()->doesntContain(['a'], ['b']);
+})
+    ->throws(InvalidArgumentException::class, 'does not accept multiple array or Arrayable arguments')
+    ->skip(! class_exists(DoesntContain::class), 'doesnt_contain requires Laravel 12+');
+
+it('contains messageFor("contains", ...) surfaces in live validation', function (): void {
+    // Distinct path from ->message(): messageFor writes directly to
+    // customMessages without going through addRule's class-basename match.
+    $v = makeValidator(
+        ['tags' => ['laravel']],
+        ['tags' => FluentRule::array()->contains('php')->messageFor('contains', 'Must include PHP.')]
+    );
+    expect($v->passes())->toBeFalse()
+        ->and($v->errors()->first('tags'))->toBe('Must include PHP.');
+});
+
+it('contains produces a Contains object equivalent to Rule::contains() for every input shape', function (Arrayable|UnitEnum|array|string|int $input): void {
+    // Migration parity: rewriting `Rule::contains($x)` in a rules array as
+    // `FluentRule::array()->contains($x)` gets identical compiled output.
+
+    $fluentRule = is_array($input) && array_is_list($input)
+        ? FluentRule::array()->contains(...$input) // @phpstan-ignore argument.type
+        : FluentRule::array()->contains($input);   // @phpstan-ignore argument.type
+
+    /** @var Contains $directRule */
+    $directRule = Rule::contains($input); // @phpstan-ignore argument.type
+
+    // Extract the Contains object from the FluentRule internal state.
+    $refl = new ReflectionClass($fluentRule);
+    $rulesProp = $refl->getProperty('rules');
+    /** @var list<object> $rules */
+    $rules = $rulesProp->getValue($fluentRule);
+    $fluentContains = end($rules);
+    assert($fluentContains instanceof Contains);
+
+    expect((string) $fluentContains)->toBe((string) $directRule);
+})->with([
+    'single string' => 'php',
+    'single int' => 42,
+    'single array unwrapped' => [['a', 'b', 'c']],
+    'Arrayable (Collection)' => fn () => collect(['a', 'b']),
+    'BackedEnum single' => fn () => TestStringEnum::Active,
+    'UnitEnum single' => fn () => TestUnitEnum::Foo,
+    'embedded comma' => 'a,b',
+    'embedded quote' => 'he said "hi"',
+]);
 
 // =========================================================================
 // Convenience factory shortcuts

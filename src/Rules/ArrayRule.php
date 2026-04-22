@@ -8,6 +8,8 @@ use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Contracts\Validation\ValidatorAwareRule;
 use Illuminate\Support\Traits\Conditionable;
 use Illuminate\Support\Traits\Macroable;
+use Illuminate\Validation\Rules\Contains;
+use Illuminate\Validation\Rules\DoesntContain;
 use SanderMuller\FluentValidation\Contracts\FluentRuleContract;
 use SanderMuller\FluentValidation\Rules\Concerns\HasFieldModifiers;
 use SanderMuller\FluentValidation\Rules\Concerns\SelfValidates;
@@ -126,14 +128,65 @@ class ArrayRule implements DataAwareRule, FluentRuleContract, ValidationRule, Va
         return $this->addRule($mode ? 'distinct:' . $mode : 'distinct', $message);
     }
 
-    public function contains(string|int ...$values): static
+    /**
+     * @param  Arrayable<array-key, mixed>|\UnitEnum|array<int, mixed>|string|int  ...$values
+     *
+     * Note: `Arrayable` is template-invariant, so concrete types like
+     * `Collection<int, string>` don't satisfy `Arrayable<array-key, mixed>`.
+     * Consumers passing a typed Collection at a PHPStan-strict analysis level
+     * can unwrap via `->contains($collection->all())`.
+     */
+    public function contains(Arrayable|\UnitEnum|array|string|int ...$values): static
     {
-        return $this->addRule('contains:' . implode(',', $values));
+        return $this->addRule(new Contains($this->flattenContainsValues($values)));
     }
 
-    public function doesntContain(string|int ...$values): static
+    /** @param  Arrayable<array-key, mixed>|\UnitEnum|array<int, mixed>|string|int  ...$values */
+    public function doesntContain(Arrayable|\UnitEnum|array|string|int ...$values): static
     {
-        return $this->addRule('doesnt_contain:' . implode(',', $values));
+        if (! class_exists(DoesntContain::class)) {
+            throw new \RuntimeException('doesntContain() requires Laravel 12+.');
+        }
+
+        return $this->addRule(new DoesntContain($this->flattenContainsValues($values)));
+    }
+
+    /**
+     * Unwrap a single `Arrayable` or `array` varargs entry so `->contains([...])`
+     * and `->contains(...$iter)` behave identically. Matches Laravel's
+     * `Contains::__construct` input shape.
+     *
+     * Mixed multi-arg calls like `->contains(['a'], ['b'])` are rejected —
+     * Laravel's Rule::contains silently ignores extras, and leaving nested
+     * arrays/Arrayables in the value list would crash Contains::__toString.
+     *
+     * @param  array<int|string, mixed>  $values
+     * @return array<int, mixed>
+     */
+    private function flattenContainsValues(array $values): array
+    {
+        if (count($values) === 1) {
+            $only = reset($values);
+
+            if ($only instanceof Arrayable) {
+                return array_values($only->toArray());
+            }
+
+            if (is_array($only)) {
+                return array_values($only);
+            }
+        }
+
+        foreach ($values as $value) {
+            if (is_array($value) || $value instanceof Arrayable) {
+                throw new \InvalidArgumentException(
+                    'contains()/doesntContain() does not accept multiple array or Arrayable arguments. '
+                    . 'Pass either a single iterable (->contains($values)) or variadic scalars (->contains($a, $b, $c)).'
+                );
+            }
+        }
+
+        return array_values($values);
     }
 
     protected function buildArrayRule(): string
