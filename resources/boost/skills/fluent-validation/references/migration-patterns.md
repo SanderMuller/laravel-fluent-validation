@@ -198,13 +198,21 @@ Side effect of synthesis: scalar inputs where an array was expected (`items: "st
 ### Custom error messages
 
 ```php
-// Position-based (attaches to preceding rule):
+// Preferred — inline named arg, colocated with the rule:
+->required(message: 'We need your name!')->min(2, message: 'Too short!')
+
+// Also on factories:
+FluentRule::email(message: 'Invalid email.')
+FluentRule::string(message: 'Must be text.')
+
+// Chained shorthand (binds to the most recent rule):
 ->required()->message('We need your name!')->min(2)->message('Too short!')
 
-// Name-based (can be called anywhere in chain):
-->required()->min(2)->messageFor('required', 'We need your name!')
+// Escape hatch — variadic methods, custom rule objects, non-last composite sub-rule:
+->requiredWith('email', 'phone')->messageFor('required_with', 'Required when email or phone is set.')
+->digits(5, message: 'Must be 5 digits.')->messageFor('integer', 'Must be a whole number.')
 
-// Field-level fallback:
+// Field-level fallback (any rule failure):
 ->required()->min(2)->fieldMessage('Something is wrong.')
 ```
 

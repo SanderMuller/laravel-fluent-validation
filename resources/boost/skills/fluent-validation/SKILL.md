@@ -95,10 +95,11 @@ public function rules(): array
 FluentRule::string('Full Name')->required()  // "The Full Name field is required."
 ```
 
-**Per-rule messages** — attach to the preceding rule:
+**Per-rule messages** — preferred form is inline `message:`:
 ```php
-FluentRule::string()->required()->message('We need this!')->min(2)->message('Too short.')
+FluentRule::string()->required(message: 'We need this!')->min(2, message: 'Too short.')
 ```
+Also available: `->method(...)->message('...')` (chained shorthand), `->messageFor('rule', '...')` (escape hatch for variadic methods, custom rule objects, and targeting non-last sub-rule on composite methods like `digits`).
 
 **Wildcard children** (`each`) — produces `items.*.name`:
 ```php

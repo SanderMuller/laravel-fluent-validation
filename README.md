@@ -82,14 +82,8 @@ $validated = $request->validate([
 ]);
 ```
 
-> [!IMPORTANT]
-> FluentRule works anywhere Laravel accepts rules, but **labels, `each()`, `children()`, wildcard optimization, and precognitive requests** require one of:
->
-> | Context | What to use |
-> |---------|-------------|
-> | FormRequest | `use HasFluentRules` trait ([details](#in-a-form-request)) |
-> | Livewire component | `use HasFluentValidation` trait ([details](#livewire)) |
-> | Inline / anywhere else | `RuleSet::from([...])->validate($data)` ([details](#ruleset)) |
+> [!NOTE]
+> `FluentRule` is a static factory, not a base class. `FluentRule::string()` returns a `StringRule`, `FluentRule::email()` returns an `EmailRule`, etc. For PHPDoc type hints, reference `FluentRuleContract` (see below) or Laravel's `ValidationRule`, not `FluentRule` itself.
 
 ### In a form request
 
@@ -137,8 +131,15 @@ class StorePostRequest extends FluentFormRequest
 
 FluentRule objects implement Laravel's `ValidationRule` interface, so they also work in `Validator::make()`, `Rule::forEach()`, and `Rule::when()`. For inline validation outside form requests, prefer [`RuleSet::validate()`](#ruleset) over `Validator::make()`; it gives you the same optimizations as `HasFluentRules`. Use [`->when()`](#conditional-rules) to handle create and update in a single form request.
 
-> [!NOTE]
-> `FluentRule` is a static factory, not a base class. `FluentRule::string()` returns a `StringRule`, `FluentRule::email()` returns an `EmailRule`, etc. For PHPDoc type hints, reference `FluentRuleContract` (see below) or Laravel's `ValidationRule`, not `FluentRule` itself.
+
+> [!IMPORTANT]
+> FluentRule works anywhere Laravel accepts rules — including `each()` and `children()`, which self-validate through an inner validator. For **labels surfaced as outer attributes, wildcard/fast-check optimization, batched exists/unique queries, and precognitive requests**, use one of:
+>
+> | Context                | What to use                                                   |
+> |------------------------|---------------------------------------------------------------|
+> | FormRequest            | `use HasFluentRules` trait ([details](#in-a-form-request))    |
+> | Livewire component     | `use HasFluentValidation` trait ([details](#livewire))        |
+> | Inline / anywhere else | `RuleSet::from([...])->validate($data)` ([details](#ruleset)) |
 
 #### Typing your `rules()` return
 
@@ -226,7 +227,7 @@ You may pass a label as the first argument to any factory method. It replaces `:
 return [
     'name'  => FluentRule::string('Full Name')->required()->min(2)->max(255),
     'email' => FluentRule::email('Email Address')->required(),
-    'age'   => FluentRule::numeric('Your Age')->nullable()->integer()->min(0),
+    'age'   => FluentRule::integer('Your Age')->nullable()->min(0),
     'items' => FluentRule::array(label: 'Import Items')->required()->min(1),
 ];
 // "The Full Name field is required."
@@ -251,44 +252,56 @@ You can also set a label after construction with `->label('Name')`.
 
 ### Per-rule messages
 
-To customize the error message for a specific rule, use `->messageFor('rule', 'message')`:
+The recommended form is the inline `message:` named argument, which attaches the message directly to the rule it applies to:
 
 ```php
 FluentRule::string('Full Name')
-    ->required()
-    ->min(2)
+    ->required(message: 'We need your name!')
+    ->min(2, message: 'At least :min characters.')
     ->max(255)
-    ->messageFor('required', 'We need your name!')
-    ->messageFor('min', 'At least :min characters.')
 ```
 
-Alternatively, chain `->message()` immediately after the rule it applies to:
+Inline `message:` is available on the factory itself (e.g. `FluentRule::email(message: 'Invalid email.')`) and on every non-variadic rule method.
+
+Three forms exist; each has a use case:
+
+| Form                        | When to use                                                                                                                                                                                                |
+|-----------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `->method(…, message: '…')` | **Recommended.** Colocated with the rule, rename-safe, works on factories and rule methods. Unavailable on variadic-trailing methods (see below).                                                          |
+| `->method(…)->message('…')` | Shorthand when you want the message on the most recent rule. Binds to `$lastConstraint`. Works on variadic methods too (`->requiredWith('a', 'b')->message('…')`).                                         |
+| `->messageFor('rule', '…')` | Targets a rule by name at any point in the chain. Use when you need to message a non-last sub-rule on composite methods (e.g. `integer` under `->digits(…)`), or a Macroable method PHPStan/IDE can't see. |
 
 ```php
-FluentRule::string('Full Name')
-    ->required()->message('We need your name!')
-    ->min(2)->message('At least :min characters.')
-    ->max(255)
+// Variadic method — message: cannot follow a variadic param. Use ->message() (shorter) or messageFor().
+FluentRule::string()->requiredWith('email', 'phone')->message('Required when email or phone is set.')
+
+// Composite method (->digits adds `integer` then `digits:N`). message: binds to the LAST sub-rule.
+FluentRule::numeric()->digits(5, message: 'Must be 5 digits.')
+    ->messageFor('integer', 'Must be a whole number.')
+
+// Custom rule object — message: on ->rule() binds to the object's class-basename key.
+FluentRule::string()->rule(new MyRule(), message: 'Custom failure.')
 ```
 
-> [!WARNING]
-> `->message()` must be called after a rule method. Calling it before any rule (e.g. `FluentRule::string()->message(...)`) throws a `LogicException`. Use `->messageFor()` if you prefer to group messages at the end of the chain.
-
-Labels affect all error messages for the field. `->messageFor()` and `->message()` override a specific rule. For a field-level fallback that applies to any failure, use `->fieldMessage()`:
+For a field-level fallback that applies to any failure, use `->fieldMessage()`:
 
 ```php
 FluentRule::string()->required()->min(2)->fieldMessage('Something is wrong with this field.')
 ```
 
-Standard Laravel `messages()` arrays and `Validator::make()` message arguments still work and take priority over `->messageFor()`, `->message()`, and `->fieldMessage()`.
+> [!NOTE]
+> `FluentRule::date()` / `FluentRule::dateTime()` factories do **not** accept `message:` — the error-lookup key is resolved at build time (`'date'` vs `'date_format:Y-m-d'`) and cannot be seeded deterministically. Attach messages via a specific method: `FluentRule::date()->before('2026-12-31', message: 'Too late.')`.
+
+> [!NOTE]
+> Standard Laravel `messages()` arrays and `Validator::make()` message arguments still work and take priority over `message:`, `->message()`, `->messageFor()`, and `->fieldMessage()`. When Laravel emits multiple rule keys for a single fluent factory (e.g. `FluentRule::email()->when(..., fn ($r) => $r->required())` produces `required` + `string` + `email`), each distinct message still belongs in `messages()`; inline `message:` only carries one binding per call.
 
 ## Array validation with `each()` and `children()`
 
-| | `each()` | `children()` |
-|---|---|---|
-| **Data shape** | Array of items (`[{...}, {...}, ...]`) | Single object with known keys (`{key: ...}`) |
-| **Produces** | Wildcard paths (`items.*.name`) | Fixed paths (`search.value`) |
-| **Use when** | You have a list of N items with the same structure | You have one object with specific sub-keys |
+|                | `each()`                                           | `children()`                                 |
+|----------------|----------------------------------------------------|----------------------------------------------|
+| **Data shape** | Array of items (`[{...}, {...}, ...]`)             | Single object with known keys (`{key: ...}`) |
+| **Produces**   | Wildcard paths (`items.*.name`)                    | Fixed paths (`search.value`)                 |
+| **Use when**   | You have a list of N items with the same structure | You have one object with specific sub-keys   |
 
 To validate each item in an array, use the `each()` method:
 
@@ -487,14 +500,14 @@ When you use one of the optimized entry points (`HasFluentRules` on a FormReques
 
 ### Benchmarks
 
-| Scenario | Optimizations | Native Laravel | Optimized | Speedup |
-|----------|---------------|----------------|-----------|---------|
-| [Product import](#product-import) — 500 items, simple rules | Wildcard, fast-check | ~163ms | **~3ms** | ~62x |
-| [Nested order lines](#nested-order-lines) — 1000 orders × 5 line items | Wildcard, fast-check (nested) | ~2,491ms | **~15ms** | ~163x |
-| [Conditional import](#conditional-import) — 100 items, 47 conditional fields | Wildcard, pre-evaluation | ~2,928ms | **~47ms** | ~62x |
-| [Event scheduling](#event-scheduling) — 100 items, field-ref dates | Wildcard, fast-check (field-ref dates) | ~19ms | **~0.7ms** | ~28x |
-| [Article submission](#article-submission) — 50 items, custom Rule objects | Wildcard only | ~8ms | **~2ms** | ~3x |
-| [Login form](#login-form) — 3 fields, no wildcards | Fast-check (flat) | ~0.1ms | **~0.02ms** | ~7x |
+| Scenario                                                                     | Optimizations                          | Native Laravel | Optimized   | Speedup |
+|------------------------------------------------------------------------------|----------------------------------------|----------------|-------------|---------|
+| [Product import](#product-import) — 500 items, simple rules                  | Wildcard, fast-check                   | ~163ms         | **~3ms**    | ~62x    |
+| [Nested order lines](#nested-order-lines) — 1000 orders × 5 line items       | Wildcard, fast-check (nested)          | ~2,491ms       | **~15ms**   | ~163x   |
+| [Conditional import](#conditional-import) — 100 items, 47 conditional fields | Wildcard, pre-evaluation               | ~2,928ms       | **~47ms**   | ~62x    |
+| [Event scheduling](#event-scheduling) — 100 items, field-ref dates           | Wildcard, fast-check (field-ref dates) | ~19ms          | **~0.7ms**  | ~28x    |
+| [Article submission](#article-submission) — 50 items, custom Rule objects    | Wildcard only                          | ~8ms           | **~2ms**    | ~3x     |
+| [Login form](#login-form) — 3 fields, no wildcards                           | Fast-check (flat)                      | ~0.1ms         | **~0.02ms** | ~7x     |
 
 All numbers are from `php benchmark.php` (macOS, PHP 8.4, OPcache); CI runs produce the same scenarios on Ubuntu.
 
@@ -691,30 +704,30 @@ $validated = RuleSet::make()
 
 `when()` and `unless()` are available via Laravel's `Conditionable` trait. `merge()` accepts another `RuleSet` or a plain array.
 
-| Method                             | Returns         | Description                                                       |
-|------------------------------------|-----------------|-------------------------------------------------------------------|
-| `RuleSet::from([...])`             | `RuleSet`       | Create from a rules array                                         |
-| `RuleSet::make()->field(...)`      | `RuleSet`       | Fluent builder                                                    |
-| `->merge($ruleSet)`                | `RuleSet`       | Merge another RuleSet or array into this one                      |
-| `->only(...$fields)`               | `RuleSet`       | Keep only the named fields (variadic strings or single array)     |
-| `->except(...$fields)`             | `RuleSet`       | Drop the named fields (variadic strings or single array)          |
-| `->put($field, $rule)`             | `RuleSet`       | Add or replace a single field's rule                              |
-| `->get($field, $default = null)`   | `mixed`         | Read a single field's rule (uncompiled), or `$default` if absent  |
+| Method                             | Returns         | Description                                                                     |
+|------------------------------------|-----------------|---------------------------------------------------------------------------------|
+| `RuleSet::from([...])`             | `RuleSet`       | Create from a rules array                                                       |
+| `RuleSet::make()->field(...)`      | `RuleSet`       | Fluent builder                                                                  |
+| `->merge($ruleSet)`                | `RuleSet`       | Merge another RuleSet or array into this one                                    |
+| `->only(...$fields)`               | `RuleSet`       | Keep only the named fields (variadic strings or single array)                   |
+| `->except(...$fields)`             | `RuleSet`       | Drop the named fields (variadic strings or single array)                        |
+| `->put($field, $rule)`             | `RuleSet`       | Add or replace a single field's rule                                            |
+| `->get($field, $default = null)`   | `mixed`         | Read a single field's rule (uncompiled), or `$default` if absent                |
 | `->modify($field, fn ($rule))`     | `RuleSet`       | Read-modify-write a single field; clones before callback; throws on missing key |
-| `->all()`                          | `array`         | Collection-style alias of `->toArray()`                           |
-| `[...$ruleSet]`                    | `array`         | Spread support via `IteratorAggregate` — yields `$this->toArray()` shape |
-| `->when($cond, $callback)`         | `RuleSet`       | Conditionally add fields (also: `unless`)                         |
-| `->toArray()`                      | `array`         | Flat rules with `each()` expanded to wildcards                    |
-| `->validate($data)`                | `array`         | Validate with full optimization (see [Performance](#performance)) |
-| `->check($data)`                   | `Validated`     | Validate without throwing. See [errors-as-data](#errors-as-data-with-check) |
-| `->prepare($data)`                 | `PreparedRules` | Expand, extract metadata, compile. For custom Validators          |
-| `->expandWildcards($data)`         | `array`         | Pre-expand wildcards without validating                           |
-| `RuleSet::compile($rules)`         | `array`         | Compile fluent rules to native Laravel format                     |
-| `RuleSet::compileToArrays($rules)` | `array`         | Compile to array format for Livewire's `$this->validate()`        |
-| `->failOnUnknownFields()`          | `RuleSet`       | Reject input keys not present in the rule set                     |
-| `->stopOnFirstFailure()`           | `RuleSet`       | Stop validating after the first field fails                       |
-| `->dump()`                         | `array`         | Returns `{rules, messages, attributes}` for debugging             |
-| `->dd()`                           | `never`         | Dumps and terminates                                              |
+| `->all()`                          | `array`         | Collection-style alias of `->toArray()`                                         |
+| `[...$ruleSet]`                    | `array`         | Spread support via `IteratorAggregate` — yields `$this->toArray()` shape        |
+| `->when($cond, $callback)`         | `RuleSet`       | Conditionally add fields (also: `unless`)                                       |
+| `->toArray()`                      | `array`         | Flat rules with `each()` expanded to wildcards                                  |
+| `->validate($data)`                | `array`         | Validate with full optimization (see [Performance](#performance))               |
+| `->check($data)`                   | `Validated`     | Validate without throwing. See [errors-as-data](#errors-as-data-with-check)     |
+| `->prepare($data)`                 | `PreparedRules` | Expand, extract metadata, compile. For custom Validators                        |
+| `->expandWildcards($data)`         | `array`         | Pre-expand wildcards without validating                                         |
+| `RuleSet::compile($rules)`         | `array`         | Compile fluent rules to native Laravel format                                   |
+| `RuleSet::compileToArrays($rules)` | `array`         | Compile to array format for Livewire's `$this->validate()`                      |
+| `->failOnUnknownFields()`          | `RuleSet`       | Reject input keys not present in the rule set                                   |
+| `->stopOnFirstFailure()`           | `RuleSet`       | Stop validating after the first field fails                                     |
+| `->dump()`                         | `array`         | Returns `{rules, messages, attributes}` for debugging                           |
+| `->dd()`                           | `never`         | Dumps and terminates                                                            |
 
 ### Errors-as-data with `check()`
 
@@ -737,15 +750,15 @@ foreach ($rows as $row) {
 }
 ```
 
-| Method                         | Returns                  | Description                                      |
-|--------------------------------|--------------------------|--------------------------------------------------|
-| `->passes()`                   | `bool`                   | Did validation pass?                             |
-| `->fails()`                    | `bool`                   | Inverse of `passes()`                            |
-| `->errors()`                   | `MessageBag`             | All validation errors (empty bag on success)     |
-| `->firstError($field)`         | `?string`                | First error message for a field, or `null`       |
-| `->validated()`                | `array`                  | Validated data; throws `ValidationException` if it failed |
-| `->safe()`                     | `ValidatedInput`         | Same data as `validated()`, wrapped for `->only()`/`->except()`/`->collect()` access |
-| `->validator()`                | `ValidatorContract`      | Escape hatch for deep Laravel integration (`->after()`, `->sometimes()`, extensions) |
+| Method                 | Returns             | Description                                                                          |
+|------------------------|---------------------|--------------------------------------------------------------------------------------|
+| `->passes()`           | `bool`              | Did validation pass?                                                                 |
+| `->fails()`            | `bool`              | Inverse of `passes()`                                                                |
+| `->errors()`           | `MessageBag`        | All validation errors (empty bag on success)                                         |
+| `->firstError($field)` | `?string`           | First error message for a field, or `null`                                           |
+| `->validated()`        | `array`             | Validated data; throws `ValidationException` if it failed                            |
+| `->safe()`             | `ValidatedInput`    | Same data as `validated()`, wrapped for `->only()`/`->except()`/`->collect()` access |
+| `->validator()`        | `ValidatorContract` | Escape hatch for deep Laravel integration (`->after()`, `->sometimes()`, extensions) |
 
 `check()` runs the same internal engine as `validate()` (fast-check closures, wildcard expansion, batched DB queries). There is no double-parse; the result object just wraps the outcome.
 
@@ -974,10 +987,10 @@ FluentRulesTester::for(OfflineSyncRequest::class)
 
 Two distinct test shapes. Pick the one that matches what you're asserting:
 
-| Shape | When to use | Target |
-|---|---|---|
-| **Rules-only** | Assert the `rules()` array has the right shape against a specific data payload. Component lifecycle irrelevant. | `for($component->rules())` or `for($ruleSet)`, then `->with($data)->passes()` |
-| **Component-flow** | Drive `wire:model` state, dispatch an action, assert validation fires (or `addError` branches, guard clauses, multi-step flows). | `for(ComponentClass::class)->set(...)->call(...)` |
+| Shape              | When to use                                                                                                                      | Target                                                                        |
+|--------------------|----------------------------------------------------------------------------------------------------------------------------------|-------------------------------------------------------------------------------|
+| **Rules-only**     | Assert the `rules()` array has the right shape against a specific data payload. Component lifecycle irrelevant.                  | `for($component->rules())` or `for($ruleSet)`, then `->with($data)->passes()` |
+| **Component-flow** | Drive `wire:model` state, dispatch an action, assert validation fires (or `addError` branches, guard clauses, multi-step flows). | `for(ComponentClass::class)->set(...)->call(...)`                             |
 
 Don't reach for the class-string target just because the rules live in a Livewire component — use it only when the component's `submit()` flow (guards, `addError`, computed state) matters to the test. Shape-only tests stay on the array/RuleSet targets and `->with()`.
 
@@ -1383,12 +1396,12 @@ vendor/bin/pint                       # fix code style after
 
 The Rector package covers the full migration surface: pipe-delimited strings, array-based rules, `Rule::` objects, `Password::min()` chains, conditional tuples, closures, custom rule objects, Livewire `#[Rule]` / `#[Validate]` attributes, wildcard grouping, trait insertion, and post-migration chain cleanup. Organized into composable sets:
 
-| Set | Includes |
-|-----|----------|
-| `ALL` | `CONVERT` + `GROUP` + `TRAITS` (full migration pipeline) |
-| `CONVERT` | String, array, and `#[Rule]` / `#[Validate]` attribute converters |
-| `GROUP` | Wildcard and dot-notation grouping into `each()` / `children()` |
-| `TRAITS` | `HasFluentRules` for FormRequests, `HasFluentValidation` (with Filament variant) for Livewire |
+| Set        | Includes                                                                                                                                                                |
+|------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `ALL`      | `CONVERT` + `GROUP` + `TRAITS` (full migration pipeline)                                                                                                                |
+| `CONVERT`  | String, array, and `#[Rule]` / `#[Validate]` attribute converters                                                                                                       |
+| `GROUP`    | Wildcard and dot-notation grouping into `each()` / `children()`                                                                                                         |
+| `TRAITS`   | `HasFluentRules` for FormRequests, `HasFluentValidation` (with Filament variant) for Livewire                                                                           |
 | `SIMPLIFY` | Post-migration chain cleanup — `string()->url()` → `url()`, `min()+max()` → `between()`, redundant-type removal. Run separately after verifying the initial conversion. |
 
 See the [Rector package README](https://github.com/sandermuller/laravel-fluent-validation-rector) for the full rule-by-rule reference, configuration options (`PRESERVE_REALTIME_VALIDATION`, `BASE_CLASSES`), and diagnostics guidance.
@@ -1470,7 +1483,7 @@ Please see [CHANGELOG](CHANGELOG.md) for more information on what has changed re
 
 ## Security vulnerabilities
 
-Please review [our security policy](../../security/policy) on how to report security vulnerabilities.
+Please review [our security policy](SECURITY.md) on how to report security vulnerabilities.
 
 ## Credits
 

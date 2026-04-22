@@ -5,9 +5,12 @@ All rule types share these modifiers.
 ## Labels and Messages
 
 - `label($label)` — set the `:attribute` name used in error messages. Also available as factory argument: `FluentRule::string('Full Name')`
-- `message($msg)` — custom error message for the most recently added rule. Must be called AFTER the rule it applies to.
-- `messageFor($rule, $msg)` — custom error message by rule name. Can be called at any point in the chain: `->messageFor('required', 'We need this!')`
+- **Preferred:** inline `message:` named arg on factories and rule methods: `FluentRule::string(message: 'Must be text.')`, `->required(message: 'Required!')`, `->min(2, message: 'Too short.')`. Available on every non-variadic rule method and on all factories with a stable error-lookup key.
+- `message($msg)` — shorthand that binds to the most recently added rule (`$lastConstraint`). `FluentRule::email()->required()->message('We need email.')` binds to `required`.
+- `messageFor($rule, $msg)` — escape hatch. First-class, not deprecated. Required for variadic methods (`requiredWith`, `presentIf`, `excludeIf`, `acceptedIf`), `->rule(object)` custom rules, Macroable methods, and targeting non-last sub-rules on composite methods like `NumericRule::digits` (adds `integer` + `digits:N`).
 - `fieldMessage($msg)` — fallback error message for ANY rule failure on this field. Rule-specific messages take priority.
+
+**`FluentRule::date()` / `dateTime()` do not accept `message:`** — the error-lookup key is resolved at build time (`'date'` vs `'date_format:Y-m-d'`) and cannot be seeded deterministically. Attach via a specific method: `FluentRule::date()->before('2026-12-31', message: 'Too late.')`.
 
 ## Presence
 

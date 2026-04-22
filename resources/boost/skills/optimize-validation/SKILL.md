@@ -42,7 +42,7 @@ Read each file. Look for these specific patterns:
 - `field.child1`, `field.child2` sharing a parent → suggest `children()`
 - `field.*` + `field.*.child1` + `field.*.child2` → suggest `each()`
 - `attributes()` array entries → suggest `->label()`
-- `messages()` entries with `field.rule` keys → suggest `->message()`
+- `messages()` entries with `field.rule` keys → suggest inline `message:` (or `->message()` / `->messageFor()` for variadic / non-last sub-rule cases)
 - `Rule::excludeIf` / `Rule::when` with closures → note caveats
 
 **Present the summary to the user before making any changes.** Start with the simplest files to build confidence. Save complex custom Validators for last.
@@ -75,7 +75,7 @@ Ask the user which files/categories to proceed with.
 **Medium impact (DX):**
 3. String rules convertible to fluent chains
 4. Separate `attributes()` arrays replaceable with `->label()`
-5. Separate `messages()` entries replaceable with `->message()` / `->fieldMessage()`
+5. Separate `messages()` entries replaceable with inline `message:` / `->message()` / `->fieldMessage()`
 6. Manual `items.*.name` patterns groupable with `each()`
 
 **Low impact (cleanup):**
@@ -254,13 +254,19 @@ public function attributes(): array
 'email' => FluentRule::email('Email Address')->required(),
 ```
 
-### 4e: Replace messages() with ->message() / ->fieldMessage()
+### 4e: Replace messages() with inline `message:` / `->message()` / `->fieldMessage()`
 
-Only for simple rule-specific messages. Keep `messages()` for complex/conditional messages.
+Only for simple rule-specific messages. Keep `messages()` for complex/conditional messages and for cases where one fluent factory produces multiple validator rules (e.g. `FluentRule::email()->when(..., fn ($r) => $r->required())` emits `required` + `string` + `email` — inline `message:` can only carry one).
 
 ```php
-// Rule-specific message
+// Preferred — inline named arg, colocated with the rule
+->required(message: 'We need your name!')->min(2, message: 'Too short!')
+
+// Chained shorthand
 ->required()->message('We need your name!')
+
+// Variadic method — use ->message() or messageFor()
+->requiredWith('email', 'phone')->messageFor('required_with', 'Required when email or phone is set.')
 
 // Field-level fallback (any rule failure)
 ->fieldMessage('Something is wrong with this field.')
