@@ -138,8 +138,8 @@ trait HasFieldModifiers
                 $rules instanceof NotIn => 'not_in',
                 $rules instanceof Unique => 'unique',
                 $rules instanceof Exists => 'exists',
-                $rulesClass === 'Illuminate\\Validation\\Rules\\Contains' => 'contains',
-                $rulesClass === 'Illuminate\\Validation\\Rules\\DoesntContain' => 'doesnt_contain',
+                $rulesClass === \Illuminate\Validation\Rules\Contains::class => 'contains',
+                $rulesClass === \Illuminate\Validation\Rules\DoesntContain::class => 'doesnt_contain',
                 default => lcfirst(class_basename($rules)),
             };
         } else {
