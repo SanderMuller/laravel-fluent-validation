@@ -138,7 +138,15 @@ class ArrayRule implements DataAwareRule, FluentRuleContract, ValidationRule, Va
      */
     public function contains(Arrayable|\UnitEnum|array|string|int ...$values): static
     {
-        return $this->addRule(new Contains($this->flattenContainsValues($values)));
+        $resolved = $this->flattenContainsValues($values);
+
+        if (class_exists(Contains::class)) {
+            return $this->addRule(new Contains($resolved));
+        }
+
+        // Laravel 11: `Rules\Contains` class shipped in L12. Fall back to
+        // the pipe-string form with CSV-quoting that mirrors Contains::__toString.
+        return $this->addRule('contains:' . $this->serializeContainsValues($resolved));
     }
 
     /** @param  Arrayable<array-key, mixed>|\UnitEnum|array<int, mixed>|string|int  ...$values */
@@ -149,6 +157,29 @@ class ArrayRule implements DataAwareRule, FluentRuleContract, ValidationRule, Va
         }
 
         return $this->addRule(new DoesntContain($this->flattenContainsValues($values)));
+    }
+
+    /**
+     * CSV-quote + escape each value. Mirrors upstream `Rules\Contains::__toString()`
+     * for the Laravel 11 fallback path.
+     *
+     * @param  array<int, mixed>  $values
+     */
+    private function serializeContainsValues(array $values): string
+    {
+        $serialized = array_map(static function (mixed $value): string {
+            // Mirror Laravel's enum_value(): BackedEnum → value, UnitEnum → name.
+            if ($value instanceof \BackedEnum) {
+                $value = $value->value;
+            } elseif ($value instanceof \UnitEnum) {
+                $value = $value->name;
+            }
+
+            /** @var scalar $value */
+            return '"' . str_replace('"', '""', (string) $value) . '"';
+        }, $values);
+
+        return implode(',', $serialized);
     }
 
     /**

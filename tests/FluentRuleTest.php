@@ -2176,7 +2176,7 @@ it('contains produces a Contains object equivalent to Rule::contains() for every
     'UnitEnum single' => fn () => TestUnitEnum::Foo,
     'embedded comma' => 'a,b',
     'embedded quote' => 'he said "hi"',
-]);
+])->skip(! class_exists(Contains::class), 'Rule::contains()/Rules\\Contains require Laravel 12+');
 
 // =========================================================================
 // Convenience factory shortcuts

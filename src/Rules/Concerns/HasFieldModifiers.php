@@ -6,8 +6,6 @@ use Closure;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Fluent;
 use Illuminate\Validation\Rule;
-use Illuminate\Validation\Rules\Contains;
-use Illuminate\Validation\Rules\DoesntContain;
 use Illuminate\Validation\Rules\ExcludeIf;
 use Illuminate\Validation\Rules\ExcludeUnless;
 use Illuminate\Validation\Rules\Exists;
@@ -123,6 +121,12 @@ trait HasFieldModifiers
 
         if (is_object($rules)) {
             $this->rules[] = $rules;
+            // Compared by string class-name to avoid autoload-fatal on
+            // Laravel versions that lack a given rule class (Contains /
+            // DoesntContain are L12+; instanceof would trigger autoload
+            // on L11 and throw "class not found").
+            $rulesClass = $rules::class;
+
             $this->lastConstraint = match (true) {
                 $rules instanceof RequiredIf => 'required',
                 $rules instanceof RequiredUnless => 'required',
@@ -134,8 +138,8 @@ trait HasFieldModifiers
                 $rules instanceof NotIn => 'not_in',
                 $rules instanceof Unique => 'unique',
                 $rules instanceof Exists => 'exists',
-                $rules instanceof Contains => 'contains',
-                $rules instanceof DoesntContain => 'doesnt_contain',
+                $rulesClass === 'Illuminate\\Validation\\Rules\\Contains' => 'contains',
+                $rulesClass === 'Illuminate\\Validation\\Rules\\DoesntContain' => 'doesnt_contain',
                 default => lcfirst(class_basename($rules)),
             };
         } else {
