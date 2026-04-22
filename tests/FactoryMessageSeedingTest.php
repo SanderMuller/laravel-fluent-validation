@@ -131,15 +131,11 @@ it('EmailRule: messageFor("email") surfaces on failing Email::default() object b
     }
 });
 
-it('PasswordRule: messageFor("password") surfaces on failing Password rule object', function (): void {
-    $v = makeValidator(
-        ['password' => 'short'],
-        ['password' => FluentRule::password(8)->messageFor('password', 'Password too weak.')]
-    );
-
-    expect($v->passes())->toBeFalse()
-        ->and($v->errors()->first('password'))->toBe('Password too weak.');
-});
+// PasswordRule is NOT seeded — Laravel 11 (pre-v11.1) emits Password failures
+// under sub-keys (`password.mixed`, `password.letters`, `password.numbers`,
+// etc.) rather than the bare `password` key. The bare-key seeding would
+// silently no-op on that matrix. Users target specific sub-keys via
+// `->messageFor('password.letters', '...')`.
 
 // =========================================================================
 // Phase 1 seeded behaviour — `->message()` binds to the factory's implicit
@@ -236,15 +232,8 @@ it('EmailRule: ->message() after factory binds to the implicit email rule', func
         ->and($v->errors()->first('contact'))->toBe('Must be valid email.');
 });
 
-it('PasswordRule: ->message() after factory binds to the implicit password rule', function (): void {
-    $v = makeValidator(
-        ['password' => 'short'],
-        ['password' => FluentRule::password(8)->message('Password too weak.')]
-    );
-
-    expect($v->passes())->toBeFalse()
-        ->and($v->errors()->first('password'))->toBe('Password too weak.');
-});
+// PasswordRule: no `->message()` test — see PasswordRule-not-seeded note above.
+// Users target sub-keys via `->messageFor('password.letters', '...')`.
 
 it('FieldRule: ->message() still throws because no implicit constraint', function (): void {
     FluentRule::field()->message('should throw');

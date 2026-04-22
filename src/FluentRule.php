@@ -172,18 +172,18 @@ class FluentRule
         return $imageRule;
     }
 
-    public static function password(?int $min = null, ?string $label = null, bool $defaults = true, ?string $message = null): PasswordRule
+    /**
+     * `message:` is not accepted — PasswordRule emits failures under sub-keys
+     * (`password.mixed`, `password.letters`, `password.numbers`, etc.) rather
+     * than a bare `password` key. Target a specific Password strength rule
+     * via `->messageFor('password.letters', '...')`, or use a separate
+     * Laravel `messages(): array` entry.
+     */
+    public static function password(?int $min = null, ?string $label = null, bool $defaults = true): PasswordRule
     {
         $passwordRule = new PasswordRule($min, $defaults);
-        if ($label !== null) {
-            $passwordRule->label($label);
-        }
 
-        if ($message !== null) {
-            $passwordRule->message($message);
-        }
-
-        return $passwordRule;
+        return $label !== null ? $passwordRule->label($label) : $passwordRule;
     }
 
     public static function url(?string $label = null, ?string $message = null): StringRule

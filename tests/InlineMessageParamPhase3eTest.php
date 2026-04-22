@@ -50,10 +50,9 @@ dataset('phase3e_type_factories', [
         fn () => FluentRule::email(message: 'x'),
         ['email' => 'x'],
     ],
-    'password' => [
-        fn () => FluentRule::password(message: 'x'),
-        ['password' => 'x'],
-    ],
+    // password omitted — PasswordRule doesn't accept `message:` on the factory.
+    // L11 emits failures under sub-keys (password.letters, password.mixed, …),
+    // not a bare `password` key. Users route via `messageFor('password.letters', '…')`.
 ]);
 
 dataset('phase3e_shortcut_factories', [

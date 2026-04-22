@@ -26,8 +26,13 @@ class PasswordRule implements DataAwareRule, FluentRuleContract, ValidationRule,
 
     public function __construct(?int $min = null, bool $defaults = true)
     {
-        $this->seedLastConstraint('password');
-
+        // No seedLastConstraint('password') — Laravel 11 (pre-v11.1) emits
+        // Password failures under sub-keys (`password.mixed`, `password.letters`,
+        // `password.numbers`, etc.) rather than the bare `password` key, so
+        // binding `customMessages['password']` wouldn't surface on that matrix.
+        // Users target specific Password strength failures via messageFor:
+        //   ->messageFor('password.mixed', 'Must mix upper and lower case.')
+        //   ->messageFor('password.letters', 'Must include letters.')
         $this->password = $min !== null
             ? Password::min($min)
             : ($defaults ? Password::default() : Password::min(8));
