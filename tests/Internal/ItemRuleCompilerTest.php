@@ -95,11 +95,20 @@ it('reduceRulesForItem keeps field and strips conditional tuple when active', fu
     expect($reduced['price'])->toBe('required|numeric');
 });
 
-it('ruleCacheKey returns comma-joined field names', function (): void {
+it('ruleCacheKey encodes field name + rule content to distinguish items with varying reduced rules', function (): void {
     $compiler = new ItemRuleCompiler();
 
-    expect($compiler->ruleCacheKey(['a' => 'required', 'b' => 'string']))->toBe('a,b')
-        ->and($compiler->ruleCacheKey([]))->toBeEmpty();
+    // Keys with different string content must produce different cache keys —
+    // this is what prevents a cached validator from being reused across
+    // items whose conditionals reduced to different rule chains.
+    $keyA = $compiler->ruleCacheKey(['a' => 'required', 'b' => 'string']);
+    $keyB = $compiler->ruleCacheKey(['a' => 'required|exists:users,id', 'b' => 'string']);
+    expect($keyA)->not->toBe($keyB);
+
+    // Identical rules produce identical keys (cache reuse still works).
+    expect($compiler->ruleCacheKey(['a' => 'required', 'b' => 'string']))->toBe($keyA);
+
+    expect($compiler->ruleCacheKey([]))->toBeEmpty();
 });
 
 it('buildFastChecks separates fast-checkable fields from slow rules', function (): void {

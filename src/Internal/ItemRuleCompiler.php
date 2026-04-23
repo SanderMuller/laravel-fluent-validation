@@ -6,6 +6,7 @@ use SanderMuller\FluentValidation\BatchDatabaseChecker;
 use SanderMuller\FluentValidation\FastCheckCompiler;
 use SanderMuller\FluentValidation\PrecomputedPresenceVerifier;
 use SanderMuller\FluentValidation\PresenceConditionalReducer;
+use SanderMuller\FluentValidation\ValueConditionalReducer;
 
 /**
  * Collaborator for {@see ItemValidator}. Extracts the rule-shape concerns
@@ -80,7 +81,8 @@ final class ItemRuleCompiler
         }
 
         foreach ($itemRules as $field => $rule) {
-            $itemRules[$field] = PresenceConditionalReducer::apply($rule, (string) $field, $itemData, $itemMessages);
+            $rule = PresenceConditionalReducer::apply($rule, (string) $field, $itemData, $itemMessages);
+            $itemRules[$field] = ValueConditionalReducer::apply($rule, (string) $field, $itemData, $itemMessages, $itemRules);
         }
 
         return $itemRules;
@@ -153,13 +155,14 @@ final class ItemRuleCompiler
     }
 
     /**
-     * Generate a cache key for a rule set to reuse validators.
+     * Delegate to `RuleCacheKey::for` — see that class for the rationale on
+     * why field names alone are insufficient after per-item reducers engage.
      *
      * @param  array<string, mixed>  $rules
      */
     public function ruleCacheKey(array $rules): string
     {
-        return implode(',', array_keys($rules));
+        return RuleCacheKey::for($rules);
     }
 
     /**

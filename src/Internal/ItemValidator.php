@@ -6,6 +6,7 @@ use Illuminate\Support\Facades\Validator;
 use SanderMuller\FluentValidation\BatchDatabaseChecker;
 use SanderMuller\FluentValidation\PrecomputedPresenceVerifier;
 use SanderMuller\FluentValidation\PresenceConditionalReducer;
+use SanderMuller\FluentValidation\ValueConditionalReducer;
 
 /**
  * Executes the per-item validation loop for a wildcard group. Applies
@@ -39,12 +40,14 @@ final readonly class ItemValidator
     {
         $conditionalFields = $this->compiler->analyzeConditionals($itemRules);
         $hasPresenceConditionals = PresenceConditionalReducer::hasAny($itemRules);
+        $hasValueConditionals = ValueConditionalReducer::hasAny($itemRules);
+        $hasSiblingDependentConditionals = $hasPresenceConditionals || $hasValueConditionals;
 
-        // Presence conditionals (required_without:FIELD) depend on arbitrary
-        // sibling fields within each item, so two items sharing the same
-        // dispatch-field value can still reduce to different rule sets. Skip
-        // the dispatch cache when presence conditionals are in play.
-        $dispatchField = $hasPresenceConditionals
+        // Presence and value conditionals (required_with*, required_if, etc.)
+        // depend on arbitrary sibling fields within each item, so two items
+        // sharing the same dispatch-field value can still reduce to different
+        // rule sets. Skip the dispatch cache when either is in play.
+        $dispatchField = $hasSiblingDependentConditionals
             ? null
             : $this->compiler->findCommonDispatchField($conditionalFields);
         /** @var array<string, array<string, mixed>> $rulesByDispatch */
@@ -64,7 +67,7 @@ final readonly class ItemValidator
         // conditionals can drop or rewrite rules per item, so the batched set
         // would no longer match the per-item rule set — disable batching.
         $batchVerifier = null;
-        if ($conditionalFields === [] && ! $hasPresenceConditionals && BatchDatabaseChecker::isAvailable()) {
+        if ($conditionalFields === [] && ! $hasSiblingDependentConditionals && BatchDatabaseChecker::isAvailable()) {
             $batchVerifier = $this->compiler->buildBatchVerifier($originalSlowRules, $items, $isScalar);
         }
 
@@ -83,7 +86,7 @@ final readonly class ItemValidator
 
                 $effectiveRules = $rulesByDispatch[$dispatchValue];
                 [$dispatchFastChecks, $dispatchSlowRules] = $fastChecksByDispatch[$dispatchValue];
-            } elseif ($conditionalFields !== [] || $hasPresenceConditionals) {
+            } elseif ($conditionalFields !== [] || $hasSiblingDependentConditionals) {
                 $effectiveRules = $this->compiler->reduceRulesForItem($itemRules, $itemData, $conditionalFields, $itemMessages);
                 [$dispatchFastChecks, $dispatchSlowRules] = $this->compiler->buildFastChecks($effectiveRules);
             } else {

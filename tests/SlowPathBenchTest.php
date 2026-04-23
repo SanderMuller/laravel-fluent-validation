@@ -225,6 +225,65 @@ it('benchmarks presence conditionals with nested dependent fields vs native', fu
     expect($ruleSetMedian)->toBeLessThan($nativeMedian);
 })->group('benchmark');
 
+it('benchmarks value conditionals vs native', function (): void {
+    // 500 contacts. Half are admins (with `postcode` expected), half are users
+    // (rule inactive). ValueConditionalReducer drops the rule for user items
+    // and rewrites to bare `required` for admins — remainder fast-checks.
+    $contacts = array_map(static fn (int $i): array => $i % 2 === 0 ? [
+        'first_name' => "Contact {$i}",
+        'last_name' => 'Test',
+        'postcode' => "12{$i}AB",
+        'role' => 'admin',
+        'phone' => '+31612345' . str_pad((string) $i, 3, '0', STR_PAD_LEFT),
+    ] : [
+        'first_name' => "Contact {$i}",
+        'last_name' => 'Test',
+        'role' => 'user',
+        'phone' => '+31612345' . str_pad((string) $i, 3, '0', STR_PAD_LEFT),
+    ], range(0, 499));
+
+    $nativeRules = [
+        'contacts' => 'required|array',
+        'contacts.*.first_name' => 'required|string|max:255',
+        'contacts.*.last_name' => 'required|string|max:255',
+        'contacts.*.postcode' => 'required_if:contacts.*.role,admin|nullable|string|max:10',
+        'contacts.*.role' => 'required|string',
+        'contacts.*.phone' => 'nullable|string|max:20',
+    ];
+    $data = ['contacts' => $contacts];
+
+    Validator::make($data, $nativeRules)->validate();
+
+    $nativeMedian = benchmarkMedian(
+        fn () => Validator::make($data, $nativeRules)->validate(),
+        3,
+    );
+
+    $ruleSetFn = fn () => RuleSet::from([
+        'contacts' => FluentRule::array()->required()->each([
+            'first_name' => FluentRule::string()->required()->max(255),
+            'last_name' => FluentRule::string()->required()->max(255),
+            'postcode' => FluentRule::field()->requiredIf('role', 'admin')->nullable()->rule('string')->rule('max:10'),
+            'role' => FluentRule::string()->required(),
+            'phone' => FluentRule::string()->nullable()->max(20),
+        ]),
+    ])->validate($data);
+
+    $ruleSetFn();
+    $ruleSetMedian = benchmarkMedian($ruleSetFn, 5);
+
+    $speedup = $nativeMedian / $ruleSetMedian;
+
+    fprintf(STDERR, "\n  Benchmark: 500 contacts × required_if:role,admin (value conditional)\n");
+    fprintf(STDERR, "  %-40s %8s %8s\n", 'Approach', 'Time', 'Speedup');
+    fprintf(STDERR, "  %s\n", str_repeat('─', 60));
+    fprintf(STDERR, "  %-40s %7.1fms %8s\n", 'Native Laravel', $nativeMedian, '1x');
+    fprintf(STDERR, "  %-40s %7.1fms %7.1fx\n", 'RuleSet (pre-eval + fast-check)', $ruleSetMedian, $speedup);
+    fprintf(STDERR, "\n");
+
+    expect($ruleSetMedian)->toBeLessThan($nativeMedian);
+})->group('benchmark');
+
 function benchmarkMedian(Closure $fn, int $iterations): float
 {
     $times = [];

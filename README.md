@@ -205,6 +205,24 @@ FluentRule::file()->rule(['mimetypes', ...$types])     // array tuple
 
 To add fields in a child, use the spread operator: `return [...parent::rules(), 'extra' => FluentRule::string()->required()]`. If you need to modify a parent's rule, clone it first since `->rule()` mutates the object: `$rules['type'] = (clone $rules['type'])->rule(new ExtraRule())`.
 
+When the parent defines a keyed `each([...])` or `children([...])` map and the child needs to add or replace one sub-rule, use the extend helpers on `ArrayRule` / `FieldRule` via `RuleSet::modify`:
+
+```php
+// Parent
+return RuleSet::from([
+    'answers' => FluentRule::array()->nullable()->max(20)->each([
+        'text' => FluentRule::string()->required(),
+    ]),
+]);
+
+// Child — adds one sub-rule without touching parent constraints
+return parent::rules()->modify('answers', fn (ArrayRule $rule) =>
+    $rule->addEachRule('id', FluentRule::numeric()->nullable())
+);
+```
+
+`addEachRule` / `addChildRule` throw on existing-key collision (use `mergeEachRules` / `mergeChildRules` for intentional replacement, later-wins). Base constraints (`nullable`, `max:20`, etc.) are preserved by design.
+
 `rules()` may also return a `RuleSet` directly — `HasFluentRules` (and `HasFluentValidation` for Livewire) auto-unwrap it via `->toArray()` before passing to the validator. This lets you chain `->only/->except/->merge/->put/->get` and return without a terminal `->toArray()` call:
 
 ```php
@@ -527,7 +545,7 @@ Rules like `exclude_unless` and `exclude_if` are evaluated before the validator 
 
 ### Fast-check closures
 
-The package compiles 30+ common rules into PHP closures that bypass Laravel's validator when values pass. Covered rules include the usual type checks (`string`, `numeric`, `email`, `date`, `array`, `boolean`, `in`, `regex`), presence gates (`required`, `prohibited`), date comparisons with literal dates, date/size/equality comparisons against wildcard siblings (`after:start_date`, `gte:min_price`, `same:password`, `confirmed`), and the presence-conditional family (`required_with`, `required_without`, `required_with_all`, `required_without_all`) — including dotted dependent paths like `required_without:profile.birthdate`, which the per-item closure can't handle directly but which `RuleSet::reduceRulesForItem` pre-evaluates against the item before dispatch.
+The package compiles 30+ common rules into PHP closures that bypass Laravel's validator when values pass. Covered rules include the usual type checks (`string`, `numeric`, `email`, `date`, `array`, `boolean`, `in`, `regex`), presence gates (`required`, `prohibited`), date comparisons with literal dates, date/size/equality comparisons against wildcard siblings (`after:start_date`, `gte:min_price`, `same:password`, `confirmed`), the presence-conditional family (`required_with`, `required_without`, `required_with_all`, `required_without_all`), and the value-conditional family (`required_if`, `required_unless`, `prohibited_if`, `prohibited_unless`) — the latter two families are pre-evaluated per item against the current row's data, rewritten to bare `required`/`prohibited` when active (or dropped when inactive), so the remainder of the chain fast-checks normally. Dotted dependent paths like `required_without:profile.birthdate` or `required_if:profile.role,admin` are resolved via `data_get` against the item during reduction.
 
 What the closure does is simpler than what Laravel does. A `string|max:255` rule becomes `is_string($v) && strlen($v) <= 255`. No rule parsing, no method dispatch, no `BigNumber` size comparison. Values that pass never touch the validator. Values that fail fall through to Laravel so the error message stays identical, with no custom-formatting layer to maintain.
 
