@@ -2,6 +2,7 @@
 
 namespace SanderMuller\FluentValidation\Rules;
 
+use BackedEnum;
 use Illuminate\Contracts\Support\Arrayable;
 use Illuminate\Contracts\Validation\DataAwareRule;
 use Illuminate\Contracts\Validation\ValidationRule;
@@ -11,29 +12,45 @@ use Illuminate\Support\Traits\Macroable;
 use Illuminate\Validation\Rules\Contains;
 use Illuminate\Validation\Rules\DoesntContain;
 use SanderMuller\FluentValidation\Contracts\FluentRuleContract;
+use SanderMuller\FluentValidation\Exceptions\CannotExtendListShapedEach;
 use SanderMuller\FluentValidation\Rules\Concerns\HasFieldModifiers;
 use SanderMuller\FluentValidation\Rules\Concerns\SelfValidates;
 
-class ArrayRule implements DataAwareRule, FluentRuleContract, ValidationRule, ValidatorAwareRule
+class ArrayRule implements DataAwareRule, FluentRuleContract, ValidatorAwareRule
 {
     use Conditionable;
     use HasFieldModifiers;
     use Macroable;
     use SelfValidates;
 
-    /** @var list<string|\BackedEnum> */
+    /** @var list<string|BackedEnum> */
     protected array $keys;
 
     /** @var list<string> */
     protected array $constraints = [];
 
-    /** @var ValidationRule|array<string, ValidationRule>|null */
-    protected ValidationRule|array|null $eachRules = null;
+    /**
+     * Keyed per-item rules — the `each(['name' => …])` shape. Always a
+     * keyed map or null; never a bare `ValidationRule`. The list form
+     * (`each(FluentRule::string())`) is stored separately on
+     * `$eachListRule` below, so internal code paths that walk keyed
+     * rules never have to branch on a union type.
+     *
+     * @var array<string, ValidationRule>|null
+     */
+    protected ?array $eachRules = null;
+
+    /**
+     * List-shape per-item rule — the `each(FluentRule::string())` shape
+     * where every item is validated as a scalar against the same rule.
+     * Mutually exclusive with `$eachRules`; setting one clears the other.
+     */
+    protected ?ValidationRule $eachListRule = null;
 
     /** @var array<string, ValidationRule>|null */
     protected ?array $childRules = null;
 
-    /** @param  Arrayable<array-key, string|\BackedEnum>|list<string|\BackedEnum>|null  $keys */
+    /** @param  Arrayable<array-key, string|BackedEnum>|list<string|BackedEnum>|null  $keys */
     public function __construct(Arrayable|array|null $keys = null)
     {
         $this->seedLastConstraint('array');
@@ -44,7 +61,7 @@ class ArrayRule implements DataAwareRule, FluentRuleContract, ValidationRule, Va
             return;
         }
 
-        /** @var list<string|\BackedEnum> $resolved */
+        /** @var list<string|BackedEnum> $resolved */
         $resolved = $keys instanceof Arrayable ? array_values($keys->toArray()) : array_values($keys);
         $this->keys = $resolved;
     }
@@ -52,7 +69,13 @@ class ArrayRule implements DataAwareRule, FluentRuleContract, ValidationRule, Va
     /** @param  ValidationRule|array<string, ValidationRule>  $rules */
     public function each(ValidationRule|array $rules): static
     {
-        $this->eachRules = $rules;
+        if ($rules instanceof ValidationRule) {
+            $this->eachListRule = $rules;
+            $this->eachRules = null;
+        } else {
+            $this->eachListRule = null;
+            $this->eachRules = $rules;
+        }
 
         return $this;
     }
@@ -60,7 +83,77 @@ class ArrayRule implements DataAwareRule, FluentRuleContract, ValidationRule, Va
     /** @return ValidationRule|array<string, ValidationRule>|null */
     public function getEachRules(): ValidationRule|array|null
     {
-        return $this->eachRules;
+        return $this->eachListRule ?? $this->eachRules;
+    }
+
+    /**
+     * Add one keyed sub-rule to the current each() shape. Intended for the
+     * subclass-extends-parent pattern where the parent defines a keyed
+     * each([...]) shape and the child adds a new field.
+     *
+     * Mutates `eachRules` only — base constraints (`nullable`, `max`, etc.)
+     * on this ArrayRule survive untouched.
+     *
+     * @throws CannotExtendListShapedEach when `eachRules` is list-shaped
+     *                                    (single ValidationRule input to each()).
+     * @throws \LogicException when $key already exists — silent override
+     *                         would hide the "parent already defines this"
+     *                         mistake. Use mergeEachRules() for intentional
+     *                         replacement.
+     */
+    public function addEachRule(string $key, ValidationRule $rule): static
+    {
+        if ($key === '') {
+            throw new \InvalidArgumentException(
+                'addEachRule() requires a non-empty key — empty keys expand to malformed wildcard paths (items.*.).'
+            );
+        }
+
+        if ($this->eachListRule instanceof ValidationRule) {
+            throw CannotExtendListShapedEach::on('addEachRule');
+        }
+
+        $existing = $this->eachRules ?? [];
+
+        if (array_key_exists($key, $existing)) {
+            throw new \LogicException(sprintf(
+                "addEachRule('%s'): key '%s' already exists in each(). "
+                . 'Use mergeEachRules() if replacement is intentional.',
+                $key,
+                $key,
+            ));
+        }
+
+        $existing[$key] = $rule;
+        $this->eachRules = $existing;
+
+        return $this;
+    }
+
+    /**
+     * Merge multiple keyed sub-rules into the current each() shape,
+     * later-wins on collision.
+     *
+     * @param  array<string, ValidationRule>  $rules
+     *
+     * @throws CannotExtendListShapedEach when `eachRules` is list-shaped.
+     */
+    public function mergeEachRules(array $rules): static
+    {
+        if ($this->eachListRule instanceof ValidationRule) {
+            throw CannotExtendListShapedEach::on('mergeEachRules');
+        }
+
+        if (array_key_exists('', $rules)) {
+            throw new \InvalidArgumentException(
+                'mergeEachRules() requires non-empty keys — empty keys expand to malformed wildcard paths (items.*.).'
+            );
+        }
+
+        $existing = $this->eachRules ?? [];
+        $this->eachRules = array_merge($existing, $rules);
+
+        return $this;
     }
 
     /**
@@ -88,6 +181,7 @@ class ArrayRule implements DataAwareRule, FluentRuleContract, ValidationRule, Va
     {
         $clone = clone $this;
         $clone->eachRules = null;
+        $clone->eachListRule = null;
         $clone->childRules = null;
 
         return $clone;
@@ -169,7 +263,7 @@ class ArrayRule implements DataAwareRule, FluentRuleContract, ValidationRule, Va
     {
         $serialized = array_map(static function (mixed $value): string {
             // Mirror Laravel's enum_value(): BackedEnum → value, UnitEnum → name.
-            if ($value instanceof \BackedEnum) {
+            if ($value instanceof BackedEnum) {
                 $value = $value->value;
             } elseif ($value instanceof \UnitEnum) {
                 $value = $value->name;
@@ -227,7 +321,7 @@ class ArrayRule implements DataAwareRule, FluentRuleContract, ValidationRule, Va
         }
 
         $keys = array_map(
-            static fn (string|\BackedEnum $key): string|int => $key instanceof \BackedEnum ? $key->value : $key,
+            static fn (string|BackedEnum $key): string|int => $key instanceof BackedEnum ? $key->value : $key,
             $this->keys,
         );
 
@@ -245,50 +339,52 @@ class ArrayRule implements DataAwareRule, FluentRuleContract, ValidationRule, Va
     /** @return array<string, mixed> */
     private function buildEachNestedRules(string $attribute): array
     {
-        $eachRules = $this->getEachRules();
-
-        if ($eachRules instanceof ValidationRule) {
+        if ($this->eachListRule instanceof ValidationRule) {
             $key = $attribute . '.*';
-            $rules = [$key => $eachRules];
+            $rules = [$key => $this->eachListRule];
 
-            return $eachRules instanceof self
-                ? array_merge($rules, $eachRules->buildNestedRules($key))
+            return $this->eachListRule instanceof self
+                ? array_merge($rules, $this->eachListRule->buildNestedRules($key))
                 : $rules;
         }
 
-        if (! is_array($eachRules)) {
+        if ($this->eachRules === null) {
             return [];
         }
 
         $rules = [];
+        /** @var list<array<string, mixed>> $nested */
+        $nested = [];
 
-        foreach ($eachRules as $field => $rule) {
+        foreach ($this->eachRules as $field => $rule) {
             $key = $attribute . '.*.' . $field;
             $rules[$key] = $rule;
 
             if ($rule instanceof self) {
-                $rules = array_merge($rules, $rule->buildNestedRules($key));
+                $nested[] = $rule->buildNestedRules($key);
             }
         }
 
-        return $rules;
+        return $nested === [] ? $rules : array_merge($rules, ...$nested);
     }
 
     /** @return array<string, mixed> */
     private function buildChildNestedRules(string $attribute): array
     {
         $rules = [];
+        /** @var list<array<string, mixed>> $nested */
+        $nested = [];
 
         foreach ($this->childRules ?? [] as $field => $rule) {
             $key = $attribute . '.' . $field;
             $rules[$key] = $rule;
 
             if ($rule instanceof self) {
-                $rules = array_merge($rules, $rule->buildNestedRules($key));
+                $nested[] = $rule->buildNestedRules($key);
             }
         }
 
-        return $rules;
+        return $nested === [] ? $rules : array_merge($rules, ...$nested);
     }
 
     /** @return list<string|object> */

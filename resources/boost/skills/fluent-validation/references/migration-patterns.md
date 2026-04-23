@@ -236,6 +236,37 @@ return $rules;
 
 Don't use `mergeRecursive` — it deconstructs objects.
 
+#### Extending a parent's `each([...])` / `children([...])` shape
+
+When the parent defines a keyed `each()` or `children()` map and the child needs to add one sub-rule, use the extend helpers instead of `getEachRules()` + `Arr::wrap()` round-trips:
+
+```php
+// Parent: SaveQuestionRequest
+protected const ANSWERS = 'answers';
+
+public function rules(): RuleSet
+{
+    return RuleSet::from([
+        self::ANSWERS => FluentRule::array()->nullable()->max(20)->each([
+            'text' => FluentRule::string()->required(),
+        ]),
+    ]);
+}
+
+// Child: UpdateQuestionRequest
+public function rules(): RuleSet
+{
+    return parent::rules()->modify(self::ANSWERS, fn (ArrayRule $rule) =>
+        $rule->addEachRule('id', FluentRule::numeric()->nullable())
+    );
+}
+```
+
+- `addEachRule($key, $rule)` / `addChildRule($key, $rule)` — append one keyed sub-rule. **Throws** on existing-key collision (use `mergeEachRules` / `mergeChildRules` if replacement is intentional).
+- `mergeEachRules($rules)` / `mergeChildRules($rules)` — later-wins merge.
+- Base constraints (`nullable`, `max:20`, `required`, etc.) on the ArrayRule/FieldRule survive every call.
+- `addEachRule` / `mergeEachRules` throw `CannotExtendListShapedEach` when invoked on a rule whose `each()` was set to a single `ValidationRule` (list form, e.g. `each(FluentRule::string())`). Convert to keyed form first: `each(['key' => FluentRule::…])`.
+
 ### Password rules trait (Fortify/Breeze)
 
 Keep mixed rule arrays as-is: `'password' => $this->passwordRules()`. For new code: `FluentRule::password()->required()->confirmed()`.

@@ -148,6 +148,14 @@ FluentRule::file()->rule(['mimetypes', ...$types])
 FluentRule::string()->rule(new MyCustomRule())
 ```
 
+**Extend a parent's `each()` / `children()` shape** — for subclass FormRequests that add one sub-rule to the parent's map. Preserves parent base constraints (`nullable`, `max`, `required`, etc.):
+```php
+return parent::rules()->modify('answers', fn (ArrayRule $rule) =>
+    $rule->addEachRule('id', FluentRule::numeric()->nullable())
+);
+```
+`addEachRule` / `addChildRule` throw on existing-key collision — use `mergeEachRules` / `mergeChildRules` for intentional later-wins replacement. `addEachRule` / `mergeEachRules` throw `CannotExtendListShapedEach` when the parent's `each()` is list-shaped (`each(FluentRule::string())` without keys) — convert to keyed form first.
+
 **Macros** — reusable rule chains registered in a service provider:
 ```php
 NumericRule::macro('percentage', fn () => $this->integer()->min(0)->max(100));

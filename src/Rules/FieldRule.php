@@ -26,7 +26,7 @@ use SanderMuller\FluentValidation\Rules\Concerns\SelfValidates;
  *         'email' => FluentRule::email()->required(),
  *     ])
  */
-class FieldRule implements DataAwareRule, FluentRuleContract, ValidationRule, ValidatorAwareRule
+class FieldRule implements DataAwareRule, FluentRuleContract, ValidatorAwareRule
 {
     use Conditionable;
     use HasEmbeddedRules;
@@ -60,6 +60,63 @@ class FieldRule implements DataAwareRule, FluentRuleContract, ValidationRule, Va
         return $this->childRules;
     }
 
+    /**
+     * Add one keyed child rule. Intended for the subclass-extends-parent
+     * pattern where the parent defines a children([...]) shape and the
+     * child adds a new field.
+     *
+     * Mutates `childRules` only — base constraints on this FieldRule
+     * survive untouched.
+     *
+     * @throws \LogicException when $key already exists — silent override
+     *                         would hide the "parent already defines this"
+     *                         mistake. Use mergeChildRules() for
+     *                         intentional replacement.
+     */
+    public function addChildRule(string $key, ValidationRule $rule): static
+    {
+        if ($key === '') {
+            throw new \InvalidArgumentException(
+                'addChildRule() requires a non-empty key — empty keys expand to malformed dotted paths (parent.).'
+            );
+        }
+
+        $existing = $this->childRules ?? [];
+
+        if (array_key_exists($key, $existing)) {
+            throw new \LogicException(sprintf(
+                "addChildRule('%s'): key '%s' already exists in children(). "
+                . 'Use mergeChildRules() if replacement is intentional.',
+                $key,
+                $key,
+            ));
+        }
+
+        $existing[$key] = $rule;
+        $this->childRules = $existing;
+
+        return $this;
+    }
+
+    /**
+     * Merge multiple keyed child rules, later-wins on collision.
+     *
+     * @param  array<string, ValidationRule>  $rules
+     */
+    public function mergeChildRules(array $rules): static
+    {
+        if (array_key_exists('', $rules)) {
+            throw new \InvalidArgumentException(
+                'mergeChildRules() requires non-empty keys — empty keys expand to malformed dotted paths (parent.).'
+            );
+        }
+
+        $existing = $this->childRules ?? [];
+        $this->childRules = array_merge($existing, $rules);
+
+        return $this;
+    }
+
     public function same(string $field, ?string $message = null): static
     {
         return $this->addRule('same:' . $field, $message);
@@ -79,17 +136,19 @@ class FieldRule implements DataAwareRule, FluentRuleContract, ValidationRule, Va
     public function buildNestedRules(string $attribute): array
     {
         $rules = [];
+        /** @var list<array<string, mixed>> $nested */
+        $nested = [];
 
         foreach ($this->childRules ?? [] as $field => $rule) {
             $key = $attribute . '.' . $field;
             $rules[$key] = $rule;
 
             if ($rule instanceof ArrayRule && $rule->getEachRules() !== null) {
-                $rules = array_merge($rules, $rule->buildNestedRules($key));
+                $nested[] = $rule->buildNestedRules($key);
             }
         }
 
-        return $rules;
+        return $nested === [] ? $rules : array_merge($rules, ...$nested);
     }
 
     /** @return list<string|object> */
