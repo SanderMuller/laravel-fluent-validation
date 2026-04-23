@@ -42,6 +42,9 @@ Write Laravel validation rules with IDE autocompletion instead of memorizing str
 - [Migrating existing validation with Rector](#migrating-existing-validation-with-rector) — automated rewrite via [companion Rector package](https://github.com/sandermuller/laravel-fluent-validation-rector)
 - [Common migration patterns](resources/boost/skills/fluent-validation/references/migration-patterns.md) — detailed reference for manual conversions (external doc)
 
+**Static analysis**
+- [Static analysis with PHPStan](#static-analysis-with-phpstan) — opt-in [PHPStan rules package](https://github.com/sandermuller/laravel-fluent-validation-phpstan) that flags unbounded `each()` chains
+
 **Deep dive**
 - [Livewire](#livewire) — HasFluentValidation trait, Filament workaround
 - [Why this package?](#why-this-package) — DX, type safety, structure, performance
@@ -325,6 +328,9 @@ FluentRule::array()->each([
 ```
 
 `each()` works standalone and through Form Requests with `HasFluentRules`. The trait and [`RuleSet`](#ruleset) both [optimize wildcard expansion](#performance).
+
+> [!TIP]
+> **Catch unbounded `each()` at analyse time.** The companion [PHPStan package](#static-analysis-with-phpstan) flags `each()` chains without a size cap (`->max()`, `->between()`, `->exactly()`, or a key whitelist) — the shape that turns into an N+1 / DoS footgun with `->exists()` or closure rules on large payloads.
 
 ### Fixed-key children with `children()`
 
@@ -1428,6 +1434,20 @@ Rector's `GroupWildcardRulesToEachRector` synthesizes `FluentRule::array()->null
 ### Known limitations & verification workflow
 
 The Rector rules are deliberately conservative. They'll skip abstract classes, custom Validator subclasses, dynamically-built rules, and enum cases in conditional tuples, among others. The full skip list, verbose-skip diagnostics (`FLUENT_VALIDATION_RECTOR_VERBOSE=1`), and a step-by-step post-migration verification checklist (baseline test run → dry-run → apply → diff-size sanity → spot-check → filter-runs → final green) live in the [Rector package README](https://github.com/sandermuller/laravel-fluent-validation-rector#known-limitations). Start there before migrating anything non-trivial.
+
+## Static analysis with PHPStan
+
+The companion package [`sandermuller/laravel-fluent-validation-phpstan`](https://github.com/sandermuller/laravel-fluent-validation-phpstan) ships PHPStan rules that flag misuse of this library in consumer projects. It is opt-in — install only if you run PHPStan.
+
+```bash
+composer require --dev sandermuller/laravel-fluent-validation-phpstan
+```
+
+With [`phpstan/extension-installer`](https://github.com/phpstan/extension-installer) the rules auto-register. The initial release ships one rule:
+
+- **`NoUnboundedArrayEachRule`** — flags `FluentRule::array()->each(...)` and `FluentRule::list()->each(...)` chains without a `->max(N)` / `->between(N, M)` / `->exactly(N)` hop or a key whitelist. Unbounded arrays validated per-item (especially with `->exists()` or closure rules) scale linearly with payload size; the rule catches the N+1 / DoS footgun at analyse time rather than on a bad request.
+
+See the [phpstan-package README](https://github.com/sandermuller/laravel-fluent-validation-phpstan#rules) for the full rule reference, configuration, escape hatches, and known limitations.
 
 ## Troubleshooting
 
