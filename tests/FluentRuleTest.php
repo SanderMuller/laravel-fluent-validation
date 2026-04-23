@@ -2304,6 +2304,16 @@ it('validates hexColor shortcut', function (): void {
     expect($v->passes())->toBeFalse();
 });
 
+it('validates activeUrl shortcut', function (): void {
+    // Note: uses real DNS resolution. Mirrors the existing
+    // `FluentRule::string()->activeUrl()` integration test in StringRuleTest.
+    $v = makeValidator(['site' => 'https://example.com'], ['site' => FluentRule::activeUrl()->required()]);
+    expect($v->passes())->toBeTrue();
+
+    $v = makeValidator(['site' => 'https://thisdomaindoesnotexist12345.invalid'], ['site' => FluentRule::activeUrl()->required()]);
+    expect($v->passes())->toBeFalse();
+});
+
 it('validates regex shortcut', function (): void {
     $v = makeValidator(['code' => '12345'], ['code' => FluentRule::regex('/^\d+$/')->required()]);
     expect($v->passes())->toBeTrue();

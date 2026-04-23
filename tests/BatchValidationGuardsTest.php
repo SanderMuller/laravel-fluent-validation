@@ -1318,6 +1318,62 @@ it('filter drops bad types before cap check, so per-item integer error surfaces 
     }
 });
 
+// =========================================================================
+// Scale — adversarial payload at production size
+// =========================================================================
+
+it('hard-cap trips fast and cheaply on a realistic 50k-item hostile payload', function (): void {
+    setupGuardsDatabase();
+
+    // 50_000 unique integers — the kind of payload an attacker would send to
+    // exercise the batching pipeline at scale. Default cap is 10_000. The
+    // filter → dedup → cap check chain should trip well before any whereIn
+    // fires, and it must not exhaust memory or blow past a sensible wall-clock
+    // budget.
+    $items = [];
+    for ($i = 1; $i <= 50_000; ++$i) {
+        $items[] = ['id' => $i];
+    }
+
+    DB::connection('testing')->enableQueryLog();
+
+    $memBefore = memory_get_usage();
+    $start = microtime(true);
+
+    $caught = null;
+    try {
+        RuleSet::from([
+            'items' => FluentRule::array()->required()->each([
+                'id' => FluentRule::integer()->required()->exists('testing.widgets', 'id'),
+            ]),
+        ])->validate(['items' => $items]);
+    } catch (ValidationException $validationException) {
+        $caught = $validationException;
+    }
+
+    $elapsed = microtime(true) - $start;
+    $memDelta = memory_get_usage() - $memBefore;
+
+    $queryLog = DB::connection('testing')->getQueryLog();
+    DB::connection('testing')->disableQueryLog();
+
+    $widgetQueries = array_filter(
+        $queryLog,
+        static fn (array $q): bool => str_contains($q['query'], 'widgets'),
+    );
+
+    expect($caught)->not->toBeNull()
+        // Zero DB queries — hard cap must refuse to query.
+        ->and($widgetQueries)->toBeEmpty()
+        // Wall-clock budget: 2s is ~100x what a healthy run needs and still
+        // catches a quadratic regression loud and clear.
+        ->and($elapsed)->toBeLessThan(2.0)
+        // Memory delta budget: 50k ints + per-item rule compilation stays well
+        // under 64MB even with Laravel's expansion overhead; a runaway would
+        // blow past this.
+        ->and($memDelta)->toBeLessThan(64 * 1024 * 1024);
+});
+
 it('overridden $maxValuesPerGroup value is respected', function (): void {
     $rule = Rule::exists('widgets', 'id');
 

@@ -204,3 +204,63 @@ it('FluentRule::integer(message: ...) surfaces in live validation', function ():
     expect($v->passes())->toBeFalse()
         ->and($v->errors()->first('age'))->toBe('Must be whole number.');
 });
+
+it('FluentRule::string(message: ...) surfaces in live validation', function (): void {
+    $v = makeValidator(
+        ['name' => ['array-not-string']],
+        ['name' => FluentRule::string(message: 'Must be text.')]
+    );
+
+    expect($v->passes())->toBeFalse()
+        ->and($v->errors()->first('name'))->toBe('Must be text.');
+});
+
+it('FluentRule::numeric(message: ...) surfaces in live validation', function (): void {
+    $v = makeValidator(
+        ['score' => 'abc'],
+        ['score' => FluentRule::numeric(message: 'Must be a number.')]
+    );
+
+    expect($v->passes())->toBeFalse()
+        ->and($v->errors()->first('score'))->toBe('Must be a number.');
+});
+
+it('FluentRule::array(message: ...) surfaces in live validation', function (): void {
+    $v = makeValidator(
+        ['tags' => 'not-an-array'],
+        ['tags' => FluentRule::array(message: 'Must be a list.')]
+    );
+
+    expect($v->passes())->toBeFalse()
+        ->and($v->errors()->first('tags'))->toBe('Must be a list.');
+});
+
+it('FluentRule::file(message: ...) surfaces in live validation', function (): void {
+    $v = makeValidator(
+        ['upload' => 'not-a-file'],
+        ['upload' => FluentRule::file(message: 'Must be a file.')]
+    );
+
+    expect($v->passes())->toBeFalse()
+        ->and($v->errors()->first('upload'))->toBe('Must be a file.');
+});
+
+it('FluentRule::image(message: ...) surfaces in live validation', function (): void {
+    $v = makeValidator(
+        ['avatar' => 'not-an-image'],
+        ['avatar' => FluentRule::image(message: 'Must be an image.')]
+    );
+
+    expect($v->passes())->toBeFalse()
+        ->and($v->errors()->first('avatar'))->toBe('Must be an image.');
+});
+
+it('FluentRule::boolean(message: ...) surfaces in live validation', function (): void {
+    $v = makeValidator(
+        ['agree' => 'maybe'],
+        ['agree' => FluentRule::boolean(message: 'Must be true or false.')]
+    );
+
+    expect($v->passes())->toBeFalse()
+        ->and($v->errors()->first('agree'))->toBe('Must be true or false.');
+});
