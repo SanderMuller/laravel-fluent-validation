@@ -287,7 +287,7 @@ final class ItemRuleCompiler
             return null;
         }
 
-        $groups = BatchDatabaseChecker::collectValues($batchableFields, $items, $isScalar);
+        $groups = BatchDatabaseChecker::collectValues($batchableFields, $items, $isScalar, $slowRules);
 
         if ($groups === []) {
             return null;

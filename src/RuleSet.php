@@ -12,6 +12,8 @@ use Illuminate\Support\Traits\Macroable;
 use Illuminate\Validation\ValidationException;
 use IteratorAggregate;
 use ReflectionProperty;
+use SanderMuller\FluentValidation\Exceptions\BatchLimitExceededException;
+use SanderMuller\FluentValidation\Internal\BatchLimitRemap;
 use SanderMuller\FluentValidation\Internal\ItemErrorCollector;
 use SanderMuller\FluentValidation\Internal\ItemRuleCompiler;
 use SanderMuller\FluentValidation\Internal\ItemValidator;
@@ -302,6 +304,10 @@ final class RuleSet implements Arrayable, IteratorAggregate
                 validator: $validationException->validator,
             );
         }
+
+        // Note: `validate()` below remaps BatchLimitExceededException to
+        // ValidationException before it escapes, so `check()` honours its
+        // "does not throw on failure" contract across the new exception path.
     }
 
     /**
@@ -330,7 +336,7 @@ final class RuleSet implements Arrayable, IteratorAggregate
             // stamp the error bag before rethrowing. Mirrors Laravel's
             // `Validator::validateWithBag`.
             try {
-                return $this->validateInternal($data, $messages, $attributes);
+                return $this->runValidateInternal($data, $messages, $attributes);
             } catch (ValidationException $validationException) {
                 $validationException->errorBag = $this->errorBag;
 
@@ -338,7 +344,31 @@ final class RuleSet implements Arrayable, IteratorAggregate
             }
         }
 
-        return $this->validateInternal($data, $messages, $attributes);
+        return $this->runValidateInternal($data, $messages, $attributes);
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     * @param  array<string, string>  $messages
+     * @param  array<string, string>  $attributes
+     * @return array<string, mixed>
+     *
+     * @throws ValidationException
+     */
+    private function runValidateInternal(array $data, array $messages, array $attributes): array
+    {
+        // PHPStan can't trace `BatchLimitExceededException` through the facade
+        // chain (Validator::make -> ItemValidator -> ItemRuleCompiler::buildBatchVerifier
+        // -> BatchDatabaseChecker::buildVerifier), but the catch is reachable —
+        // Phase 2 tests prove it via RuleSet::validate() + hard-cap breach.
+        try {
+            return $this->validateInternal($data, $messages, $attributes);
+        } catch (BatchLimitExceededException $batchLimitExceededException) { // @phpstan-ignore catch.neverThrown
+            throw BatchLimitRemap::toValidationException(
+                $batchLimitExceededException,
+                $batchLimitExceededException->attribute ?? array_key_first($this->fields) ?? 'items',
+            );
+        }
     }
 
     /**

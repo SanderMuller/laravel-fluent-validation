@@ -9,6 +9,7 @@ use Illuminate\Validation\Rules\Exists;
 use Illuminate\Validation\Rules\Unique;
 use ReflectionException;
 use ReflectionProperty;
+use SanderMuller\FluentValidation\Exceptions\BatchLimitExceededException;
 
 /**
  * Batches exists/unique database validation queries for wildcard arrays.
@@ -24,6 +25,15 @@ use ReflectionProperty;
 final class BatchDatabaseChecker
 {
     private const CHUNK_SIZE = 1000;
+
+    /**
+     * Per-group cap on distinct values allowed through a batched whereIn.
+     * Defence in depth against forgotten parent max:N or hostile bulk input.
+     *
+     * Override once during boot (e.g. in AppServiceProvider::boot()) —
+     * mutation at request time is NOT safe under Octane / Swoole.
+     */
+    public static int $maxValuesPerGroup = 10_000;
 
     /**
      * Check if the current environment supports batching
@@ -168,9 +178,10 @@ final class BatchDatabaseChecker
      *
      * @param  array<string, Exists|Unique>  $batchableFields
      * @param  array<int|string, mixed>  $items
+     * @param  array<string, mixed>  $fieldRules  Per-field rule array used to derive type predicates.
      * @return array<string, array{rule: Exists|Unique, values: list<mixed>}>
      */
-    public static function collectValues(array $batchableFields, array $items, bool $isScalar): array
+    public static function collectValues(array $batchableFields, array $items, bool $isScalar, array $fieldRules = []): array
     {
         /** @var array<string, list<mixed>> $allValues */
         $allValues = [];
@@ -192,7 +203,12 @@ final class BatchDatabaseChecker
         $groups = [];
 
         foreach ($batchableFields as $field => $rule) {
-            $values = self::uniqueStringValues($allValues[$field] ?? []);
+            $raw = $allValues[$field] ?? [];
+            $rulesForField = $fieldRules[$field] ?? null;
+            $filtered = (is_array($rulesForField) || is_string($rulesForField))
+                ? self::filterValuesByType($raw, $rulesForField)
+                : $raw;
+            $values = self::uniqueStringValues($filtered);
 
             if ($values === []) {
                 continue;
@@ -208,7 +224,7 @@ final class BatchDatabaseChecker
                 continue;
             }
 
-            $groups[$table . ':' . $column] = ['rule' => $rule, 'values' => $values];
+            $groups[self::groupKey($table, $column, $rule)] = ['rule' => $rule, 'values' => $values];
         }
 
         return $groups;
@@ -227,6 +243,8 @@ final class BatchDatabaseChecker
     {
         /** @var array<string, array{rule: Exists|Unique, values: list<mixed>}> $groups */
         $groups = [];
+        /** @var array<string, array<mixed>|string> $groupItemRules */
+        $groupItemRules = [];
 
         foreach ($preparedRules as $attribute => $attributeRules) {
             if (! is_array($attributeRules)) {
@@ -252,8 +270,9 @@ final class BatchDatabaseChecker
                     continue;
                 }
 
-                $key = $table . ':' . $column;
+                $key = self::groupKey($table, $column, $rule);
                 $groups[$key] ??= ['rule' => $rule, 'values' => []];
+                $groupItemRules[$key] ??= $attributeRules;
 
                 $value = data_get($data, $attribute);
 
@@ -263,16 +282,125 @@ final class BatchDatabaseChecker
             }
         }
 
+        foreach ($groups as $key => $group) {
+            $filtered = self::filterValuesByType(
+                $group['values'],
+                $groupItemRules[$key] ?? [],
+            );
+            $groups[$key]['values'] = self::uniqueStringValues($filtered);
+        }
+
         return $groups;
+    }
+
+    /**
+     * Build the grouping key for a batched rule. Disambiguates exists / unique
+     * against the same (table, column) so a validator carrying both rules
+     * does not conflate them.
+     */
+    private static function groupKey(string $table, string $column, Exists|Unique $rule): string
+    {
+        return $table . ':' . $column . ':' . ($rule instanceof Unique ? 'unique' : 'exists');
+    }
+
+    /**
+     * Filter values against per-item string-form type rules (integer, numeric,
+     * uuid, ulid, string). Values that would never pass per-item validation
+     * are dropped here so the batched whereIn query never sees them —
+     * preventing strict-DB crashes (PostgreSQL rejects `"abc"::INTEGER` with
+     * `invalid input syntax for type integer`).
+     *
+     * Object-form rules fall through unchanged; if no known type rule is
+     * present, values are returned as-is (matches previous behaviour).
+     *
+     * @param  array<mixed>  $values
+     * @param  array<mixed>|string  $itemRules  Either a pipe-delimited string or an array of rules.
+     * @return array<int, mixed>
+     */
+    public static function filterValuesByType(array $values, array|string $itemRules): array
+    {
+        $predicates = self::derivePredicates($itemRules);
+
+        if ($predicates === []) {
+            return array_values($values);
+        }
+
+        return array_values(array_filter($values, static function (mixed $v) use ($predicates): bool {
+            foreach ($predicates as $predicate) {
+                if (! $predicate($v)) {
+                    return false;
+                }
+            }
+
+            return true;
+        }));
+    }
+
+    /**
+     * Derive value-predicates from string-form type rules in an item rule set.
+     *
+     * @param  array<mixed>|string  $itemRules
+     * @return list<\Closure(mixed): bool>
+     */
+    private static function derivePredicates(array|string $itemRules): array
+    {
+        $strings = [];
+
+        if (is_string($itemRules)) {
+            foreach (explode('|', $itemRules) as $rule) {
+                $strings[] = $rule;
+            }
+        } else {
+            foreach ($itemRules as $rule) {
+                if (is_string($rule)) {
+                    $strings[] = $rule;
+                }
+            }
+        }
+
+        $predicates = [];
+
+        foreach ($strings as $rule) {
+            $predicate = self::predicateFor($rule);
+
+            if ($predicate instanceof \Closure) {
+                $predicates[] = $predicate;
+            }
+        }
+
+        return $predicates;
+    }
+
+    private static function predicateFor(string $rule): ?\Closure
+    {
+        // Normalise: rules may carry parameters (e.g. `uuid:4`) — only the
+        // leading token determines type.
+        $token = str_contains($rule, ':') ? substr($rule, 0, (int) strpos($rule, ':')) : $rule;
+
+        return match ($token) {
+            'integer', 'int' => static fn (mixed $v): bool => filter_var($v, FILTER_VALIDATE_INT) !== false,
+            'numeric' => is_numeric(...),
+            'uuid' => static fn (mixed $v): bool => is_string($v) && preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i', $v) === 1,
+            'ulid' => static fn (mixed $v): bool => is_string($v) && preg_match('/^[0-9A-HJKMNP-TV-Z]{26}$/i', $v) === 1,
+            'string' => static fn (mixed $v): bool => is_scalar($v) || $v instanceof \Stringable,
+            default => null,
+        };
     }
 
     /**
      * Build a PrecomputedPresenceVerifier from grouped rules.
      *
+     * Groups arrive already filtered (Phase 1) and deduplicated (collectors
+     * own the dedup). Canonical order is filter → dedup → cap check → query.
+     *
      * @param  array<string, array{rule: Exists|Unique, values: list<mixed>}>  $groups
+     *
+     * @throws BatchLimitExceededException When any group's value count exceeds `$maxValuesPerGroup`.
      */
     public static function buildVerifier(array $groups): ?PrecomputedPresenceVerifier
     {
+        self::assertWithinCap($groups);
+
         $fallback = null;
 
         try {
@@ -288,16 +416,65 @@ final class BatchDatabaseChecker
     }
 
     /**
+     * Throw `BatchLimitExceededException` if any group exceeds the hard cap.
+     * Called after filter/dedup so the cap sees the same normalised set the
+     * query will.
+     *
+     * @param  array<string, array{rule: Exists|Unique, values: list<mixed>}>  $groups
+     */
+    private static function assertWithinCap(array $groups): void
+    {
+        foreach ($groups as $key => $group) {
+            $count = count($group['values']);
+
+            if ($count <= self::$maxValuesPerGroup) {
+                continue;
+            }
+
+            [$table, $column, $ruleType] = self::parseGroupKey($key);
+
+            throw new BatchLimitExceededException(
+                table: $table,
+                column: $column,
+                ruleType: $ruleType,
+                reason: BatchLimitExceededException::REASON_HARD_CAP,
+                valueCount: $count,
+                limit: self::$maxValuesPerGroup,
+            );
+        }
+    }
+
+    /**
      * Batch-query and register lookups on a verifier for a set of grouped rules.
      *
-     * @param  array<string, array{rule: Exists|Unique, values: list<mixed>}>  $groups  Keyed by "table:column"
+     * Groups are already filtered + deduped by the collector — no further
+     * normalisation here.
+     *
+     * If the same (table, column) appears in BOTH an `exists` and a `unique`
+     * group in this validator, the two rules need semantically distinct
+     * lookups (unique with `ignore()` excludes a specific row from "taken")
+     * but Laravel's presence-verifier interface — `getCount` is called by
+     * both rule types — cannot route to the right bucket from the method
+     * alone. Register neither; the fallback `DatabasePresenceVerifier` then
+     * handles each rule correctly via per-item queries. Rare case, small
+     * perf hit — exists and unique on the same (table, column) is unusual.
+     *
+     * @param  array<string, array{rule: Exists|Unique, values: list<mixed>}>  $groups  Keyed by "table:column:ruleType"
      */
     public static function registerLookups(PrecomputedPresenceVerifier $verifier, array $groups): void
     {
+        $conflicting = self::findConflictingTableColumns($groups);
+
         foreach ($groups as $key => $group) {
-            $values = self::uniqueStringValues($group['values']);
+            $values = $group['values'];
 
             if ($values === []) {
+                continue;
+            }
+
+            [$table, $column] = self::parseGroupKey($key);
+
+            if (isset($conflicting[$table . ':' . $column])) {
                 continue;
             }
 
@@ -305,9 +482,47 @@ final class BatchDatabaseChecker
                 ? self::fetchTaken($values, $group['rule'])
                 : self::fetchExisting($values, $group['rule']);
 
-            [$table, $column] = explode(':', $key, 2);
             $verifier->addLookup($table, $column, $fetched);
         }
+    }
+
+    /**
+     * Return the set of "table:column" strings that appear under more than
+     * one rule type in the grouped rules (i.e. both an exists and a unique
+     * group exist for the same physical column).
+     *
+     * @param  array<string, array{rule: Exists|Unique, values: list<mixed>}>  $groups
+     * @return array<string, true>
+     */
+    private static function findConflictingTableColumns(array $groups): array
+    {
+        /** @var array<string, array<string, true>> $seen */
+        $seen = [];
+
+        foreach (array_keys($groups) as $key) {
+            [$table, $column, $ruleType] = self::parseGroupKey($key);
+            $seen[$table . ':' . $column][$ruleType] = true;
+        }
+
+        $conflicting = [];
+
+        foreach ($seen as $tableColumn => $ruleTypes) {
+            if (count($ruleTypes) > 1) {
+                $conflicting[$tableColumn] = true;
+            }
+        }
+
+        return $conflicting;
+    }
+
+    /**
+     * @return array{0: string, 1: string, 2: string}
+     */
+    private static function parseGroupKey(string $key): array
+    {
+        $parts = explode(':', $key, 3);
+
+        return [$parts[0] ?? '', $parts[1] ?? '', $parts[2] ?? 'exists'];
     }
 
     /**

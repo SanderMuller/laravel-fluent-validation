@@ -539,6 +539,24 @@ Fast-checks apply to both wildcard rules (`items.*.name`) and flat top-level rul
 
 When wildcard arrays use `exists` or `unique` rules, Laravel fires one database query per item. 500 items means 500 queries. `HasFluentRules` and `RuleSet::validate()` batch these into a single `whereIn` query automatically. Rules with scalar `where()` clauses are batched too. Rules with closure callbacks fall through to per-item validation as before. The batching is transparent: error messages, custom messages, and `validated()` output are unchanged. DB batching impact depends on the driver and network latency; it is measured in the test suite (`--group=benchmark`) rather than in `benchmark.php`.
 
+**Guards against hostile input.** Because values are batched from raw input before per-item rules run, batching is protected by three layered safeguards so a 100k-element POST body cannot trigger a hundred `whereIn` queries or crash a strict database:
+
+- **Parent `max:N` is honoured.** If the parent array is declared `max:100` but the request sends 1_000 items, batching short-circuits before any query runs — you see a normal `ValidationException` on the parent attribute. Only the *immediate* parent's `max:N` is inspected (not `size:N`, `between:a,b`, or outer ancestors in nested-wildcard chains). The check also assumes numerically-indexed wildcards (`items.0.id`, `orders.0.items.0.id`); if your API accepts string-keyed collections (`{"items": {"foo": {...}}}`), rely on the hard cap below for defence-in-depth.
+- **Per-item type rules filter the batch.** `integer`, `numeric`, `uuid`, `ulid`, `string` rules on each item drop values that couldn't pass validation anyway, so malformed input like `{"id": "abc"}` never reaches a PostgreSQL `INTEGER` column (which would otherwise raise `invalid input syntax for type integer`). End-user error semantics are unchanged — the per-item rule still reports the error.
+- **Hard cap.** `BatchDatabaseChecker::$maxValuesPerGroup` (default `10_000`) is a defence-in-depth ceiling per `(table, column, rule-type)` group. Exceeding it throws `SanderMuller\FluentValidation\Exceptions\BatchLimitExceededException`, which the trait and `RuleSet::validate()` / `check()` remap to the standard `ValidationException`. Override once during boot if your legitimate bulk-import endpoints need more headroom:
+
+```php
+// app/Providers/AppServiceProvider.php
+use SanderMuller\FluentValidation\BatchDatabaseChecker;
+
+public function boot(): void
+{
+    BatchDatabaseChecker::$maxValuesPerGroup = 50_000;
+}
+```
+
+Power users who want to handle `parent-max` and `hard-cap` differently (e.g. map to HTTP 413) can catch `BatchLimitExceededException` before the remap; it carries `$reason`, `$ruleType`, `$valueCount`, `$limit`, and `$attribute` for routing decisions.
+
 ### `RuleSet::validate()`
 
 For inline validation outside form requests, `RuleSet::validate()` applies the same optimizations:
