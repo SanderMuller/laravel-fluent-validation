@@ -6,6 +6,8 @@ use Closure;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Fluent;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\Rules\Contains;
+use Illuminate\Validation\Rules\DoesntContain;
 use Illuminate\Validation\Rules\ExcludeIf;
 use Illuminate\Validation\Rules\ExcludeUnless;
 use Illuminate\Validation\Rules\Exists;
@@ -138,8 +140,8 @@ trait HasFieldModifiers
                 $rules instanceof NotIn => 'not_in',
                 $rules instanceof Unique => 'unique',
                 $rules instanceof Exists => 'exists',
-                $rulesClass === \Illuminate\Validation\Rules\Contains::class => 'contains',
-                $rulesClass === \Illuminate\Validation\Rules\DoesntContain::class => 'doesnt_contain',
+                $rulesClass === Contains::class => 'contains',
+                $rulesClass === DoesntContain::class => 'doesnt_contain',
                 default => lcfirst(class_basename($rules)),
             };
         } else {
