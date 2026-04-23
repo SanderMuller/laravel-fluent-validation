@@ -82,12 +82,21 @@ no host application. Use Testbench's binary:
 
 | Instead of | Use |
 |---|---|
-| `php artisan test` | `vendor/bin/pest` (or `vendor/bin/phpunit`) |
+| `php artisan test` | The package's configured test runner (`vendor/bin/pest` or `vendor/bin/phpunit`) |
 | `php artisan tinker` | `vendor/bin/testbench tinker` |
 | `php artisan make:*` | Create files manually under `src/` |
+| `php artisan vendor:publish` | `vendor/bin/testbench vendor:publish` |
+
+### Commands that require `laravel/boost`
+
+These only apply when the package has `laravel/boost` as a dev
+dependency. Skip if Boost isn't installed — `package-boost:sync`
+prints a warning and moves on.
+
+| Instead of | Use |
+|---|---|
 | `php artisan boost:install` | `vendor/bin/testbench boost:install` |
 | `php artisan boost:mcp` | `vendor/bin/testbench boost:mcp` |
-| `php artisan vendor:publish` | `vendor/bin/testbench vendor:publish` |
 
 Register the package's service provider in `testbench.yaml` under
 `providers:` so Testbench boots it. Published files land in
@@ -108,14 +117,10 @@ top-level directories without a clear reason.
 
 ## Cross-Version Compatibility
 
-Packages usually support multiple Laravel / PHP majors simultaneously.
-
-- Before using a feature, verify it exists in every version listed in
-  `require` constraints.
-- Prefer framework APIs present across the whole range over
-  version-exclusive sugar.
-- The CI matrix runs the suite against every supported combination —
-  keep it green; do not drop a matrix leg to make a change pass.
+Supporting multiple Laravel / PHP majors is routine for packages.
+Activate `cross-version-laravel-support` **before** writing the
+code; activate `ci-matrix-troubleshooting` **after** a matrix cell
+has failed.
 
 ## Conventions
 
@@ -135,8 +140,8 @@ behaviour is pinned down.
   Testbench are preferred over ad-hoc tinker scripts.
 - Do not create "verification scripts" when a test can prove the same
   thing.
-- Run `vendor/bin/pest` (or the project's equivalent) before claiming a
-  change is done.
+- Run the project's configured test runner (`vendor/bin/pest` or
+  `vendor/bin/phpunit`) before claiming a change is done.
 
 ## Public API Discipline
 
