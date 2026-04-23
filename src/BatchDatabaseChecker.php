@@ -598,7 +598,8 @@ final class BatchDatabaseChecker
         mixed $ignore = null,
         string $idColumn = 'id',
     ): array {
-        $results = [];
+        /** @var list<array<int, mixed>> $chunks */
+        $chunks = [];
 
         foreach (array_chunk($values, self::CHUNK_SIZE) as $chunk) {
             $query = ($connection !== null
@@ -640,12 +641,10 @@ final class BatchDatabaseChecker
                 $query->where($idColumn, '<>', $ignore);
             }
 
-            /** @var array<int, mixed> $chunkResults */
-            $chunkResults = array_values($query->pluck($column)->all());
-            $results = array_merge($results, $chunkResults);
+            $chunks[] = array_values($query->pluck($column)->all());
         }
 
-        return $results;
+        return array_merge(...$chunks);
     }
 
     /**

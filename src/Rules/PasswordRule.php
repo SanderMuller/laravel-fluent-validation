@@ -3,7 +3,6 @@
 namespace SanderMuller\FluentValidation\Rules;
 
 use Illuminate\Contracts\Validation\DataAwareRule;
-use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Contracts\Validation\ValidatorAwareRule;
 use Illuminate\Support\Traits\Conditionable;
 use Illuminate\Support\Traits\Macroable;
@@ -12,7 +11,7 @@ use SanderMuller\FluentValidation\Contracts\FluentRuleContract;
 use SanderMuller\FluentValidation\Rules\Concerns\HasFieldModifiers;
 use SanderMuller\FluentValidation\Rules\Concerns\SelfValidates;
 
-class PasswordRule implements DataAwareRule, FluentRuleContract, ValidationRule, ValidatorAwareRule
+class PasswordRule implements DataAwareRule, FluentRuleContract, ValidatorAwareRule
 {
     use Conditionable;
     use HasFieldModifiers;

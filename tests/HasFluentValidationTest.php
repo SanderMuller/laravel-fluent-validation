@@ -234,6 +234,25 @@ it('returns null rules when no rules() method and no inline rules passed', funct
     expect($compiled)->toBeNull();
 });
 
+it('explicitly passed empty rules array does NOT fall back to rules() method', function (): void {
+    // Regression: $this->validate([]) or validateOnly(..., []) on a Livewire
+    // component must honor the explicit empty override, not silently reuse
+    // the component's rules() default. A falsy-empty check would treat [] as
+    // "no rules passed" — this test pins the null-vs-[] distinction.
+    $component = new TestableComponent(
+        data: ['name' => 'John'],
+        fluentRules: ['name' => FluentRule::string()->required()->max(255)],
+    );
+
+    [$compiled, $messages, $attributes] = $component->compile([]);
+
+    // Empty inline rules → passed through as-is; rules() default (which has
+    // a FluentRule object) must NOT be compiled.
+    expect($compiled)->toBeEmpty();
+    expect($messages)->toBeEmpty()
+        ->and($attributes)->toBeEmpty();
+});
+
 it('returns null rules when rules() returns empty array', function (): void {
     $component = new TestableComponent(data: [], fluentRules: []);
 

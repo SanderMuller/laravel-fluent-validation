@@ -117,6 +117,21 @@ final class RuleSet implements Arrayable, IteratorAggregate
         return $this->fields[$field] ?? $default;
     }
 
+    public function isEmpty(): bool
+    {
+        return $this->fields === [];
+    }
+
+    /**
+     * Whether any top-level field rule is an object (typically a FluentRule).
+     * Mirrors the cheap `is_object` pre-check consumers use to decide if
+     * compilation / metadata extraction is needed at all.
+     */
+    public function hasObjectRules(): bool
+    {
+        return array_filter($this->fields, is_object(...)) !== [];
+    }
+
     /**
      * Read-modify-write a single field's rule. The stored rule is cloned (when
      * an object) before being passed to the callback, so mutations through

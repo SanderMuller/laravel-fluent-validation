@@ -46,34 +46,22 @@ trait HasFluentValidation
      */
     public function getRules(): array
     {
-        $rules = $this->resolveFluentRuleSource();
+        $ruleSet = $this->resolveFluentRuleSource();
 
-        if ($rules === []) {
+        if ($ruleSet->isEmpty()) {
             $this->fluentMetadataCache = ['messages' => [], 'attributes' => []];
 
             return $this->mergeRulesFromOutside([]);
         }
 
-        // Check if any rules are FluentRule objects
-        $hasFluentRules = false;
-
-        foreach ($rules as $rule) {
-            if (is_object($rule)) {
-                $hasFluentRules = true;
-
-                break;
-            }
-        }
-
-        if (! $hasFluentRules) {
+        if (! $ruleSet->hasObjectRules()) {
             $this->fluentMetadataCache = ['messages' => [], 'attributes' => []];
 
-            return $this->mergeRulesFromOutside($rules);
+            return $this->mergeRulesFromOutside($ruleSet->flattenRules());
         }
 
         // Flatten: expands each()/children() into wildcard keys
         // but does NOT expand wildcards against data.
-        $ruleSet = RuleSet::from($rules);
         $flattened = $ruleSet->flattenRules();
 
         // Extract labels and messages before compiling away the objects
@@ -192,7 +180,7 @@ trait HasFluentValidation
         $rulesFromOutside = array_merge_recursive(
             ...array_map(
                 /** @return array<string, mixed> */
-                fn (mixed $i): array => (array) value($i),
+                static fn (mixed $i): array => (array) value($i),
                 $outside,
             ),
         );
@@ -202,27 +190,25 @@ trait HasFluentValidation
 
     /**
      * Resolve rules from the rules() method or $rules property,
-     * matching Livewire's own fallback order.
-     *
-     * @return array<string, mixed>
+     * matching Livewire's own fallback order. Preserves a caller-returned
+     * RuleSet as-is so downstream code can reuse it without a
+     * toArray()/from() round-trip.
      */
-    private function resolveFluentRuleSource(): array
+    private function resolveFluentRuleSource(): RuleSet
     {
         if (method_exists($this, 'rules')) { // @phpstan-ignore function.alreadyNarrowedType
             $rules = $this->rules();
         } elseif (property_exists($this, 'rules')) { // @phpstan-ignore function.alreadyNarrowedType
             $rules = $this->rules;
         } else {
-            return [];
+            return RuleSet::make();
         }
 
-        // Auto-unwrap: rules() may return either a plain array or a RuleSet
-        // (mirrors HasFluentRules' FormRequest behavior).
         if ($rules instanceof RuleSet) {
-            $rules = $rules->toArray();
+            return $rules;
         }
 
-        return $this->toNullableArray($rules) ?? [];
+        return RuleSet::from($this->toNullableArray($rules) ?? []);
     }
 
     /** @return array<string, mixed>|null */
@@ -272,32 +258,29 @@ trait HasFluentValidation
      */
     protected function compileFluentRules(?array $rules, array $messages, array $attributes): array
     {
-        // If no rules passed, resolve from rules() method or $rules property
-        $resolvedRules = $rules ?? $this->resolveFluentRuleSource();
+        // If no rules passed (null), resolve from rules() method or $rules
+        // property. An explicitly empty array `[]` means "caller wants no
+        // validation" — it must NOT fall back to the component's default
+        // rules, matching Livewire's $this->validate([]) behavior.
+        $ruleSet = $rules !== null ? RuleSet::from($rules) : $this->resolveFluentRuleSource();
 
-        if ($resolvedRules === []) {
+        if ($ruleSet->isEmpty()) {
             return [$rules, $messages, $attributes];
         }
 
-        // Check if any rules are FluentRule objects (skip compilation for plain string rules)
-        $hasFluentRules = false;
-
-        foreach ($resolvedRules as $rule) {
-            if (is_object($rule)) {
-                $hasFluentRules = true;
-
-                break;
-            }
-        }
+        $hasFluentRules = $ruleSet->hasObjectRules();
 
         if (! $hasFluentRules) {
             return [$rules, $messages, $attributes];
         }
 
+        $flatRules = $ruleSet->flattenRules();
+
         // Use Livewire's data resolution when available — it correctly
         // handles model-bound properties and nested data for wildcard expansion.
+        // For array source, preserve the exact shape callers passed previously.
         $rawData = method_exists($this, 'getDataForValidation') // @phpstan-ignore function.alreadyNarrowedType
-            ? $this->getDataForValidation($resolvedRules)
+            ? $this->getDataForValidation($flatRules)
             : (method_exists($this, 'all') ? $this->all() : []); // @phpstan-ignore function.alreadyNarrowedType
 
         // Unwrap Eloquent models to arrays so WildcardExpander can traverse them.
@@ -307,7 +290,7 @@ trait HasFluentValidation
 
         $data = $this->toNullableArray($rawData) ?? [];
 
-        $prepared = RuleSet::from($resolvedRules)->prepare($data);
+        $prepared = $ruleSet->prepare($data, $flatRules);
 
         return [
             $prepared->rules,
