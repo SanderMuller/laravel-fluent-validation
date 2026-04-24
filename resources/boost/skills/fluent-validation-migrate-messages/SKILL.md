@@ -1,5 +1,5 @@
 ---
-name: migrate-messages-array
+name: fluent-validation-migrate-messages
 description: "Migrate `public function messages(): array` overrides in FormRequests to inline `message:` on fluent rule chains. Dry-run first, then apply. Activates when: migrating messages array, removing messages() method, inline message rewrite, or user mentions: migrate messages, messages array, inline message, remove messages()."
 ---
 
@@ -219,5 +219,5 @@ public function messages(): array {
 
 ## See Also
 
-- `fluent-validation` skill — full FluentRule API reference
-- `optimize-validation` skill — broader validation improvements (labels, each(), children())
+- `fluent-validation` skill: full FluentRule API reference
+- `fluent-validation-optimize` skill: broader validation improvements (labels, each(), children())

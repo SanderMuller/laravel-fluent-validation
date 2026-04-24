@@ -1,5 +1,5 @@
 ---
-name: optimize-validation
+name: fluent-validation-optimize
 description: "Scan existing validation code for performance and DX improvements using laravel-fluent-validation. Finds missing HasFluentRules traits, convertible string rules, and opportunities for labels and each(). Activates when: optimizing validation, converting to fluent rules, migrating validation, or improving validation performance."
 ---
 

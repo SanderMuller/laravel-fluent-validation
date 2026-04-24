@@ -7,5 +7,5 @@
 - Convenience shortcuts: `FluentRule::url()`, `uuid()`, `ulid()`, `ip()` — shorthand for `FluentRule::string()->url()`, etc.
 - `email()` and `password()` use app defaults (`Email::default()`, `Password::default()`). Pass `defaults: false` to opt out.
 - All conditional modifiers (`requiredIf`, `excludeIf`, `prohibitedIf`, etc.) accept both `(string $field, ...$values)` AND `(Closure|bool)` — do NOT wrap in `Rule::requiredIf()`.
-- For converting validation rules, activate the `optimize-validation` skill which has a complete method reference.
+- For converting validation rules, activate the `fluent-validation-optimize` skill which has a complete method reference.
 - For Livewire-specific guidance, activate the `fluent-validation-livewire` skill.

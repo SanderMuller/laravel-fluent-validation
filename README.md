@@ -193,7 +193,7 @@ $rules = [
 All conditional methods (`requiredIf`, `excludeUnless`, etc.) accept `Closure|bool` in addition to field references. `each()` and `children()` nest naturally. Flat dot-notation keys like `columns.*.data.sort` become nested `each([...children([...])])` trees that mirror the data shape.
 
 > [!TIP]
-> **Using Boost?** If you have [Laravel Boost](https://github.com/laravel/boost) installed, ask your AI assistant to run the `optimize-validation` skill. It scans your codebase for convertible rules, prioritizes by impact, and applies changes file by file.
+> **Using Boost?** If you have [Laravel Boost](https://github.com/laravel/boost) installed, ask your AI assistant to run the `fluent-validation-optimize` skill. It scans your codebase for convertible rules, prioritizes by impact, and applies changes file by file.
 
 **Step 3:** For rules without a direct fluent method, use the `rule()` escape hatch:
 
@@ -400,7 +400,7 @@ The rule tree mirrors the data shape. Compare this with the flat dot-notation al
 
 > [!TIP]
 > **Using Boost?**  
-> The `optimize-validation` skill automatically detects flat dot-notation keys that can be grouped with `each()` and `children()`, and converts them for you.
+> The `fluent-validation-optimize` skill automatically detects flat dot-notation keys that can be grouped with `each()` and `children()`, and converts them for you.
 
 ## Livewire
 
@@ -701,7 +701,7 @@ If you're not sure whether validation is your bottleneck, profile first. Laravel
 
 > [!TIP]
 > **Using Boost?**  
-> The `optimize-validation` skill finds form requests with wildcard rules that are missing `HasFluentRules`, prioritizes them by impact, and adds the trait automatically.
+> The `fluent-validation-optimize` skill finds form requests with wildcard rules that are missing `HasFluentRules`, prioritizes them by impact, and adds the trait automatically.
 
 ## RuleSet
 
