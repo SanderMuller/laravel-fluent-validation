@@ -34,7 +34,7 @@ Write Laravel validation rules with IDE autocompletion instead of memorizing str
 
 **Getting started**
 - [Installation](#installation)
-- [Quick start](#quick-start): Validator::make, Form Requests, migrating existing rules
+- [Usage](#usage): Validator::make, Form Requests, migrating existing rules
 - [Error messages](#error-messages): labels, per-rule messages
 - [Array validation](#array-validation-with-each-and-children): each, children, nesting
 
@@ -56,6 +56,8 @@ Write Laravel validation rules with IDE autocompletion instead of memorizing str
 
 ## Installation
 
+You can install the package via composer:
+
 ```bash
 composer require sandermuller/laravel-fluent-validation
 ```
@@ -71,7 +73,7 @@ php artisan boost:install    # adds the skills
 php artisan boost:update     # publishes updates after package upgrades
 ```
 
-## Quick start
+## Usage
 
 You may use FluentRule anywhere you'd normally write validation rules:
 
@@ -1438,11 +1440,15 @@ Both traits define `validate()`. For Filament components, use `RuleSet::compileT
 **Migration issues (Rector companion)**
 Rector-specific issues (`Attempt to read property 'value' on int`, `array_search(): Argument #2 must be of type array`, post-migration message drift, `SplObjectStorage` crashes, etc.) are tracked in the [laravel-fluent-validation-rector README](https://github.com/sandermuller/laravel-fluent-validation-rector#troubleshooting). Update the Rector companion to the latest version first; most are fixed upstream.
 
-## Running the package's test suite
+## Testing
 
 ```bash
 composer test
 ```
+
+## Contributing
+
+Please see [CONTRIBUTING](CONTRIBUTING.md) for details.
 
 ## Changelog
 
