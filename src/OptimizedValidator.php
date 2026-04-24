@@ -2,9 +2,11 @@
 
 namespace SanderMuller\FluentValidation;
 
+use Closure;
 use Illuminate\Support\Arr;
 use Illuminate\Support\MessageBag;
 use Illuminate\Validation\Validator;
+use Stringable;
 
 /**
  * Validator subclass that fast-checks expanded wildcard attributes
@@ -19,14 +21,14 @@ use Illuminate\Validation\Validator;
  */
 class OptimizedValidator extends Validator
 {
-    /** @var array<string, \Closure(mixed): bool> Fast checks keyed by wildcard pattern */
+    /** @var array<string, Closure(mixed): bool> Fast checks keyed by wildcard pattern */
     private array $fastChecks = [];
 
     /** @var array<string, list<string>> Pattern → expanded attributes (pre-grouped) */
     private array $fastCheckGroups = [];
 
     /**
-     * @param  array<string, \Closure(mixed): bool>  $fastChecks
+     * @param array<string, Closure(mixed): bool> $fastChecks
      * @param  array<string, string>  $attributePatternMap
      */
     public function withFastChecks(array $fastChecks, array $attributePatternMap): static
@@ -101,7 +103,7 @@ class OptimizedValidator extends Validator
                 if ($remainingRule !== null) {
                     $check = FastCheckCompiler::compile($remainingRule);
 
-                    if ($check instanceof \Closure) {
+                    if ($check instanceof Closure) {
                         $value = $this->getValue($attribute);
 
                         if ($check($value)) {
@@ -227,7 +229,7 @@ class OptimizedValidator extends Validator
 
                 // Other array tuple — can't fast-check.
                 return null;
-            } elseif ($rule instanceof \Stringable) {
+            } elseif ($rule instanceof Stringable) {
                 // Stringable objects like Rule::in(), Rule::notIn() — stringify
                 // them so FastCheckCompiler can handle them.
                 $stringParts[] = (string) $rule;
@@ -267,7 +269,7 @@ class OptimizedValidator extends Validator
      * cross-field references, distinct, size/between are skipped.
      *
      * @param  array<string, mixed>  $compiledRules  Compiled rules keyed by wildcard pattern
-     * @return array<string, \Closure(mixed): bool>
+     * @return array<string, Closure(mixed): bool>
      */
     public static function buildFastChecks(array $compiledRules): array
     {
@@ -280,7 +282,7 @@ class OptimizedValidator extends Validator
 
             $check = FastCheckCompiler::compile($rule);
 
-            if ($check instanceof \Closure) {
+            if ($check instanceof Closure) {
                 $checks[$pattern] = $check;
             }
         }

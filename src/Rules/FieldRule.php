@@ -8,6 +8,8 @@ use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Contracts\Validation\ValidatorAwareRule;
 use Illuminate\Support\Traits\Conditionable;
 use Illuminate\Support\Traits\Macroable;
+use InvalidArgumentException;
+use LogicException;
 use SanderMuller\FluentValidation\Contracts\FluentRuleContract;
 use SanderMuller\FluentValidation\Exceptions\UnknownFluentRuleMethod;
 use SanderMuller\FluentValidation\Rules\Concerns\HasEmbeddedRules;
@@ -68,7 +70,7 @@ class FieldRule implements DataAwareRule, FluentRuleContract, ValidatorAwareRule
      * Mutates `childRules` only — base constraints on this FieldRule
      * survive untouched.
      *
-     * @throws \LogicException when $key already exists — silent override
+     * @throws LogicException when $key already exists — silent override
      *                         would hide the "parent already defines this"
      *                         mistake. Use mergeChildRules() for
      *                         intentional replacement.
@@ -76,7 +78,7 @@ class FieldRule implements DataAwareRule, FluentRuleContract, ValidatorAwareRule
     public function addChildRule(string $key, ValidationRule $rule): static
     {
         if ($key === '') {
-            throw new \InvalidArgumentException(
+            throw new InvalidArgumentException(
                 'addChildRule() requires a non-empty key — empty keys expand to malformed dotted paths (parent.).'
             );
         }
@@ -84,7 +86,7 @@ class FieldRule implements DataAwareRule, FluentRuleContract, ValidatorAwareRule
         $existing = $this->childRules ?? [];
 
         if (array_key_exists($key, $existing)) {
-            throw new \LogicException(sprintf(
+            throw new LogicException(sprintf(
                 "addChildRule('%s'): key '%s' already exists in children(). "
                 . 'Use mergeChildRules() if replacement is intentional.',
                 $key,
@@ -106,7 +108,7 @@ class FieldRule implements DataAwareRule, FluentRuleContract, ValidatorAwareRule
     public function mergeChildRules(array $rules): static
     {
         if (array_key_exists('', $rules)) {
-            throw new \InvalidArgumentException(
+            throw new InvalidArgumentException(
                 'mergeChildRules() requires non-empty keys — empty keys expand to malformed dotted paths (parent.).'
             );
         }

@@ -13,6 +13,8 @@ use Illuminate\Validation\Rules\ProhibitedIf;
 use Illuminate\Validation\Rules\ProhibitedUnless;
 use Illuminate\Validation\Rules\RequiredIf;
 use Illuminate\Validation\Rules\RequiredUnless;
+use ReflectionProperty;
+use Stringable;
 
 trait SelfValidates
 {
@@ -126,7 +128,7 @@ trait SelfValidates
             return;
         }
 
-        $prop = new \ReflectionProperty($this->validator, 'failedRules');
+        $prop = new ReflectionProperty($this->validator, 'failedRules');
 
         /** @var array<string, array<string, list<mixed>>> $existing */
         $existing = $prop->getValue($this->validator);
@@ -298,7 +300,7 @@ trait SelfValidates
         foreach ($rules as $rule) {
             if (is_string($rule)) {
                 $stringified[] = $rule;
-            } elseif ($rule instanceof \Stringable && $this->isSafeToStringify($rule)) {
+            } elseif ($rule instanceof Stringable && $this->isSafeToStringify($rule)) {
                 $stringified[] = (string) $rule;
             } else {
                 $allStringifiable = false;

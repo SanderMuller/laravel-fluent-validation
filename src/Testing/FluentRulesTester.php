@@ -2,6 +2,7 @@
 
 namespace SanderMuller\FluentValidation\Testing;
 
+use Closure;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Contracts\Auth\Factory;
@@ -25,6 +26,8 @@ use ReflectionProperty;
 use SanderMuller\FluentValidation\FluentValidator;
 use SanderMuller\FluentValidation\RuleSet;
 use SanderMuller\FluentValidation\Validated;
+
+use function Livewire\store;
 
 /**
  * Fluent tester for FluentRule chains, RuleSets, FormRequests, and FluentValidator
@@ -740,7 +743,7 @@ final class FluentRulesTester
             return null;
         }
 
-        $store = \Livewire\store($component->instance());
+        $store = store($component->instance());
 
         if (! is_object($store) || ! method_exists($store, 'get')) {
             return null;
@@ -765,9 +768,9 @@ final class FluentRulesTester
      * No-op path: returns a closure that does nothing when there's no
      * `actingAs()` configured or auth isn't booted.
      *
-     * @return \Closure():void  Call to restore the prior auth state.
+     * @return Closure(): void Call to restore the prior auth state.
      */
-    private function bindActingAs(): \Closure
+    private function bindActingAs(): Closure
     {
         if (! $this->actingAs instanceof Authenticatable) {
             return static function (): void {};

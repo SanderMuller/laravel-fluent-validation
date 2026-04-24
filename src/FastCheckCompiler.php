@@ -2,6 +2,7 @@
 
 namespace SanderMuller\FluentValidation;
 
+use Closure;
 use SanderMuller\FluentValidation\FastCheck\CoreValueCompiler;
 use SanderMuller\FluentValidation\FastCheck\ItemContextCompiler;
 use SanderMuller\FluentValidation\FastCheck\PresenceConditionalCompiler;
@@ -27,9 +28,9 @@ final class FastCheckCompiler
      * path (type/format/size/in/regex/date-literal). {@see ProhibitedCompiler}
      * handles bare `prohibited` + nullable/sometimes/bail siblings.
      *
-     * @return \Closure(mixed): bool|null
+     * @return Closure(mixed): bool|null
      */
-    public static function compile(string $ruleString): ?\Closure
+    public static function compile(string $ruleString): ?Closure
     {
         return CoreValueCompiler::compile($ruleString)
             ?? ProhibitedCompiler::compile($ruleString);
@@ -42,9 +43,9 @@ final class FastCheckCompiler
      * presence condition(s) against the item, then delegates to the
      * pre-compiled "required active" or "required inactive" variant.
      *
-     * @return \Closure(mixed, array<string, mixed>): bool|null
+     * @return Closure(mixed, array<string, mixed>): bool|null
      */
-    public static function compileWithPresenceConditionals(string $ruleString): ?\Closure
+    public static function compileWithPresenceConditionals(string $ruleString): ?Closure
     {
         return PresenceConditionalCompiler::compile($ruleString);
     }
@@ -58,9 +59,9 @@ final class FastCheckCompiler
      * to `same:${attr}_confirmation` (or `same:X`) before parse. Without it,
      * rules containing `confirmed` cannot be fast-checked.
      *
-     * @return \Closure(mixed, array<string, mixed>): bool|null
+     * @return Closure(mixed, array<string, mixed>): bool|null
      */
-    public static function compileWithItemContext(string $ruleString, ?string $attributeName = null): ?\Closure
+    public static function compileWithItemContext(string $ruleString, ?string $attributeName = null): ?Closure
     {
         return ItemContextCompiler::compile($ruleString, $attributeName);
     }

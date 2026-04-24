@@ -2,6 +2,7 @@
 
 namespace SanderMuller\FluentValidation\FastCheck;
 
+use Closure;
 use SanderMuller\FluentValidation\FastCheck\Shared\LaravelEmptiness;
 
 /**
@@ -21,9 +22,9 @@ final class ProhibitedCompiler
     private const ALLOWED_SIBLINGS = ['prohibited', 'nullable', 'sometimes', 'bail'];
 
     /**
-     * @return \Closure(mixed): bool|null
+     * @return Closure(mixed): bool|null
      */
-    public static function compile(string $ruleString): ?\Closure
+    public static function compile(string $ruleString): ?Closure
     {
         $hasProhibited = false;
 

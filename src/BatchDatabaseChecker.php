@@ -2,7 +2,6 @@
 
 namespace SanderMuller\FluentValidation;
 
-use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\DatabasePresenceVerifier;
 use Illuminate\Validation\PresenceVerifierInterface;
 use Illuminate\Validation\Rules\Exists;
@@ -10,6 +9,10 @@ use Illuminate\Validation\Rules\Unique;
 use ReflectionException;
 use ReflectionProperty;
 use SanderMuller\FluentValidation\Exceptions\BatchLimitExceededException;
+use SanderMuller\FluentValidation\Internal\BatchPresenceQuery;
+use SanderMuller\FluentValidation\Internal\ValueTypePredicates;
+use Stringable;
+use Throwable;
 
 /**
  * Batches exists/unique database validation queries for wildcard arrays.
@@ -24,8 +27,6 @@ use SanderMuller\FluentValidation\Exceptions\BatchLimitExceededException;
  */
 final class BatchDatabaseChecker
 {
-    private const CHUNK_SIZE = 1000;
-
     /**
      * Per-group cap on distinct values allowed through a batched whereIn.
      * Defence in depth against forgotten parent max:N or hostile bulk input.
@@ -45,7 +46,7 @@ final class BatchDatabaseChecker
             $verifier = resolve(DatabasePresenceVerifier::class);
 
             return $verifier instanceof DatabasePresenceVerifier;
-        } catch (\Throwable) {
+        } catch (Throwable) {
             return false;
         }
     }
@@ -90,7 +91,7 @@ final class BatchDatabaseChecker
             return $values; // Reflection failed — assume all exist (safe fallback)
         }
 
-        return self::queryValues($meta['connection'], $meta['table'], $meta['column'], $values, $meta['wheres']);
+        return BatchPresenceQuery::run($meta['connection'], $meta['table'], $meta['column'], $values, $meta['wheres']);
     }
 
     /**
@@ -111,7 +112,7 @@ final class BatchDatabaseChecker
             return []; // Reflection failed — assume none taken (safe fallback: lets per-item handle it)
         }
 
-        return self::queryValues(
+        return BatchPresenceQuery::run(
             $meta['connection'],
             $meta['table'],
             $meta['column'],
@@ -319,72 +320,7 @@ final class BatchDatabaseChecker
      */
     public static function filterValuesByType(array $values, array|string $itemRules): array
     {
-        $predicates = self::derivePredicates($itemRules);
-
-        if ($predicates === []) {
-            return array_values($values);
-        }
-
-        return array_values(array_filter($values, static function (mixed $v) use ($predicates): bool {
-            foreach ($predicates as $predicate) {
-                if (! $predicate($v)) {
-                    return false;
-                }
-            }
-
-            return true;
-        }));
-    }
-
-    /**
-     * Derive value-predicates from string-form type rules in an item rule set.
-     *
-     * @param  array<mixed>|string  $itemRules
-     * @return list<\Closure(mixed): bool>
-     */
-    private static function derivePredicates(array|string $itemRules): array
-    {
-        $strings = [];
-
-        if (is_string($itemRules)) {
-            foreach (explode('|', $itemRules) as $rule) {
-                $strings[] = $rule;
-            }
-        } else {
-            foreach ($itemRules as $rule) {
-                if (is_string($rule)) {
-                    $strings[] = $rule;
-                }
-            }
-        }
-
-        $predicates = [];
-
-        foreach ($strings as $rule) {
-            $predicate = self::predicateFor($rule);
-
-            if ($predicate instanceof \Closure) {
-                $predicates[] = $predicate;
-            }
-        }
-
-        return $predicates;
-    }
-
-    private static function predicateFor(string $rule): ?\Closure
-    {
-        // Normalise: rules may carry parameters (e.g. `uuid:4`) — only the
-        // leading token determines type.
-        $token = str_contains($rule, ':') ? substr($rule, 0, (int) strpos($rule, ':')) : $rule;
-
-        return match ($token) {
-            'integer', 'int' => static fn (mixed $v): bool => filter_var($v, FILTER_VALIDATE_INT) !== false,
-            'numeric' => is_numeric(...),
-            'uuid' => static fn (mixed $v): bool => is_string($v) && preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i', $v) === 1,
-            'ulid' => static fn (mixed $v): bool => is_string($v) && preg_match('/^[0-9A-HJKMNP-TV-Z]{26}$/i', $v) === 1,
-            'string' => static fn (mixed $v): bool => is_scalar($v) || $v instanceof \Stringable,
-            default => null,
-        };
+        return ValueTypePredicates::filter($values, $itemRules);
     }
 
     /**
@@ -405,7 +341,7 @@ final class BatchDatabaseChecker
 
         try {
             $fallback = resolve(DatabasePresenceVerifier::class);
-        } catch (\Throwable) {
+        } catch (Throwable) {
             // No verifier bound
         }
 
@@ -583,71 +519,6 @@ final class BatchDatabaseChecker
     }
 
     /**
-     * Run the batched whereIn query and return matching values.
-     *
-     * @param  array<int, mixed>  $values
-     * @param  array<int, array{column: string, value: string}>  $wheres
-     * @return array<int, mixed>
-     */
-    private static function queryValues(
-        ?string $connection,
-        string $table,
-        string $column,
-        array $values,
-        array $wheres,
-        mixed $ignore = null,
-        string $idColumn = 'id',
-    ): array {
-        /** @var list<array<int, mixed>> $chunks */
-        $chunks = [];
-
-        foreach (array_chunk($values, self::CHUNK_SIZE) as $chunk) {
-            $query = ($connection !== null
-                ? DB::connection($connection)->table($table)
-                : DB::table($table)
-            )->useWritePdo();
-
-            $query->whereIn($column, $chunk);
-
-            // Replay scalar where conditions (matching DatabasePresenceVerifier::addWhere())
-            foreach ($wheres as $where) {
-                if (! isset($where['column'], $where['value'])) {
-                    continue;
-                }
-
-                if (! is_string($where['column'])) {
-                    continue;
-                }
-
-                if (! is_string($where['value'])) {
-                    continue;
-                }
-
-                $extraValue = $where['value'];
-
-                if ($extraValue === 'NULL') {
-                    $query->whereNull($where['column']);
-                } elseif ($extraValue === 'NOT_NULL') {
-                    $query->whereNotNull($where['column']);
-                } elseif (str_starts_with($extraValue, '!')) {
-                    $query->where($where['column'], '!=', mb_substr($extraValue, 1));
-                } else {
-                    $query->where($where['column'], $extraValue);
-                }
-            }
-
-            // Unique: exclude the ignored ID
-            if ($ignore !== null && $ignore !== 'NULL') {
-                $query->where($idColumn, '<>', $ignore);
-            }
-
-            $chunks[] = array_values($query->pluck($column)->all());
-        }
-
-        return array_merge(...$chunks);
-    }
-
-    /**
      * Deduplicate and cast values to strings for batch queries.
      *
      * @param  array<mixed>  $values
@@ -657,7 +528,7 @@ final class BatchDatabaseChecker
     {
         return array_values(array_unique(
             array_map(
-                static fn (mixed $v): string => is_scalar($v) || $v instanceof \Stringable ? (string) $v : '',
+                static fn (mixed $v): string => is_scalar($v) || $v instanceof Stringable ? (string) $v : '',
                 $values,
             ),
             SORT_STRING,

@@ -2,6 +2,7 @@
 
 namespace SanderMuller\FluentValidation\FastCheck\Shared;
 
+use Closure;
 use SanderMuller\FluentValidation\FastCheck\CoreValueCompiler;
 use SanderMuller\FluentValidation\FastCheck\ItemContextCompiler;
 
@@ -18,19 +19,19 @@ use SanderMuller\FluentValidation\FastCheck\ItemContextCompiler;
 final class ItemAwareBranchBuilder
 {
     /**
-     * @return \Closure(mixed, array<string, mixed>): bool|null
+     * @return Closure(mixed, array<string, mixed>): bool|null
      */
-    public static function build(string $ruleString): ?\Closure
+    public static function build(string $ruleString): ?Closure
     {
         $itemAware = ItemContextCompiler::compile($ruleString);
 
-        if ($itemAware instanceof \Closure) {
+        if ($itemAware instanceof Closure) {
             return $itemAware;
         }
 
         $valueOnly = CoreValueCompiler::compile($ruleString);
 
-        if (! $valueOnly instanceof \Closure) {
+        if (! $valueOnly instanceof Closure) {
             return null;
         }
 

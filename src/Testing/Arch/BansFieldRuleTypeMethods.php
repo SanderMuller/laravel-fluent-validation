@@ -8,6 +8,7 @@ use PhpParser\Node;
 use PhpParser\Node\Expr\MethodCall;
 use PhpParser\Node\Expr\StaticCall;
 use PhpParser\Node\Identifier;
+use PhpParser\Node\Name;
 use PhpParser\NodeTraverser;
 use PhpParser\NodeVisitor\NameResolver;
 use PhpParser\NodeVisitorAbstract;
@@ -178,7 +179,7 @@ final class BansFieldRuleTypeMethods
                     return false;
                 }
 
-                if (! $current->class instanceof Node\Name) {
+                if (! $current->class instanceof Name) {
                     return false;
                 }
 

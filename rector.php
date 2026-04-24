@@ -31,6 +31,7 @@ return RectorConfig::configure()
         codeQuality: true,
         codingStyle: true,
         typeDeclarations: true,
+        typeDeclarationDocblocks: true,
         privatization: true,
         instanceOf: true,
         earlyReturn: true,
@@ -39,7 +40,9 @@ return RectorConfig::configure()
         phpunitCodeQuality: true,
     )
     ->withAttributesSets()
-    ->withTypeCoverageDocblockLevel(0)
+    ->withImportNames()
+    ->withIndent()
+    ->withFluentCallNewLine()
     ->withParallel(300, 15, 15)
     ->withMemoryLimit('3G')
     ->withPhpSets(php82: true)

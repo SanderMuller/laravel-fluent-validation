@@ -2,9 +2,12 @@
 
 namespace SanderMuller\FluentValidation;
 
+use BackedEnum;
+use Closure;
 use Illuminate\Contracts\Support\Arrayable;
 use Illuminate\Support\Traits\Macroable;
 use Illuminate\Validation\Rules\AnyOf;
+use RuntimeException;
 use SanderMuller\FluentValidation\Rules\AcceptedRule;
 use SanderMuller\FluentValidation\Rules\ArrayRule;
 use SanderMuller\FluentValidation\Rules\BooleanRule;
@@ -115,7 +118,7 @@ class FluentRule
         return $declinedRule;
     }
 
-    /** @param  Arrayable<array-key, string|\BackedEnum>|list<string|\BackedEnum>|null  $keys */
+    /** @param Arrayable<array-key, string|BackedEnum>|list<string|BackedEnum>|null $keys */
     public static function array(Arrayable|array|null $keys = null, ?string $label = null, ?string $message = null): ArrayRule
     {
         $arrayRule = new ArrayRule($keys);
@@ -252,7 +255,7 @@ class FluentRule
     }
 
     /** @param  class-string  $type */
-    public static function enum(string $type, ?\Closure $callback = null, ?string $label = null, ?string $message = null): FieldRule
+    public static function enum(string $type, ?Closure $callback = null, ?string $label = null, ?string $message = null): FieldRule
     {
         return self::field($label)->enum($type, $callback, $message);
     }
@@ -267,12 +270,12 @@ class FluentRule
     /**
      * @param  array<int, mixed>  $rules
      *
-     * @throws \RuntimeException If AnyOf is not available (requires Laravel 13+)
+     * @throws RuntimeException If AnyOf is not available (requires Laravel 13+)
      */
     public static function anyOf(array $rules): AnyOf
     {
         if (! class_exists(AnyOf::class)) {
-            throw new \RuntimeException('FluentRule::anyOf() requires Laravel 13+.');
+            throw new RuntimeException('FluentRule::anyOf() requires Laravel 13+.');
         }
 
         return new AnyOf($rules);

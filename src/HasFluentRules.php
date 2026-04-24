@@ -2,10 +2,12 @@
 
 namespace SanderMuller\FluentValidation;
 
+use Closure;
 use Illuminate\Contracts\Validation\Factory as ValidationFactory;
 use Illuminate\Validation\Rules\Exists;
 use Illuminate\Validation\Rules\Unique;
 use Illuminate\Validation\Validator;
+use ReflectionObject;
 use ReflectionProperty;
 use SanderMuller\FluentValidation\Exceptions\BatchLimitExceededException;
 use SanderMuller\FluentValidation\Internal\BatchLimitRemap;
@@ -109,7 +111,7 @@ trait HasFluentRules
      * Build fast-check closures and the attribute-to-pattern lookup map.
      *
      * @param  array<string, mixed>  $preparedRules  Rules after pre-exclusion
-     * @return array{0: array<string, \Closure(mixed): bool>, 1: array<string, string>}
+     * @return array{0: array<string, Closure(mixed): bool>, 1: array<string, string>}
      */
     private function buildFastCheckMaps(PreparedRules $prepared, array $preparedRules): array
     {
@@ -126,7 +128,7 @@ trait HasFluentRules
     }
 
     /**
-     * @param  array<string, \Closure(mixed): bool>  $fastChecks
+     * @param array<string, Closure(mixed): bool> $fastChecks
      * @param  array<string, list<string>>  $implicitAttributes
      * @param  array<string, mixed>  $preparedRules
      * @return array<string, string>
@@ -429,7 +431,7 @@ trait HasFluentRules
         );
 
         // Copy parsed rules AND factory-applied configuration from the base.
-        $ref = new \ReflectionObject($base);
+        $ref = new ReflectionObject($base);
         foreach (['rules', 'initialRules', 'container', 'presenceVerifier', 'excludeUnvalidatedArrayKeys', 'extensions', 'implicitExtensions', 'dependentExtensions', 'replacers', 'fallbackMessages'] as $prop) {
             if ($ref->hasProperty($prop)) {
                 $p = $ref->getProperty($prop);

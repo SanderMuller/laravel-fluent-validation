@@ -2,11 +2,13 @@
 
 namespace SanderMuller\FluentValidation\Internal;
 
+use Closure;
 use SanderMuller\FluentValidation\BatchDatabaseChecker;
 use SanderMuller\FluentValidation\FastCheckCompiler;
 use SanderMuller\FluentValidation\PrecomputedPresenceVerifier;
 use SanderMuller\FluentValidation\PresenceConditionalReducer;
 use SanderMuller\FluentValidation\ValueConditionalReducer;
+use Stringable;
 
 /**
  * Collaborator for {@see ItemValidator}. Extracts the rule-shape concerns
@@ -109,7 +111,7 @@ final class ItemRuleCompiler
 
             // Stringify Stringable objects (Rule::in, Rule::notIn) so the
             // result can be fast-checked as a pipe-joined string.
-            $stripped[] = $rule instanceof \Stringable ? (string) $rule : $rule;
+            $stripped[] = $rule instanceof Stringable ? (string) $rule : $rule;
         }
 
         // If all remaining rules are strings, join them for faster parsing.
@@ -170,7 +172,7 @@ final class ItemRuleCompiler
      * Returns fast checks for compilable fields and the remaining slow rules.
      *
      * @param  array<string, mixed>  $compiledRules
-     * @return array{0: list<\Closure(array<string, mixed>): bool>, 1: array<string, mixed>}
+     * @return array{0: list<Closure(array<string, mixed>): bool>, 1: array<string, mixed>}
      */
     public function buildFastChecks(array $compiledRules): array
     {
@@ -187,7 +189,7 @@ final class ItemRuleCompiler
             $valueCheck = FastCheckCompiler::compile($rule);
             $itemAwareCheck = null;
 
-            if (! $valueCheck instanceof \Closure) {
+            if (! $valueCheck instanceof Closure) {
                 // Pass the within-item attribute name so `confirmed` can
                 // rewrite to `same:${attr}_confirmation`. For `items.*.password`
                 // the attribute is `password`; for flat `password` it's the
@@ -199,7 +201,7 @@ final class ItemRuleCompiler
                 $itemAwareCheck = FastCheckCompiler::compileWithItemContext($rule, $attributeName)
                     ?? FastCheckCompiler::compileWithPresenceConditionals($rule);
 
-                if (! $itemAwareCheck instanceof \Closure) {
+                if (! $itemAwareCheck instanceof Closure) {
                     $slowRules[$field] = $rule;
 
                     continue;
@@ -212,7 +214,7 @@ final class ItemRuleCompiler
                 $parentField = $parts[0];
                 $childField = $parts[1];
 
-                if ($itemAwareCheck instanceof \Closure) {
+                if ($itemAwareCheck instanceof Closure) {
                     $checks[] = static function (array $data) use ($parentField, $childField, $itemAwareCheck): bool {
                         $items = $data[$parentField] ?? null;
                         if (! is_array($items)) {
@@ -254,7 +256,7 @@ final class ItemRuleCompiler
                 }
             } elseif ($field === '*') {
                 // Scalar each: value is in '_v' key
-                if ($itemAwareCheck instanceof \Closure) {
+                if ($itemAwareCheck instanceof Closure) {
                     $checks[] = static function (array $data) use ($itemAwareCheck): bool {
                         /** @var array<string, mixed> $data — caller guarantees string-keyed. */
                         return $itemAwareCheck($data['_v'] ?? null, $data);
@@ -262,7 +264,7 @@ final class ItemRuleCompiler
                 } else {
                     $checks[] = static fn (array $data): bool => $valueCheck($data['_v'] ?? null);
                 }
-            } elseif ($itemAwareCheck instanceof \Closure) {
+            } elseif ($itemAwareCheck instanceof Closure) {
                 $checks[] = static function (array $data) use ($field, $itemAwareCheck): bool {
                     /** @var array<string, mixed> $data — caller guarantees string-keyed. */
                     return $itemAwareCheck($data[$field] ?? null, $data);

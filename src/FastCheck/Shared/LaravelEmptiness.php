@@ -2,6 +2,7 @@
 
 namespace SanderMuller\FluentValidation\FastCheck\Shared;
 
+use Countable;
 use Symfony\Component\HttpFoundation\File\File;
 
 /**
@@ -32,7 +33,7 @@ final class LaravelEmptiness
             return $value === [];
         }
 
-        if ($value instanceof \Countable) {
+        if ($value instanceof Countable) {
             return count($value) === 0;
         }
 

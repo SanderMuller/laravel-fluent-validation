@@ -11,10 +11,14 @@ use Illuminate\Support\Traits\Conditionable;
 use Illuminate\Support\Traits\Macroable;
 use Illuminate\Validation\Rules\Contains;
 use Illuminate\Validation\Rules\DoesntContain;
+use InvalidArgumentException;
+use LogicException;
+use RuntimeException;
 use SanderMuller\FluentValidation\Contracts\FluentRuleContract;
 use SanderMuller\FluentValidation\Exceptions\CannotExtendListShapedEach;
 use SanderMuller\FluentValidation\Rules\Concerns\HasFieldModifiers;
 use SanderMuller\FluentValidation\Rules\Concerns\SelfValidates;
+use UnitEnum;
 
 class ArrayRule implements DataAwareRule, FluentRuleContract, ValidatorAwareRule
 {
@@ -132,7 +136,7 @@ class ArrayRule implements DataAwareRule, FluentRuleContract, ValidatorAwareRule
      *
      * @throws CannotExtendListShapedEach when `eachRules` is list-shaped
      *                                    (single ValidationRule input to each()).
-     * @throws \LogicException when $key already exists — silent override
+     * @throws LogicException when $key already exists — silent override
      *                         would hide the "parent already defines this"
      *                         mistake. Use mergeEachRules() for intentional
      *                         replacement.
@@ -140,7 +144,7 @@ class ArrayRule implements DataAwareRule, FluentRuleContract, ValidatorAwareRule
     public function addEachRule(string $key, ValidationRule $rule): static
     {
         if ($key === '') {
-            throw new \InvalidArgumentException(
+            throw new InvalidArgumentException(
                 'addEachRule() requires a non-empty key — empty keys expand to malformed wildcard paths (items.*.).'
             );
         }
@@ -152,7 +156,7 @@ class ArrayRule implements DataAwareRule, FluentRuleContract, ValidatorAwareRule
         $existing = $this->eachRules ?? [];
 
         if (array_key_exists($key, $existing)) {
-            throw new \LogicException(sprintf(
+            throw new LogicException(sprintf(
                 "addEachRule('%s'): key '%s' already exists in each(). "
                 . 'Use mergeEachRules() if replacement is intentional.',
                 $key,
@@ -181,7 +185,7 @@ class ArrayRule implements DataAwareRule, FluentRuleContract, ValidatorAwareRule
         }
 
         if (array_key_exists('', $rules)) {
-            throw new \InvalidArgumentException(
+            throw new InvalidArgumentException(
                 'mergeEachRules() requires non-empty keys — empty keys expand to malformed wildcard paths (items.*.).'
             );
         }
@@ -259,14 +263,14 @@ class ArrayRule implements DataAwareRule, FluentRuleContract, ValidatorAwareRule
     }
 
     /**
-     * @param  Arrayable<array-key, mixed>|\UnitEnum|array<int, mixed>|string|int  ...$values
+     * @param Arrayable<array-key, mixed>|UnitEnum|array<int, mixed>|string|int ...$values
      *
      * Note: `Arrayable` is template-invariant, so concrete types like
      * `Collection<int, string>` don't satisfy `Arrayable<array-key, mixed>`.
      * Consumers passing a typed Collection at a PHPStan-strict analysis level
      * can unwrap via `->contains($collection->all())`.
      */
-    public function contains(Arrayable|\UnitEnum|array|string|int ...$values): static
+    public function contains(Arrayable|UnitEnum|array|string|int ...$values): static
     {
         $resolved = $this->flattenContainsValues($values);
 
@@ -279,11 +283,11 @@ class ArrayRule implements DataAwareRule, FluentRuleContract, ValidatorAwareRule
         return $this->addRule('contains:' . $this->serializeContainsValues($resolved));
     }
 
-    /** @param  Arrayable<array-key, mixed>|\UnitEnum|array<int, mixed>|string|int  ...$values */
-    public function doesntContain(Arrayable|\UnitEnum|array|string|int ...$values): static
+    /** @param Arrayable<array-key, mixed>|UnitEnum|array<int, mixed>|string|int ...$values */
+    public function doesntContain(Arrayable|UnitEnum|array|string|int ...$values): static
     {
         if (! class_exists(DoesntContain::class)) {
-            throw new \RuntimeException('doesntContain() requires Laravel 12+.');
+            throw new RuntimeException('doesntContain() requires Laravel 12+.');
         }
 
         return $this->addRule(new DoesntContain($this->flattenContainsValues($values)));
@@ -301,7 +305,7 @@ class ArrayRule implements DataAwareRule, FluentRuleContract, ValidatorAwareRule
             // Mirror Laravel's enum_value(): BackedEnum → value, UnitEnum → name.
             if ($value instanceof BackedEnum) {
                 $value = $value->value;
-            } elseif ($value instanceof \UnitEnum) {
+            } elseif ($value instanceof UnitEnum) {
                 $value = $value->name;
             }
 
@@ -340,7 +344,7 @@ class ArrayRule implements DataAwareRule, FluentRuleContract, ValidatorAwareRule
 
         foreach ($values as $value) {
             if (is_array($value) || $value instanceof Arrayable) {
-                throw new \InvalidArgumentException(
+                throw new InvalidArgumentException(
                     'contains()/doesntContain() does not accept multiple array or Arrayable arguments. '
                     . 'Pass either a single iterable (->contains($values)) or variadic scalars (->contains($a, $b, $c)).'
                 );

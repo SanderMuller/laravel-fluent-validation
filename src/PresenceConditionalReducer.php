@@ -4,6 +4,7 @@ namespace SanderMuller\FluentValidation;
 
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Arr;
+use stdClass;
 
 /**
  * Per-item pre-evaluation of Laravel's presence-conditional rules
@@ -229,7 +230,7 @@ final class PresenceConditionalReducer
      */
     private static function fieldPresent(array $itemData, ?string $field): bool
     {
-        $marker = new \stdClass();
+        $marker = new stdClass();
         // A `null` key mirrors `Arr::get($data, null)` and resolves to the
         // full item (that's how Laravel treats a null parameter slot).
         $value = $field === null ? $itemData : data_get($itemData, $field, $marker);

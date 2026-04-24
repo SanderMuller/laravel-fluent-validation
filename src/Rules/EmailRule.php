@@ -11,6 +11,7 @@ use SanderMuller\FluentValidation\Contracts\FluentRuleContract;
 use SanderMuller\FluentValidation\Rules\Concerns\HasEmbeddedRules;
 use SanderMuller\FluentValidation\Rules\Concerns\HasFieldModifiers;
 use SanderMuller\FluentValidation\Rules\Concerns\SelfValidates;
+use Stringable;
 
 class EmailRule implements DataAwareRule, FluentRuleContract, ValidatorAwareRule
 {
@@ -92,13 +93,13 @@ class EmailRule implements DataAwareRule, FluentRuleContract, ValidatorAwareRule
         $allRules = $this->buildValidationRules();
 
         foreach ($allRules as $allRule) {
-            if (is_object($allRule) && ! $allRule instanceof \Stringable) {
+            if (is_object($allRule) && ! $allRule instanceof Stringable) {
                 return $allRules;
             }
         }
 
-        /** @var list<string|\Stringable> $allRules */
-        return implode('|', array_map(static fn (\Stringable|string $r): string => (string) $r, $allRules));
+        /** @var list<string|Stringable> $allRules */
+        return implode('|', array_map(static fn (Stringable|string $r): string => (string) $r, $allRules));
     }
 
     /** @return list<string|object> */

@@ -4,6 +4,7 @@ namespace SanderMuller\FluentValidation;
 
 use Illuminate\Validation\DatabasePresenceVerifierInterface;
 use Illuminate\Validation\PresenceVerifierInterface;
+use Stringable;
 
 /**
  * A presence verifier that returns pre-computed results from batch queries.
@@ -44,7 +45,7 @@ final class PrecomputedPresenceVerifier implements DatabasePresenceVerifierInter
                 continue;
             }
 
-            if (is_scalar($v) || $v instanceof \Stringable) {
+            if (is_scalar($v) || $v instanceof Stringable) {
                 $map[(string) $v] = true;
             }
         }

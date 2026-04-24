@@ -2,6 +2,8 @@
 
 namespace SanderMuller\FluentValidation\FastCheck;
 
+use Closure;
+
 /**
  * Compiles rule strings that reference sibling fields in an item array —
  * `same:FIELD`, `different:FIELD`, `gt:FIELD`, `gte:FIELD`, `lt:FIELD`,
@@ -17,9 +19,9 @@ namespace SanderMuller\FluentValidation\FastCheck;
 final class ItemContextCompiler
 {
     /**
-     * @return \Closure(mixed, array<string, mixed>): bool|null
+     * @return Closure(mixed, array<string, mixed>): bool|null
      */
-    public static function compile(string $ruleString, ?string $attributeName = null): ?\Closure
+    public static function compile(string $ruleString, ?string $attributeName = null): ?Closure
     {
         // Rewrite `confirmed` / `confirmed:X` to `same:...` when an attribute
         // name is available. `confirmed` alone uses `${attr}_confirmation` as
@@ -230,9 +232,9 @@ final class ItemContextCompiler
      * value-only closure.
      *
      * @param  array<string, mixed>  $c
-     * @return \Closure(mixed, array<string, mixed>): bool
+     * @return Closure(mixed, array<string, mixed>): bool
      */
-    private static function buildItemAwareClosure(array $c): \Closure
+    private static function buildItemAwareClosure(array $c): Closure
     {
         $valueClosure = CoreValueCompiler::buildClosure($c);
 

@@ -2,6 +2,7 @@
 
 namespace SanderMuller\FluentValidation;
 
+use Closure;
 use Illuminate\Contracts\Support\Arrayable;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Support\Arr;
@@ -11,6 +12,7 @@ use Illuminate\Support\Traits\Conditionable;
 use Illuminate\Support\Traits\Macroable;
 use Illuminate\Validation\ValidationException;
 use IteratorAggregate;
+use LogicException;
 use ReflectionProperty;
 use SanderMuller\FluentValidation\Exceptions\BatchLimitExceededException;
 use SanderMuller\FluentValidation\Internal\BatchLimitRemap;
@@ -145,14 +147,14 @@ final class RuleSet implements Arrayable, IteratorAggregate
      * add new fields. The throw differentiates `modify` from `put` semantically:
      * silently creating missing keys would conflate the two.
      *
-     * @param  \Closure(mixed): mixed  $callback  Receives the clone, returns the replacement rule.
+     * @param Closure(mixed): mixed $callback Receives the clone, returns the replacement rule.
      *
-     * @throws \LogicException When `$field` is not in the rule set.
+     * @throws LogicException When `$field` is not in the rule set.
      */
-    public function modify(string $field, \Closure $callback): self
+    public function modify(string $field, Closure $callback): self
     {
         if (! array_key_exists($field, $this->fields)) {
-            throw new \LogicException(
+            throw new LogicException(
                 "Field [{$field}] is not in the rule set — use put() to add new fields.",
             );
         }
@@ -184,7 +186,7 @@ final class RuleSet implements Arrayable, IteratorAggregate
      *
      * @param  array<string, ValidationRule>  $rules
      *
-     * @throws \LogicException When `$field` is not in the rule set, when the
+     * @throws LogicException When `$field` is not in the rule set, when the
      *                         stored rule is not an `ArrayRule`, or when the
      *                         stored rule's `each()` is list-shaped (a
      *                         `CannotExtendListShapedEach` bubbles out of
@@ -194,7 +196,7 @@ final class RuleSet implements Arrayable, IteratorAggregate
     {
         return $this->modify($field, static function (mixed $rule) use ($field, $rules): ValidationRule {
             if (! $rule instanceof ArrayRule) {
-                throw new \LogicException(
+                throw new LogicException(
                     "Field [{$field}] is not an ArrayRule — modifyEach() only applies to array() rules.",
                 );
             }
@@ -214,14 +216,14 @@ final class RuleSet implements Arrayable, IteratorAggregate
      *
      * @param  array<string, ValidationRule>  $rules
      *
-     * @throws \LogicException When `$field` is not in the rule set or the
+     * @throws LogicException When `$field` is not in the rule set or the
      *                         stored rule is not a `FieldRule`.
      */
     public function modifyChildren(string $field, array $rules): self
     {
         return $this->modify($field, static function (mixed $rule) use ($field, $rules): ValidationRule {
             if (! $rule instanceof FieldRule) {
-                throw new \LogicException(
+                throw new LogicException(
                     "Field [{$field}] is not a FieldRule — modifyChildren() only applies to FluentRule::field() rules. For ArrayRule::children() extension, use modify(\$field, fn (\$r) => \$r->children([...]))."
                 );
             }

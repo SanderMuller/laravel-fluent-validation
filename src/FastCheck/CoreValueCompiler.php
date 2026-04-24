@@ -2,6 +2,9 @@
 
 namespace SanderMuller\FluentValidation\FastCheck;
 
+use Closure;
+use DateTime;
+
 /**
  * Compiles value-only rule strings into a `Closure(mixed): bool`.
  * Handles type, format, date-literal, size, in/not_in, regex, digit checks.
@@ -19,9 +22,9 @@ final class CoreValueCompiler
      * Compile a rule string into a closure that checks a single value.
      * Returns null if the rule contains parts that can't be fast-checked.
      *
-     * @return \Closure(mixed): bool|null
+     * @return Closure(mixed): bool|null
      */
-    public static function compile(string $ruleString): ?\Closure
+    public static function compile(string $ruleString): ?Closure
     {
         $config = self::parse($ruleString);
 
@@ -203,9 +206,9 @@ final class CoreValueCompiler
      * @internal Exposed for {@see ItemContextCompiler} reuse.
      *
      * @param  array<string, mixed>  $c
-     * @return \Closure(mixed): bool
+     * @return Closure(mixed): bool
      */
-    public static function buildClosure(array $c): \Closure
+    public static function buildClosure(array $c): Closure
     {
         $required = (bool) $c['required'];
         $nullable = (bool) $c['nullable'];
@@ -224,7 +227,7 @@ final class CoreValueCompiler
 
         $hasImplicit = $required || $accepted || $declined;
 
-        /** @var list<\Closure(mixed): bool> $checks */
+        /** @var list<Closure(mixed): bool> $checks */
         $checks = [];
         self::addTypeChecks($c, $checks);
         self::addFormatChecks($c, $checks);
@@ -316,7 +319,7 @@ final class CoreValueCompiler
 
     /**
      * @param  array<string, mixed>  $c
-     * @param  list<\Closure(mixed): bool>  $checks
+     * @param list<Closure(mixed): bool> $checks
      */
     private static function addTypeChecks(array $c, array &$checks): void
     {
@@ -351,7 +354,7 @@ final class CoreValueCompiler
 
     /**
      * @param  array<string, mixed>  $c
-     * @param  list<\Closure(mixed): bool>  $checks
+     * @param list<Closure(mixed): bool> $checks
      */
     private static function addFormatChecks(array $c, array &$checks): void
     {
@@ -390,7 +393,7 @@ final class CoreValueCompiler
 
     /**
      * @param  array<string, mixed>  $c
-     * @param  list<\Closure(mixed): bool>  $checks
+     * @param list<Closure(mixed): bool> $checks
      */
     private static function addDateChecks(array $c, array &$checks): void
     {
@@ -420,7 +423,7 @@ final class CoreValueCompiler
                 }
 
                 if ($dateFormat !== null) {
-                    $d = \DateTime::createFromFormat('!' . $dateFormat, $v);
+                    $d = DateTime::createFromFormat('!' . $dateFormat, $v);
 
                     return $d !== false && $d->format($dateFormat) === $v;
                 }
@@ -459,7 +462,7 @@ final class CoreValueCompiler
 
     /**
      * @param  array<string, mixed>  $c
-     * @param  list<\Closure(mixed): bool>  $checks
+     * @param list<Closure(mixed): bool> $checks
      */
     private static function addDigitChecks(array $c, array &$checks): void
     {

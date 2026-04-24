@@ -7,6 +7,7 @@ use Illuminate\Contracts\Validation\ValidatorAwareRule;
 use Illuminate\Support\Traits\Conditionable;
 use Illuminate\Support\Traits\Macroable;
 use Illuminate\Validation\Rules\Password;
+use ReflectionProperty;
 use SanderMuller\FluentValidation\Contracts\FluentRuleContract;
 use SanderMuller\FluentValidation\Rules\Concerns\HasFieldModifiers;
 use SanderMuller\FluentValidation\Rules\Concerns\SelfValidates;
@@ -39,7 +40,7 @@ class PasswordRule implements DataAwareRule, FluentRuleContract, ValidatorAwareR
 
     public function min(int $size): static
     {
-        (new \ReflectionProperty($this->password, 'min'))->setValue($this->password, $size);
+        (new ReflectionProperty($this->password, 'min'))->setValue($this->password, $size);
 
         return $this;
     }

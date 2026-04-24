@@ -2,6 +2,7 @@
 
 namespace SanderMuller\FluentValidation\Internal;
 
+use Closure;
 use Illuminate\Validation\Validator;
 
 /**
@@ -14,7 +15,7 @@ use Illuminate\Validation\Validator;
 final class ItemErrorCollector
 {
     /**
-     * @param  list<\Closure(array<string, mixed>): bool>  $fastChecks
+     * @param list<Closure(array<string, mixed>): bool> $fastChecks
      * @param  array<string, mixed>  $itemData
      */
     public function passesAllFastChecks(array $fastChecks, array $itemData): bool

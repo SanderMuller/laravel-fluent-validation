@@ -1,15 +1,5 @@
 parameters:
 	ignoreErrors:
-		# Grew with Phase 1-2 additions: type predicates + filter wiring,
-		# group-key disambiguation, hard-cap assertion, exists/unique
-		# conflict skip. Splitting would only move the same branches into
-		# a helper class for a small delta.
-		-
-			rawMessage: 'Class cognitive complexity is 113, keep it under 80'
-			identifier: complexity.classLike
-			count: 1
-			path: src/BatchDatabaseChecker.php
-
 		# Hot-path closure builders: complexity comes from intentional
 		# inlining (size, in/regex, date comparisons) to avoid closure
 		# allocation + call overhead on every validated item.

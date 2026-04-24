@@ -2,6 +2,7 @@
 
 namespace SanderMuller\FluentValidation\FastCheck;
 
+use Closure;
 use SanderMuller\FluentValidation\FastCheck\Shared\ItemAwareBranchBuilder;
 use SanderMuller\FluentValidation\FastCheck\Shared\LaravelEmptiness;
 
@@ -21,9 +22,9 @@ use SanderMuller\FluentValidation\FastCheck\Shared\LaravelEmptiness;
 final class PresenceConditionalCompiler
 {
     /**
-     * @return \Closure(mixed, array<string, mixed>): bool|null
+     * @return Closure(mixed, array<string, mixed>): bool|null
      */
-    public static function compile(string $ruleString): ?\Closure
+    public static function compile(string $ruleString): ?Closure
     {
         if (! str_contains($ruleString, 'required_with:')
             && ! str_contains($ruleString, 'required_without:')
@@ -59,12 +60,12 @@ final class PresenceConditionalCompiler
 
         $stripped = implode('|', $remaining);
 
-        /** @var ?\Closure(mixed, array<string, mixed>): bool $checkRest */
+        /** @var ?Closure(mixed, array<string, mixed>): bool $checkRest */
         $checkRest = $stripped === ''
             ? static fn (mixed $_value, array $_item): bool => true
             : ItemAwareBranchBuilder::build($stripped);
 
-        if (! $checkRest instanceof \Closure) {
+        if (! $checkRest instanceof Closure) {
             return null;
         }
 

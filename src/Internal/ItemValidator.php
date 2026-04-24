@@ -2,6 +2,7 @@
 
 namespace SanderMuller\FluentValidation\Internal;
 
+use Closure;
 use Illuminate\Support\Facades\Validator;
 use SanderMuller\FluentValidation\BatchDatabaseChecker;
 use SanderMuller\FluentValidation\PrecomputedPresenceVerifier;
@@ -52,7 +53,7 @@ final readonly class ItemValidator
             : $this->compiler->findCommonDispatchField($conditionalFields);
         /** @var array<string, array<string, mixed>> $rulesByDispatch */
         $rulesByDispatch = [];
-        /** @var array<string, array{0: array<string, \Closure(array<string, mixed>): bool>, 1: array<string, mixed>}> $fastChecksByDispatch */
+        /** @var array<string, array{0: array<string, Closure(array<string, mixed>): bool>, 1: array<string, mixed>}> $fastChecksByDispatch */
         $fastChecksByDispatch = [];
 
         [$fastChecks, $originalSlowRules] = $this->compiler->buildFastChecks($itemRules);
