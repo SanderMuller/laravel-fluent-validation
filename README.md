@@ -205,7 +205,7 @@ FluentRule::file()->rule(['mimetypes', ...$types])     // array tuple
 
 To add fields in a child, use the spread operator: `return [...parent::rules(), 'extra' => FluentRule::string()->required()]`. If you need to modify a parent's rule, clone it first since `->rule()` mutates the object: `$rules['type'] = (clone $rules['type'])->rule(new ExtraRule())`.
 
-When the parent defines a keyed `each([...])` or `children([...])` map and the child needs to add or replace one sub-rule, use the extend helpers on `ArrayRule` / `FieldRule` via `RuleSet::modify`:
+When the parent defines a keyed `each([...])` or `children([...])` map and the child needs to add or replace one sub-rule, use the extend helpers on `ArrayRule` / `FieldRule` via `RuleSet::modify` — or reach for the `modifyEach` / `modifyChildren` sugar:
 
 ```php
 // Parent
@@ -215,13 +215,18 @@ return RuleSet::from([
     ]),
 ]);
 
-// Child — adds one sub-rule without touching parent constraints
+// Child — sugar form (later-wins merge)
+return parent::rules()->modifyEach('answers', [
+    'id' => FluentRule::numeric()->nullable(),
+]);
+
+// Or the strict-add primitive — throws on existing-key collision
 return parent::rules()->modify('answers', fn (ArrayRule $rule) =>
     $rule->addEachRule('id', FluentRule::numeric()->nullable())
 );
 ```
 
-`addEachRule` / `addChildRule` throw on existing-key collision (use `mergeEachRules` / `mergeChildRules` for intentional replacement, later-wins). Base constraints (`nullable`, `max:20`, etc.) are preserved by design.
+`modifyEach` wraps `mergeEachRules` (later-wins on collision); `modifyChildren` wraps `mergeChildRules` on `FieldRule`. For strict add-only semantics, use the primitive `modify(..., fn ($r) => $r->addEachRule(...))` — `addEachRule` / `addChildRule` throw on existing-key collision. Base constraints (`nullable`, `max:20`, etc.) are preserved by design.
 
 `rules()` may also return a `RuleSet` directly — `HasFluentRules` (and `HasFluentValidation` for Livewire) auto-unwrap it via `->toArray()` before passing to the validator. This lets you chain `->only/->except/->merge/->put/->get` and return without a terminal `->toArray()` call:
 

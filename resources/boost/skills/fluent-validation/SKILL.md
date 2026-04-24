@@ -150,11 +150,17 @@ FluentRule::string()->rule(new MyCustomRule())
 
 **Extend a parent's `each()` / `children()` shape** — for subclass FormRequests that add one sub-rule to the parent's map. Preserves parent base constraints (`nullable`, `max`, `required`, etc.):
 ```php
+// Sugar form — later-wins merge
+return parent::rules()->modifyEach('answers', [
+    'id' => FluentRule::numeric()->nullable(),
+]);
+
+// Primitive form — throws on existing-key collision
 return parent::rules()->modify('answers', fn (ArrayRule $rule) =>
     $rule->addEachRule('id', FluentRule::numeric()->nullable())
 );
 ```
-`addEachRule` / `addChildRule` throw on existing-key collision — use `mergeEachRules` / `mergeChildRules` for intentional later-wins replacement. `addEachRule` / `mergeEachRules` throw `CannotExtendListShapedEach` when the parent's `each()` is list-shaped (`each(FluentRule::string())` without keys) — convert to keyed form first.
+`RuleSet::modifyEach` / `modifyChildren` wrap `mergeEachRules` / `mergeChildRules` (later-wins on collision). For strict add-only, use the primitive `modify(..., fn ($r) => $r->addEachRule(...))` — `addEachRule` / `addChildRule` throw on existing-key collision. `addEachRule` / `mergeEachRules` throw `CannotExtendListShapedEach` when the parent's `each()` is list-shaped (`each(FluentRule::string())` without keys) — convert to keyed form first.
 
 **Macros** — reusable rule chains registered in a service provider:
 ```php

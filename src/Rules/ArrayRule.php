@@ -80,10 +80,46 @@ class ArrayRule implements DataAwareRule, FluentRuleContract, ValidatorAwareRule
         return $this;
     }
 
-    /** @return ValidationRule|array<string, ValidationRule>|null */
+    /**
+     * @return ValidationRule|array<string, ValidationRule>|null
+     *
+     * @deprecated 1.24.0 The list-form branch of the return union is deprecated.
+     *             Use `getEachKeyedRules()` for the keyed `each([...])` case
+     *             and `getEachListRule()` for the list-form `each(VR)` case.
+     *             In 1.25.0 this method's return type will narrow to
+     *             `?array<string, ValidationRule>` — the list-form rule will
+     *             no longer be retrievable through this getter.
+     */
     public function getEachRules(): ValidationRule|array|null
     {
         return $this->eachListRule ?? $this->eachRules;
+    }
+
+    /**
+     * Keyed sub-rule map set via `each(['key' => $rule, ...])`.
+     *
+     * Returns null when `each()` was never called OR the current state is
+     * list-shaped (set via `each(VR)`). Narrow-typed replacement for
+     * `getEachRules()` in the keyed-form case.
+     *
+     * @return array<string, ValidationRule>|null
+     */
+    public function getEachKeyedRules(): ?array
+    {
+        return $this->eachRules;
+    }
+
+    /**
+     * List-shape per-item rule set via `each(FluentRule::string())` — every
+     * item is validated as a scalar against this rule.
+     *
+     * Returns null when `each()` was never called OR the current state is
+     * keyed (set via `each([...])`). Narrow-typed replacement for the
+     * `ValidationRule` branch of `getEachRules()`.
+     */
+    public function getEachListRule(): ?ValidationRule
+    {
+        return $this->eachListRule;
     }
 
     /**

@@ -18,6 +18,7 @@ use SanderMuller\FluentValidation\Internal\ItemErrorCollector;
 use SanderMuller\FluentValidation\Internal\ItemRuleCompiler;
 use SanderMuller\FluentValidation\Internal\ItemValidator;
 use SanderMuller\FluentValidation\Rules\ArrayRule;
+use SanderMuller\FluentValidation\Rules\FieldRule;
 use Traversable;
 
 /**
@@ -161,6 +162,72 @@ final class RuleSet implements Arrayable, IteratorAggregate
         $this->fields[$field] = $callback($clone);
 
         return $this;
+    }
+
+    /**
+     * Sugar for extending the keyed `each()` shape of an `ArrayRule` field —
+     * later-wins merge, mirroring the `mergeEachRules` primitive. The common
+     * subclass-extends-parent shape collapses from
+     *
+     *     parent::rules()->modify(self::ANSWERS, fn (ArrayRule $r) =>
+     *         $r->mergeEachRules(['id' => FluentRule::numeric()->nullable()])
+     *     );
+     *
+     * to
+     *
+     *     parent::rules()->modifyEach(self::ANSWERS, [
+     *         'id' => FluentRule::numeric()->nullable(),
+     *     ]);
+     *
+     * If strict add-only behaviour is required (collision throws), use the
+     * primitive `modify($field, fn ($r) => $r->addEachRule($key, $rule))`.
+     *
+     * @param  array<string, ValidationRule>  $rules
+     *
+     * @throws \LogicException When `$field` is not in the rule set, when the
+     *                         stored rule is not an `ArrayRule`, or when the
+     *                         stored rule's `each()` is list-shaped (a
+     *                         `CannotExtendListShapedEach` bubbles out of
+     *                         `mergeEachRules`).
+     */
+    public function modifyEach(string $field, array $rules): self
+    {
+        return $this->modify($field, static function (mixed $rule) use ($field, $rules): ValidationRule {
+            if (! $rule instanceof ArrayRule) {
+                throw new \LogicException(
+                    "Field [{$field}] is not an ArrayRule — modifyEach() only applies to array() rules.",
+                );
+            }
+
+            return $rule->mergeEachRules($rules);
+        });
+    }
+
+    /**
+     * Sugar for extending the `children()` shape of a `FieldRule` — later-wins
+     * merge, mirroring `FieldRule::mergeChildRules()`.
+     *
+     * Currently `FieldRule`-only; `ArrayRule` also exposes a `children()`
+     * method but not the `add*` / `merge*` helpers as of 1.24.0 (no
+     * consumer demand surfaced). Falls through to `modify()` with the
+     * primitive if you need to extend an `ArrayRule`'s `children()`.
+     *
+     * @param  array<string, ValidationRule>  $rules
+     *
+     * @throws \LogicException When `$field` is not in the rule set or the
+     *                         stored rule is not a `FieldRule`.
+     */
+    public function modifyChildren(string $field, array $rules): self
+    {
+        return $this->modify($field, static function (mixed $rule) use ($field, $rules): ValidationRule {
+            if (! $rule instanceof FieldRule) {
+                throw new \LogicException(
+                    "Field [{$field}] is not a FieldRule — modifyChildren() only applies to FluentRule::field() rules. For ArrayRule::children() extension, use modify(\$field, fn (\$r) => \$r->children([...]))."
+                );
+            }
+
+            return $rule->mergeChildRules($rules);
+        });
     }
 
     /**
@@ -911,12 +978,13 @@ final class RuleSet implements Arrayable, IteratorAggregate
     private static function flattenRule(string $prefix, mixed $rule, array &$rules): void
     {
         // Get nested rule definitions if the rule supports them.
-        $eachRules = $rule instanceof ArrayRule ? $rule->getEachRules() : null;
+        $eachListRule = $rule instanceof ArrayRule ? $rule->getEachListRule() : null;
+        $eachKeyedRules = $rule instanceof ArrayRule ? $rule->getEachKeyedRules() : null;
 
         /** @var array<string, mixed>|null $childRules */
         $childRules = is_object($rule) && method_exists($rule, 'getChildRules') ? $rule->getChildRules() : null;
 
-        if ($eachRules === null && $childRules === null) {
+        if (! $eachListRule instanceof ValidationRule && $eachKeyedRules === null && $childRules === null) {
             $rules[$prefix] = $rule;
 
             return;
@@ -926,10 +994,10 @@ final class RuleSet implements Arrayable, IteratorAggregate
         $rules[$prefix] = $rule instanceof ArrayRule ? $rule->withoutEachRules() : $rule;
 
         // each() → wildcard paths: items.*.name
-        if ($eachRules instanceof ValidationRule) {
-            self::flattenRule($prefix . '.*', $eachRules, $rules);
-        } elseif (is_array($eachRules)) {
-            foreach ($eachRules as $field => $fieldRule) {
+        if ($eachListRule instanceof ValidationRule) {
+            self::flattenRule($prefix . '.*', $eachListRule, $rules);
+        } elseif ($eachKeyedRules !== null) {
+            foreach ($eachKeyedRules as $field => $fieldRule) {
                 self::flattenRule($prefix . '.*.' . $field, $fieldRule, $rules);
             }
         }

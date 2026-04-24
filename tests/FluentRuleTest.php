@@ -1562,26 +1562,47 @@ it('compileToArrays handles mixed fluent and string rules', function (): void {
 });
 
 // =========================================================================
-// ArrayRule — getEachRules / withoutEachRules
+// ArrayRule — getEachListRule / getEachKeyedRules / withoutEachRules
+// (replace the pre-1.24 getEachRules() union-return tests — see deprecation
+// regression test below for the single BC-surface case that still covers
+// the deprecated getter.)
 // =========================================================================
 
-it('returns null from getEachRules when no each set', function (): void {
+it('returns null from both narrow getters when no each() set', function (): void {
     $arrayRule = FluentRule::array();
-    expect($arrayRule->getEachRules())->toBeNull();
+    expect($arrayRule->getEachListRule())->toBeNull()
+        ->and($arrayRule->getEachKeyedRules())->toBeNull();
 });
 
-it('returns each rules from getEachRules', function (): void {
+it('each(VR) populates getEachListRule only', function (): void {
     $stringRule = FluentRule::string()->required();
     $arrayRule = FluentRule::array()->each($stringRule);
-    expect($arrayRule->getEachRules())->toBe($stringRule);
+    expect($arrayRule->getEachListRule())->toBe($stringRule)
+        ->and($arrayRule->getEachKeyedRules())->toBeNull();
 });
 
-it('withoutEachRules returns clone without each rules', function (): void {
+it('withoutEachRules returns clone with both narrow getters null', function (): void {
     $arrayRule = FluentRule::array()->required()->each(FluentRule::string());
     $without = $arrayRule->withoutEachRules();
 
-    expect($without->getEachRules())->toBeNull()
-        ->and($arrayRule->getEachRules())->not->toBeNull();
+    expect($without->getEachListRule())->toBeNull()
+        ->and($without->getEachKeyedRules())->toBeNull()
+        ->and($arrayRule->getEachListRule())->not->toBeNull();
+});
+
+it('deprecated getEachRules() still returns the union for BC', function (): void {
+    // 1.24.0 soft-deprecates this getter — narrowing planned for 1.25.0.
+    // Until then, both branches still surface through it so pre-1.23
+    // consumers keep working. Deliberate calls to the deprecated API.
+    $stringRule = FluentRule::string()->required();
+
+    // @phpstan-ignore method.deprecated
+    expect(FluentRule::array()->getEachRules())->toBeNull();
+    // @phpstan-ignore method.deprecated
+    expect(FluentRule::array()->each($stringRule)->getEachRules())->toBe($stringRule);
+    // @phpstan-ignore method.deprecated
+    expect(FluentRule::array()->each(['name' => $stringRule])->getEachRules())
+        ->toBe(['name' => $stringRule]);
 });
 
 // =========================================================================

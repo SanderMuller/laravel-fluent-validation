@@ -253,19 +253,21 @@ public function rules(): RuleSet
     ]);
 }
 
-// Child: UpdateQuestionRequest
+// Child: UpdateQuestionRequest — sugar form
 public function rules(): RuleSet
 {
-    return parent::rules()->modify(self::ANSWERS, fn (ArrayRule $rule) =>
-        $rule->addEachRule('id', FluentRule::numeric()->nullable())
-    );
+    return parent::rules()->modifyEach(self::ANSWERS, [
+        'id' => FluentRule::numeric()->nullable(),
+    ]);
 }
 ```
 
-- `addEachRule($key, $rule)` / `addChildRule($key, $rule)` — append one keyed sub-rule. **Throws** on existing-key collision (use `mergeEachRules` / `mergeChildRules` if replacement is intentional).
-- `mergeEachRules($rules)` / `mergeChildRules($rules)` — later-wins merge.
+- `RuleSet::modifyEach($field, $rules)` / `RuleSet::modifyChildren($field, $rules)` — later-wins merge sugar; wraps `$r->mergeEachRules(...)` / `$r->mergeChildRules(...)` so you skip the `modify()` + lambda.
+- `addEachRule($key, $rule)` / `addChildRule($key, $rule)` — append one keyed sub-rule via the primitive `modify()` form. **Throws** on existing-key collision (use `mergeEachRules` / `mergeChildRules` if replacement is intentional).
+- `mergeEachRules($rules)` / `mergeChildRules($rules)` — later-wins merge primitive (what `modifyEach` / `modifyChildren` wrap).
 - Base constraints (`nullable`, `max:20`, `required`, etc.) on the ArrayRule/FieldRule survive every call.
-- `addEachRule` / `mergeEachRules` throw `CannotExtendListShapedEach` when invoked on a rule whose `each()` was set to a single `ValidationRule` (list form, e.g. `each(FluentRule::string())`). Convert to keyed form first: `each(['key' => FluentRule::…])`.
+- `addEachRule` / `mergeEachRules` / `modifyEach` throw `CannotExtendListShapedEach` when invoked on a rule whose `each()` was set to a single `ValidationRule` (list form, e.g. `each(FluentRule::string())`). Convert to keyed form first: `each(['key' => FluentRule::…])`.
+- Reading the stored shape: prefer the narrow getters `ArrayRule::getEachKeyedRules(): ?array<string, ValidationRule>` + `ArrayRule::getEachListRule(): ?ValidationRule`. The legacy union-returning `getEachRules()` is `@deprecated` since 1.24.0 — its list-form branch is scheduled for removal in 1.25.0.
 
 ### Password rules trait (Fortify/Breeze)
 

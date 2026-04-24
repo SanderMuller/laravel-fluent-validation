@@ -143,7 +143,8 @@ class FieldRule implements DataAwareRule, FluentRuleContract, ValidatorAwareRule
             $key = $attribute . '.' . $field;
             $rules[$key] = $rule;
 
-            if ($rule instanceof ArrayRule && $rule->getEachRules() !== null) {
+            if ($rule instanceof ArrayRule
+                && ($rule->getEachListRule() instanceof ValidationRule || $rule->getEachKeyedRules() !== null)) {
                 $nested[] = $rule->buildNestedRules($key);
             }
         }
