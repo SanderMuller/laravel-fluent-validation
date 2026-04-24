@@ -204,6 +204,24 @@ On failure:
 
 This is where agents most commonly slip: running the local gauntlet (steps 1-6), then jumping straight to `Write internal/release-notes-<version>.md` without committing, pushing, or watching CI. **Do not do that.** Notes claim CI-matrix facts; CI must have produced those facts first.
 
+**Release notes are public artefacts — do NOT name or reference peers.** The release body is rendered on GitHub, prepended to `CHANGELOG.md` by CI, and indexed by Packagist. Anything written here is visible to every downstream consumer and shows up in search. Internal peer instances (`e0cp6lq3`, `2op9yaul`, etc.), peer-level adoption reports, and claude-peers channels are *process* concerns, not product concerns — consumers don't know or care about them, and leaking the IDs exposes internal architecture.
+
+**What not to write:**
+
+- Peer IDs: ~~"sourced from peer `e0cp6lq3`"~~, ~~"hihaho peer confirmed"~~
+- Instance/channel framing: ~~"peer instance adoption report"~~, ~~"via claude-peers dogfood"~~
+- Claude-Code-internal phrasing in general: ~~"agent-driven"~~, ~~"via the rector companion peer"~~
+
+**What to write instead:**
+
+- Generic adoption framing: "sourced from production dogfood", "real-world adoption feedback", "consumer usage audit"
+- Named public contributors only: GitHub usernames / real-name contributors who filed issues, PRs, or are otherwise publicly part of the conversation. If you have an external user or named downstream app that consented to being credited, name them. Otherwise, stay generic.
+- The technical reasoning (why the decision was made) without tying it to a specific internal agent session.
+
+**Scope of the rule:** applies to every file written under `internal/release-notes-<version>.md`, since that body text flows directly to the public GitHub release + CHANGELOG. Internal planning files (`internal/roadmap.md`, `internal/specs/*.md`) CAN reference peer IDs — those stay out of the package's git history (`internal/` is gitignored) and are legitimate session-to-session continuity aids.
+
+**Quick scrub checklist before `Write`ing the notes file:** grep your draft for `peer`, any 8-character alphanumeric sequence that looks like a peer ID (`[a-z0-9]{8}`), and "claude-peers" / "claude-code". If any match, rewrite or delete the phrase before saving.
+
 **Preflight — run these three commands and confirm all three before you create the release-notes file.** If any fail, you are not ready to draft notes; go back to whichever earlier step is incomplete.
 
 ```bash
