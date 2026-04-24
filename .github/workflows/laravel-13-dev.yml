@@ -1,16 +1,22 @@
-name: laravel-dev-master
+name: laravel-13-dev
 
 # Nightly early-warning leg: runs the test suite against
-# laravel/framework:dev-master + orchestra/testbench:*@dev to catch
-# upstream breaking changes (rule-string parser, Validator::$customMessages,
-# Rule::in/exists/unique shape) before they ship as tagged releases.
+# laravel/framework:13.x-dev + orchestra/testbench:*@dev to catch
+# upstream breaking changes on the newest-supported Laravel major
+# (rule-string parser, Validator::$customMessages, Rule::in/exists/unique
+# shape) before they ship as tagged releases.
 #
-# Testbench uses numbered dev branches (`11.x-dev` is current; bumps as
-# new majors ship). `*@dev` tells Composer to pick the newest dev build
-# that also satisfies our other constraints — no manual version bumps
-# as Testbench evolves.
+# Why 13.x and not dev-master:
+# composer.json supports ^11 || ^12 || ^13. `dev-master` aliases to
+# whatever the next major's dev branch is (currently 14.x), which we
+# explicitly don't claim to support — running tests against it produces
+# false-positive regression reports for unsupported versions. Pinning to
+# the newest supported major keeps the signal-to-noise ratio honest.
 #
-# On failure, upserts a single tracking issue titled "Laravel dev-master
+# Testbench uses numbered dev branches; `*@dev` lets Composer pick the
+# newest dev build that also satisfies our other constraints.
+#
+# On failure, upserts a single tracking issue titled "Laravel 13.x-dev
 # regression" — created on the first fail, commented on subsequent fails.
 
 permissions:
@@ -29,7 +35,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
 
-    name: P8.4 - L-dev-master - testbench-newest-dev - ubuntu-latest
+    name: P8.4 - L-13.x-dev - testbench-newest-dev - ubuntu-latest
 
     steps:
       - name: Checkout code
@@ -42,10 +48,10 @@ jobs:
           extensions: dom, curl, libxml, mbstring, zip, pcntl, pdo, sqlite, pdo_sqlite, bcmath, soap, intl, gd, exif, iconv, imagick, fileinfo
           coverage: none
 
-      - name: Install dependencies (dev-master)
+      - name: Install dependencies (13.x-dev)
         id: install
         run: |
-          composer require "laravel/framework:dev-master" "orchestra/testbench:*@dev" --no-interaction --no-update
+          composer require "laravel/framework:13.x-dev" "orchestra/testbench:*@dev" --no-interaction --no-update
           composer update --prefer-stable --prefer-dist --no-interaction
 
       - name: List Installed Dependencies
@@ -61,17 +67,17 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          issue_number=$(gh issue list --state open --search 'in:title "Laravel dev-master regression"' --json number --jq '.[0].number // empty')
+          issue_number=$(gh issue list --state open --search 'in:title "Laravel 13.x-dev regression"' --json number --jq '.[0].number // empty')
           echo "issue_number=${issue_number}" >> "$GITHUB_OUTPUT"
 
       - name: Compose failure body
         if: always() && failure()
         run: |
           cat > /tmp/regression-body.md <<EOF
-          Nightly \`laravel/framework:dev-master\` run failed.
+          Nightly \`laravel/framework:13.x-dev\` run failed.
 
           - **Run:** <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}>
-          - **Matrix:** PHP 8.4 × laravel:dev-master × testbench:*@dev × prefer-stable × ubuntu-latest
+          - **Matrix:** PHP 8.4 × laravel:13.x-dev × testbench:*@dev × prefer-stable × ubuntu-latest
           - **Commit:** ${{ github.sha }}
           - **Install outcome:** ${{ steps.install.outcome }}
           - **Test outcome:** ${{ steps.tests.outcome }}
@@ -85,7 +91,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           gh issue create \
-            --title "Laravel dev-master regression" \
+            --title "Laravel 13.x-dev regression" \
             --body-file /tmp/regression-body.md
 
       - name: Comment on existing issue
