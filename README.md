@@ -516,8 +516,8 @@ When you use one of the optimized entry points (`HasFluentRules` on a FormReques
 
 ### Benchmarks
 
-| Scenario                                                                     | Optimizations                          | Native Laravel | Optimized   | Speedup |
-|------------------------------------------------------------------------------|----------------------------------------|----------------|-------------|---------|
+| Scenario                                                                    | Optimizations                          | Native Laravel | Optimized   | Speedup |
+|-----------------------------------------------------------------------------|----------------------------------------|----------------|-------------|---------|
 | [Product import](#product-import), 500 items, simple rules                  | Wildcard, fast-check                   | ~163ms         | **~3ms**    | ~62x    |
 | [Nested order lines](#nested-order-lines), 1000 orders × 5 line items       | Wildcard, fast-check (nested)          | ~2,491ms       | **~15ms**   | ~163x   |
 | [Conditional import](#conditional-import), 100 items, 47 conditional fields | Wildcard, pre-evaluation               | ~2,928ms       | **~47ms**   | ~62x    |
@@ -953,15 +953,15 @@ FluentRulesTester::for(AppealPage::class)
 
 ### Assertions
 
-| Method                                                       | Purpose                                                                                                                                              |
-|--------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `->passes()`                                                 | No errors on any field                                                                                                                               |
-| `->fails()`                                                  | At least one error                                                                                                                                   |
-| `->failsWith($field, $rule = null)`                          | Field failed. Optional rule key normalized via `Str::studly` (`required` and `Required` both match)                                                  |
-| `->failsWithMessage($field, $translationKey, $replacements)` | Rendered translation matches. Use when porting tests that compare against `__()` output. Pass `:attribute` explicitly when rules use labels          |
-| `->failsOnly($field, $rule = null)`                          | Exactly one field failed; surgical regression detection. Wildcard error keys expand (`items.0.name`); requires exactly one matching key              |
-| `->failsWithAny($prefix)`                                    | Prefix matched exactly or any dotted descendant (`actions.0.payload` → also matches `actions.0.payload.stars`). Not a substring match                |
-| `->doesNotFailOn(...$fields)`                                | Named fields did not fail. Chain after `->fails()`/`->passes()` if overall pass/fail matters; `doesNotFailOn` alone does not assert either direction |
+| Method                                                       | Purpose                                                                                                                                                            |
+|--------------------------------------------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `->passes()`                                                 | No errors on any field                                                                                                                                             |
+| `->fails()`                                                  | At least one error                                                                                                                                                 |
+| `->failsWith($field, $rule = null)`                          | Field failed. Optional rule key normalized via `Str::studly` (`required` and `Required` both match)                                                                |
+| `->failsWithMessage($field, $translationKey, $replacements)` | Rendered translation matches. Use when porting tests that compare against `__()` output. Pass `:attribute` explicitly when rules use labels                        |
+| `->failsOnly($field, $rule = null)`                          | Exactly one field failed; surgical regression detection. Wildcard error keys expand (`items.0.name`); requires exactly one matching key                            |
+| `->failsWithAny($prefix)`                                    | Prefix matched exactly or any dotted descendant (`actions.0.payload` → also matches `actions.0.payload.stars`). Not a substring match                              |
+| `->doesNotFailOn(...$fields)`                                | Named fields did not fail. Chain after `->fails()`/`->passes()` if overall pass/fail matters; `doesNotFailOn` alone does not assert either direction               |
 | `->assertUnauthorized()`                                     | FormRequest `authorize()` returned false. The tester records the `AuthorizationException` rather than rethrowing; surface it via `->fails()->assertUnauthorized()` |
 
 Escape hatches: `->errors()` returns `MessageBag`; `->validated()` returns the validated array (throws `ValidationException` on failure).
@@ -1361,12 +1361,12 @@ vendor/bin/pint                       # fix code style after
 
 The Rector package covers the full migration surface: pipe-delimited strings, array-based rules, `Rule::` objects, `Password::min()` chains, conditional tuples, closures, custom rule objects, Livewire `#[Rule]` / `#[Validate]` attributes, wildcard grouping, trait insertion, and post-migration chain cleanup. Organized into composable sets:
 
-| Set        | Includes                                                                                                                                                                |
-|------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `ALL`      | `CONVERT` + `GROUP` + `TRAITS` (full migration pipeline)                                                                                                                |
-| `CONVERT`  | String, array, and `#[Rule]` / `#[Validate]` attribute converters                                                                                                       |
-| `GROUP`    | Wildcard and dot-notation grouping into `each()` / `children()`                                                                                                         |
-| `TRAITS`   | `HasFluentRules` for FormRequests, `HasFluentValidation` (with Filament variant) for Livewire                                                                           |
+| Set        | Includes                                                                                                                                                               |
+|------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `ALL`      | `CONVERT` + `GROUP` + `TRAITS` (full migration pipeline)                                                                                                               |
+| `CONVERT`  | String, array, and `#[Rule]` / `#[Validate]` attribute converters                                                                                                      |
+| `GROUP`    | Wildcard and dot-notation grouping into `each()` / `children()`                                                                                                        |
+| `TRAITS`   | `HasFluentRules` for FormRequests, `HasFluentValidation` (with Filament variant) for Livewire                                                                          |
 | `SIMPLIFY` | Post-migration chain cleanup: `string()->url()` → `url()`, `min()+max()` → `between()`, redundant-type removal. Run separately after verifying the initial conversion. |
 
 See the [Rector package README](https://github.com/sandermuller/laravel-fluent-validation-rector) for the full rule-by-rule reference, configuration options (`PRESERVE_REALTIME_VALIDATION`, `BASE_CLASSES`), and diagnostics guidance.
