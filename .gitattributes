@@ -20,12 +20,10 @@ AGENTS.md             export-ignore
 CHANGELOG.md          export-ignore
 CLAUDE.md             export-ignore
 CONTRIBUTING.md       export-ignore
-LICENSE.md            export-ignore
 phpstan-baseline.neon export-ignore
 phpstan.neon.dist     export-ignore
 phpunit.xml.dist      export-ignore
 pint.json             export-ignore
-README.md             export-ignore
 rector.php            export-ignore
 SECURITY.md           export-ignore
 tests/                export-ignore
