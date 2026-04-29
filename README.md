@@ -1238,7 +1238,7 @@ FluentRule::password()->confirmed('Passwords do not match.') // custom mismatch 
 ```php
 // Type
 FluentRule::integer()->required()->min(0)              // shorthand for numeric()->integer()
-FluentRule::integer(strict: true)->required()          // reject numeric strings ("42")
+FluentRule::integer(strict: true)->required()          // reject numeric strings ("42"); requires Laravel 12.23+
 FluentRule::numeric()->required()                      // any numeric value (int or float)
 
 // Decimal precision

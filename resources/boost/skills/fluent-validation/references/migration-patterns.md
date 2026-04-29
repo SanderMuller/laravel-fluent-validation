@@ -43,7 +43,7 @@ After running Rector, review these manual follow-ups:
 |---|---|---|
 | `'required\|string\|max:255'` | `FluentRule::string()->required()->max(255)` | Has `string` type |
 | `'required\|integer'` | `FluentRule::integer()->required()` | Shorthand for `numeric()->integer()` |
-| `'required\|integer:strict'` | `FluentRule::integer(strict: true)->required()` | Strict mode rejects numeric strings (`"42"`) |
+| `'required\|integer:strict'` | `FluentRule::integer(strict: true)->required()` | Strict mode rejects numeric strings (`"42"`); requires Laravel 12.23+ |
 | `'required\|email'` | `FluentRule::email()->required()` | Has `email` type |
 | `'required\|boolean'` | `FluentRule::boolean()->required()` | Has `boolean` type |
 | `'required\|accepted'` | `FluentRule::accepted()->required()` | Permissive; accepts `'yes'`/`'on'`. Do NOT chain `->accepted()` on `boolean()` — `boolean` rejects those values |

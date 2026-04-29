@@ -5,7 +5,7 @@ parameters:
 		# allocation + call overhead on every validated item.
 		# Factoring out hurts benchmark numbers; keep inlined + baselined.
 		-
-			rawMessage: 'Class cognitive complexity is 118, keep it under 80'
+			rawMessage: 'Class cognitive complexity is 120, keep it under 80'
 			identifier: complexity.classLike
 			count: 1
 			path: src/FastCheck/CoreValueCompiler.php

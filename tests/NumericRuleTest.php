@@ -216,6 +216,10 @@ it('FluentRule::integer(strict: true) rejects numeric strings', function (): voi
     $v = makeValidator(['n' => 5], ['n' => FluentRule::integer(strict: true)]);
     expect($v->passes())->toBeTrue();
 
+    if (! laravelSupportsIntegerStrict()) {
+        return; // Laravel < 12.23 silently ignores `integer:strict` in the bare validator
+    }
+
     $v = makeValidator(['n' => '5'], ['n' => FluentRule::integer(strict: true)]);
     expect($v->passes())->toBeFalse();
 });
@@ -246,6 +250,10 @@ it('FluentRule::integer(label:, message:, strict: true) routes label, message, a
     $rule = FluentRule::integer(label: 'User Age', message: 'Whole numbers only.', strict: true);
 
     expect($rule->compiledRules())->toBe('numeric|integer:strict');
+
+    if (! laravelSupportsIntegerStrict()) {
+        return; // Laravel < 12.23 silently ignores `integer:strict` in the bare validator
+    }
 
     // Non-strict allows '5'; strict rejects it. Message binds to integer:strict.
     $v = makeValidator(['age' => '5'], ['age' => $rule]);

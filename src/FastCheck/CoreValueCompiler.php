@@ -85,7 +85,8 @@ final class CoreValueCompiler
         }
 
         return match (true) {
-            $part === 'integer', $part === 'integer:strict' => [...$config, 'integer' => true],
+            $part === 'integer' => [...$config, 'integer' => true],
+            $part === 'integer:strict' => [...$config, 'integer' => true, 'integer.strict' => true],
             $part === 'alpha', $part === 'alpha:ascii' => [...$config, 'alpha' => true],
             $part === 'alpha_dash', $part === 'alpha_dash:ascii' => [...$config, 'alphaDash' => true],
             $part === 'alpha_num', $part === 'alpha_num:ascii' => [...$config, 'alphaNum' => true],
@@ -125,7 +126,7 @@ final class CoreValueCompiler
         return [
             'required' => false, 'filled' => false,
             'nullable' => false, 'sometimes' => false,
-            'string' => false, 'numeric' => false, 'integer' => false,
+            'string' => false, 'numeric' => false, 'integer' => false, 'integer.strict' => false,
             'boolean' => false, 'array' => false, 'email' => false, 'date' => false,
             'url' => false, 'ip' => false, 'uuid' => false, 'ulid' => false,
             'accepted' => false, 'declined' => false,
@@ -348,7 +349,9 @@ final class CoreValueCompiler
         }
 
         if (($c['integer'] ?? false) === true) {
-            $checks[] = static fn (mixed $v): bool => filter_var($v, FILTER_VALIDATE_INT) !== false;
+            $checks[] = ($c['integer.strict'] ?? false) === true
+                ? static fn (mixed $v): bool => is_int($v)
+                : static fn (mixed $v): bool => filter_var($v, FILTER_VALIDATE_INT) !== false;
         }
     }
 
