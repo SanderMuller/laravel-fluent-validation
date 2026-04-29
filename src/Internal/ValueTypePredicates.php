@@ -89,7 +89,7 @@ final class ValueTypePredicates
         // rejects them anyway). Match the strict variant before the plain
         // `integer`/`int` branch, which collapses params via `:` split.
         if ($rule === 'integer:strict') {
-            return static fn (mixed $v): bool => is_int($v);
+            return is_int(...);
         }
 
         $token = str_contains($rule, ':') ? substr($rule, 0, (int) strpos($rule, ':')) : $rule;
