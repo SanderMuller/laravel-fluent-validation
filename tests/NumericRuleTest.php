@@ -210,6 +210,51 @@ it('validates numeric with integer strict mode', function (): void {
     expect($validator->passes())->toBeTrue();
 });
 
+it('FluentRule::integer(strict: true) rejects numeric strings', function (): void {
+    expect(FluentRule::integer(strict: true)->compiledRules())->toBe('numeric|integer:strict');
+
+    $v = makeValidator(['n' => 5], ['n' => FluentRule::integer(strict: true)]);
+    expect($v->passes())->toBeTrue();
+
+    $v = makeValidator(['n' => '5'], ['n' => FluentRule::integer(strict: true)]);
+    expect($v->passes())->toBeFalse();
+});
+
+it('FluentRule::integer() defaults to non-strict and accepts numeric strings', function (): void {
+    expect(FluentRule::integer()->compiledRules())->toBe('numeric|integer');
+
+    $v = makeValidator(['n' => '5'], ['n' => FluentRule::integer()]);
+    expect($v->passes())->toBeTrue();
+});
+
+it('FluentRule::integer() preserves positional (label, message) call signature', function (): void {
+    // BC contract: (label, message) must stay the first two positional slots.
+    // Message binds to the `integer` sub-rule (the semantically meaningful one);
+    // input must pass `numeric` but fail `integer` for the message to surface.
+    $rule = FluentRule::integer('Age', 'Must be a whole number.');
+
+    expect($rule->compiledRules())->toBe('numeric|integer');
+
+    $v = makeValidator(['age' => 5.5], ['age' => $rule]);
+    expect($v->passes())->toBeFalse()
+        ->and($v->errors()
+            ->first('age'))
+        ->toBe('Must be a whole number.');
+});
+
+it('FluentRule::integer(label:, message:, strict: true) routes label, message, and strictness', function (): void {
+    $rule = FluentRule::integer(label: 'User Age', message: 'Whole numbers only.', strict: true);
+
+    expect($rule->compiledRules())->toBe('numeric|integer:strict');
+
+    // Non-strict allows '5'; strict rejects it. Message binds to integer:strict.
+    $v = makeValidator(['age' => '5'], ['age' => $rule]);
+    expect($v->passes())->toBeFalse()
+        ->and($v->errors()
+            ->first('age'))
+        ->toBe('Whole numbers only.');
+});
+
 // =========================================================================
 // NumericRule — inArrayKeys
 // =========================================================================

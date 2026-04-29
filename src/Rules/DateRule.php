@@ -25,9 +25,42 @@ class DateRule implements DataAwareRule, FluentRuleContract, ValidatorAwareRule
     /** @var list<string> */
     protected array $constraints = [];
 
+    public function __construct(?string $factoryMessage = null)
+    {
+        // Seed lastConstraint to 'date' ONLY when a factory `message:` arg was
+        // supplied. This matches StringRule/NumericRule semantics for the
+        // factory-message path (chained ->message() can re-target the same key)
+        // while preserving the fail-fast guardrail for plain construction —
+        // FluentRule::date()->message('…')->before(…) still throws because no
+        // factory message means no seed.
+        if ($factoryMessage !== null) {
+            $this->customMessages['date'] = $factoryMessage;
+            $this->seedLastConstraint('date');
+        }
+    }
+
     public function format(string $format): static
     {
         $this->format = $format;
+
+        // Migrate any pinned message from 'date' to 'date_format' since the
+        // type-check rule emitted at compile time changes from `date` to
+        // `date_format:<format>`. customMessages keys use the bare rule name
+        // (no `:<param>` suffix) — matching addRule()'s `explode(':', …)` logic.
+        // An existing 'date_format' message wins (explicit messageFor() represents
+        // user intent); the orphan 'date' message is dropped since `date` won't fire.
+        // array_key_exists handles intentional empty-string messages, which isset would skip.
+        if (array_key_exists('date', $this->customMessages)) {
+            if (! array_key_exists('date_format', $this->customMessages)) {
+                $this->customMessages['date_format'] = $this->customMessages['date'];
+            }
+
+            unset($this->customMessages['date']);
+        }
+
+        if ($this->lastConstraint === 'date') {
+            $this->lastConstraint = 'date_format';
+        }
 
         return $this;
     }

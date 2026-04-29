@@ -53,27 +53,32 @@ class FluentRule
         return $numericRule;
     }
 
-    public static function integer(?string $label = null, ?string $message = null): NumericRule
+    public static function integer(?string $label = null, ?string $message = null, bool $strict = false): NumericRule
     {
-        return self::numeric($label)->integer(message: $message);
+        return self::numeric($label)->integer(strict: $strict, message: $message);
     }
 
     /**
-     * `message:` is deferred — DateRule's error-lookup key varies at
-     * build time (`'date'` vs `'date_format:...'`). Use `->messageFor()`
-     * or `->message()` after calling a specific method like `before()`.
+     * `message:` binds to the type-check key — `'date'` by default, or
+     * `'date_format'` if `->format()` is later called (the pinned message
+     * migrates automatically). Mirrors `::string(message:)` ergonomics:
+     * a chained `->message()` after the factory re-targets the same key.
+     * Plain `FluentRule::date()->message(...)` (no factory message) still
+     * throws `LogicException` — the fail-fast guard is preserved.
      */
-    public static function date(?string $label = null): DateRule
+    public static function date(?string $label = null, ?string $message = null): DateRule
     {
-        $dateRule = new DateRule();
+        $dateRule = new DateRule($message);
+        if ($label !== null) {
+            $dateRule->label($label);
+        }
 
-        return $label !== null ? $dateRule->label($label) : $dateRule;
+        return $dateRule;
     }
 
-    /** Deferred for the same reason as `::date()`. */
-    public static function dateTime(?string $label = null): DateRule
+    public static function dateTime(?string $label = null, ?string $message = null): DateRule
     {
-        return self::date($label)->format('Y-m-d H:i:s');
+        return self::date($label, $message)->format('Y-m-d H:i:s');
     }
 
     public static function boolean(?string $label = null, ?string $message = null): BooleanRule
