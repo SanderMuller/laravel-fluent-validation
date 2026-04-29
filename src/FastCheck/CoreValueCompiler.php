@@ -350,7 +350,7 @@ final class CoreValueCompiler
 
         if (($c['integer'] ?? false) === true) {
             $checks[] = ($c['integer.strict'] ?? false) === true
-                ? static fn (mixed $v): bool => is_int($v)
+                ? is_int(...)
                 : static fn (mixed $v): bool => filter_var($v, FILTER_VALIDATE_INT) !== false;
         }
     }
