@@ -1398,3 +1398,15 @@ it('overridden $maxValuesPerGroup value is respected', function (): void {
         BatchDatabaseChecker::$maxValuesPerGroup = $previous;
     }
 });
+
+it('filterValuesByType drops numeric strings for integer:strict rule', function (): void {
+    // Strict mode rejects "2"/"4" so they don't enter the batched whereIn
+    // group; this avoids unnecessary DB work and prevents the hard-cap remap
+    // from firing on values Laravel 12.23+ would reject anyway.
+    $result = BatchDatabaseChecker::filterValuesByType(
+        [1, '2', 'abc', 3.5, '4', null, ''],
+        ['integer:strict'],
+    );
+
+    expect($result)->toBe([1]);
+});

@@ -83,6 +83,15 @@ final class ValueTypePredicates
 
     private static function predicateFor(string $rule): ?Closure
     {
+        // `integer:strict` requires `is_int($v)` semantics — numeric strings
+        // like "42" must NOT pass the type filter so they don't enter the
+        // batched whereIn group on Laravel 12.23+ (where the outer validator
+        // rejects them anyway). Match the strict variant before the plain
+        // `integer`/`int` branch, which collapses params via `:` split.
+        if ($rule === 'integer:strict') {
+            return static fn (mixed $v): bool => is_int($v);
+        }
+
         $token = str_contains($rule, ':') ? substr($rule, 0, (int) strpos($rule, ':')) : $rule;
 
         return match ($token) {
