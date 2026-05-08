@@ -1,6 +1,6 @@
 ---
 name: fluent-validation-migrate-messages
-description: "Migrate `public function messages(): array` overrides in FormRequests to inline `message:` on fluent rule chains. Dry-run first, then apply. Activates when: migrating messages array, removing messages() method, inline message rewrite, or user mentions: migrate messages, messages array, inline message, remove messages()."
+description: "Migrate FormRequest `messages(): array` to inline `message:` on fluent chains. Dry-run, then apply. Activates when: user mentions migrate messages, messages array, inline message, remove messages()."
 ---
 
 # Migrate `messages(): array` → inline `message:`

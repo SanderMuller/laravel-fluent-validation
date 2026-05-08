@@ -1,6 +1,6 @@
 ---
 name: fluent-validation-livewire
-description: "Use when writing or modifying validation in Livewire components. Ensures HasFluentValidation trait is used correctly with FluentRule. Activates when: Livewire validate(), rules() method in Component, assertHasErrors, or Livewire validation."
+description: "FluentRule in Livewire components via HasFluentValidation trait. Activates when: writing Livewire validate(), rules() in Component, assertHasErrors, or Livewire validation."
 ---
 
 # FluentRule in Livewire Components
