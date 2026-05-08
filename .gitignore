@@ -22,6 +22,10 @@ _ide_helper_models.php
 /.fleet
 /.vscode
 /.cursor
+/.agents
+/.junie
+/.kiro
+/GEMINI.md
 
 # Claude Code
 .claude/scheduled_tasks.lock

@@ -4,6 +4,19 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Selected Agents
+    |--------------------------------------------------------------------------
+    |
+    | Limit sync targets to the agents whose artefacts we track or actively
+    | use locally. Skipping junie/kiro/opencode/amp/agents avoids generating
+    | top-level dirs we don't want in this repo.
+    |
+    */
+
+    'agents' => ['claude_code', 'cursor', 'copilot'],
+
+    /*
+    |--------------------------------------------------------------------------
     | Excluded Laravel Boost Guidelines
     |--------------------------------------------------------------------------
     |
