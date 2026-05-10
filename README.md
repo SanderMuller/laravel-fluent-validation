@@ -49,7 +49,7 @@ Write Laravel validation rules with IDE autocompletion instead of memorizing str
 **Deep dive**
 - [Livewire](#livewire): HasFluentValidation trait, Filament workaround
 - [Performance](#performance): O(n) wildcards, pre-evaluation, fast-check closures, batched DB, benchmarks
-- [RuleSet](#ruleset): builder, conditional fields, custom Validators
+- [RuleSet](#ruleset): build, compose, inspect, validate, escape hatches, method reference
 - [Testing](#testing): `FluentRulesTester`, Pest expectations
 - [Rule reference](#rule-reference): all types, modifiers, conditionals, macros
 - [Troubleshooting](#troubleshooting): common issues and solutions
@@ -792,7 +792,13 @@ If you're not sure whether validation is your bottleneck, profile first. Laravel
 
 ## RuleSet
 
-For validation outside of form requests, you may use `RuleSet` to build, merge, and validate rule sets:
+`RuleSet` is the composable, immutable rule container that powers everything outside a Form Request: inline validation, shared rule libraries, conditional fields, errors-as-data flows. Reach for it whenever the rules are not bound to a single HTTP request — Form Requests already wrap a `RuleSet` for you under the hood.
+
+In this section: [Building](#building-a-rule-set) · [Composing](#composing-rule-sets) · [Inspecting and exporting](#inspecting-and-exporting-a-rule-set) · [Validating data](#validating-data) · [Raw Validator](#integrating-with-a-raw-validator) · [Custom Validators](#using-with-custom-validators) · [Compile pipeline](#compile-pipeline-advanced) · [Method reference](#method-reference)
+
+### Building a rule set
+
+Two equivalent entry points. Pick whichever reads cleaner at the call site — the array form is compact for static rule lists; the builder form is friendlier when fields are added conditionally.
 
 ```php
 use SanderMuller\FluentValidation\RuleSet;
@@ -825,34 +831,73 @@ $validated = RuleSet::make()
     ->validate($request->all());
 ```
 
-`when()` and `unless()` are available via Laravel's `Conditionable` trait. `merge()` accepts another `RuleSet` or a plain array.
+### Composing rule sets
 
-| Method                             | Returns         | Description                                                                     |
-|------------------------------------|-----------------|---------------------------------------------------------------------------------|
-| `RuleSet::from([...])`             | `RuleSet`       | Create from a rules array                                                       |
-| `RuleSet::make()->field(...)`      | `RuleSet`       | Fluent builder                                                                  |
-| `->merge($ruleSet)`                | `RuleSet`       | Merge another RuleSet or array into this one                                    |
-| `->only(...$fields)`               | `RuleSet`       | Keep only the named fields (variadic strings or single array)                   |
-| `->except(...$fields)`             | `RuleSet`       | Drop the named fields (variadic strings or single array)                        |
-| `->put($field, $rule)`             | `RuleSet`       | Add or replace a single field's rule                                            |
-| `->get($field, $default = null)`   | `mixed`         | Read a single field's rule (uncompiled), or `$default` if absent                |
-| `->modify($field, fn ($rule))`     | `RuleSet`       | Read-modify-write a single field; clones before callback; throws on missing key |
-| `->all()`                          | `array`         | Collection-style alias of `->toArray()`                                         |
-| `[...$ruleSet]`                    | `array`         | Spread support via `IteratorAggregate`; yields `$this->toArray()` shape         |
-| `->when($cond, $callback)`         | `RuleSet`       | Conditionally add fields (also: `unless`)                                       |
-| `->toArray()`                      | `array`         | Flat rules with `each()` expanded to wildcards                                  |
-| `->validate($data)`                | `array`         | Validate with full optimization (see [Performance](#performance))               |
-| `->check($data)`                   | `Validated`     | Validate without throwing. See [errors-as-data](#errors-as-data-with-check)     |
-| `->prepare($data)`                 | `PreparedRules` | Expand, extract metadata, compile. For custom Validators                        |
-| `->expandWildcards($data)`         | `array`         | Pre-expand wildcards without validating                                         |
-| `RuleSet::compile($rules)`         | `array`         | Compile fluent rules to native Laravel format                                   |
-| `RuleSet::compileToArrays($rules)` | `array`         | Compile to array format for Livewire's `$this->validate()`                      |
-| `->failOnUnknownFields()`          | `RuleSet`       | Reject input keys not present in the rule set                                   |
-| `->stopOnFirstFailure()`           | `RuleSet`       | Stop validating after the first field fails                                     |
-| `->dump()`                         | `array`         | Returns `{rules, messages, attributes}` for debugging                           |
-| `->dd()`                           | `never`         | Dumps and terminates                                                            |
+Most non-trivial validation is assembled, not declared in one shot: shared address rules merged in, parent rules sliced down for a child request, a single field tweaked without rewriting the rest. RuleSet exposes three groups of composition tools.
 
-### Errors-as-data with `check()`
+**Slice and combine** — `merge`, `only`, `except`, `put`, `get`. `merge()` accepts a `RuleSet` or a plain array; later wins on key collision.
+
+```php
+return UserRules::base()
+    ->only(['email', 'password'])
+    ->put('email_confirmation', FluentRule::email()->required()->same('email'));
+```
+
+**Read-modify-write** — `modify`, `modifyEach`, `modifyChildren`. All three clone the existing rule before handing it to your callback so parent rule sets aren't mutated. `modify()` is the primitive; `modifyEach()` and `modifyChildren()` are sugar for the common case of extending a keyed `each([...])` (wildcard arrays) or `children([...])` (fixed-key objects) map. The "[Extending parent rules in child form requests](#extending-parent-rules-in-child-form-requests)" section walks through the parent/child inheritance flow with `modify`/`modifyEach`. The same shape works for `modifyChildren` on a fixed-key object:
+
+```php
+// Parent
+return RuleSet::from([
+    'address' => FluentRule::field()->required()->children([
+        'street' => FluentRule::string()->required(),
+        'city'   => FluentRule::string()->required(),
+    ]),
+]);
+
+// Child — later-wins merge into the children() map
+return parent::rules()->modifyChildren('address', [
+    'postal_code' => FluentRule::string()->required(),
+]);
+```
+
+**Conditionals** — `when()` and `unless()` from Laravel's `Conditionable` trait. Use these to branch field inclusion based on a flag without breaking the chain (shown in the building example above).
+
+### Inspecting and exporting a rule set
+
+Reads of the in-memory `RuleSet`: predicates for branching code, debugging dumps, and the user-facing `toArray()` export that hands rules off to a Validator. The lower-level static `compile*` family lives under [Compile pipeline](#compile-pipeline-advanced) — that's the transform surface for tooling and codegen.
+
+- `toArray()` / `all()` — compiled flat output, ready for `Validator::make()`. `all()` is a Collection-style alias.
+- `[...$ruleSet]` — spread via `IteratorAggregate`; yields the `toArray()` shape, so `[...$parent, 'extra' => $rule]` works.
+- `isEmpty()` — `true` when no fields have been registered. Useful for "skip validation if empty" branches.
+- `hasObjectRules()` — `true` when at least one field uses `each()` or `children()`. Useful for tooling that needs to distinguish flat from nested rule sets.
+- `flattenRules()` — flattened dotted/wildcard form of the rules. Useful for codegen and debug logging:
+
+```php
+RuleSet::from([
+    'address' => FluentRule::field()->required()->children([
+        'street' => FluentRule::string()->required(),
+    ]),
+    'items' => FluentRule::array()->each([
+        'sku' => FluentRule::string()->required(),
+    ]),
+])->flattenRules();
+
+// [
+//     'address'        => FluentRule::field()->required()->children([...]),
+//     'address.street' => FluentRule::string()->required(),
+//     'items'          => FluentRule::array()->each([...]),
+//     'items.*.sku'    => FluentRule::string()->required(),
+// ]
+```
+
+- `dump()` — returns `['rules' => ..., 'messages' => ..., 'attributes' => ...]` for inspection; does not terminate.
+- `dd()` — dumps and terminates. Sugar for the same shape during development.
+
+### Validating data
+
+`validate()` is the default entry point and throws `ValidationException` on failure. `check()` is the errors-as-data alternative. The remaining methods (`failOnUnknownFields`, `stopOnFirstFailure`, `withBag`) are per-call options chained before the terminal `validate()` / `check()` call.
+
+#### Errors-as-data with `check()`
 
 `validate()` throws `ValidationException` on failure. For import pipelines, batch jobs, and any flow where exceptions are the wrong control structure, use `check()` instead. It returns an immutable `Validated` object:
 
@@ -885,7 +930,7 @@ foreach ($rows as $row) {
 
 `check()` runs the same internal engine as `validate()` (fast-check closures, wildcard expansion, batched DB queries). There is no double-parse; the result object just wraps the outcome.
 
-### Rejecting unknown fields
+#### Rejecting unknown fields
 
 `failOnUnknownFields()` rejects input keys that don't match any rule in the set. If someone sends `role` when you only defined `name` and `email`, validation fails:
 
@@ -907,7 +952,7 @@ Wildcard arrays are checked too. `items.0.hack` fails if only `items.*.name` is 
 > [!TIP]
 > For form requests, Laravel 13.4+ has a native `#[FailOnUnknownFields]` attribute that works automatically with `HasFluentRules`.
 
-### Stopping on first failure
+#### Stopping on first failure
 
 `stopOnFirstFailure()` bails after the first field error. If the file upload fails, the 500 `exists` queries for items never run:
 
@@ -922,7 +967,7 @@ $validated = RuleSet::from([
 
 The same applies inside wildcard arrays. If the first item fails, the rest are skipped.
 
-### Named error bags (`withBag`)
+#### Named error bags (`withBag`)
 
 Multiple forms on one page (Fortify's update-password + reset-password, a Livewire multi-card screen, etc.) need separate error bags so their validation messages don't collide. Chain `->withBag($name)` on the rule set; the thrown `ValidationException`'s `errorBag` is set to that name:
 
@@ -937,22 +982,17 @@ RuleSet::from([
 
 Mirrors Laravel's `Validator::validateWithBag()` without forcing you back to the `Validator::make(...)` incantation. Only affects the thrown exception's bag; `check()` never throws and is unaffected.
 
-### Using with a raw `Validator` instance
+### Integrating with a raw `Validator`
 
-If you still need to touch the `Validator` directly (inspection, non-standard extensions), `prepare()` gives you the compiled pieces:
+For inspection (`->failed()`, `->errors()`, `->valid()`), `check()` already exposes the underlying `Validator`:
 
 ```php
-$prepared = RuleSet::from($rules)->prepare($request->all());
-
-$validator = Validator::make(
-    $request->all(),
-    $prepared->rules,
-    array_merge($prepared->messages, $customMessages),
-    $prepared->attributes,
-);
-
-$validator->validate();
+$validator = RuleSet::from($rules)
+    ->check($request->all(), $customMessages)
+    ->validator();
 ```
+
+The validator has already run. For pre-run hooks like `->after()` or `->sometimes()`, prefer the equivalent `RuleSet` mechanics (custom `Rule` classes, `Rule::when()`, `modify()`). If you genuinely need an unvalidated `Validator`, `prepare()` returns the compiled rules, messages, and attributes for hand-rolled `Validator::make(...)` use.
 
 ### Using with custom Validators
 
@@ -983,6 +1023,54 @@ class JsonImportValidator extends FluentValidator
 `FluentValidator` resolves the translator and presence verifier from the container, calls `prepare()` on the rules, and sets implicit attributes. Cross-field wildcard references (`requiredUnless('*.type', ...)`) work automatically.
 
 **Migrating rules in a non-standard method?** If your custom Validator holds its rules in a method that isn't named `rules()` (for example `rulesWithoutPrefix()` for a JSON-import pipeline), mark the method with `#[SanderMuller\FluentValidation\FluentRules]` so the migration Rector rules detect it. The attribute has no runtime effect; see the [`#[FluentRules]` opt-in docs](https://github.com/sandermuller/laravel-fluent-validation-rector#opting-in-fluentrules-attribute) for the full semantics and guard interactions.
+
+### Compile pipeline (advanced)
+
+Escape hatches for tooling, codegen, and framework interop. Most application code never reaches for these — `validate()`, `check()`, `prepare()`, and `toArray()` cover the common cases. They are exposed publicly so external Rector rules, PHPStan extensions, and the Livewire bridge can hook into the same compile pipeline RuleSet uses internally.
+
+- `RuleSet::compile($rules)` — compile a fluent-rules array to native Laravel `string|array` rule format. The lowest-level transform.
+- `RuleSet::compileToArrays($rules)` — compile to the array-of-rules shape Livewire's `$this->validate()` expects. Used by `HasFluentValidation` under the hood.
+- `RuleSet::compileWithMetadata($rules)` — compile alongside extracted custom messages and attribute labels in one pass. For tooling that needs the metadata without re-walking the rule tree.
+- `RuleSet::extractMetadata($rules)` — extract `[messages, attributes]` from labelled fluent rules without compiling. For tooling that only wants the metadata side.
+- `$set->expandWildcards($data)` — pre-expand wildcard rules against a concrete payload without validating. Useful when generating per-row error keys ahead of time.
+
+### Method reference
+
+Alphabetical lookup of every public method. See the subsections above for usage; this table is for "does this method exist?" checks.
+
+| Method | Returns | Description |
+|---|---|---|
+| `->all()` | `array` | Collection-style alias of `->toArray()`. |
+| `->check($data, $messages = [], $attributes = [])` | `Validated` | Validate without throwing. See [Errors-as-data with `check()`](#errors-as-data-with-check). |
+| `RuleSet::compile($rules)` | `array` | Compile fluent rules to native Laravel format. |
+| `RuleSet::compileToArrays($rules)` | `array` | Compile to array-of-rules shape for Livewire's `$this->validate()`. |
+| `RuleSet::compileWithMetadata($rules)` | `array` | Compile + return extracted messages and attributes in one pass. |
+| `->dd()` | `never` | Dump the rule set and terminate. |
+| `->dump()` | `array` | Return `{rules, messages, attributes}` for debugging. |
+| `->except(...$fields)` | `RuleSet` | Drop the named fields (variadic strings or single array). |
+| `->expandWildcards($data)` | `array` | Pre-expand wildcards against `$data` without validating. |
+| `RuleSet::extractMetadata($rules)` | `array` | Extract `[messages, attributes]` from labelled fluent rules. |
+| `->failOnUnknownFields()` | `RuleSet` | Reject input keys not present in the rule set. |
+| `->field($name, $rule)` | `RuleSet` | Add a field via the fluent builder. |
+| `->flattenRules()` | `array` | Flat dotted/wildcard form of the rules; `each`/`children` are unwrapped. |
+| `RuleSet::from([...])` | `RuleSet` | Create from a rules array. |
+| `->get($field, $default = null)` | `mixed` | Read a single field's rule (uncompiled), or `$default` if absent. |
+| `->getIterator()` / `[...$ruleSet]` | `Traversable` | Spread support; yields the `toArray()` shape. |
+| `->hasObjectRules()` | `bool` | `true` when at least one field uses `each()` or `children()`. |
+| `->isEmpty()` | `bool` | `true` when no fields are registered. |
+| `RuleSet::make()` | `RuleSet` | Empty rule set; chain `->field(...)`. |
+| `->merge($ruleSet\|$array)` | `RuleSet` | Merge another RuleSet or array (later wins on collision). |
+| `->modify($field, fn ($rule))` | `RuleSet` | Read-modify-write a single field; clones first; throws on missing key. |
+| `->modifyChildren($field, $rules)` | `RuleSet` | Sugar: later-wins merge into a `FieldRule`'s `children([...])` map. |
+| `->modifyEach($field, $rules)` | `RuleSet` | Sugar: later-wins merge into an `ArrayRule`'s `each([...])` map. |
+| `->only(...$fields)` | `RuleSet` | Keep only the named fields (variadic strings or single array). |
+| `->prepare($data)` | `PreparedRules` | Expand, extract metadata, compile. For hand-rolled `Validator::make`. |
+| `->put($field, $rule)` | `RuleSet` | Add or replace a single field's rule. |
+| `->stopOnFirstFailure()` | `RuleSet` | Stop validating after the first field fails. |
+| `->toArray()` | `array` | Compiled flat output; `each()` expanded to wildcards. |
+| `->validate($data, $messages = [], $attributes = [])` | `array` | Validate with full optimization (see [Performance](#performance)). |
+| `->when($cond, $cb)` / `->unless(...)` | `RuleSet` | Conditionally add fields (Laravel's `Conditionable` trait). |
+| `->withBag($name)` | `RuleSet` | Set the error bag name on the thrown `ValidationException`. |
 
 ---
 
