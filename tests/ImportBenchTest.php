@@ -130,7 +130,7 @@ it('benchmarks complex import validation', function (): void {
     RuleSet::from($rules)->validate($data);
 
     $ruleSet = RuleSet::from($rules);
-    [$expanded, $ia] = $ruleSet->expand($data);
+    [$expanded, $ia] = $ruleSet->expand($data); // @phpstan-ignore method.internal
     $compiled = RuleSet::compile($expanded);
     $v = Validator::make($data, $compiled);
     (new ReflectionProperty($v, 'implicitAttributes'))->setValue($v, $ia);
@@ -141,7 +141,7 @@ it('benchmarks complex import validation', function (): void {
 
     $expandedMedian = benchmarkMedian(function () use ($rules, $data): void {
         $ruleSet = RuleSet::from($rules);
-        [$expanded, $ia] = $ruleSet->expand($data);
+        [$expanded, $ia] = $ruleSet->expand($data); // @phpstan-ignore method.internal
         $compiled = RuleSet::compile($expanded);
         $v = Validator::make($data, $compiled);
         (new ReflectionProperty($v, 'implicitAttributes'))->setValue($v, $ia);
