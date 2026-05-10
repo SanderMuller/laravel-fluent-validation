@@ -52,83 +52,12 @@ class OptimizedValidator extends Validator
      */
     public function passes(): bool
     {
-        $removedRules = [];
         $this->conditionValueCache = [];
-
-        // Phase 1: Fast-check wildcard attributes by pattern.
-        // Iterates per-pattern with all values for that pattern, improving
-        // cache locality and reducing closure dispatch overhead.
-        if ($this->fastCheckGroups !== []) {
-            $flatData = Arr::dot($this->getData());
-
-            foreach ($this->fastCheckGroups as $pattern => $attributes) {
-                $check = $this->fastChecks[$pattern];
-
-                foreach ($attributes as $attribute) {
-                    if (isset($this->rules[$attribute]) && $check($flatData[$attribute] ?? null)) {
-                        $removedRules[$attribute] = $this->rules[$attribute];
-                        unset($this->rules[$attribute]);
-                    }
-                }
-            }
-        }
-
-        // Phase 2: Conditional pre-evaluation and secondary fast-checks
-        // for remaining attributes (non-fast-checked wildcards + top-level rules).
-        foreach ($this->rules as $attribute => $attributeRules) {
-            if (! is_array($attributeRules)) {
-                continue;
-            }
-
-            /** @var list<mixed> $rules */
-            $rules = $attributeRules;
-
-            // Conditional pre-evaluation: check exclude_unless/exclude_if
-            // conditions without going through Laravel's validation loop.
-            $excludeResult = $this->evaluateConditionals($attribute, $rules);
-
-            if ($excludeResult === true) {
-                // Excluded — don't add to removedRules so it's absent from validated().
-                unset($this->rules[$attribute]);
-
-                continue;
-            }
-
-            // If condition was present but NOT excluded, try fast-checking the
-            // remaining non-conditional rules (e.g., the "string" part of
-            // ["exclude_unless:...", "string"]).
-            if ($excludeResult === false && $this->fastChecks !== []) {
-                $remainingRule = $this->extractNonConditionalRule($rules);
-
-                if ($remainingRule !== null) {
-                    $check = FastCheckCompiler::compile($remainingRule);
-
-                    if ($check instanceof Closure) {
-                        $value = $this->getValue($attribute);
-
-                        if ($check($value)) {
-                            $removedRules[$attribute] = $rules;
-                            unset($this->rules[$attribute]);
-
-                            continue;
-                        }
-                    }
-                }
-            }
-        }
+        $removedRules = $this->runFastCheckPhase();
+        $this->runConditionalPhase($removedRules);
 
         if ($removedRules === [] && $this->rules === []) {
-            // Everything was removed — skip parent entirely.
-            $this->messages = new MessageBag();
-            $this->failedRules = [];
-
-            foreach ($this->after as $after) {
-                if (is_callable($after)) {
-                    $after();
-                }
-            }
-
-            return $this->messages->isEmpty();
+            return $this->finalizeWithoutParent();
         }
 
         $result = parent::passes();
@@ -143,69 +72,197 @@ class OptimizedValidator extends Validator
     }
 
     /**
-     * Check if an attribute should be excluded based on its exclude_unless
-     * or exclude_if condition, without invoking Laravel's validator.
+     * Phase 1: Fast-check wildcard attributes by pattern. Iterates per-pattern
+     * with all values for that pattern, improving cache locality and reducing
+     * closure dispatch overhead.
+     *
+     * @return array<string, mixed> Removed rules keyed by attribute.
+     */
+    private function runFastCheckPhase(): array
+    {
+        if ($this->fastCheckGroups === []) {
+            return [];
+        }
+
+        $removedRules = [];
+        $flatData = Arr::dot($this->getData());
+
+        foreach ($this->fastCheckGroups as $pattern => $attributes) {
+            $check = $this->fastChecks[$pattern];
+
+            foreach ($attributes as $attribute) {
+                if (isset($this->rules[$attribute]) && $check($flatData[$attribute] ?? null)) {
+                    $removedRules[$attribute] = $this->rules[$attribute];
+                    unset($this->rules[$attribute]);
+                }
+            }
+        }
+
+        return $removedRules;
+    }
+
+    /**
+     * Phase 2: Conditional pre-evaluation and secondary fast-checks.
+     * Pre-extracts attributes carrying exclude_unless/exclude_if tuples in a
+     * single pass so we skip the per-attribute foreach search that used to
+     * fire for every rule, conditional or not.
+     *
+     * @param array<string, mixed> $removedRules
+     */
+    private function runConditionalPhase(array &$removedRules): void
+    {
+        foreach ($this->indexConditionalAttrs() as $attribute => $tuples) {
+            /** @var list<mixed> $rules */
+            $rules = $this->rules[$attribute];
+
+            if ($this->evaluateExtractedConditionals($attribute, $tuples)) {
+                // Excluded — don't add to removedRules so it's absent from validated().
+                unset($this->rules[$attribute]);
+
+                continue;
+            }
+
+            // Condition present but did not exclude — try fast-checking the
+            // remaining non-conditional rules (e.g., the "string" part of
+            // ["exclude_unless:...", "string"]).
+            if ($this->fastChecks !== [] && $this->tryFastCheckRemaining($attribute, $rules)) {
+                $removedRules[$attribute] = $rules;
+                unset($this->rules[$attribute]);
+            }
+        }
+    }
+
+    /**
+     * Compile and run a fast-check closure against the non-conditional
+     * portion of an attribute's rules. Returns true when the closure
+     * compiled and the value passed — caller may then drop the attribute.
      *
      * @param  list<mixed>  $rules
      */
+    private function tryFastCheckRemaining(string $attribute, array $rules): bool
+    {
+        $remainingRule = $this->extractNonConditionalRule($rules);
+
+        if ($remainingRule === null) {
+            return false;
+        }
+
+        $check = FastCheckCompiler::compile($remainingRule);
+
+        if (! $check instanceof Closure) {
+            return false;
+        }
+
+        return (bool) $check($this->getValue($attribute));
+    }
+
+    /**
+     * Short-circuit when both `passes()` phases drained every rule:
+     * skip parent's full validation loop and run any registered
+     * `after()` callbacks against an empty MessageBag.
+     */
+    private function finalizeWithoutParent(): bool
+    {
+        $this->messages = new MessageBag();
+        $this->failedRules = [];
+
+        foreach ($this->after as $after) {
+            if (is_callable($after)) {
+                $after();
+            }
+        }
+
+        return $this->messages->isEmpty();
+    }
+
     /** @var array<string, string> */
     private array $conditionValueCache = [];
 
     /**
-     * Evaluate exclude_unless/exclude_if conditions on an attribute's rules.
-     * Returns true if excluded, false if condition present but not excluded,
-     * null if no conditional rules found.
+     * Build a flat map of attributes that carry exclude_unless / exclude_if
+     * tuples, paired with the parsed tuple data. Run once per `passes()`
+     * call so Phase 2 can skip the per-attribute tuple search that used to
+     * fire on every rule, conditional or not.
      *
-     * @param  list<mixed>  $rules
+     * @return array<string, list<array{action: string, field: string, values: list<mixed>}>>
      */
-    private function evaluateConditionals(string $attribute, array $rules): ?bool
+    private function indexConditionalAttrs(): array
     {
-        $hasCondition = false;
+        $map = [];
 
-        foreach ($rules as $rule) {
-            if (! is_array($rule)) {
+        foreach ($this->rules as $attribute => $attributeRules) {
+            if (! is_string($attribute) || ! is_array($attributeRules)) {
                 continue;
             }
 
-            if (count($rule) < 3) {
-                continue;
+            $tuples = [];
+
+            foreach ($attributeRules as $rule) {
+                if (! is_array($rule) || count($rule) < 3) {
+                    continue;
+                }
+
+                $action = $rule[0];
+
+                if ($action !== 'exclude_unless' && $action !== 'exclude_if') {
+                    continue;
+                }
+
+                $field = $rule[1];
+
+                if (! is_string($field)) {
+                    continue;
+                }
+
+                $tuples[] = [
+                    'action' => $action,
+                    'field' => $field,
+                    'values' => array_values(array_slice($rule, 2)),
+                ];
             }
 
-            $action = $rule[0];
-            $conditionField = $rule[1];
+            if ($tuples !== []) {
+                $map[$attribute] = $tuples;
+            }
+        }
 
-            if ($action !== 'exclude_unless' && $action !== 'exclude_if') {
-                continue;
+        return $map;
+    }
+
+    /**
+     * Evaluate pre-extracted conditional tuples for an attribute. Returns
+     * true if the attribute should be excluded. False otherwise — the
+     * caller knows at least one condition exists, so the tri-state null
+     * the legacy `evaluateConditionals` returned is no longer needed.
+     *
+     * @param list<array{action: string, field: string, values: list<mixed>}> $tuples
+     */
+    private function evaluateExtractedConditionals(string $attribute, array $tuples): bool
+    {
+        foreach ($tuples as $tuple) {
+            $field = $tuple['field'];
+
+            if (str_contains($field, '*')) {
+                $field = $this->resolveWildcard($attribute, $field);
             }
 
-            if (! is_string($conditionField)) {
-                continue;
+            if (! isset($this->conditionValueCache[$field])) {
+                $rawValue = $this->getValue($field);
+                $this->conditionValueCache[$field] = is_scalar($rawValue) ? (string) $rawValue : '';
             }
 
-            $hasCondition = true;
-            $allowedValues = array_slice($rule, 2);
+            $actualValue = $this->conditionValueCache[$field];
 
-            if (str_contains($conditionField, '*')) {
-                $conditionField = $this->resolveWildcard($attribute, $conditionField);
-            }
-
-            if (! isset($this->conditionValueCache[$conditionField])) {
-                $rawValue = $this->getValue($conditionField);
-                $this->conditionValueCache[$conditionField] = is_scalar($rawValue) ? (string) $rawValue : '';
-            }
-
-            $actualValue = $this->conditionValueCache[$conditionField];
-
-            if ($action === 'exclude_unless' && ! in_array($actualValue, $allowedValues, true)) {
+            if ($tuple['action'] === 'exclude_unless' && ! in_array($actualValue, $tuple['values'], true)) {
                 return true;
             }
 
-            if ($action === 'exclude_if' && in_array($actualValue, $allowedValues, true)) {
+            if ($tuple['action'] === 'exclude_if' && in_array($actualValue, $tuple['values'], true)) {
                 return true;
             }
         }
 
-        return $hasCondition ? false : null;
+        return false;
     }
 
     /**
