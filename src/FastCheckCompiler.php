@@ -20,6 +20,9 @@ use SanderMuller\FluentValidation\FastCheck\ProhibitedCompiler;
  */
 final class FastCheckCompiler
 {
+    /** @var array<string, Closure(mixed): bool|null> */
+    private static array $compileCache = [];
+
     /**
      * Compile a value-only rule string into a closure that checks a single value.
      * Returns null if the rule contains parts that can't be fast-checked.
@@ -32,7 +35,11 @@ final class FastCheckCompiler
      */
     public static function compile(string $ruleString): ?Closure
     {
-        return CoreValueCompiler::compile($ruleString)
+        if (array_key_exists($ruleString, self::$compileCache)) {
+            return self::$compileCache[$ruleString];
+        }
+
+        return self::$compileCache[$ruleString] = CoreValueCompiler::compile($ruleString)
             ?? ProhibitedCompiler::compile($ruleString);
     }
 
