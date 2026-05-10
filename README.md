@@ -600,7 +600,7 @@ When you use one of the optimized entry points (`HasFluentRules` on a FormReques
 | [Conditional import](#conditional-import), 100 items, 47 conditional fields | Wildcard, pre-evaluation               | ~2,928ms       | **~47ms**   | ~62x    |
 | [Event scheduling](#event-scheduling), 100 items, field-ref dates           | Wildcard, fast-check (field-ref dates) | ~19ms          | **~0.7ms**  | ~28x    |
 | [Article submission](#article-submission), 50 items, custom Rule objects    | Wildcard only                          | ~8ms           | **~2ms**    | ~3x     |
-| [Login form](#login-form), 3 fields, no wildcards                           | Fast-check (flat)                      | ~0.1ms         | **~0.02ms** | ~7x     |
+| [Login form](#login-form), 3 fields, no wildcards                           | Fast-check (flat)                      | ~0.1ms         | **~0.01ms** | ~12x    |
 
 All numbers are from `php benchmark.php` (macOS, PHP 8.4, OPcache); CI runs produce the same scenarios on Ubuntu.
 
@@ -771,7 +771,7 @@ Benchmarks run automatically on PRs via GitHub Actions. All optimizations are Oc
 'remember' => FluentRule::boolean()->nullable(),
 ```
 
-**Optimizations**: Fast-check closures for all three fields. Absolute savings are small (~0.1ms → ~0.02ms), but the relative speedup is ~6x since a simple form doesn't give Laravel much wildcard work to amortize against.
+**Optimizations**: Fast-check closures for all three fields, with the compiled closures cached by rule string so repeat FormRequest validations skip recompilation. Absolute savings are small (~0.1ms → ~0.01ms), but the relative speedup is ~12x since a simple form doesn't give Laravel much wildcard work to amortize against.
 
 ### When this won't help
 
