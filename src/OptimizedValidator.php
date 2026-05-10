@@ -191,17 +191,21 @@ class OptimizedValidator extends Validator
         $map = [];
 
         foreach ($this->rules as $attribute => $attributeRules) {
-            if (! is_string($attribute) || ! is_array($attributeRules)) {
+            if (! is_string($attribute)) {
                 continue;
             }
-
+            if (! is_array($attributeRules)) {
+                continue;
+            }
             $tuples = [];
 
             foreach ($attributeRules as $rule) {
-                if (! is_array($rule) || count($rule) < 3) {
+                if (! is_array($rule)) {
                     continue;
                 }
-
+                if (count($rule) < 3) {
+                    continue;
+                }
                 $action = $rule[0];
 
                 if ($action !== 'exclude_unless' && $action !== 'exclude_if') {

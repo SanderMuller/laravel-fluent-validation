@@ -248,7 +248,7 @@ final class CoreValueCompiler
             // Presence gates (inlined for hot-path perf).
             // Explicit === comparisons beat in_array() here — avoids allocating
             // the [null, '', []] literal array on every closure call.
-            if ($required && ($value === null || $value === '' || $value === [])) {
+            if ($required && (in_array($value, [null, '', []], true))) {
                 return false;
             }
 
