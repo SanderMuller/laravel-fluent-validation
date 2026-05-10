@@ -75,6 +75,23 @@ parameters:
             identifier: classConstant.internalClass
             path: tests/
             reportUnmatched: false
+        # Tests for first-party @internal classes (ConditionalEvaluationPhase,
+        # RuleConfigBuilder, etc.) — direct unit tests must instantiate / call
+        # the very classes whose @internal annotation tells external consumers
+        # to stay out. The annotation still serves its purpose at the package
+        # boundary; tests are inside that boundary.
+        -
+            identifier: new.internalClass
+            path: tests/
+            reportUnmatched: false
+        -
+            identifier: staticMethod.internalClass
+            path: tests/
+            reportUnmatched: false
+        -
+            identifier: staticMethod.internal
+            path: tests/
+            reportUnmatched: false
         # Pest higher-order expectations and test helpers return mixed
         -
             identifier: method.nonObject

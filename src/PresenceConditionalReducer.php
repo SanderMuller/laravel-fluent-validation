@@ -3,7 +3,7 @@
 namespace SanderMuller\FluentValidation;
 
 use Illuminate\Http\UploadedFile;
-use Illuminate\Support\Arr;
+use SanderMuller\FluentValidation\Internal\AbstractConditionalReducer;
 use stdClass;
 
 /**
@@ -17,7 +17,7 @@ use stdClass;
  *
  * @internal Implementation detail of `RuleSet`. Not part of the public API.
  */
-final class PresenceConditionalReducer
+final class PresenceConditionalReducer extends AbstractConditionalReducer
 {
     /**
      * Longest-prefix-first order for `str_starts_with` disambiguation so
@@ -33,32 +33,6 @@ final class PresenceConditionalReducer
     ];
 
     /**
-     * Cheap pre-check: does any rule in the set contain a presence
-     * conditional? Used by `RuleSet::validateItems` to decide whether
-     * the per-item reducer path must engage.
-     *
-     * @param  array<string, mixed>  $itemRules
-     */
-    public static function hasAny(array $itemRules): bool
-    {
-        foreach ($itemRules as $rule) {
-            if (is_string($rule) && self::stringContainsPresenceRule($rule)) {
-                return true;
-            }
-
-            if (is_array($rule)) {
-                foreach ($rule as $sub) {
-                    if (is_string($sub) && self::stringContainsPresenceRule($sub)) {
-                        return true;
-                    }
-                }
-            }
-        }
-
-        return false;
-    }
-
-    /**
      * Rewrite presence-conditional rules for a single field against
      * item data. Handles pipe-joined strings and list-of-rules shape.
      *
@@ -67,58 +41,10 @@ final class PresenceConditionalReducer
      */
     public static function apply(mixed $rule, string $field, array $itemData, array $itemMessages): mixed
     {
-        if (is_string($rule)) {
-            if (! str_contains($rule, '|')) {
-                $rewritten = self::rewriteOne($rule, $field, $itemData, $itemMessages);
-
-                return $rewritten ?? '';
-            }
-
-            $parts = [];
-            foreach (explode('|', $rule) as $part) {
-                $rewritten = self::rewriteOne($part, $field, $itemData, $itemMessages);
-                if ($rewritten !== null) {
-                    $parts[] = $rewritten;
-                }
-            }
-
-            return implode('|', $parts);
-        }
-
-        if (! is_array($rule)) {
-            return $rule;
-        }
-
-        $out = [];
-        foreach ($rule as $sub) {
-            if (is_string($sub)) {
-                $rewritten = self::rewriteOne($sub, $field, $itemData, $itemMessages);
-                if ($rewritten !== null) {
-                    $out[] = $rewritten;
-                }
-
-                continue;
-            }
-
-            $out[] = $sub;
-        }
-
-        return $out;
-    }
-
-    private static function stringContainsPresenceRule(string $rule): bool
-    {
-        if (str_contains($rule, '|')) {
-            foreach (explode('|', $rule) as $part) {
-                if (self::parse($part) !== null) {
-                    return true;
-                }
-            }
-
-            return false;
-        }
-
-        return self::parse($rule) !== null;
+        return self::applyTemplate(
+            $rule,
+            static fn (string $r): ?string => self::rewriteOne($r, $field, $itemData, $itemMessages),
+        );
     }
 
     /**
@@ -128,7 +54,7 @@ final class PresenceConditionalReducer
      *
      * @return array{0: string, 1: string}|null
      */
-    private static function parse(string $rule): ?array
+    protected static function parse(string $rule): ?array
     {
         foreach (self::RULE_NAMES as $name) {
             $prefix = $name . ':';
@@ -252,55 +178,5 @@ final class PresenceConditionalReducer
         }
 
         return true;
-    }
-
-    /**
-     * Detect custom user-supplied messages for the original rule name so
-     * the rewrite path doesn't bypass a `{field}.required_without`-style
-     * override at message-formatting time.
-     *
-     * @param  array<string, string>  $itemMessages
-     */
-    private static function hasCustomMessage(string $field, string $ruleName, array $itemMessages): bool
-    {
-        // Inside wildcard-item reduction, `$field` is the item-local key
-        // (e.g. `postcode`), but user-supplied messages typically come in
-        // via the original wildcard form (`addresses.*.postcode.required_without`).
-        // Match any message whose key equals `{field}.{rule}` or ends with
-        // `.{field}.{rule}` — covers bare-field, wildcard-prefixed, and
-        // any parent-prefixed variant.
-        $suffix = '.' . $field . '.' . $ruleName;
-        $exactKey = $field . '.' . $ruleName;
-        foreach (array_keys($itemMessages) as $key) {
-            $key = (string) $key;
-            if ($key === $exactKey || str_ends_with($key, $suffix)) {
-                return true;
-            }
-        }
-
-        if (function_exists('trans')) {
-            $translatorKey = 'validation.custom.' . $field . '.' . $ruleName;
-            $translated = trans($translatorKey);
-            if (is_string($translated) && $translated !== $translatorKey) {
-                return true;
-            }
-
-            // Wildcard-keyed translator overrides
-            // (`validation.custom.addresses.*.postcode.required_without`)
-            // are resolved via Laravel's `Str::is()` against the flattened
-            // `validation.custom` namespace — mirror Validator::getCustomMessageFromTranslator.
-            $custom = trans('validation.custom');
-            if (is_array($custom)) {
-                $shortKey = $field . '.' . $ruleName;
-                foreach (array_keys(Arr::dot($custom)) as $customKey) {
-                    $customKey = (string) $customKey;
-                    if ($customKey === $shortKey || str_ends_with($customKey, '.' . $shortKey)) {
-                        return true;
-                    }
-                }
-            }
-        }
-
-        return false;
     }
 }

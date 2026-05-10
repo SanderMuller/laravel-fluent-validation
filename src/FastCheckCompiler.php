@@ -67,6 +67,18 @@ final class FastCheckCompiler
             ?? ProhibitedCompiler::compile($ruleString);
     }
 
+    /**
+     * Clear the static compile cache. Used by tests that need a known cache
+     * state to assert the cap-reset behaviour. Octane lifecycle is not a
+     * caller — workers tolerate the cap-reset at runtime via `compile()`.
+     *
+     * @internal Test-only.
+     */
+    public static function resetCompileCache(): void
+    {
+        self::$compileCache = [];
+    }
+
     private static function hasDateComparison(string $ruleString): bool
     {
         return str_contains($ruleString, 'after:')

@@ -4,23 +4,25 @@ parameters:
 		# inlining (size, in/regex, date comparisons) to avoid closure
 		# allocation + call overhead on every validated item.
 		# Factoring out hurts benchmark numbers; keep inlined + baselined.
+		# Relocated from CoreValueCompiler to RuleConfigBuilder in the
+		# May 2026 maintainability refactor — same code, new home.
 		-
-			rawMessage: 'Class cognitive complexity is 120, keep it under 80'
+			rawMessage: 'Class cognitive complexity is 115, keep it under 80'
 			identifier: complexity.classLike
 			count: 1
-			path: src/FastCheck/CoreValueCompiler.php
+			path: src/FastCheck/RuleConfigBuilder.php
 
 		-
-			rawMessage: 'Cognitive complexity for "SanderMuller\FluentValidation\FastCheck\CoreValueCompiler::buildClosure()" is 52, keep it under 20'
+			rawMessage: 'Cognitive complexity for "SanderMuller\FluentValidation\FastCheck\RuleConfigBuilder::buildValueClosure()" is 52, keep it under 20'
 			identifier: complexity.functionLike
 			count: 1
-			path: src/FastCheck/CoreValueCompiler.php
+			path: src/FastCheck/RuleConfigBuilder.php
 
 		-
-			rawMessage: 'Cognitive complexity for "SanderMuller\FluentValidation\FastCheck\CoreValueCompiler::addDateChecks()" is 23, keep it under 20'
+			rawMessage: 'Cognitive complexity for "SanderMuller\FluentValidation\FastCheck\RuleConfigBuilder::addDateChecks()" is 23, keep it under 20'
 			identifier: complexity.functionLike
 			count: 1
-			path: src/FastCheck/CoreValueCompiler.php
+			path: src/FastCheck/RuleConfigBuilder.php
 
 		-
 			rawMessage: 'Class cognitive complexity is 101, keep it under 80'

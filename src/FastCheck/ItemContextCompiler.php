@@ -92,7 +92,7 @@ final class ItemContextCompiler
      */
     private static function parseWithItemContext(string $ruleString): ?array
     {
-        $config = self::initialConfig();
+        $config = RuleConfigBuilder::initialConfig();
 
         foreach (explode('|', $ruleString) as $part) {
             $result = self::parsePartWithItemContext($part, $config);
@@ -104,7 +104,7 @@ final class ItemContextCompiler
             $config = $result;
         }
 
-        if (! CoreValueCompiler::validateSizeRuleHasType($config)) {
+        if (! RuleConfigBuilder::validateSizeRuleHasType($config)) {
             return null;
         }
 
@@ -146,29 +146,13 @@ final class ItemContextCompiler
     }
 
     /**
-     * @return array<string, mixed>
-     */
-    private static function initialConfig(): array
-    {
-        return [
-            ...CoreValueCompiler::initialConfig(),
-            'afterField' => null, 'beforeField' => null,
-            'afterOrEqualField' => null, 'beforeOrEqualField' => null,
-            'dateEqualsField' => null,
-            'sameField' => null, 'differentField' => null,
-            'gtField' => null, 'gteField' => null,
-            'ltField' => null, 'lteField' => null,
-        ];
-    }
-
-    /**
      * @param  array<string, mixed>  $config
      * @return array<string, mixed>|null
      */
     private static function parsePartWithItemContext(string $part, array $config): ?array
     {
         // For date rules, use the field-ref-aware parser. For everything else,
-        // delegate to CoreValueCompiler's value-only parser.
+        // delegate to the value-only parser in RuleConfigBuilder.
         return match (true) {
             str_starts_with($part, 'date_equals:') => self::parseDateParamWithFieldRef($config, 'dateEquals', substr($part, 12)),
             str_starts_with($part, 'after_or_equal:') => self::parseDateParamWithFieldRef($config, 'afterOrEqual', substr($part, 15)),
@@ -181,7 +165,7 @@ final class ItemContextCompiler
             str_starts_with($part, 'lte:') => self::parseFieldOnlyRef($config, 'lteField', substr($part, 4)),
             str_starts_with($part, 'gt:') => self::parseFieldOnlyRef($config, 'gtField', substr($part, 3)),
             str_starts_with($part, 'lt:') => self::parseFieldOnlyRef($config, 'ltField', substr($part, 3)),
-            default => CoreValueCompiler::parsePart($part, $config),
+            default => RuleConfigBuilder::parseValuePart($part, $config),
         };
     }
 
@@ -236,7 +220,7 @@ final class ItemContextCompiler
      */
     private static function buildItemAwareClosure(array $c): Closure
     {
-        $valueClosure = CoreValueCompiler::buildClosure($c);
+        $valueClosure = RuleConfigBuilder::buildValueClosure($c);
 
         /** @var ?string $afterField */
         $afterField = $c['afterField'];
