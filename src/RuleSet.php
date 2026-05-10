@@ -808,6 +808,15 @@ final class RuleSet implements Arrayable, IteratorAggregate
     }
 
     /**
+     * Expand wildcard rules against `$data` and return the rules paired with
+     * implicit-attributes metadata. Returns the awkward tuple shape
+     * `[$rules, $implicitAttributes]`; user code should reach for
+     * `expandWildcards()` (rules only) or `prepare()` (full PreparedRules
+     * payload) instead.
+     *
+     * @internal Used by {@see prepare()}, {@see validate()}, and the
+     *     compile pipeline. Not covered by the package's BC promise.
+     *
      * @param  array<string, mixed>  $data
      * @param  array<string, mixed>|null  $flatRules  Pre-computed flatten() result
      * @return array{0: array<string, mixed>, 1: array<string, list<string>>}
