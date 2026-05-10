@@ -194,18 +194,22 @@ class OptimizedValidator extends Validator
             if (! is_string($attribute)) {
                 continue;
             }
+
             if (! is_array($attributeRules)) {
                 continue;
             }
+
             $tuples = [];
 
             foreach ($attributeRules as $rule) {
                 if (! is_array($rule)) {
                     continue;
                 }
+
                 if (count($rule) < 3) {
                     continue;
                 }
+
                 $action = $rule[0];
 
                 if ($action !== 'exclude_unless' && $action !== 'exclude_if') {
