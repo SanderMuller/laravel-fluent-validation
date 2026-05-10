@@ -85,18 +85,16 @@ class ArrayRule implements DataAwareRule, FluentRuleContract, ValidatorAwareRule
     }
 
     /**
-     * @return ValidationRule|array<string, ValidationRule>|null
+     * Keyed sub-rule map set via `each(['key' => $rule, ...])`. Alias of
+     * `getEachKeyedRules()`. Returns null when `each()` was never called or
+     * the current state is list-shaped — list-form retrieval lives on
+     * `getEachListRule()`.
      *
-     * @deprecated 1.24.0 The list-form branch of the return union is deprecated.
-     *             Use `getEachKeyedRules()` for the keyed `each([...])` case
-     *             and `getEachListRule()` for the list-form `each(VR)` case.
-     *             In 1.25.0 this method's return type will narrow to
-     *             `?array<string, ValidationRule>` — the list-form rule will
-     *             no longer be retrievable through this getter.
+     * @return array<string, ValidationRule>|null
      */
-    public function getEachRules(): ValidationRule|array|null
+    public function getEachRules(): ?array
     {
-        return $this->eachListRule ?? $this->eachRules;
+        return $this->eachRules;
     }
 
     /**

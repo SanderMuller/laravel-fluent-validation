@@ -1562,10 +1562,7 @@ it('compileToArrays handles mixed fluent and string rules', function (): void {
 });
 
 // =========================================================================
-// ArrayRule — getEachListRule / getEachKeyedRules / withoutEachRules
-// (replace the pre-1.24 getEachRules() union-return tests — see deprecation
-// regression test below for the single BC-surface case that still covers
-// the deprecated getter.)
+// ArrayRule — getEachListRule / getEachKeyedRules / getEachRules / withoutEachRules
 // =========================================================================
 
 it('returns null from both narrow getters when no each() set', function (): void {
@@ -1590,18 +1587,15 @@ it('withoutEachRules returns clone with both narrow getters null', function (): 
         ->and($arrayRule->getEachListRule())->not->toBeNull();
 });
 
-it('deprecated getEachRules() still returns the union for BC', function (): void {
-    // 1.24.0 soft-deprecates this getter — narrowing planned for 1.25.0.
-    // Until then, both branches still surface through it so pre-1.23
-    // consumers keep working. Deliberate calls to the deprecated API.
+it('getEachRules() returns keyed map only — list-form surfaces null', function (): void {
     $stringRule = FluentRule::string()->required();
 
-    // @phpstan-ignore method.deprecated
-    expect(FluentRule::array()->getEachRules())->toBeNull();
-    // @phpstan-ignore method.deprecated
-    expect(FluentRule::array()->each($stringRule)->getEachRules())->toBe($stringRule);
-    // @phpstan-ignore method.deprecated
-    expect(FluentRule::array()->each(['name' => $stringRule])->getEachRules())
+    expect(FluentRule::array()->getEachRules())->toBeNull()
+        ->and(FluentRule::array()->each($stringRule)
+            ->getEachRules())
+        ->toBeNull()
+        ->and(FluentRule::array()->each(['name' => $stringRule])
+            ->getEachRules())
         ->toBe(['name' => $stringRule]);
 });
 
