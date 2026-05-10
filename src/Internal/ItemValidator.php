@@ -97,7 +97,7 @@ final readonly class ItemValidator
             }
 
             if ($dispatchFastChecks !== []) {
-                $fastPass = $this->errors->passesAllFastChecks(array_values($dispatchFastChecks), $itemData);
+                $fastPass = $this->errors->passesAllFastChecks($dispatchFastChecks, $itemData);
 
                 if ($fastPass && $dispatchSlowRules === []) {
                     continue;
