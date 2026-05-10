@@ -20,6 +20,16 @@ use SanderMuller\FluentValidation\FastCheck\ProhibitedCompiler;
  */
 final class FastCheckCompiler
 {
+    /**
+     * Soft cap on the compile cache. Rule strings normally converge to a
+     * small fixed set per app, but apps that build rules from runtime values
+     * (per-tenant `in:` lists, request-specific regexes, generated literals)
+     * can grow the cache without bound on long-lived Octane workers. Above
+     * this size we drop the cache to avoid worker bloat — correctness is
+     * preserved, only the warm hit-rate resets.
+     */
+    private const COMPILE_CACHE_MAX = 1024;
+
     /** @var array<string, ?Closure(mixed): bool> */
     private static array $compileCache = [];
 
@@ -35,12 +45,35 @@ final class FastCheckCompiler
      */
     public static function compile(string $ruleString): ?Closure
     {
+        // Date-comparison rules (`after:today`, `before:now`, `date_equals:`,
+        // ...) bake the result of `strtotime()` into the compiled closure at
+        // compile time. Caching that closure across requests would freeze
+        // relative timestamps for the lifetime of the Octane worker. Skip
+        // the cache entirely for these — re-compilation is cheap.
+        if (self::hasDateComparison($ruleString)) {
+            return CoreValueCompiler::compile($ruleString)
+                ?? ProhibitedCompiler::compile($ruleString);
+        }
+
         if (array_key_exists($ruleString, self::$compileCache)) {
             return self::$compileCache[$ruleString];
         }
 
+        if (count(self::$compileCache) >= self::COMPILE_CACHE_MAX) {
+            self::$compileCache = [];
+        }
+
         return self::$compileCache[$ruleString] = CoreValueCompiler::compile($ruleString)
             ?? ProhibitedCompiler::compile($ruleString);
+    }
+
+    private static function hasDateComparison(string $ruleString): bool
+    {
+        return str_contains($ruleString, 'after:')
+            || str_contains($ruleString, 'before:')
+            || str_contains($ruleString, 'after_or_equal:')
+            || str_contains($ruleString, 'before_or_equal:')
+            || str_contains($ruleString, 'date_equals:');
     }
 
     /**
