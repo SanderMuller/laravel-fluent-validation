@@ -69,13 +69,14 @@ Release-worthy features change user-visible behavior, so `README.md` and the `.a
 
 #### 5a. README
 
-Scan `README.md` against the commits in this release (`git log <last-tag>..HEAD`). Update these sections when relevant:
+Run the **`readme` skill's audit pattern** (`vendor/sandermuller/package-boost/resources/boost/skills/readme/SKILL.md` → "Audit pattern (canonical)") against `README.md` and the commits in this release. The skill covers public-API drift, install/usage code blocks, config keys, version constraints, and links.
+
+In addition to the generic audit, scan these **project-specific README surfaces** that the generic pattern doesn't know about:
 
 - **Benchmark table** (roughly line ~450) — if any scenario's numbers, speedup, or `Optimizations` label changed.
 - **Fast-check closures section** — if the list of supported rules changed (new rule family, new operator, new field-ref form).
 - **Scenario narratives** — if a scenario's comments (`// field ref → Laravel` vs `// → fast-checked`) no longer match reality.
 - **"When this won't help" / limitations** — every new fast-checkable rule reduces this list; keep it honest.
-- **Public API signatures** — if a method gained a parameter, a new public method was added, or behavior changed.
 
 If unsure whether a change warrants a README update: check whether a user reading the README after the release would see outdated advice. If yes, update.
 
@@ -203,6 +204,8 @@ On failure:
 ### 8. Release notes (ONLY after step 7 CI-green)
 
 This is where agents most commonly slip: running the local gauntlet (steps 1-6), then jumping straight to `Write internal/release-notes-<version>.md` without committing, pushing, or watching CI. **Do not do that.** Notes claim CI-matrix facts; CI must have produced those facts first.
+
+**For body shape, voice, and override-vs-default decisions, use the `release-notes` skill** (`vendor/sandermuller/package-boost/resources/boost/skills/release-notes/SKILL.md` + its `references/laravel-package.md`). It covers when to override GitHub's auto-generator, how to structure overrides, and what bookwork to cut. The pre-release skill adds only the project-specific gates and redactions below.
 
 **Release notes are public artefacts — do NOT name or reference peers.** The release body is rendered on GitHub, prepended to `CHANGELOG.md` by CI, and indexed by Packagist. Anything written here is visible to every downstream consumer and shows up in search. Internal peer instances (`e0cp6lq3`, `2op9yaul`, etc.), peer-level adoption reports, and claude-peers channels are *process* concerns, not product concerns — consumers don't know or care about them, and leaking the IDs exposes internal architecture.
 
