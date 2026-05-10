@@ -153,7 +153,7 @@ class OptimizedValidator extends Validator
             return false;
         }
 
-        return (bool) $check($this->getValue($attribute));
+        return $check($this->getValue($attribute));
     }
 
     /**

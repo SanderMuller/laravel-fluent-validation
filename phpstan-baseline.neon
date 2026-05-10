@@ -46,12 +46,6 @@ parameters:
 			count: 1
 			path: src/FluentFormRequest.php
 
-		-
-			rawMessage: 'Cognitive complexity for "SanderMuller\FluentValidation\OptimizedValidator::passes()" is 37, keep it under 20'
-			identifier: complexity.functionLike
-			count: 1
-			path: src/OptimizedValidator.php
-
 		# Grew by one with Phase 2's runValidateInternal remap layer.
 		-
 			rawMessage: 'Class cognitive complexity is 137, keep it under 80'

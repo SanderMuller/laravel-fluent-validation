@@ -20,7 +20,7 @@ use SanderMuller\FluentValidation\FastCheck\ProhibitedCompiler;
  */
 final class FastCheckCompiler
 {
-    /** @var array<string, Closure(mixed): bool|null> */
+    /** @var array<string, ?Closure(mixed): bool> */
     private static array $compileCache = [];
 
     /**
