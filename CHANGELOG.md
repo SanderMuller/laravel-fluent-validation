@@ -2,6 +2,67 @@
 
 All notable changes to `laravel-fluent-validation` will be documented in this file.
 
+## 1.27.0 - 2026-05-11
+
+### What changed
+
+#### `dropUnknownFields()` — lenient counterpart to `failOnUnknownFields()`
+
+`RuleSet::failOnUnknownFields()` rejects unknown input keys with a validation error. `dropUnknownFields()` does the opposite: it strips them silently.
+
+```php
+$validated = RuleSet::from([
+    'name' => FluentRule::string()->required(),
+    'meta' => FluentRule::array()->required()->children([
+        'type' => FluentRule::string()->required(),
+    ]),
+])->dropUnknownFields()->validate($request);
+// Input:  ['name' => 'John', 'meta' => ['type' => 'admin', 'secret' => 'leak']]
+// Output: ['name' => 'John', 'meta' => ['type' => 'admin']]
+
+```
+Top-level keys outside the rule set are already excluded from `validated()`; this flag extends the same behavior to nested array shapes declared via `children()`, `each()`, or dotted rule keys. Maps to Laravel's `Validator::$excludeUnvalidatedArrayKeys`, but gives per-`RuleSet` control instead of relying on whatever the host factory's flag happens to be set to — useful when an application has called `Factory::includeUnvalidatedArrayKeys()` globally and a specific call site needs the strict default back.
+
+If both `dropUnknownFields()` and `failOnUnknownFields()` are set on the same rule set, `failOnUnknownFields()` wins — unknown keys trigger a validation error before the drop ever applies. Order is deterministic and pinned by `tests/RuleSetTest.php`.
+
+Wildcard rule sets (anything built with `each()`) take a different path internally: the per-item validators don't see siblings, so they can't strip cross-item unknown keys. When `dropUnknownFields()` is combined with `each()`, the rule set falls back to a single fully-expanded validator so the flag applies uniformly. The fallback is correct but bypasses the batched-database verifier and per-item fast-check optimizations — fine for typical FormRequest payloads, worth knowing if you're stripping unknowns on five-figure-row imports.
+
+#### `validate(Request)` / `check(Request)`
+
+`RuleSet::validate()` and `RuleSet::check()` now accept `array|Illuminate\Http\Request`:
+
+```php
+// Before
+$validated = RuleSet::from([...])->validate($request->all());
+
+// 1.27
+$validated = RuleSet::from([...])->validate($request);
+
+```
+When a `Request` is passed, the package calls `$request->all()` once inside a private normalizer at the library boundary, then runs the rest of the pipeline against the array. Functionally identical to the explicit `$request->all()` form — but the unsafe-input read happens inside the package, not in your controller.
+
+The motivation is downstream static-analysis rules that forbid `$request->all()` / `$request->input()` outside `FormRequest` classes — they trip on the explicit form even when the very next call validates the data. With the overload, ad-hoc controller validations stay clean for those rules without forcing a `FormRequest` extraction. For real form requests (auth-gated endpoints, reusable rule sets, anything non-trivial), keep using `HasFluentRules` — the overload is for one-shot ad-hoc validations only.
+
+`check()` accepts the same overload for the errors-as-data path.
+
+#### Drive-by: `stopOnFirstFailure` now propagates through `validateStandard()`
+
+Pre-existing gap. `RuleSet::validateStandard()` — the fully-expanded fallback path — built its validator without applying `->stopOnFirstFailure($this->stopOnFirstFailure)`. The non-wildcard branch and the wildcard top-validator both did; only the fallback didn't.
+
+The bug surfaces any time `validateStandard()` is reached: rules with `distinct`, and — new in 1.27 — rules with `dropUnknownFields()` combined with `each()`. Fix is a single chain call; pinned by `tests/RuleSetTest.php`.
+
+#### `illuminate/http` now declared in `require`
+
+The package references `Illuminate\Http\UploadedFile` from `PresenceConditionalReducer` and (new in 1.27) `Illuminate\Http\Request` from `RuleSet`. Previously the `composer.json` `require` block only listed `illuminate/contracts`, `illuminate/support`, and `illuminate/validation` — none of which transitively guarantee `illuminate/http`. In practice every install ended up with it via `laravel/framework`, but a downstream consumer using only the standalone illuminate components would have hit an undeclared-dependency runtime fail.
+
+`illuminate/http` is now in `require` with the same `^11.0||^12.0||^13.0` constraint as the other illuminate packages. No version change for anyone whose lockfile already pulled it in transitively.
+
+### Upgrading
+
+If your application has called `$factory->includeUnvalidatedArrayKeys()` globally and you previously worked around it with explicit `$validator->excludeUnvalidatedArrayKeys = true;` after `Validator::make`, you can now express that directly on the rule set with `->dropUnknownFields()`.
+
+**Full Changelog**: https://github.com/SanderMuller/laravel-fluent-validation/compare/1.26.0...1.27.0
+
 ## 1.26.0 - 2026-05-10
 
 ### What changed
@@ -108,12 +169,15 @@ Three small cleanups in the per-item validation loop. None move the benchmark ne
 ### Added
 
 - Three batched-DB validation guards (filter → dedup → cap → query):
+  
   1. Per-item type pre-filter — `integer`/`numeric`/`uuid`/`ulid`/`string` rules drop values pre-query.
   2. Parent `max:N` short-circuit — over-limit input fails on parent attribute, zero queries.
   3. Hard cap per `(table, column, rule-type)` group via `BatchDatabaseChecker::$maxValuesPerGroup` (default `10_000`).
   
 - `BatchLimitExceededException` (`REASON_PARENT_MAX`, `REASON_HARD_CAP`).
+  
 - Static helper `BatchDatabaseChecker::filterValuesByType(array $values, array|string $itemRules): array`.
+  
 
 ### Fixed
 
@@ -337,11 +401,14 @@ Three small cleanups in the per-item validation loop. None move the benchmark ne
 ### Added
 
 - `FluentRulesTester` — testing surface for FluentRule chains, RuleSets, FormRequest class-strings, and FluentValidator class-strings. `with(array)` required before assertions.
+  
   - Assertions: `passes()`, `fails()`, `failsWith($field [, $rule])`, `failsWithMessage($field, $key, $replacements = [])`, `assertUnauthorized()`, `errors()`, `validated()`.
   - FormRequest path uses `createFrom()` + `validateResolved()`; records `ValidationException` / `AuthorizationException` instead of rethrowing.
   
 - Optional Pest expectations at `src/Testing/PestExpectations.php`: `toPassWith`, `toFailOn`, `toBeFluentRuleOf`. `class_exists`-guarded on `Pest\Expectation`.
+  
 - `RuleSet::only(...$fields)`, `except(...$fields)`, `put($field, $rule)`, `get($field, $default = null)`.
+  
 
 **Full Changelog**: https://github.com/SanderMuller/laravel-fluent-validation/compare/1.11.0...1.12.0
 
