@@ -1187,7 +1187,7 @@ it('preserves a preconfigured custom factory resolver', function (): void {
     // PHPStan sees the last static assignment (false) and can't trace the
     // closure mutation back through `Factory::make()`. At runtime the
     // closure sets customCalled=true — that's the whole point of the test.
-    // @phpstan-ignore pest.impossibleExpectation
+    // @phpstan-ignore pest.expectation.impossible
     expect($state->customCalled)->toBeTrue();
 });
 

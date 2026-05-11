@@ -44,7 +44,8 @@ it('skips non-conditional tuples', function (): void {
         'age' => 'integer',
     ];
 
-    expect($phase->indexConditionalAttrs($rules))->toBe([]);
+    expect($phase->indexConditionalAttrs($rules))
+        ->toBeEmpty();
 });
 
 it('skips malformed tuples (under 3 elements)', function (): void {
@@ -54,7 +55,8 @@ it('skips malformed tuples (under 3 elements)', function (): void {
         'name' => [['exclude_unless', 'type']],
     ];
 
-    expect($phase->indexConditionalAttrs($rules))->toBe([]);
+    expect($phase->indexConditionalAttrs($rules))
+        ->toBeEmpty();
 });
 
 it('skips tuples with non-string field', function (): void {
@@ -64,7 +66,8 @@ it('skips tuples with non-string field', function (): void {
         'name' => [['exclude_unless', 123, 'A']],
     ];
 
-    expect($phase->indexConditionalAttrs($rules))->toBe([]);
+    expect($phase->indexConditionalAttrs($rules))
+        ->toBeEmpty();
 });
 
 it('exclude_unless excludes when value not in list', function (): void {
@@ -115,7 +118,7 @@ it('caches getValue lookups across tuples in one evaluate call', function (): vo
     $phase = new ConditionalEvaluationPhase();
     $callCount = 0;
     $getValue = function () use (&$callCount): string {
-        $callCount++;
+        ++$callCount;
 
         return 'A';
     };

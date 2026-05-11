@@ -895,7 +895,7 @@ RuleSet::from([
 
 ### Validating data
 
-`validate()` is the default entry point and throws `ValidationException` on failure. `check()` is the errors-as-data alternative. The remaining methods (`failOnUnknownFields`, `stopOnFirstFailure`, `withBag`) are per-call options chained before the terminal `validate()` / `check()` call.
+`validate()` is the default entry point and throws `ValidationException` on failure. `check()` is the errors-as-data alternative. Both accept either an `array` or an `Illuminate\Http\Request` — passing the request directly keeps the `$request->all()` read scoped to the library, which keeps controllers clean for static-analysis rules that flag unsafe input access. The remaining methods (`failOnUnknownFields`, `dropUnknownFields`, `stopOnFirstFailure`, `withBag`) are per-call options chained before the terminal `validate()` / `check()` call.
 
 #### Errors-as-data with `check()`
 
@@ -951,6 +951,23 @@ Wildcard arrays are checked too. `items.0.hack` fails if only `items.*.name` is 
 
 > [!TIP]
 > For form requests, Laravel 13.4+ has a native `#[FailOnUnknownFields]` attribute that works automatically with `HasFluentRules`.
+
+#### Silently dropping unknown fields
+
+`dropUnknownFields()` is the lenient counterpart to `failOnUnknownFields()` — instead of rejecting unknown keys, it strips them from the `validated()` output. Top-level keys outside the rule set are already excluded; this flag extends the same behavior to nested array shapes declared via `children()`, `each()`, or dotted rule keys:
+
+```php
+$validated = RuleSet::from([
+    'name' => FluentRule::string()->required(),
+    'meta' => FluentRule::array()->required()->children([
+        'type' => FluentRule::string()->required(),
+    ]),
+])->dropUnknownFields()->validate($request);
+// Input:  ['name' => 'John', 'meta' => ['type' => 'admin', 'secret' => 'leak']]
+// Output: ['name' => 'John', 'meta' => ['type' => 'admin']]
+```
+
+If both `dropUnknownFields()` and `failOnUnknownFields()` are set, `failOnUnknownFields()` wins — unknown keys trigger a validation error before the drop ever applies.
 
 #### Stopping on first failure
 
@@ -1041,7 +1058,7 @@ Alphabetical lookup of every public method. See the subsections above for usage;
 | Method | Returns | Description |
 |---|---|---|
 | `->all()` | `array` | Collection-style alias of `->toArray()`. |
-| `->check($data, $messages = [], $attributes = [])` | `Validated` | Validate without throwing. See [Errors-as-data with `check()`](#errors-as-data-with-check). |
+| `->check($data, $messages = [], $attributes = [])` | `Validated` | Validate without throwing. `$data` accepts `array` or `Illuminate\Http\Request`. See [Errors-as-data with `check()`](#errors-as-data-with-check). |
 | `RuleSet::compile($rules)` | `array` | Compile fluent rules to native Laravel format. |
 | `RuleSet::compileToArrays($rules)` | `array` | Compile to array-of-rules shape for Livewire's `$this->validate()`. |
 | `RuleSet::compileWithMetadata($rules)` | `array` | Compile + return extracted messages and attributes in one pass. |
@@ -1050,6 +1067,7 @@ Alphabetical lookup of every public method. See the subsections above for usage;
 | `->except(...$fields)` | `RuleSet` | Drop the named fields (variadic strings or single array). |
 | `->expandWildcards($data)` | `array` | Pre-expand wildcards against `$data` without validating. |
 | `RuleSet::extractMetadata($rules)` | `array` | Extract `[messages, attributes]` from labelled fluent rules. |
+| `->dropUnknownFields()` | `RuleSet` | Silently strip unvalidated array sub-keys from `validated()` output. Lenient counterpart to `failOnUnknownFields()`. |
 | `->failOnUnknownFields()` | `RuleSet` | Reject input keys not present in the rule set. |
 | `->field($name, $rule)` | `RuleSet` | Add a field via the fluent builder. |
 | `->flattenRules()` | `array` | Flat dotted/wildcard form of the rules; `each`/`children` are unwrapped. |
@@ -1068,7 +1086,7 @@ Alphabetical lookup of every public method. See the subsections above for usage;
 | `->put($field, $rule)` | `RuleSet` | Add or replace a single field's rule. |
 | `->stopOnFirstFailure()` | `RuleSet` | Stop validating after the first field fails. |
 | `->toArray()` | `array` | Compiled flat output; `each()` expanded to wildcards. |
-| `->validate($data, $messages = [], $attributes = [])` | `array` | Validate with full optimization (see [Performance](#performance)). |
+| `->validate($data, $messages = [], $attributes = [])` | `array` | Validate with full optimization (see [Performance](#performance)). `$data` accepts `array` or `Illuminate\Http\Request`. |
 | `->when($cond, $cb)` / `->unless(...)` | `RuleSet` | Conditionally add fields (Laravel's `Conditionable` trait). |
 | `->withBag($name)` | `RuleSet` | Set the error bag name on the thrown `ValidationException`. |
 

@@ -47,13 +47,15 @@ it('validateSizeRuleHasType passes with string + min', function (): void {
 });
 
 it('CoreValueCompiler still compiles via builder facade', function (): void {
-    expect(CoreValueCompiler::compile('required|string|max:255'))->toBeInstanceOf(Closure::class);
-    expect(CoreValueCompiler::compile('integer|min:1|max:100'))->toBeInstanceOf(Closure::class);
+    expect(CoreValueCompiler::compile('required|string|max:255'))->toBeInstanceOf(Closure::class)
+        ->and(CoreValueCompiler::compile('integer|min:1|max:100'))
+        ->toBeInstanceOf(Closure::class);
 });
 
 it('CoreValueCompiler still rejects unsupported parts', function (): void {
-    expect(CoreValueCompiler::compile('sometimes|string'))->toBeNull();
-    expect(CoreValueCompiler::compile('required|min:5'))->toBeNull(); // size without type
+    expect(CoreValueCompiler::compile('sometimes|string'))->toBeNull()
+        ->and(CoreValueCompiler::compile('required|min:5'))
+        ->toBeNull(); // size without type
 });
 
 /**

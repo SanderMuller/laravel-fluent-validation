@@ -19,6 +19,7 @@
     "require": {
         "php": "^8.2",
         "illuminate/contracts": "^11.0||^12.0||^13.0",
+        "illuminate/http": "^11.0||^12.0||^13.0",
         "illuminate/support": "^11.0||^12.0||^13.0",
         "illuminate/validation": "^11.0||^12.0||^13.0"
     },
@@ -40,7 +41,7 @@
         "phpstan/phpstan-strict-rules": "^2.0.10",
         "rector/rector": "^2.4.1",
         "rector/type-perfect": "^2.1.2",
-        "sandermuller/package-boost": "^0.14.0",
+        "sandermuller/package-boost": "^0.15.0",
         "spaze/phpstan-disallowed-calls": "^4.10",
         "symplify/phpstan-extensions": "^12.0.2",
         "tomasvotruba/cognitive-complexity": "^1.1",

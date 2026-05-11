@@ -5,6 +5,7 @@ namespace SanderMuller\FluentValidation;
 use Closure;
 use Illuminate\Contracts\Support\Arrayable;
 use Illuminate\Contracts\Validation\ValidationRule;
+use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\MessageBag;
@@ -36,6 +37,8 @@ final class RuleSet implements Arrayable, IteratorAggregate
     private array $fields = [];
 
     private bool $failOnUnknownFields = false;
+
+    private bool $dropUnknownFields = false;
 
     private bool $stopOnFirstFailure = false;
 
@@ -244,6 +247,27 @@ final class RuleSet implements Arrayable, IteratorAggregate
     }
 
     /**
+     * Silently drop unvalidated array sub-keys from the `validated()` output.
+     *
+     * Lenient counterpart to {@see failOnUnknownFields()}: where that rejects
+     * unknown keys with a "prohibited" error, this strips them. Maps to
+     * Laravel's `Validator::$excludeUnvalidatedArrayKeys`.
+     *
+     * Top-level keys outside the rule set are already excluded from
+     * `validated()`; this flag adds the same behavior to nested array shapes
+     * declared via `children()`, `each()`, or dotted rule keys.
+     *
+     * If both flags are set, `failOnUnknownFields()` wins — unknown keys
+     * trigger a validation error before the drop ever applies.
+     */
+    public function dropUnknownFields(): self
+    {
+        $this->dropUnknownFields = true;
+
+        return $this;
+    }
+
+    /**
      * Stop validating remaining fields after the first failure.
      */
     public function stopOnFirstFailure(): self
@@ -365,12 +389,18 @@ final class RuleSet implements Arrayable, IteratorAggregate
      * Uses the full optimization engine: fast-check closures, conditional
      * pre-evaluation, batched DB validation, O(n) wildcard expansion.
      *
-     * @param  array<string, mixed>  $data
+     * Accepts a `Request` for ad-hoc controller validation — the package
+     * calls `$request->all()` internally, keeping the unsafe read scoped
+     * to the library boundary for static-analysis purposes.
+     *
+     * @param  array<string, mixed>|Request  $data
      * @param  array<string, string>  $messages
      * @param  array<string, string>  $attributes
      */
-    public function check(array $data, array $messages = [], array $attributes = []): Validated
+    public function check(array|Request $data, array $messages = [], array $attributes = []): Validated
     {
+        $data = $this->normalizeInput($data);
+
         try {
             $validated = $this->validate($data, $messages, $attributes);
 
@@ -406,15 +436,21 @@ final class RuleSet implements Arrayable, IteratorAggregate
     /**
      * Validate data against the rule set with full optimization.
      *
-     * @param  array<string, mixed>  $data
+     * Accepts a `Request` for ad-hoc controller validation — the package
+     * calls `$request->all()` internally, keeping the unsafe read scoped
+     * to the library boundary for static-analysis purposes.
+     *
+     * @param  array<string, mixed>|Request  $data
      * @param  array<string, string>  $messages
      * @param  array<string, string>  $attributes
      * @return array<string, mixed>
      *
      * @throws ValidationException
      */
-    public function validate(array $data, array $messages = [], array $attributes = []): array
+    public function validate(array|Request $data, array $messages = [], array $attributes = []): array
     {
+        $data = $this->normalizeInput($data);
+
         if ($this->errorBag !== null) {
             // Trap every ValidationException from the inner pipeline and
             // stamp the error bag before rethrowing. Mirrors Laravel's
@@ -429,6 +465,29 @@ final class RuleSet implements Arrayable, IteratorAggregate
         }
 
         return $this->runValidateInternal($data, $messages, $attributes);
+    }
+
+    /**
+     * Normalize a public entry-point's `$data` argument. Routing `Request`
+     * through `->all()` here keeps the unsafe-input read scoped to the
+     * package boundary, so callers can use `RuleSet::validate($request)`
+     * without tripping static-analysis rules against `$request->all()`.
+     *
+     * @param  array<string, mixed>|Request  $data
+     * @return array<string, mixed>
+     */
+    private function normalizeInput(array|Request $data): array
+    {
+        if (! $data instanceof Request) {
+            return $data;
+        }
+
+        $normalized = [];
+        foreach ($data->all() as $key => $value) {
+            $normalized[(string) $key] = $value;
+        }
+
+        return $normalized;
     }
 
     /**
@@ -508,10 +567,12 @@ final class RuleSet implements Arrayable, IteratorAggregate
                 }
             }
 
+            $validator = Validator::make($data, $compiled, $messages, $attributes)
+                ->stopOnFirstFailure($this->stopOnFirstFailure);
+            $validator->excludeUnvalidatedArrayKeys = $this->dropUnknownFields || $validator->excludeUnvalidatedArrayKeys;
+
             /** @var array<string, mixed> */
-            return Validator::make($data, $compiled, $messages, $attributes)
-                ->stopOnFirstFailure($this->stopOnFirstFailure)
-                ->validate();
+            return $validator->validate();
         }
 
         $topValidator = Validator::make($data, self::compile($topRules), $messages, $attributes)
@@ -610,7 +671,9 @@ final class RuleSet implements Arrayable, IteratorAggregate
             $itemAttributes = $attributes + $itemAttributes;
             $itemRules = self::compile($rawItemRules);
 
-            if ($this->requiresFullExpansion($itemRules)) {
+            // Per-item validators can't strip cross-item unknown keys; fall
+            // back to the single fully-expanded validator when dropping.
+            if ($this->dropUnknownFields || $this->requiresFullExpansion($itemRules)) {
                 $fallbackResult = $this->validateStandard($data, $messages, $attributes);
 
                 return [];
@@ -796,7 +859,9 @@ final class RuleSet implements Arrayable, IteratorAggregate
         $messages += $ruleMessages;
         $attributes += $ruleAttributes;
 
-        $validator = Validator::make($data, self::compile($rules), $messages, $attributes);
+        $validator = Validator::make($data, self::compile($rules), $messages, $attributes)
+            ->stopOnFirstFailure($this->stopOnFirstFailure);
+        $validator->excludeUnvalidatedArrayKeys = $this->dropUnknownFields || $validator->excludeUnvalidatedArrayKeys;
 
         if ($implicitAttributes !== []) {
             (new ReflectionProperty($validator, 'implicitAttributes'))

@@ -55,7 +55,7 @@ it('caches up to COMPILE_CACHE_MAX entries before resetting', function (): void 
     // Compile 1024 distinct stable rules. None hit the cap-reset since
     // count >= MAX is checked BEFORE insert: at the 1024th call,
     // pre-insert count = 1023 (no reset), post-insert count = 1024.
-    for ($i = 1; $i <= 1024; $i++) {
+    for ($i = 1; $i <= 1024; ++$i) {
         FastCheckCompiler::compile('required|string|max:' . $i);
     }
 
@@ -71,7 +71,7 @@ it('drops cache and recompiles fresh after the 1025th distinct rule', function (
     $original = FastCheckCompiler::compile('required|string|max:1');
 
     // Fill to 1024 (rule #1 already counts as one of those).
-    for ($i = 2; $i <= 1024; $i++) {
+    for ($i = 2; $i <= 1024; ++$i) {
         FastCheckCompiler::compile('required|string|max:' . $i);
     }
 

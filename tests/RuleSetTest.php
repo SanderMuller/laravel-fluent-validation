@@ -2,6 +2,7 @@
 
 use Illuminate\Contracts\Validation\Factory;
 use Illuminate\Contracts\Validation\ValidationRule;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationData;
@@ -2194,6 +2195,206 @@ it('failOnUnknownFields with deeply nested wildcards', function (): void {
     ]);
 
     expect($validated['items'])->toHaveCount(1);
+});
+
+// =========================================================================
+// Request overload for validate() / check()
+// =========================================================================
+
+it('validate() accepts a Request and calls all() internally', function (): void {
+    $request = Request::create('/test', 'POST', ['name' => 'John', 'email' => 'john@example.com']);
+
+    $validated = RuleSet::from([
+        'name' => FluentRule::string()->required(),
+        'email' => FluentRule::email()->required(),
+    ])->validate($request);
+
+    expect($validated)
+        ->toHaveKey('name', 'John')
+        ->toHaveKey('email', 'john@example.com');
+});
+
+it('check() accepts a Request and calls all() internally', function (): void {
+    $request = Request::create('/test', 'POST', ['name' => 'Jane']);
+
+    $result = RuleSet::from([
+        'name' => FluentRule::string()->required(),
+    ])->check($request);
+
+    expect($result->passes())->toBeTrue()
+        ->and($result->validated())->toHaveKey('name', 'Jane');
+});
+
+it('validate(Request) throws ValidationException on failure', function (): void {
+    $request = Request::create('/test', 'POST', ['name' => '']);
+
+    RuleSet::from([
+        'name' => FluentRule::string()->required(),
+    ])->validate($request);
+})->throws(ValidationException::class);
+
+it('check(Request) returns failing Validated without throwing', function (): void {
+    $request = Request::create('/test', 'POST', []);
+
+    $result = RuleSet::from([
+        'name' => FluentRule::string()->required(),
+    ])->check($request);
+
+    expect($result->passes())->toBeFalse()
+        ->and($result->errors()->has('name'))->toBeTrue();
+});
+
+// =========================================================================
+// dropUnknownFields
+// =========================================================================
+
+it('dropUnknownFields strips unknown nested keys declared via children()', function (): void {
+    $validated = RuleSet::from([
+        'name' => FluentRule::string()->required(),
+        'meta' => FluentRule::array()->required()->children([
+            'type' => FluentRule::string()->required(),
+        ]),
+    ])->dropUnknownFields()->validate([
+        'name' => 'John',
+        'meta' => ['type' => 'admin', 'secret' => 'leak'],
+    ]);
+
+    expect($validated)
+        ->toHaveKey('name', 'John')
+        ->and($validated['meta'])
+        ->toHaveKey('type', 'admin')
+        ->not->toHaveKey('secret');
+});
+
+it('dropUnknownFields strips unknown nested keys declared via dotted rule keys', function (): void {
+    $validated = RuleSet::from([
+        'meta' => FluentRule::array()->required(),
+        'meta.type' => FluentRule::string()->required(),
+    ])->dropUnknownFields()->validate([
+        'meta' => ['type' => 'admin', 'secret' => 'leak'],
+    ]);
+
+    expect($validated['meta'])
+        ->toHaveKey('type', 'admin')
+        ->not->toHaveKey('secret');
+});
+
+it('dropUnknownFields strips unknown nested keys inside each()', function (): void {
+    $validated = RuleSet::from([
+        'items' => FluentRule::array()->required()->each([
+            'name' => FluentRule::string()->required(),
+        ]),
+    ])->dropUnknownFields()->validate([
+        'items' => [
+            ['name' => 'Foo', 'hack' => 'bad'],
+            ['name' => 'Bar', 'other' => 'noise'],
+        ],
+    ]);
+
+    expect($validated['items'])->toHaveCount(2)
+        ->and($validated['items'][0])->toHaveKey('name', 'Foo')->not->toHaveKey('hack')
+        ->and($validated['items'][1])->toHaveKey('name', 'Bar')->not->toHaveKey('other');
+});
+
+it('dropUnknownFields forces stripping even when host factory has disabled the flag', function (): void {
+    $factory = resolve(Illuminate\Validation\Factory::class);
+    $factory->includeUnvalidatedArrayKeys();
+
+    try {
+        $validated = RuleSet::from([
+            'meta' => FluentRule::array()->required()->children([
+                'type' => FluentRule::string()->required(),
+            ]),
+        ])->dropUnknownFields()->validate([
+            'meta' => ['type' => 'admin', 'secret' => 'leak'],
+        ]);
+
+        expect($validated['meta'])->not->toHaveKey('secret');
+    } finally {
+        $factory->excludeUnvalidatedArrayKeys();
+    }
+});
+
+it('without dropUnknownFields and host factory disabled, unknown keys are retained', function (): void {
+    $factory = resolve(Illuminate\Validation\Factory::class);
+    $factory->includeUnvalidatedArrayKeys();
+
+    try {
+        $validated = RuleSet::from([
+            'meta' => FluentRule::array()->required()->children([
+                'type' => FluentRule::string()->required(),
+            ]),
+        ])->validate([
+            'meta' => ['type' => 'admin', 'secret' => 'keep'],
+        ]);
+
+        expect($validated['meta'])->toHaveKey('secret', 'keep');
+    } finally {
+        $factory->excludeUnvalidatedArrayKeys();
+    }
+});
+
+it('dropUnknownFields ignores top-level keys not in the rule set (already excluded)', function (): void {
+    $validated = RuleSet::from([
+        'name' => FluentRule::string()->required(),
+    ])->dropUnknownFields()->validate([
+        'name' => 'John',
+        'extra' => 'noise',
+    ]);
+
+    expect($validated)
+        ->toHaveKey('name', 'John')
+        ->not->toHaveKey('extra');
+});
+
+it('dropUnknownFields composes with stopOnFirstFailure', function (): void {
+    $validated = RuleSet::from([
+        'meta' => FluentRule::array()->required()->children([
+            'type' => FluentRule::string()->required(),
+        ]),
+    ])->dropUnknownFields()->stopOnFirstFailure()->validate([
+        'meta' => ['type' => 'admin', 'secret' => 'leak'],
+    ]);
+
+    expect($validated['meta'])->not->toHaveKey('secret');
+});
+
+it('failOnUnknownFields wins when combined with dropUnknownFields', function (): void {
+    $errors = [];
+
+    try {
+        RuleSet::from([
+            'name' => FluentRule::string()->required(),
+        ])->dropUnknownFields()->failOnUnknownFields()->validate([
+            'name' => 'John',
+            'hack' => 'bad',
+        ]);
+    } catch (ValidationException $validationException) {
+        $errors = $validationException->errors();
+    }
+
+    expect($errors)->toHaveKey('hack');
+});
+
+it('dropUnknownFields + each() respects stopOnFirstFailure (validateStandard fallback path)', function (): void {
+    $errors = [];
+
+    try {
+        RuleSet::from([
+            'items' => FluentRule::array()->required()->each([
+                'name' => FluentRule::string()->required()->min(3),
+            ]),
+        ])->dropUnknownFields()->stopOnFirstFailure()->validate([
+            'items' => [
+                ['name' => ''],
+                ['name' => ''],
+            ],
+        ]);
+    } catch (ValidationException $validationException) {
+        $errors = $validationException->errors();
+    }
+
+    expect($errors)->toHaveCount(1);
 });
 
 // =========================================================================
