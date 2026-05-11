@@ -1,11 +1,15 @@
 <?php declare(strict_types=1);
 
 use Illuminate\Auth\GenericUser;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\ValidationException;
 use PHPUnit\Framework\AssertionFailedError;
 use SanderMuller\FluentValidation\Testing\FluentRulesTester;
 use SanderMuller\FluentValidation\Tests\Fixtures\AuthorizedEachFluentFormRequest;
 use SanderMuller\FluentValidation\Tests\Fixtures\BailMaxEachFluentFormRequest;
+use SanderMuller\FluentValidation\Tests\Fixtures\BailMaxExistsFluentFormRequest;
 use SanderMuller\FluentValidation\Tests\Fixtures\ExampleFluentValidator;
 use SanderMuller\FluentValidation\Tests\Fixtures\RouteAwareFluentFormRequest;
 use SanderMuller\FluentValidation\Tests\Fixtures\UnauthorizedFluentFormRequest;
@@ -43,6 +47,33 @@ it('surfaces outer-array Max rule on bail+required+max+each FormRequest', functi
     $actions = array_fill(0, 51, ['action' => 'favorite', 'article_id' => 1]);
 
     FluentRulesTester::for(BailMaxEachFluentFormRequest::class)
+        ->with(['actions' => $actions])
+        ->failsWith('actions', 'max');
+});
+
+it('surfaces outer-array Max rule when each() carries a batched exists rule (parent-max remap path)', function (): void {
+    // Drives the BatchLimitRemap parent-max short-circuit through the
+    // FluentRulesTester consumer surface — the actual scenario reported
+    // by downstream adopters. Without the remap populating failedRules,
+    // failsWith($f, 'max') saw an empty failed() bag.
+    config(['database.default' => 'testing']);
+    config(['database.connections.testing' => [
+        'driver' => 'sqlite',
+        'database' => ':memory:',
+    ]]);
+
+    Schema::connection('testing')->create('widgets', function (Blueprint $table): void {
+        $table->id();
+        $table->timestamps();
+    });
+
+    DB::connection('testing')->table('widgets')->insert([
+        ['created_at' => now(), 'updated_at' => now()],
+    ]);
+
+    $actions = array_fill(0, 10, ['id' => 1]);
+
+    FluentRulesTester::for(BailMaxExistsFluentFormRequest::class)
         ->with(['actions' => $actions])
         ->failsWith('actions', 'max');
 });
