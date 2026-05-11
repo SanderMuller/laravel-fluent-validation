@@ -4,6 +4,8 @@ namespace SanderMuller\FluentValidation\Internal;
 
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\ValidationException;
+use Illuminate\Validation\Validator as IlluminateValidator;
+use ReflectionProperty;
 use SanderMuller\FluentValidation\Exceptions\BatchLimitExceededException;
 
 /**
@@ -30,6 +32,22 @@ final class BatchLimitRemap
 
         $validator = Validator::make([], []);
         $validator->errors()->add($attribute, $exception->getMessage());
+
+        // Populate failedRules so Validator::failed() — and downstream
+        // assertions like FluentRulesTester::failsWith($field, 'max') —
+        // can see which rule tripped the short-circuit. Without this,
+        // failed() returns [] and the rule-name assertion path silently
+        // misses the breach.
+        $ruleKey = $exception->reason === BatchLimitExceededException::REASON_PARENT_MAX
+            ? 'Max'
+            : 'BatchLimit';
+
+        $parameters = $exception->reason === BatchLimitExceededException::REASON_PARENT_MAX
+            ? [(string) $exception->limit]
+            : [];
+
+        (new ReflectionProperty(IlluminateValidator::class, 'failedRules'))
+            ->setValue($validator, [$attribute => [$ruleKey => $parameters]]);
 
         return new ValidationException($validator);
     }

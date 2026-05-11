@@ -1007,6 +1007,37 @@ it('FormRequest failedValidation() override sees parent-max remapped ValidationE
         ->and($flagClass::$failedValidationWasCalled)->toBeFalse();
 });
 
+it('parent-max remap populates Validator::failed() with the Max rule key', function (): void {
+    setupGuardsDatabase();
+
+    $items = [];
+    for ($i = 1; $i <= 10; ++$i) {
+        $items[] = ['id' => $i];
+    }
+
+    $formRequest = createGuardsFormRequest(
+        rules: [
+            'items' => FluentRule::array()->required()->max(5)->each([
+                'id' => FluentRule::integer()->required()->exists('testing.widgets', 'id'),
+            ]),
+        ],
+        data: ['items' => $items],
+    );
+
+    $caught = null;
+    try {
+        $factory = resolve(Factory::class);
+        (fn () => $this->createDefaultValidator($factory))->call($formRequest);
+    } catch (ValidationException $validationException) {
+        $caught = $validationException;
+    }
+
+    expect($caught)->not->toBeNull()
+        ->and($caught->validator->failed())->toBe([
+            'items' => ['Max' => ['5']],
+        ]);
+});
+
 // =========================================================================
 // Phase 4: RuleSet-path invariants
 // =========================================================================

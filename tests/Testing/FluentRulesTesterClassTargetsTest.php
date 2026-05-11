@@ -5,6 +5,7 @@ use Illuminate\Validation\ValidationException;
 use PHPUnit\Framework\AssertionFailedError;
 use SanderMuller\FluentValidation\Testing\FluentRulesTester;
 use SanderMuller\FluentValidation\Tests\Fixtures\AuthorizedEachFluentFormRequest;
+use SanderMuller\FluentValidation\Tests\Fixtures\BailMaxEachFluentFormRequest;
 use SanderMuller\FluentValidation\Tests\Fixtures\ExampleFluentValidator;
 use SanderMuller\FluentValidation\Tests\Fixtures\RouteAwareFluentFormRequest;
 use SanderMuller\FluentValidation\Tests\Fixtures\UnauthorizedFluentFormRequest;
@@ -36,6 +37,14 @@ it('reports each()-level errors from a FormRequest', function (): void {
         ->fails()
         ->failsWith('items.1.name', 'required')
         ->failsWith('items.1.qty', 'min');
+});
+
+it('surfaces outer-array Max rule on bail+required+max+each FormRequest', function (): void {
+    $actions = array_fill(0, 51, ['action' => 'favorite', 'article_id' => 1]);
+
+    FluentRulesTester::for(BailMaxEachFluentFormRequest::class)
+        ->with(['actions' => $actions])
+        ->failsWith('actions', 'max');
 });
 
 it('returns validated data from a passing FormRequest', function (): void {
