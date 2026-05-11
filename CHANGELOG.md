@@ -2,6 +2,54 @@
 
 All notable changes to `laravel-fluent-validation` will be documented in this file.
 
+## 1.27.1 - 2026-05-11
+
+### 1.27.1
+
+Patch fix for a silent gap in the parent-`max:N` short-circuit on batched-database validation.
+
+#### What changed
+
+##### `BatchLimitRemap` now populates `Validator::failed()` with the tripped rule
+
+When `each()` carries a batched `exists`/`unique` rule **and** the parent array declares `max:N`, the package short-circuits before any DB query fires (`HasFluentRules::assertParentArraysWithinMax`). The short-circuit throws `BatchLimitExceededException`, and `BatchLimitRemap::toValidationException()` remaps that to `Illuminate\Validation\ValidationException` so callers see the package's standard exception type.
+
+The remap built a synthetic `Validator::make([], [])`, pushed the error message into the bag, but never populated `failedRules`. Net effect:
+
+```php
+$caught->validator->errors()->keys();   // ['actions']                      ✅
+$caught->validator->errors()->first();  // human-readable message          ✅
+$caught->validator->failed();           // []                              ❌
+
+```
+`Validator::failed()` returning `[]` meant `FluentRulesTester::failsWith('actions', 'max')` — and any other assertion path that inspects the rule-bag rather than the message bag — couldn't see which rule actually tripped.
+
+The load-bearing detail: the parent-max guard fires **before** the validator is built, so this path never goes through Laravel's normal `Max` rule. Reproducers that drive `Validator::make` directly against the same `FluentRule` chain hit Laravel's own `Max`, which populates `failedRules` correctly — masking the gap for narrow tests.
+
+Fix: the remap now reflects `failedRules` onto the synthetic validator:
+
+- `REASON_PARENT_MAX` → `[$attribute => ['Max' => [(string) $limit]]]`
+- `REASON_HARD_CAP` → `[$attribute => ['BatchLimit' => []]]`
+
+Pinned by:
+
+- `tests/BatchValidationGuardsTest.php` — asserts the post-remap `failed()` shape directly
+- `tests/Testing/FluentRulesTesterClassTargetsTest.php` + `tests/Fixtures/BailMaxEachFluentFormRequest.php` — guards the `FluentRulesTester::failsWith(..., 'max')` consumer surface
+
+No public-API change. No new dependencies. Same compatibility matrix as 1.27.0.
+
+#### Compatibility
+
+Same matrix as 1.27.0:
+
+- PHP 8.2 / 8.3 / 8.4
+- Laravel 11 / 12 / 13 (prefer-lowest + prefer-stable)
+- ubuntu-latest + windows-latest
+
+#### Upgrading
+
+Drop-in. `composer update sandermuller/laravel-fluent-validation`.
+
 ## 1.27.0 - 2026-05-11
 
 ### What changed
@@ -20,6 +68,7 @@ $validated = RuleSet::from([
 // Input:  ['name' => 'John', 'meta' => ['type' => 'admin', 'secret' => 'leak']]
 // Output: ['name' => 'John', 'meta' => ['type' => 'admin']]
 
+
 ```
 Top-level keys outside the rule set are already excluded from `validated()`; this flag extends the same behavior to nested array shapes declared via `children()`, `each()`, or dotted rule keys. Maps to Laravel's `Validator::$excludeUnvalidatedArrayKeys`, but gives per-`RuleSet` control instead of relying on whatever the host factory's flag happens to be set to — useful when an application has called `Factory::includeUnvalidatedArrayKeys()` globally and a specific call site needs the strict default back.
 
@@ -37,6 +86,7 @@ $validated = RuleSet::from([...])->validate($request->all());
 
 // 1.27
 $validated = RuleSet::from([...])->validate($request);
+
 
 ```
 When a `Request` is passed, the package calls `$request->all()` once inside a private normalizer at the library boundary, then runs the rest of the pipeline against the array. Functionally identical to the explicit `$request->all()` form — but the unsafe-input read happens inside the package, not in your controller.
