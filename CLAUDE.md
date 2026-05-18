@@ -162,7 +162,7 @@ no host application. Use Testbench's binary:
 #### Commands that require `laravel/boost`
 
 These only apply when the package has `laravel/boost` as a dev
-dependency. Skip if Boost isn't installed — `package-boost:sync`
+dependency. Skip if Boost isn't installed — `boost sync`
 prints a warning and moves on.
 
 | Instead of | Use |
