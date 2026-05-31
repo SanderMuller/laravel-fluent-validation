@@ -1,57 +1,168 @@
-<laravel-boost-guidelines>
-=== boost rules ===
+<!-- boost-core:guidelines:start -->
+<!-- Managed by boost-core. Do not remove or move these markers. Content outside is operator-owned. -->
+# Release Benchmark Automation
 
-# Laravel Boost
+Repo-specific addition to the generic `release-automation` guideline
+(shipped by `package-boost-php`). Covers only the benchmark-table
+injection unique to this package — the CHANGELOG CI flow, release-notes
+file, tag/title, and agent-handoff conventions all come from the
+vendor guideline.
 
-## Tools
+## Benchmark table in the release body is CI-injected
 
-- Laravel Boost is an MCP server with tools designed specifically for this application. Prefer Boost tools over manual alternatives like shell commands or file reads.
-- Use `database-query` to run read-only queries against the database instead of writing raw SQL in tinker.
-- Use `database-schema` to inspect table structure before writing migrations or models.
-- Use `get-absolute-url` to resolve the correct scheme, domain, and port for project URLs. Always use this before sharing a URL with the user.
-- Use `browser-logs` to read browser logs, errors, and exceptions. Only recent logs are useful, ignore old entries.
+`.github/workflows/release-benchmark.yml` appends the latest benchmark
+table between the `<!-- benchmark-start -->` / `<!-- benchmark-end -->`
+markers in the release body after publish.
 
-## Searching Documentation (IMPORTANT)
+- Do **not** paste benchmark numbers into the release body by hand.
+- Write the narrative above the markers and let CI fill in the table.
+- The markers must be present in `internal/release-notes-<version>.md`
+  for the injection to land.
 
-- Always use `search-docs` before making code changes. Do not skip this step. It returns version-specific docs based on installed packages automatically.
-- Pass a `packages` array to scope results when you know which packages are relevant.
-- Use multiple broad, topic-based queries: `['rate limiting', 'routing rate limiting', 'routing']`. Expect the most relevant results first.
-- Do not add package names to queries because package info is already shared. Use `test resource table`, not `filament 4 test resource table`.
+---
 
-### Search Syntax
+## Fixing PHPStan Errors
 
-1. Use words for auto-stemmed AND logic: `rate limit` matches both "rate" AND "limit".
-2. Use `"quoted phrases"` for exact position matching: `"infinite scroll"` requires adjacent words in order.
-3. Combine words and phrases for mixed queries: `middleware "rate limit"`.
-4. Use multiple queries for OR logic: `queries=["authentication", "middleware"]`.
+When fixing a PHPStan error, first decide whether it represents a runtime bug a test could catch — and if so, write that test before the fix.
 
-## Artisan
+### Process
 
-- Run Artisan commands directly via the command line (e.g., `php artisan route:list`). Use `php artisan list` to discover available commands and `php artisan [command] --help` to check parameters.
-- Inspect routes with `php artisan route:list`. Filter with: `--method=GET`, `--name=users`, `--path=api`, `--except-vendor`, `--only-vendor`.
-- Read configuration values using dot notation: `php artisan config:show app.name`, `php artisan config:show database.default`. Or read config files directly from the `config/` directory.
-- To check environment variables, read the `.env` file directly.
+1. **Assess testability** — does the error represent a runtime bug a test could reproduce (a wrong argument type, a missing method, an incorrect return type used downstream)?
+2. **Write the test first** — if a test can catch it, write a failing test that reproduces the error before applying the fix.
+3. **Fix the code** — apply the fix so both the PHPStan error and the new test pass.
+4. **Verify both** — confirm PHPStan reports no error and the test passes.
 
-## Tinker
+### When to Write a Test
 
-- Execute PHP in app context for debugging and testing code. Do not create models without user approval, prefer tests with factories instead. Prefer existing Artisan commands over custom tinker code.
-- Always use single quotes to prevent shell expansion: `php artisan tinker --execute 'Your::code();'`
-  - Double quotes for PHP strings inside: `php artisan tinker --execute 'User::where("active", true)->count();'`
+Write a test when the PHPStan error indicates a fault that would surface at runtime:
 
-=== php rules ===
+- A method call on a value of the wrong type
+- Missing or incorrect arguments to a function or method
+- A return-type mismatch that would break callers
+- Accessing a property or method that does not exist
+- Any type error that would manifest as a runtime exception
 
-# PHP
+### When to Skip the Test
 
-- Always use curly braces for control structures, even for single-line bodies.
-- Use PHP 8 constructor property promotion: `public function __construct(public GitHub $github) { }`. Do not leave empty zero-parameter `__construct()` methods unless the constructor is private.
-- Use explicit return type declarations and type hints for all method parameters: `function isAccessible(User $user, ?string $path = null): bool`
-- Use TitleCase for Enum keys: `FavoritePerson`, `BestLake`, `Monthly`.
-- Prefer PHPDoc blocks over inline comments. Only add inline comments for exceptionally complex logic.
-- Use array shape type definitions in PHPDoc blocks.
+Skip the test when the error is purely static and cannot cause a runtime failure:
 
-</laravel-boost-guidelines>
+- Missing return-type declarations
+- PHPDoc mismatches with no runtime impact
+- Unused variables or imports
+- Generic-type parameter issues
 
-<package-boost-guidelines>
+---
+
+## Verification Before Completion
+
+Before claiming any work is complete or successful, run the verification command fresh and confirm the output. Evidence before claims, always.
+
+### Required Before Any Completion Claim
+
+1. **Run** the relevant command (in the current message, not from memory)
+2. **Read** the full output
+3. **Confirm** it supports the claim
+4. **Then** state the result with evidence
+
+| Claim            | Required verification                                            |
+|------------------|------------------------------------------------------------------|
+| Tests pass       | The project's test command, output showing 0 failures            |
+| Code style clean | The project's formatter/style checker, output showing no changes |
+| Linting clean    | The project's linter, output showing 0 errors                    |
+| Types check      | The project's type checker, output showing 0 errors              |
+| Bug fixed        | The previously failing test now passes                           |
+| Feature complete | All related tests pass                                           |
+
+Use the project's own commands — check its `composer.json` / `package.json` scripts, CI config, or sibling docs to find them. Do not assume a specific tool.
+
+### Delegating the checks
+
+Where the project has dedicated quality-check skills synced, delegate to them — `backend-quality` for backend files, `frontend-quality` for frontend files, both when a change spans both. Otherwise, run the project's own equivalent commands directly.
+
+### Never Use Without Evidence
+
+- "should work now"
+- "that should fix it"
+- "looks correct"
+- "I'm confident this works"
+
+These phrases indicate missing verification. Run the command first, then report what actually happened.
+
+---
+
+# Laravel Package Guidelines
+
+These guidelines supplement the framework-agnostic Package Boost
+Guidelines (`foundation.md`) for Composer packages that target
+Laravel. A consumer receives both files, composed — read this one
+together with `foundation.md`, not instead of it.
+
+Apply this file only when `composer.json` declares a Laravel
+dependency — a `require.illuminate/*` entry or
+`require.laravel/framework`. A framework-agnostic package ignores
+everything below.
+
+## Laravel Context
+
+A Laravel package has no host application of its own. A Laravel
+kernel is booted only at test time, by Orchestra Testbench. The base
+test case is `Orchestra\Testbench\TestCase`.
+
+- `composer.json`'s `require.illuminate/*` (or
+  `require.laravel/framework`) defines the supported Laravel range.
+  Check it before using a version-specific framework API.
+- The service provider is the package's entry point into a host
+  app. One per package, named `{PackageStudly}ServiceProvider`,
+  registered under `extra.laravel.providers` for package discovery.
+- Test fixtures — migrations, routes, views, factories — live under
+  `workbench/`, not `tests/`. Testbench's conventions place them
+  there; follow them.
+
+## Use `vendor/bin/testbench`, not `php artisan`
+
+Running artisan directly against the package fails — there is no
+host application. Use Testbench's binary, which boots a kernel
+first:
+
+| Instead of | Use |
+|---|---|
+| `php artisan test` | `vendor/bin/pest` or `vendor/bin/phpunit` |
+| `php artisan tinker` | `vendor/bin/testbench tinker` |
+| `php artisan make:*` | Create files manually under `src/` |
+| `php artisan vendor:publish` | `vendor/bin/testbench vendor:publish` |
+
+Register the package's service provider in `testbench.yaml` under
+`providers:` so Testbench boots it. Published files land in
+`workbench/` by default, not the `config/` or `resources/` of a
+host app.
+
+### Commands that require `laravel/boost`
+
+These apply only when the package has `laravel/boost` as a dev
+dependency. Skip them if Boost is not installed — `boost sync`
+prints a warning and moves on.
+
+| Instead of | Use |
+|---|---|
+| `php artisan boost:install` | `vendor/bin/testbench boost:install` |
+| `php artisan boost:mcp` | `vendor/bin/testbench boost:mcp` |
+
+## Cross-Version Compatibility
+
+Supporting multiple Laravel and PHP majors in one release is routine
+for a Laravel package. Constraints use `||` between major ranges
+(`^12.0||^13.0`), and CI runs a matrix that includes `prefer-lowest`
+so the declared floor is actually exercised.
+
+- Activate the `cross-version-laravel-support` skill **before**
+  writing version-spanning code.
+- Activate the `ci-matrix-troubleshooting` skill **after** a matrix
+  cell has failed.
+- See the `package-development` skill for the Testbench and
+  `workbench/` layout.
+
+---
+
 # Package Boost Guidelines
 
 These guidelines replace Laravel Boost's default foundation for
@@ -133,132 +244,41 @@ explicitly requested or when a behaviour change requires it.
 Be concise. Focus on what changed and why. Skip restating what the
 diff already shows.
 
-## If your package targets Laravel
-
-The rest of this document is Laravel-specific. Skip it if the package
-is framework-agnostic — `composer.json` should make that obvious (no
-`require.illuminate/*`, no `require.laravel/framework`).
-
-### Laravel context
-
-A Testbench-provided Laravel application is spun up only at test
-time. Base test case is `Orchestra\Testbench\TestCase`.
-`composer.json`'s `require.illuminate/*` (or
-`require.laravel/framework`) defines the supported Laravel range —
-check it before using version-specific framework APIs.
-
-### Use `vendor/bin/testbench`, not `php artisan`
-
-Running artisan commands directly against the package fails — there is
-no host application. Use Testbench's binary:
-
-| Instead of | Use |
-|---|---|
-| `php artisan test` | `vendor/bin/pest` or `vendor/bin/phpunit` |
-| `php artisan tinker` | `vendor/bin/testbench tinker` |
-| `php artisan make:*` | Create files manually under `src/` |
-| `php artisan vendor:publish` | `vendor/bin/testbench vendor:publish` |
-
-#### Commands that require `laravel/boost`
-
-These only apply when the package has `laravel/boost` as a dev
-dependency. Skip if Boost isn't installed — `boost sync`
-prints a warning and moves on.
-
-| Instead of | Use |
-|---|---|
-| `php artisan boost:install` | `vendor/bin/testbench boost:install` |
-| `php artisan boost:mcp` | `vendor/bin/testbench boost:mcp` |
-
-Register the package's service provider in `testbench.yaml` under
-`providers:` so Testbench boots it. Published files land in
-`workbench/` by default, not `config/` or `resources/` of a host app.
-
-### Cross-Version Compatibility
-
-Supporting multiple Laravel / PHP majors is routine for Laravel
-packages. Activate `cross-version-laravel-support` **before** writing
-the code; activate `ci-matrix-troubleshooting` **after** a matrix cell
-has failed.
-
 ---
 
 # Release Automation
 
-## CHANGELOG.md is updated automatically — do NOT edit by hand for releases
+Conventions the package-boost family shares for release flow. The
+procedural detail lives in the `pre-release` and `release-notes`
+skills — loaded on-demand, not pinned here.
 
-`CHANGELOG.md` is kept in sync with GitHub releases by `.github/workflows/update-changelog.yml`. When a release is published (not just drafted), the workflow uses `stefanzweifel/changelog-updater-action` to prepend the release body to `CHANGELOG.md` and commits the update back to `main`.
+## CHANGELOG is CI-managed
 
-This means:
+`.github/workflows/update-changelog.yml` prepends the release body to
+`CHANGELOG.md` on `release: released` and commits to the release's
+target branch (typically `main`). Don't hand-edit `CHANGELOG.md` as
+part of a release. Post-release typo fixes are committed directly.
 
-- **Do not** add changelog entries manually when preparing a release. The release body (drafted in `internal/release-notes-<version>.md` and pasted into the GitHub release) becomes the changelog entry automatically.
-- **Do not** include a changelog diff in the release PR — the post-release commit comes from CI.
-- If the changelog needs a fix *after* a release, edit `CHANGELOG.md` directly and commit — but this is unusual and only for typos or formatting issues in the auto-generated entry.
+## Release notes live in `internal/release-notes-<version>.md`
 
-## Benchmark table in release body is updated automatically
+`internal/` is gitignored — drafts stay local. The notes file becomes
+the release body. The first line pins the green commit so the pre-tag
+gate can fail closed on drift:
 
-`.github/workflows/release-benchmark.yml` appends the latest benchmark table between the `<!-- benchmark-start -->` / `<!-- benchmark-end -->` markers in the release body after publish. Do not paste benchmark numbers manually into the release body with those markers — write the narrative above and let CI fill in the table.
-
-## Release workflow (summary)
-
-1. Draft release notes in `internal/release-notes-<version>.md`
-2. Commit and push code + notes file to `main`
-3. Tag and create the GitHub release with the release-notes file as the body
-4. CI automatically:
-   - Appends the benchmark table to the release body
-   - Prepends the release body to `CHANGELOG.md` and commits it back to `main`
-
-No manual `CHANGELOG.md` edits are part of the release PR.
-
-## Verification Before Completion
-
-Before claiming any work is complete or successful, run the verification command fresh and confirm the output. Evidence before claims, always.
-
-### Required Before Any Completion Claim
-
-1. **Run** the relevant command (in the current message, not from memory)
-2. **Read** the full output
-3. **Confirm** it supports the claim
-4. **Then** state the result with evidence
-
-### During Development (after each change)
-
-| Claim            | Required verification                              |
-|------------------|----------------------------------------------------|
-| Code style clean | `vendor/bin/pint --dirty --format agent` output    |
-| Tests pass       | Related tests pass via `--filter` or specific file |
-| Bug fixed        | Previously failing test now passes                 |
-
-### At Completion Only (feature/phase done, before PR)
-
-These are slow checks — only run them once at the very end:
-
-| Claim             | Required verification                                           |
-|-------------------|-----------------------------------------------------------------|
-| Rector ran clean  | `vendor/bin/rector process` showing 0 changes                   |
-| PHPStan clean     | `vendor/bin/phpstan analyse --memory-limit=2G` showing 0 errors |
-| Full suite passes | `vendor/bin/pest` output showing 0 failures                     |
-| Feature complete  | All above checks pass                                           |
-
-### Always Capture Command Output
-
-Append `|| true` to all verification commands (tests, linting, type checks) so the output is always captured, even on failure. Without it, a non-zero exit code can hide the output, forcing an expensive second run just to read the errors.
-
-```bash
-# CORRECT — output always visible
-vendor/bin/pest --filter=testName || true
-vendor/bin/pint --dirty --format agent || true
-
-# WRONG — output lost on failure, wastes time re-running
-vendor/bin/pest --filter=testName
+```
+<!-- verified-sha: <full sha> -->
 ```
 
-### Never Use Without Evidence
+## Tag and title
 
-- "should work now"
-- "that should fix it"
-- "looks correct"
-- "I'm confident this works"
+- Tag: bare version (`0.7.0`) — Composer and Packagist read the tag.
+- Release title: `v`-prefixed (`v0.7.0`) — cosmetic.
+- Notes file: bare (`internal/release-notes-0.7.0.md`).
 
-These phrases indicate missing verification. Run the command first, then report what actually happened.
-</package-boost-guidelines>
+## Agent handoff
+
+Agents stop at the ready-to-tag handoff. The user runs the pre-tag
+gate and publishes the release (GitHub UI, `gh`, or otherwise). See
+the `pre-release` skill for the full procedure and the no-release-create
+rule.
+<!-- boost-core:guidelines:end -->
