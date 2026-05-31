@@ -1184,10 +1184,8 @@ it('preserves a preconfigured custom factory resolver', function (): void {
     $state->customCalled = false;
     $factory->make(['x' => 'y'], ['x' => 'required']);
 
-    // PHPStan sees the last static assignment (false) and can't trace the
-    // closure mutation back through `Factory::make()`. At runtime the
-    // closure sets customCalled=true — that's the whole point of the test.
-    // @phpstan-ignore pest.expectation.impossible
+    // At runtime the resolver closure sets customCalled=true — proving the
+    // custom resolver survived FluentFormRequest's setup.
     expect($state->customCalled)->toBeTrue();
 });
 

@@ -113,3 +113,16 @@ parameters:
 			identifier: complexity.functionLike
 			count: 1
 			path: src/HasFluentRules.php
+
+		# Cross-version Filament guard. The trait may be mixed into components
+		# that lack getCachedForms (plain Livewire without InteractsWithForms),
+		# so the method_exists() check is required at runtime. PHPStan only ever
+		# analyses the trait through the single test double, which declares
+		# getCachedForms, making the guard look always-true in that sole
+		# context. Inline @phpstan-ignore in a trait does not apply to
+		# using-class-context analysis (newer larastan), so it is baselined.
+		-
+			rawMessage: 'Call to function method_exists() with $this(TestableFilamentComponent) and ''getCachedForms'' will always evaluate to true.'
+			identifier: function.alreadyNarrowedType
+			count: 2
+			path: tests/HasFluentValidationForFilamentTest.php

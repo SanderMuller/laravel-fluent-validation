@@ -41,7 +41,7 @@ trait HasFluentValidationForFilament
         $rules = $this->fluentGetRules();
 
         // Merge Filament form-schema rules (same as InteractsWithForms::getRules)
-        if (method_exists($this, 'getCachedForms')) { // @phpstan-ignore function.alreadyNarrowedType
+        if (method_exists($this, 'getCachedForms')) {
             foreach ($this->getCachedForms() as $form) {
                 if (method_exists($form, 'getValidationRules')) {
                     $rules = [...$rules, ...$form->getValidationRules()];
@@ -62,7 +62,7 @@ trait HasFluentValidationForFilament
         $attributes = $this->fluentGetValidationAttributes();
 
         // Merge Filament form-schema attributes (same as InteractsWithForms::getValidationAttributes)
-        if (method_exists($this, 'getCachedForms')) { // @phpstan-ignore function.alreadyNarrowedType
+        if (method_exists($this, 'getCachedForms')) {
             foreach ($this->getCachedForms() as $form) {
                 if (method_exists($form, 'getValidationAttributes')) {
                     $attributes = [...$attributes, ...$form->getValidationAttributes()];

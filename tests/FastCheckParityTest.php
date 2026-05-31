@@ -111,6 +111,7 @@ it('fast-check closure verdict matches Laravel validator', function (string $rul
 
     }
 
+    assert($closure instanceof Closure);
     $fastResult = $closure($value);
     $laravelResult = Validator::make(['f' => $value], ['f' => $rule])->passes();
 
@@ -186,6 +187,7 @@ it('item-aware fast-check verdict matches Laravel validator for date field-refs'
     }
 
     /** @var array<string, mixed> $item */
+    assert($closure instanceof Closure);
     $fastResult = $closure($value, $item);
 
     // Laravel needs the full item context for field-ref rules.
@@ -259,6 +261,7 @@ it('item-aware fast-check verdict matches Laravel validator for same/different f
     }
 
     /** @var array<string, mixed> $item */
+    assert($closure instanceof Closure);
     $fastResult = $closure($value, $item);
     $laravelResult = Validator::make($item, ['value' => $rule])->passes();
 
@@ -375,6 +378,7 @@ it('item-aware fast-check verdict matches Laravel validator for confirmed rule',
     }
 
     /** @var array<string, mixed> $item */
+    assert($closure instanceof Closure);
     $fastResult = $closure($value, $item);
 
     // Laravel sees the rule under the attribute name — the attribute's key
@@ -465,6 +469,7 @@ it('presence-conditional fast-check matches Laravel for required_with family', f
     }
 
     /** @var array<string, mixed> $item */
+    assert($closure instanceof Closure);
     $fastResult = $closure($value, $item);
     $laravelResult = Validator::make($item, ['value' => $rule])->passes();
 
@@ -545,6 +550,7 @@ it('presence-conditional composes with item-aware field-ref rules', function (st
     }
 
     /** @var array<string, mixed> $item */
+    assert($closure instanceof Closure);
     $fastResult = $closure($value, $item);
     $laravelResult = Validator::make($item, ['value' => $rule])->passes();
 
@@ -668,6 +674,7 @@ it('item-aware fast-check verdict matches Laravel validator for size comparisons
     }
 
     /** @var array<string, mixed> $item */
+    assert($closure instanceof Closure);
     $fastResult = $closure($value, $item);
     $laravelResult = Validator::make($item, ['value' => $rule])->passes();
 
