@@ -146,8 +146,34 @@ trait SelfValidates
     private function isNullable(mixed $value): bool
     {
         return is_null($value)
-            && ! in_array('required', $this->constraints, true)
+            && ! $this->hasActiveRequired()
             && in_array('nullable', $this->constraints, true);
+    }
+
+    /**
+     * Whether the field is actually required — either via the literal
+     * `required` constraint string, or an active conditional-required object
+     * modifier (requiredIf/requiredUnless with a bool/closure).
+     *
+     * RequiredIf/RequiredUnless cast to 'required' when their condition is
+     * truthy and '' otherwise, so an inactive condition does not count and
+     * nullable still applies.
+     */
+    private function hasActiveRequired(): bool
+    {
+        if (in_array('required', $this->constraints, true)) {
+            return true;
+        }
+
+        foreach ($this->rules as $rule) {
+            if (($rule instanceof RequiredIf || $rule instanceof RequiredUnless)
+                && (string) $rule === 'required'
+            ) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     protected function hasPresenceModifier(): bool
