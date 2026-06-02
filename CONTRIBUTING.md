@@ -10,8 +10,9 @@ for AI-assisted development, via two dev dependencies:
 
 The engine syncs `.ai/` sources plus allowlisted vendor skills/guidelines
 into the directories each AI tool expects (`.claude/`, `.github/`,
-`.agents/`, `CLAUDE.md`, `AGENTS.md`). Configuration lives in `boost.php`
-(allowed vendors, agents, tags). There is no MCP server — this package
+`.agents/`, `CLAUDE.md`, `AGENTS.md`). Configuration lives in
+`.config/boost.php` (allowed vendors, agents, tags). There is no MCP
+server — this package
 does not depend on `laravel/boost`.
 
 ### Setup
@@ -20,8 +21,8 @@ does not depend on `laravel/boost`.
 composer install
 ```
 
-`boost.php` is committed, so no install step is needed. To reconfigure
-agents/vendors interactively, run `vendor/bin/boost install`.
+`.config/boost.php` is committed, so no install step is needed. To
+reconfigure agents/vendors interactively, run `vendor/bin/boost install`.
 
 ### Authoring skills and guidelines
 
@@ -33,7 +34,7 @@ Edit sources under `.ai/` — never edit the generated agent directories:
 └── skills/       # synced to .claude/skills/, .github/skills/, .agents/skills/
 ```
 
-Vendor skills/guidelines are enabled through `boost.php`'s
+Vendor skills/guidelines are enabled through `.config/boost.php`'s
 `withAllowedVendors([...])` + `withTags([...])`. Inspect what resolves
 and from where with `vendor/bin/boost where`.
 
@@ -54,7 +55,7 @@ for Claude Code, Codex, and Copilot from `.ai/` + allowlisted vendors.
 The generated agent directories (`.claude/skills/`, `.github/skills/`,
 `.agents/skills/`, `.claude/commands/`, `.github/prompts/`) are
 **gitignored** — they are regenerated, not committed. Commit only the
-`.ai/` sources and `boost.php`.
+`.ai/` sources and `.config/boost.php`.
 
 ### Verify
 
