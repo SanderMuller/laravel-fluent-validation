@@ -2,6 +2,51 @@
 
 All notable changes to `laravel-fluent-validation` will be documented in this file.
 
+## 1.27.2 - 2026-06-02
+
+<!-- verified-sha: d17504911517456ec7f42b00f637bd93bba20cdc -->
+Patch fix: conditional-required and presence modifiers combined with `nullable()` were silently dropped when a `FluentRule` self-validates.
+
+### What changed
+
+#### `nullable()` no longer drops conditional-required / presence modifiers in self-validation
+
+When a `FluentRule` is used as a standalone `ValidationRule` — inline `$request->validate([...])` or `Validator::make()` without the `HasFluentRules` trait — it self-validates through `SelfValidates`. `isNullable()` skipped validation for a null or absent value whenever `nullable` was present and the literal `required` string was absent from the rule's constraints.
+
+Conditional-required and presence modifiers never emit that literal `required` string — they compile to `required_*` constraint strings, or to `RequiredIf` / `RequiredUnless` objects when built from a closure or bool. So the guard silently dropped the requirement on a null or missing value:
+
+```php
+// $enabled = true; the field is omitted or null
+FluentRule::email()->requiredIf($enabled)->nullable()
+// before: passed — requirement dropped          ❌
+// after:  fails, matching native Laravel         ✅
+
+```
+This diverged from both native Laravel (`['nullable', Rule::requiredIf(true)]`) and the compiled `HasFluentRules` path, which were already correct — so the gap only surfaced when a `FluentRule` validated in isolation.
+
+Fix: `isNullable()` now short-circuits only when the chain carries no presence-forcing modifier. The presence-forcing set is:
+
+- **required** — `required`, the string conditionals (`requiredIf` / `requiredUnless` / `requiredWith` / `requiredWithout` and their `_all` / `_if_accepted` / `_if_declined` variants), and the `RequiredIf` / `RequiredUnless` objects.
+- **filled**
+- **present** — `present` / `presentIf` / `presentUnless` / `presentWith` / `presentWithAll`
+- **missing** — `missing` / `missingIf` / `missingUnless` / `missingWith` / `missingWithAll`
+
+Detection matches exact rule names, so `required_array_keys` (an array-content rule, not a presence requirement) is correctly excluded. `prohibited*` and `exclude*` remain short-circuitable — they are satisfied by a null/empty value, which already matched native Laravel.
+
+A second, related gap is closed in the same path: a `nullable` array no longer short-circuits when it carries nested `each()` / `children()` rules. A required child under a null parent is now enforced like native Laravel (and the compiled path) instead of skipped. Wildcard `each()` still passes on a null parent — it expands to nothing — while fixed `children()` enforce their sub-rules.
+
+Pinned by `tests/RequiredConditionalNullableTest.php`: a parity matrix that asserts every conditional-required and presence family — with `nullable` on and off, across absent / null / empty-string / valid values, plus nested parent-null shapes — behaves identically on the self-validation path, the compiled `HasFluentRules` path, and native Laravel.
+
+No public-API change. No new dependencies. Same compatibility matrix as 1.27.1.
+
+Reported via #15.
+
+### Upgrading
+
+Drop-in. `composer update sandermuller/laravel-fluent-validation`.
+
+**Full Changelog**: https://github.com/SanderMuller/laravel-fluent-validation/compare/1.27.1...1.27.2
+
 ## 1.27.1 - 2026-05-11
 
 ### 1.27.1
@@ -20,6 +65,7 @@ The remap built a synthetic `Validator::make([], [])`, pushed the error message 
 $caught->validator->errors()->keys();   // ['actions']                      ✅
 $caught->validator->errors()->first();  // human-readable message          ✅
 $caught->validator->failed();           // []                              ❌
+
 
 ```
 `Validator::failed()` returning `[]` meant `FluentRulesTester::failsWith('actions', 'max')` — and any other assertion path that inspects the rule-bag rather than the message bag — couldn't see which rule actually tripped.
@@ -69,6 +115,7 @@ $validated = RuleSet::from([
 // Output: ['name' => 'John', 'meta' => ['type' => 'admin']]
 
 
+
 ```
 Top-level keys outside the rule set are already excluded from `validated()`; this flag extends the same behavior to nested array shapes declared via `children()`, `each()`, or dotted rule keys. Maps to Laravel's `Validator::$excludeUnvalidatedArrayKeys`, but gives per-`RuleSet` control instead of relying on whatever the host factory's flag happens to be set to — useful when an application has called `Factory::includeUnvalidatedArrayKeys()` globally and a specific call site needs the strict default back.
 
@@ -86,6 +133,7 @@ $validated = RuleSet::from([...])->validate($request->all());
 
 // 1.27
 $validated = RuleSet::from([...])->validate($request);
+
 
 
 ```
