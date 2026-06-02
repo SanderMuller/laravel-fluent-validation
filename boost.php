@@ -13,13 +13,14 @@ use SanderMuller\BoostCore\Enums\Tag;
  *
  * Docs: https://github.com/sandermuller/boost-core
  */
-return BoostConfig::configure()
+return BoostConfig::configure()->withDisabledEmitters([])
     ->withAgents([
         Agent::CLAUDE_CODE,
         Agent::COPILOT,
         Agent::CODEX,
     ])
     ->withAllowedVendors([
+        'sandermuller/boost-core',
         'sandermuller/boost-skills',
         'sandermuller/package-boost-laravel',
         'sandermuller/package-boost-php',
@@ -29,6 +30,6 @@ return BoostConfig::configure()
         Tag::Php,
         Tag::Laravel,
         Tag::Github,
-        Tag::Pest,
         'release-automation',
+        Tag::Pest,
     );
