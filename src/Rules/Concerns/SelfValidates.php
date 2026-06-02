@@ -35,11 +35,19 @@ trait SelfValidates
             return;
         }
 
-        if ($this->isNullable($value)) {
+        $nestedRules = $this->buildNestedRules($attribute);
+
+        // A null value with `nullable` skips validation — but only when there
+        // are no nested (`each()` / `children()`) rules. With nested rules,
+        // defer to the inner validator so a required child behaves like native
+        // Laravel (and the compiled HasFluentRules path): enforced on a null
+        // parent rather than silently skipped. Wildcard `each()` still passes
+        // (it expands to nothing over null); only fixed `children()` differ.
+        if ($nestedRules === [] && $this->isNullable($value)) {
             return;
         }
 
-        $rules = $this->buildRulesForAttribute($attribute);
+        $rules = [$attribute => $this->buildValidationRules()] + $nestedRules;
 
         $innerValidator = Validator::make(
             $this->data,
@@ -52,19 +60,7 @@ trait SelfValidates
             return;
         }
 
-        $this->forwardErrors($innerValidator, $attribute, count($rules) > 1, $fail);
-    }
-
-    /** @return array<string, mixed> */
-    private function buildRulesForAttribute(string $attribute): array
-    {
-        $rules = [$attribute => $this->buildValidationRules()];
-
-        foreach ($this->buildNestedRules($attribute) as $nestedAttribute => $nestedRule) {
-            $rules[$nestedAttribute] = $nestedRule;
-        }
-
-        return $rules;
+        $this->forwardErrors($innerValidator, $attribute, $nestedRules !== [], $fail);
     }
 
     /** @return array<string, string> */
@@ -146,8 +142,70 @@ trait SelfValidates
     private function isNullable(mixed $value): bool
     {
         return is_null($value)
-            && ! in_array('required', $this->constraints, true)
+            && ! $this->hasPresenceForcingModifier()
             && in_array('nullable', $this->constraints, true);
+    }
+
+    /**
+     * Exact rule names (the part before any `:`) whose rules must be evaluated
+     * against a null/absent value rather than skipped by `nullable`. Matched
+     * exactly — not by prefix — so a non-presence rule that merely shares a
+     * stem (most notably `required_array_keys`) never counts, and no entry is
+     * silently subsumed by another (`required_with` vs `required_without`).
+     */
+    private const PRESENCE_FORCING_RULES = [
+        'required', 'filled', 'present', 'missing',
+        'required_if', 'required_unless',
+        'required_with', 'required_with_all',
+        'required_without', 'required_without_all',
+        'required_if_accepted', 'required_if_declined',
+        'present_if', 'present_unless', 'present_with', 'present_with_all',
+        'missing_if', 'missing_unless', 'missing_with', 'missing_with_all',
+    ];
+
+    /**
+     * Whether the chain carries a modifier that forces evaluation of a
+     * null/absent value, in which case `nullable` must NOT short-circuit
+     * validation. Covers every presence family that diverges from a plain
+     * `nullable` skip:
+     *
+     *   - required — literal `required`, the string conditionals
+     *     (`required_if`/`required_unless`/`required_with`/`required_without`
+     *     and their `_all` / `_if_accepted` / `_if_declined` variants), and the
+     *     object conditionals `RequiredIf` / `RequiredUnless` (bool/closure).
+     *   - `filled`  — implicit in Laravel; rejects a present-null value.
+     *   - `present` / `present_*` — require the key to be in the input.
+     *   - `missing` / `missing_*` — require the key to be absent (so a
+     *     present-null value must fail).
+     *
+     * When present, the inner Laravel validator evaluates the modifier
+     * together with `nullable` exactly as native Laravel does. `prohibited*`
+     * is intentionally excluded: it is satisfied by an empty/null value, so the
+     * `nullable` short-circuit already yields the native result.
+     *
+     * Without this guard, any of these modifiers combined with `nullable()`
+     * silently dropped its constraint for a null/missing field, because only
+     * the literal `'required'` string was once checked here while the rest live
+     * as `*_` constraint strings or as `RequiredIf`/`RequiredUnless` objects in
+     * `$this->rules`.
+     */
+    private function hasPresenceForcingModifier(): bool
+    {
+        foreach ($this->constraints as $constraint) {
+            $name = explode(':', (string) $constraint, 2)[0];
+
+            if (in_array($name, self::PRESENCE_FORCING_RULES, true)) {
+                return true;
+            }
+        }
+
+        foreach ($this->rules as $rule) {
+            if ($rule instanceof RequiredIf || $rule instanceof RequiredUnless) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     protected function hasPresenceModifier(): bool
