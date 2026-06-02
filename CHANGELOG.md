@@ -2,6 +2,35 @@
 
 All notable changes to `laravel-fluent-validation` will be documented in this file.
 
+## 1.27.3 - 2026-06-02
+
+<!-- verified-sha: db314676416304edcbd9e569d05108f884db5c26 -->
+Patch fix: the always-on FluentRule guideline never reached consumers' AI tooling because the wrong file extension made boost-core skip it.
+
+### What changed
+
+#### Core guideline renamed `core.blade.php` → `core.md`
+
+The package ships an always-on guideline (`FluentRule Validation`) that boost-core renders into a consumer's `CLAUDE.md` / `AGENTS.md` when they allowlist this package. It carried the standing guidance — FormRequests must use `HasFluentRules`, the `FluentRule::` type list, "don't wrap conditional modifiers in `Rule::`".
+
+The file was plain markdown — zero Blade directives, zero render-time tokens — but its `.blade.php` extension made boost-core route it through a renderer that no normal consumer registers. Every consumer's `boost sync` skipped it:
+
+```
+⚠ guideline `core.blade.php` skipped — no renderer registered for its extension.
+
+```
+So the standing guidance never landed in `CLAUDE.md` / `AGENTS.md`; contributors only got it on-demand via the `fluent-validation*` skills, not as always-on context.
+
+Fix: renamed the file to `core.md`. boost-core renders `.md` guidelines natively, so the body now reaches every allowlisting consumer with no `withSkillRenderers()` registration required. No content change.
+
+Surfaced during a downstream consumer audit of synced AI assets.
+
+### Upgrading
+
+Drop-in. `composer update sandermuller/laravel-fluent-validation`, then re-run `vendor/bin/boost sync`; the guideline now renders without the skip warning.
+
+**Full Changelog**: https://github.com/SanderMuller/laravel-fluent-validation/compare/1.27.2...1.27.3
+
 ## 1.27.2 - 2026-06-02
 
 <!-- verified-sha: d17504911517456ec7f42b00f637bd93bba20cdc -->
@@ -20,6 +49,7 @@ Conditional-required and presence modifiers never emit that literal `required` s
 FluentRule::email()->requiredIf($enabled)->nullable()
 // before: passed — requirement dropped          ❌
 // after:  fails, matching native Laravel         ✅
+
 
 ```
 This diverged from both native Laravel (`['nullable', Rule::requiredIf(true)]`) and the compiled `HasFluentRules` path, which were already correct — so the gap only surfaced when a `FluentRule` validated in isolation.
@@ -65,6 +95,7 @@ The remap built a synthetic `Validator::make([], [])`, pushed the error message 
 $caught->validator->errors()->keys();   // ['actions']                      ✅
 $caught->validator->errors()->first();  // human-readable message          ✅
 $caught->validator->failed();           // []                              ❌
+
 
 
 ```
@@ -116,6 +147,7 @@ $validated = RuleSet::from([
 
 
 
+
 ```
 Top-level keys outside the rule set are already excluded from `validated()`; this flag extends the same behavior to nested array shapes declared via `children()`, `each()`, or dotted rule keys. Maps to Laravel's `Validator::$excludeUnvalidatedArrayKeys`, but gives per-`RuleSet` control instead of relying on whatever the host factory's flag happens to be set to — useful when an application has called `Factory::includeUnvalidatedArrayKeys()` globally and a specific call site needs the strict default back.
 
@@ -133,6 +165,7 @@ $validated = RuleSet::from([...])->validate($request->all());
 
 // 1.27
 $validated = RuleSet::from([...])->validate($request);
+
 
 
 
