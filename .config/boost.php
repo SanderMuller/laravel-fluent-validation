@@ -26,10 +26,10 @@ return BoostConfig::configure()->withDisabledEmitters([])
         'sandermuller/package-boost-php',
         'stolt/lean-package-validator',
     ])
-    ->withTags(
+    ->withTags([
         Tag::Php,
         Tag::Laravel,
         Tag::Github,
         'release-automation',
         Tag::Pest,
-    );
+    ]);

@@ -370,7 +370,6 @@ trait HasFluentRules
                 // Resolve wildcard: interactions.*.type → interactions.5.type
                 if (str_contains($conditionField, '*')) {
                     preg_match_all('/\.(\d+)(?:\.|$)/', (string) $attribute, $m);
-                    /** @var list<numeric-string> $indices */
                     $indices = $m[1];
                     $idx = 0;
                     $conditionField = (string) preg_replace_callback('/\*/', static function () use ($indices, &$idx): string {
