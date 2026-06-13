@@ -157,7 +157,7 @@ You can install the package via composer:
 composer require sandermuller/laravel-fluent-validation
 ```
 
-Requires PHP 8.2+ and Laravel 11+.
+Requires PHP 8.2+ and Laravel 12+.
 
 ### AI-assisted development
 
