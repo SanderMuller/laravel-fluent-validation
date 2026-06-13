@@ -63,11 +63,12 @@ jobs:
 
       - name: Install dependencies
         run: |
-          # AI authoring tooling (boost-skills / package-boost-laravel) floors at
-          # php ^8.3 + illuminate ^12 and is not needed to run the suite. Drop it so
-          # the test matrix can still resolve on the package's real floor (php 8.2,
-          # Laravel 12). See CONTRIBUTING.md for the local dev-tooling workflow.
-          composer remove --dev sandermuller/boost-skills sandermuller/package-boost-laravel --no-interaction --no-update
+          # AI authoring tooling (boost-skills / package-boost-laravel) and
+          # laravel/pao all floor at php ^8.3 and are not needed to run the suite.
+          # Drop them so the test matrix can still resolve on the package's real
+          # floor (php 8.2, Laravel 12). See CONTRIBUTING.md for the local
+          # dev-tooling workflow.
+          composer remove --dev sandermuller/boost-skills sandermuller/package-boost-laravel laravel/pao --no-interaction --no-update
           composer require "laravel/framework:${{ matrix.laravel }}" "orchestra/testbench:${{ matrix.testbench }}" --no-interaction --no-update
           composer update --${{ matrix.stability }} --prefer-dist --no-interaction
 

@@ -26,6 +26,7 @@
     "require-dev": {
         "driftingly/rector-laravel": "^2.3",
         "larastan/larastan": "^3.9.3",
+        "laravel/pao": "^1.1",
         "laravel/pint": "^1.29",
         "livewire/livewire": "^3.0||^4.0",
         "mrpunyapal/rector-pest": "^0.2.7",
