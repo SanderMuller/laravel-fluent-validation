@@ -2,6 +2,45 @@
 
 All notable changes to `laravel-fluent-validation` will be documented in this file.
 
+## 1.28.0 - 2026-06-13
+
+<!-- verified-sha: 17cf97636660f8a6abc65b8ec1d73a53226cc29e -->
+Drops Laravel 11 from the supported matrix and moves the package's AI-authoring dev tooling onto the boost `1.x` line. No runtime code or public API changed — the only consumer-facing effect is the narrowed framework constraint.
+
+### What changed
+
+#### Laravel 11 support dropped
+
+Every Laravel 11 release (`v11.0.0` through `v11.54.0`) is now flagged by Packagist security advisories, and there is no advisory-free patch in the `11.x` line. Composer's advisory policy refuses to install any of them, so the package could no longer be resolved or tested against Laravel 11.
+
+The supported framework constraint narrows accordingly:
+
+```
+illuminate/*: ^11.0||^12.0||^13.0  ->  ^12.0||^13.0
+
+```
+The CI matrix drops its Laravel 11 legs (and the `orchestra/testbench ^9.0` requirement that only existed to test them); Laravel 12 and 13 remain, across PHP 8.2 / 8.3 / 8.4 on Ubuntu and Windows.
+
+#### AI-authoring tooling moved to boost 1.x
+
+The package's `require-dev` boost stack moved to the `1.0` line — `sandermuller/package-boost-laravel ^1.0` (pulling `boost-core 1.x` + `package-boost-php 1.x`) and `sandermuller/boost-skills ^2.5`. The `.config/boost.php` config was updated to the array-argument builder API that boost-core `0.20+` requires. These are developer-only dependencies; they are not installed by consumers and do not affect the package at runtime.
+
+### Compatibility
+
+- PHP 8.2 / 8.3 / 8.4
+- Laravel 12 / 13 (prefer-lowest + prefer-stable)
+- ubuntu-latest + windows-latest
+
+No runtime code touched. No public-API change. No new runtime dependencies.
+
+### Upgrading
+
+Drop-in for anyone already on Laravel 12 or 13: `composer update sandermuller/laravel-fluent-validation`.
+
+Projects still on Laravel 11 must upgrade to Laravel 12+ to take this release. Laravel 11 is past security support and its releases are advisory-blocked; staying on it is not a secure option regardless of this package.
+
+**Full Changelog**: https://github.com/SanderMuller/laravel-fluent-validation/compare/1.27.3...1.28.0
+
 ## 1.27.3 - 2026-06-02
 
 <!-- verified-sha: db314676416304edcbd9e569d05108f884db5c26 -->
@@ -17,6 +56,7 @@ The file was plain markdown — zero Blade directives, zero render-time tokens �
 
 ```
 ⚠ guideline `core.blade.php` skipped — no renderer registered for its extension.
+
 
 ```
 So the standing guidance never landed in `CLAUDE.md` / `AGENTS.md`; contributors only got it on-demand via the `fluent-validation*` skills, not as always-on context.
@@ -49,6 +89,7 @@ Conditional-required and presence modifiers never emit that literal `required` s
 FluentRule::email()->requiredIf($enabled)->nullable()
 // before: passed — requirement dropped          ❌
 // after:  fails, matching native Laravel         ✅
+
 
 
 ```
@@ -95,6 +136,7 @@ The remap built a synthetic `Validator::make([], [])`, pushed the error message 
 $caught->validator->errors()->keys();   // ['actions']                      ✅
 $caught->validator->errors()->first();  // human-readable message          ✅
 $caught->validator->failed();           // []                              ❌
+
 
 
 
@@ -148,6 +190,7 @@ $validated = RuleSet::from([
 
 
 
+
 ```
 Top-level keys outside the rule set are already excluded from `validated()`; this flag extends the same behavior to nested array shapes declared via `children()`, `each()`, or dotted rule keys. Maps to Laravel's `Validator::$excludeUnvalidatedArrayKeys`, but gives per-`RuleSet` control instead of relying on whatever the host factory's flag happens to be set to — useful when an application has called `Factory::includeUnvalidatedArrayKeys()` globally and a specific call site needs the strict default back.
 
@@ -165,6 +208,7 @@ $validated = RuleSet::from([...])->validate($request->all());
 
 // 1.27
 $validated = RuleSet::from([...])->validate($request);
+
 
 
 
