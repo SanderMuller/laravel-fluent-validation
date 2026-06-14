@@ -12,6 +12,7 @@ use Illuminate\Support\MessageBag;
 use Illuminate\Support\Traits\Conditionable;
 use Illuminate\Support\Traits\Macroable;
 use Illuminate\Validation\ValidationException;
+use InvalidArgumentException;
 use IteratorAggregate;
 use LogicException;
 use ReflectionProperty;
@@ -614,6 +615,19 @@ final class RuleSet implements Arrayable, IteratorAggregate
                 $topRules[$field] = $rule;
 
                 continue;
+            }
+
+            // A '*' outside a '.*' segment (the typo 'items*' for 'items.*', or a
+            // root-level '*' / '*.foo') computes an empty parent and is silently
+            // dropped — applying no validation. Root wildcards are not part of the
+            // typed API surface (check() takes array<string, mixed>, not a root
+            // list), so every well-formed wildcard key contains '.*'. Fail fast
+            // with a corrective hint instead of silently skipping.
+            if (! str_contains($field, '.*')) {
+                throw new InvalidArgumentException(
+                    "Malformed wildcard rule key [{$field}]: a wildcard segment must be written as '.*' "
+                    . "(e.g. 'items.*.name'). Did you mean '" . str_replace('*', '.*', $field) . "'?"
+                );
             }
 
             $starPos = (int) strpos($field, '.*');

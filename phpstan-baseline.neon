@@ -48,9 +48,14 @@ parameters:
 			count: 1
 			path: src/FluentFormRequest.php
 
-		# Grew by one with Phase 2's runValidateInternal remap layer.
+		# Grew by one with Phase 2's runValidateInternal remap layer, and by one
+		# more with the separateRules() malformed-wildcard guard — a single
+		# conditional throw that converts a silent validation bypass (a '*' key
+		# with no '.*' segment applied no rule) into a loud error. The +1 is
+		# irreducible for a guard, and dropping RuleSet below the 80 threshold is a
+		# whole-class refactor out of scope here.
 		-
-			rawMessage: 'Class cognitive complexity is 139, keep it under 80'
+			rawMessage: 'Class cognitive complexity is 140, keep it under 80'
 			identifier: complexity.classLike
 			count: 1
 			path: src/RuleSet.php
