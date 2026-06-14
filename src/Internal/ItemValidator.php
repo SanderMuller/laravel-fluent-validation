@@ -55,6 +55,8 @@ final readonly class ItemValidator
         $rulesByDispatch = [];
         /** @var array<string, array{0: array<string, Closure(array<string, mixed>): bool>, 1: array<string, mixed>}> $fastChecksByDispatch */
         $fastChecksByDispatch = [];
+        /** @var array<string, array{0: list<Closure(array<string, mixed>): bool>, 1: array<string, mixed>}> $fastChecksByReduced */
+        $fastChecksByReduced = [];
 
         [$fastChecks, $originalSlowRules] = $this->compiler->buildFastChecks($itemRules);
         /** @var array<string, \Illuminate\Validation\Validator> $validatorCache */
@@ -89,7 +91,11 @@ final readonly class ItemValidator
                 [$dispatchFastChecks, $dispatchSlowRules] = $fastChecksByDispatch[$dispatchValue];
             } elseif ($conditionalFields !== [] || $hasSiblingDependentConditionals) {
                 $effectiveRules = $this->compiler->reduceRulesForItem($itemRules, $itemData, $conditionalFields, $itemMessages);
-                [$dispatchFastChecks, $dispatchSlowRules] = $this->compiler->buildFastChecks($effectiveRules);
+                $reducedKey = $this->compiler->ruleCacheKey($effectiveRules);
+                // Memoize compiled fast-checks per distinct reduced rule set —
+                // many items reduce identically, so reuse beats recompiling.
+                [$dispatchFastChecks, $dispatchSlowRules] = $fastChecksByReduced[$reducedKey]
+                    ??= $this->compiler->buildFastChecks($effectiveRules);
             } else {
                 $effectiveRules = $itemRules;
                 $dispatchFastChecks = $fastChecks;
