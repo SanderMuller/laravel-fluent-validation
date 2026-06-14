@@ -2,6 +2,48 @@
 
 All notable changes to `laravel-fluent-validation` will be documented in this file.
 
+## 1.29.0 - 2026-06-14
+
+<!-- verified-sha: 343dc5bcb219d2a34c775f1d1a3d401cec2a9d73 -->
+Turns a silent validation bypass into a loud, actionable error. A wildcard rule
+key written incorrectly used to apply *no* validation and let invalid data
+through unnoticed; it now fails fast with a corrective hint.
+
+### Behaviour change
+
+#### Malformed wildcard rule keys now throw instead of being silently skipped
+
+A wildcard rule key must contain a `.*` segment (e.g. `items.*.name`, or
+`items.*` for a scalar list). A key with a `*` outside a `.*` segment — the typo
+`items*` (missing the dot), or a root-level `*` / `*.foo` — previously computed an
+empty parent internally and was dropped before validation ran. The rule applied
+nothing and invalid data passed silently.
+
+Such keys now throw `InvalidArgumentException` with a corrective hint:
+
+```
+Malformed wildcard rule key [items*]: a wildcard segment must be written as '.*'
+(e.g. 'items.*.name'). Did you mean 'items.*'?
+
+```
+This matches the package's existing fail-fast on malformed array-rule keys.
+
+**Impact:** correctly-formed rules (`items.*.name`, `items.*`, `addresses.*.postcode`,
+…) are unaffected — verdicts are identical. Only a previously-malformed key, which
+was silently doing nothing, now surfaces as an error. If you hit this on upgrade,
+it has been masking a rule that never ran: fix the key to use `.*`. Root-level
+wildcards (`*`, `*.foo`) are not supported — nest rules under a named key
+(`field.*`).
+
+### Internal
+
+- Added characterization/regression tests pinning the behaviour of each wildcard
+  key shape.
+
+<!-- benchmark-start -->
+<!-- benchmark-end -->
+**Full Changelog**: https://github.com/SanderMuller/laravel-fluent-validation/compare/1.28.1...1.29.0
+
 ## 1.28.1 - 2026-06-14
 
 <!-- verified-sha: a1c5df02580d5ee2562517f7e549efc9ceb27101 -->
@@ -56,6 +98,7 @@ The supported framework constraint narrows accordingly:
 illuminate/*: ^11.0||^12.0||^13.0  ->  ^12.0||^13.0
 
 
+
 ```
 The CI matrix drops its Laravel 11 legs (and the `orchestra/testbench ^9.0` requirement that only existed to test them); Laravel 12 and 13 remain, across PHP 8.2 / 8.3 / 8.4 on Ubuntu and Windows.
 
@@ -97,6 +140,7 @@ The file was plain markdown — zero Blade directives, zero render-time tokens �
 
 
 
+
 ```
 So the standing guidance never landed in `CLAUDE.md` / `AGENTS.md`; contributors only got it on-demand via the `fluent-validation*` skills, not as always-on context.
 
@@ -128,6 +172,7 @@ Conditional-required and presence modifiers never emit that literal `required` s
 FluentRule::email()->requiredIf($enabled)->nullable()
 // before: passed — requirement dropped          ❌
 // after:  fails, matching native Laravel         ✅
+
 
 
 
@@ -176,6 +221,7 @@ The remap built a synthetic `Validator::make([], [])`, pushed the error message 
 $caught->validator->errors()->keys();   // ['actions']                      ✅
 $caught->validator->errors()->first();  // human-readable message          ✅
 $caught->validator->failed();           // []                              ❌
+
 
 
 
@@ -233,6 +279,7 @@ $validated = RuleSet::from([
 
 
 
+
 ```
 Top-level keys outside the rule set are already excluded from `validated()`; this flag extends the same behavior to nested array shapes declared via `children()`, `each()`, or dotted rule keys. Maps to Laravel's `Validator::$excludeUnvalidatedArrayKeys`, but gives per-`RuleSet` control instead of relying on whatever the host factory's flag happens to be set to — useful when an application has called `Factory::includeUnvalidatedArrayKeys()` globally and a specific call site needs the strict default back.
 
@@ -250,6 +297,7 @@ $validated = RuleSet::from([...])->validate($request->all());
 
 // 1.27
 $validated = RuleSet::from([...])->validate($request);
+
 
 
 
