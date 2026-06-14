@@ -2,6 +2,43 @@
 
 All notable changes to `laravel-fluent-validation` will be documented in this file.
 
+## 1.28.1 - 2026-06-14
+
+<!-- verified-sha: a1c5df02580d5ee2562517f7e549efc9ceb27101 -->
+A performance patch for conditional wildcard validation. No runtime behaviour or
+public API changed — validation verdicts are identical; the conditional path just
+does less redundant work per item.
+
+### Performance
+
+#### Memoized fast-check compilation on the sibling-conditional path
+
+When a wildcard array carries sibling-dependent conditionals — `required_if`,
+`required_with`, and the presence/value conditionals — each item can reduce to a
+different effective rule set, so that path could not use the existing dispatch
+cache and rebuilt its compiled fast-check closures for every single item. In the
+common case where many items reduce to the *same* rule set (e.g. most rows take
+the same conditional branch), that work was repeated needlessly.
+
+These compiled fast-checks are now memoized per distinct reduced rule set, keyed
+by the same content-sensitive key the per-item validator cache already uses. The
+reduction itself still runs per item (it depends on each item's data); only the
+fast-check assembly is reused. Larger arrays with repeated conditional shapes do
+proportionally less compilation work.
+
+The change is internal to the validation engine. Verdicts are unchanged, covered
+by the existing conditional/parity suites plus dedicated cache-correctness tests.
+
+### Internal
+
+- Added an `UPGRADING.md` upgrade guide at the repository root (documents the 1.28
+  Laravel 11 support drop). It is a GitHub-facing document and is not part of the
+  distributed package.
+
+<!-- benchmark-start -->
+<!-- benchmark-end -->
+**Full Changelog**: https://github.com/SanderMuller/laravel-fluent-validation/compare/1.28.0...1.28.1
+
 ## 1.28.0 - 2026-06-13
 
 <!-- verified-sha: 17cf97636660f8a6abc65b8ec1d73a53226cc29e -->
@@ -17,6 +54,7 @@ The supported framework constraint narrows accordingly:
 
 ```
 illuminate/*: ^11.0||^12.0||^13.0  ->  ^12.0||^13.0
+
 
 ```
 The CI matrix drops its Laravel 11 legs (and the `orchestra/testbench ^9.0` requirement that only existed to test them); Laravel 12 and 13 remain, across PHP 8.2 / 8.3 / 8.4 on Ubuntu and Windows.
@@ -58,6 +96,7 @@ The file was plain markdown — zero Blade directives, zero render-time tokens �
 ⚠ guideline `core.blade.php` skipped — no renderer registered for its extension.
 
 
+
 ```
 So the standing guidance never landed in `CLAUDE.md` / `AGENTS.md`; contributors only got it on-demand via the `fluent-validation*` skills, not as always-on context.
 
@@ -89,6 +128,7 @@ Conditional-required and presence modifiers never emit that literal `required` s
 FluentRule::email()->requiredIf($enabled)->nullable()
 // before: passed — requirement dropped          ❌
 // after:  fails, matching native Laravel         ✅
+
 
 
 
@@ -136,6 +176,7 @@ The remap built a synthetic `Validator::make([], [])`, pushed the error message 
 $caught->validator->errors()->keys();   // ['actions']                      ✅
 $caught->validator->errors()->first();  // human-readable message          ✅
 $caught->validator->failed();           // []                              ❌
+
 
 
 
@@ -191,6 +232,7 @@ $validated = RuleSet::from([
 
 
 
+
 ```
 Top-level keys outside the rule set are already excluded from `validated()`; this flag extends the same behavior to nested array shapes declared via `children()`, `each()`, or dotted rule keys. Maps to Laravel's `Validator::$excludeUnvalidatedArrayKeys`, but gives per-`RuleSet` control instead of relying on whatever the host factory's flag happens to be set to — useful when an application has called `Factory::includeUnvalidatedArrayKeys()` globally and a specific call site needs the strict default back.
 
@@ -208,6 +250,7 @@ $validated = RuleSet::from([...])->validate($request->all());
 
 // 1.27
 $validated = RuleSet::from([...])->validate($request);
+
 
 
 
