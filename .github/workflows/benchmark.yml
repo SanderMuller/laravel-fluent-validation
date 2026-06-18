@@ -17,7 +17,7 @@ jobs:
 
     steps:
       - name: Checkout base branch
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           ref: ${{ github.event.pull_request.base.sha }}
 
@@ -37,7 +37,7 @@ jobs:
         run: cp benchmark-snapshot.json ${{ runner.temp }}/benchmark-snapshot.json
 
       - name: Checkout PR
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Install PR dependencies
         uses: ramsey/composer-install@v4
