@@ -85,6 +85,10 @@ parameters:
             path: tests/
             reportUnmatched: false
         -
+            identifier: classConstant.internalEnum
+            path: tests/
+            reportUnmatched: false
+        -
             identifier: staticMethod.internalClass
             path: tests/
             reportUnmatched: false

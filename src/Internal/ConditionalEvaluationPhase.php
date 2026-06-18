@@ -18,7 +18,7 @@ use SanderMuller\FluentValidation\OptimizedValidator;
  */
 final class ConditionalEvaluationPhase
 {
-    /** @var array<string, string> */
+    /** @var array<string, mixed> */
     private array $valueCache = [];
 
     /**
@@ -82,8 +82,13 @@ final class ConditionalEvaluationPhase
     }
 
     /**
-     * Evaluate pre-extracted conditional tuples for an attribute. Returns
-     * true if the attribute should be excluded.
+     * Evaluate pre-extracted conditional tuples for an attribute.
+     *
+     * Returns {@see ConditionalVerdict::Exclude} when a decidable tuple fires,
+     * {@see ConditionalVerdict::Defer} when no tuple fires but at least one
+     * couldn't be safely decided (so the validator must evaluate it), and
+     * {@see ConditionalVerdict::NotExcluded} only when every tuple was decided
+     * and none excluded.
      *
      * `$getValue` resolves a (possibly wildcard-replaced) field reference
      * to its value in the validator's data. Closure rather than callable
@@ -93,52 +98,83 @@ final class ConditionalEvaluationPhase
      * @param  list<array{action: string, field: string, values: list<mixed>}>  $tuples
      * @param  Closure(string): mixed  $getValue
      */
-    public function evaluate(string $attribute, array $tuples, Closure $getValue): bool
+    public function evaluate(string $attribute, array $tuples, Closure $getValue): ConditionalVerdict
     {
+        $deferred = false;
+
         foreach ($tuples as $tuple) {
             $field = $tuple['field'];
 
             if (str_contains($field, '*')) {
                 $field = self::resolveWildcard($attribute, $field);
+
+                // Unresolved wildcard (associative/non-numeric key) — can't pin
+                // down the dependent path, so defer to Laravel's resolution.
+                if (str_contains($field, '*')) {
+                    $deferred = true;
+
+                    continue;
+                }
             }
 
-            if (! isset($this->valueCache[$field])) {
-                $rawValue = $getValue($field);
-                $this->valueCache[$field] = is_scalar($rawValue) ? (string) $rawValue : '';
+            if (! array_key_exists($field, $this->valueCache)) {
+                $this->valueCache[$field] = $getValue($field);
             }
 
-            $actualValue = $this->valueCache[$field];
+            $rawValue = $this->valueCache[$field];
 
-            if ($tuple['action'] === 'exclude_unless' && ! in_array($actualValue, $tuple['values'], true)) {
-                return true;
+            // Only pre-decide on a plain string/numeric dependent, where a string
+            // comparison matches Laravel. A null/bool/non-scalar dependent needs
+            // Laravel's dependent-value coercion ('null'/'true'/'false'); defer
+            // those to the validator instead of risking a divergent verdict.
+            if (! is_string($rawValue) && ! is_int($rawValue) && ! is_float($rawValue)) {
+                $deferred = true;
+
+                continue;
             }
 
-            if ($tuple['action'] === 'exclude_if' && in_array($actualValue, $tuple['values'], true)) {
-                return true;
+            $actualValue = (string) $rawValue;
+
+            $excludes = $tuple['action'] === 'exclude_unless'
+                ? ! in_array($actualValue, $tuple['values'], true)
+                : in_array($actualValue, $tuple['values'], true);
+
+            if ($excludes) {
+                return ConditionalVerdict::Exclude;
             }
         }
 
-        return false;
+        return $deferred ? ConditionalVerdict::Defer : ConditionalVerdict::NotExcluded;
     }
 
     /**
-     * Replace wildcards in a condition field reference with concrete indices
-     * from the attribute name. E.g., for attribute "interactions.5.style.top"
-     * and condition field "interactions.*.type", returns "interactions.5.type".
+     * Replace wildcards in a condition field reference with the concrete key
+     * at the SAME dot-position in the attribute path — mirroring how Laravel
+     * resolves a dependent wildcard reference against the attribute under
+     * validation. E.g. "interactions.*.type" against "interactions.5.style.top"
+     * → "interactions.5.type", and "items.*.type" against "items.foo.rows.0.x"
+     * → "items.foo.type" (associative keys handled, not just numeric indices).
+     *
+     * A `*` whose position has no corresponding attribute segment is left in
+     * place, so callers can detect the unresolved wildcard and defer.
      *
      * Pure — exposed `static` so tests can pin it without instantiating.
      */
     public static function resolveWildcard(string $attribute, string $conditionField): string
     {
-        // Extract all concrete indices from the attribute path.
-        preg_match_all('/\.(\d+)(?:\.|$)/', $attribute, $matches);
-        $indices = $matches[1];
+        if (! str_contains($conditionField, '*')) {
+            return $conditionField;
+        }
 
-        // Replace each * in the condition field with the corresponding index.
-        $i = 0;
+        $attributeSegments = explode('.', $attribute);
+        $fieldSegments = explode('.', $conditionField);
 
-        return (string) preg_replace_callback('/\*/', static function () use ($indices, &$i) {
-            return $indices[$i++] ?? '*';
-        }, $conditionField);
+        foreach ($fieldSegments as $i => $segment) {
+            if ($segment === '*') {
+                $fieldSegments[$i] = $attributeSegments[$i] ?? '*';
+            }
+        }
+
+        return implode('.', $fieldSegments);
     }
 }

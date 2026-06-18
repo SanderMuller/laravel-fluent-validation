@@ -42,20 +42,22 @@ parameters:
 			count: 1
 			path: src/FastCheck/PresenceConditionalCompiler.php
 
-		-
-			rawMessage: 'Cognitive complexity for "SanderMuller\FluentValidation\FluentFormRequest::preExcludeRules()" is 21, keep it under 20'
-			identifier: complexity.functionLike
-			count: 1
-			path: src/FluentFormRequest.php
-
 		# Grew by one with Phase 2's runValidateInternal remap layer, and by one
 		# more with the separateRules() malformed-wildcard guard — a single
 		# conditional throw that converts a silent validation bypass (a '*' key
 		# with no '.*' segment applied no rule) into a loud error. The +1 is
 		# irreducible for a guard, and dropping RuleSet below the 80 threshold is a
-		# whole-class refactor out of scope here.
+		# whole-class refactor out of scope here. Grew by five more with the
+		# object-form wildcard-dep fix and its codex-review hardening:
+		# rewriteRulesForPerItem normalizes FluentRule objects to native form so
+		# conditional deps like requiredUnless('items.*.type', …) get the wildcard
+		# prefix stripped per item — stripping the whole compiled string (not an
+		# explode that would corrupt a regex token like regex:/^(a|b)$/) — plus the
+		# metadata-before-rewrite reorder in validateWildcardGroups. The
+		# per-function complexity stays under 20 (logic in stripPrefixFromConstraints);
+		# only the class total moves.
 		-
-			rawMessage: 'Class cognitive complexity is 140, keep it under 80'
+			rawMessage: 'Class cognitive complexity is 145, keep it under 80'
 			identifier: complexity.classLike
 			count: 1
 			path: src/RuleSet.php
@@ -91,33 +93,6 @@ parameters:
 			identifier: complexity.functionLike
 			count: 1
 			path: src/Internal/ItemValidator.php
-
-		-
-			rawMessage: 'Cognitive complexity for "AnonymousClass76dabe554b3ccb5045e167af68715137::preExcludeRules()" is 21, keep it under 20'
-			identifier: complexity.functionLike
-			count: 1
-			path: tests/BatchDatabaseValidationTest.php
-
-		-
-			rawMessage: 'Cognitive complexity for "AnonymousClass031d7b24ee71b5e2323f72b30a7e0f4f::preExcludeRules()" is 21, keep it under 20'
-			identifier: complexity.functionLike
-			count: 1
-			path: src/HasFluentRules.php
-
-		# Inherited trait complexity surfaces per anonymous FormRequest. One
-		# hash per anon class in tests/BatchValidationGuardsTest.php (guard
-		# helper + failedValidation lifecycle test).
-		-
-			rawMessage: 'Cognitive complexity for "AnonymousClasscec03eb634781a52e25fe27380420812::preExcludeRules()" is 21, keep it under 20'
-			identifier: complexity.functionLike
-			count: 1
-			path: src/HasFluentRules.php
-
-		-
-			rawMessage: 'Cognitive complexity for "AnonymousClass1e3cc50ea7fff440ea7974cbfd35a770::preExcludeRules()" is 21, keep it under 20'
-			identifier: complexity.functionLike
-			count: 1
-			path: src/HasFluentRules.php
 
 		# Cross-version Filament guard. The trait may be mixed into components
 		# that lack getCachedForms (plain Livewire without InteractsWithForms),

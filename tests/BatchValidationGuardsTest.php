@@ -929,7 +929,7 @@ it('FormRequest raw BatchLimitExceededException for parent-max carries attribute
 
     $caught = null;
     try {
-        (fn () => $this->buildFormRequestBatchVerifier(
+        (fn () => $this->buildWildcardBatchVerifier(
             $preparedRules,
             ['items' => $items],
             $wildcardAttributes,
@@ -1254,7 +1254,7 @@ it('parent-max short-circuit also fires for unique rules, carrying ruleType=uniq
 
     $caught = null;
     try {
-        (fn () => $this->buildFormRequestBatchVerifier(
+        (fn () => $this->buildWildcardBatchVerifier(
             $preparedRules,
             ['items' => $items],
             $wildcardAttributes,

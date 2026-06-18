@@ -7,6 +7,7 @@ use Illuminate\Support\Arr;
 use Illuminate\Support\MessageBag;
 use Illuminate\Validation\Validator;
 use SanderMuller\FluentValidation\Internal\ConditionalEvaluationPhase;
+use SanderMuller\FluentValidation\Internal\ConditionalVerdict;
 use Stringable;
 
 /**
@@ -120,16 +121,25 @@ class OptimizedValidator extends Validator
             /** @var list<mixed> $rules */
             $rules = $this->rules[$attribute];
 
-            if ($phase->evaluate($attribute, $tuples, $getValue)) {
+            $verdict = $phase->evaluate($attribute, $tuples, $getValue);
+
+            if ($verdict === ConditionalVerdict::Exclude) {
                 // Excluded — don't add to removedRules so it's absent from validated().
                 unset($this->rules[$attribute]);
 
                 continue;
             }
 
-            // Condition present but did not exclude — try fast-checking the
-            // remaining non-conditional rules (e.g., the "string" part of
-            // ["exclude_unless:...", "string"]).
+            // Deferred — the optimizer couldn't safely reproduce Laravel's
+            // verdict, so leave the rule fully intact (do NOT fast-check it
+            // away): the validator must decide both exclusion and validity, or
+            // a field Laravel would exclude could leak into validated().
+            if ($verdict === ConditionalVerdict::Defer) {
+                continue;
+            }
+
+            // Not excluded — try fast-checking the remaining non-conditional
+            // rules (e.g., the "string" part of ["exclude_unless:...", "string"]).
             if ($this->fastChecks !== [] && $this->tryFastCheckRemaining($attribute, $rules)) {
                 $removedRules[$attribute] = $rules;
                 unset($this->rules[$attribute]);

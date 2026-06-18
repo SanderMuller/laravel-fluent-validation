@@ -676,13 +676,21 @@ final class RuleSet implements Arrayable, IteratorAggregate
             }
 
             $isScalar = isset($groupRules['*']) && count($groupRules) === 1;
-            $rawItemRules = $isScalar
-                ? ['_v' => $groupRules['*']]
-                : $this->rewriteRulesForPerItem($groupRules, $parent);
 
-            [$itemMessages, $itemAttributes] = self::extractMetadata($rawItemRules);
+            // Extract metadata from the pre-rewrite rules: rewriteRulesForPerItem
+            // may flatten object-form rules (FluentRule/FieldRule) into native
+            // arrays to reach the conditional deps buried inside them, which
+            // would otherwise drop the object's labels and per-rule messages.
+            // Field keys are identical before and after the rewrite, so the
+            // extracted metadata stays correctly keyed.
+            $metadataRules = $isScalar ? ['_v' => $groupRules['*']] : $groupRules;
+            [$itemMessages, $itemAttributes] = self::extractMetadata($metadataRules);
             $itemMessages = $messages + $itemMessages;
             $itemAttributes = $attributes + $itemAttributes;
+
+            $rawItemRules = $isScalar
+                ? $metadataRules
+                : $this->rewriteRulesForPerItem($groupRules, $parent);
             $itemRules = self::compile($rawItemRules);
 
             // Per-item validators can't strip cross-item unknown keys; fall
@@ -809,31 +817,60 @@ final class RuleSet implements Arrayable, IteratorAggregate
         $rewritten = [];
 
         foreach ($groupRules as $field => $rule) {
-            if (! is_array($rule)) {
-                $rewritten[$field] = $rule;
+            // FluentRule/FieldRule objects compile to either a pipe-joined string
+            // or an array of native rules/objects. A conditional dep like
+            // requiredUnless('items.*.type', …) keeps its `items.*.` prefix until
+            // this point, so strip it here or the per-item reducer's data_get on
+            // the relative item never resolves it.
+            if (is_object($rule) && method_exists($rule, 'compiledRules')) {
+                $compiled = $rule->compiledRules();
 
-                continue;
-            }
+                if (is_string($compiled)) {
+                    // Strip the prefix on the whole string — never explode on '|',
+                    // which would corrupt a regex token like `regex:/^(a|b)$/`.
+                    // Laravel's own parser splits the pipe-string downstream.
+                    $rewritten[$field] = str_replace($prefix, '', $compiled);
 
-            $newRules = [];
-
-            foreach ($rule as $r) {
-                if (is_array($r) && count($r) >= 2 && is_string($r[1])) {
-                    // ['exclude_unless', 'items.*.type', ...] → ['exclude_unless', 'type', ...]
-                    $r[1] = $this->stripPrefix($r[1], $prefix);
-                    $newRules[] = $r;
-                } elseif (is_string($r) && str_contains($r, $prefix)) {
-                    // 'gte:items.*.start_time' → 'gte:start_time'
-                    $newRules[] = str_replace($prefix, '', $r);
-                } else {
-                    $newRules[] = $r;
+                    continue;
                 }
+
+                $rule = $compiled;
             }
 
-            $rewritten[$field] = $newRules;
+            $rewritten[$field] = is_array($rule)
+                ? $this->stripPrefixFromConstraints($rule, $prefix)
+                : $rule;
         }
 
         return $rewritten;
+    }
+
+    /**
+     * Strip the `parent.*.` prefix from each conditional dep reference in a
+     * rule's constraint list so per-item validation resolves the dep against
+     * the relative item.
+     *
+     * @param  array<int|string, mixed>  $rule
+     * @return list<mixed>
+     */
+    private function stripPrefixFromConstraints(array $rule, string $prefix): array
+    {
+        $newRules = [];
+
+        foreach ($rule as $r) {
+            if (is_array($r) && count($r) >= 2 && is_string($r[1])) {
+                // ['exclude_unless', 'items.*.type', ...] → ['exclude_unless', 'type', ...]
+                $r[1] = $this->stripPrefix($r[1], $prefix);
+                $newRules[] = $r;
+            } elseif (is_string($r) && str_contains($r, $prefix)) {
+                // 'gte:items.*.start_time' → 'gte:start_time'
+                $newRules[] = str_replace($prefix, '', $r);
+            } else {
+                $newRules[] = $r;
+            }
+        }
+
+        return $newRules;
     }
 
     private function stripPrefix(string $value, string $prefix): string

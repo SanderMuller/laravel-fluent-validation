@@ -1,6 +1,7 @@
 <?php declare(strict_types=1);
 
 use SanderMuller\FluentValidation\Internal\ConditionalEvaluationPhase;
+use SanderMuller\FluentValidation\Internal\ConditionalVerdict;
 
 /**
  * Direct unit coverage for {@see ConditionalEvaluationPhase}. Previously
@@ -78,7 +79,7 @@ it('exclude_unless excludes when value not in list', function (): void {
 
     $excluded = $phase->evaluate('name', $tuples, fn (): string => 'C');
 
-    expect($excluded)->toBeTrue();
+    expect($excluded)->toBe(ConditionalVerdict::Exclude);
 });
 
 it('exclude_unless does not exclude when value in list', function (): void {
@@ -89,7 +90,7 @@ it('exclude_unless does not exclude when value in list', function (): void {
 
     $excluded = $phase->evaluate('name', $tuples, fn (): string => 'A');
 
-    expect($excluded)->toBeFalse();
+    expect($excluded)->toBe(ConditionalVerdict::NotExcluded);
 });
 
 it('exclude_if excludes when value in list', function (): void {
@@ -100,7 +101,7 @@ it('exclude_if excludes when value in list', function (): void {
 
     $excluded = $phase->evaluate('name', $tuples, fn (): string => 'X');
 
-    expect($excluded)->toBeTrue();
+    expect($excluded)->toBe(ConditionalVerdict::Exclude);
 });
 
 it('exclude_if does not exclude when value not in list', function (): void {
@@ -111,7 +112,7 @@ it('exclude_if does not exclude when value not in list', function (): void {
 
     $excluded = $phase->evaluate('name', $tuples, fn (): string => 'Y');
 
-    expect($excluded)->toBeFalse();
+    expect($excluded)->toBe(ConditionalVerdict::NotExcluded);
 });
 
 it('caches getValue lookups across tuples in one evaluate call', function (): void {
@@ -133,7 +134,10 @@ it('caches getValue lookups across tuples in one evaluate call', function (): vo
     expect($callCount)->toBe(1);
 });
 
-it('coerces non-scalar values to empty string', function (): void {
+it('defers non-scalar dependent values to the validator instead of pre-deciding', function (): void {
+    // A non-scalar (array/null/bool) dependent needs Laravel's own coercion to
+    // evaluate correctly, so the pre-eval phase must NOT exclude on it — it
+    // returns false and leaves the rule for the validator to resolve.
     $phase = new ConditionalEvaluationPhase();
     $tuples = [
         ['action' => 'exclude_if', 'field' => 'type', 'values' => ['']],
@@ -141,7 +145,7 @@ it('coerces non-scalar values to empty string', function (): void {
 
     $excluded = $phase->evaluate('name', $tuples, fn (): array => ['array', 'is', 'not', 'scalar']);
 
-    expect($excluded)->toBeTrue();
+    expect($excluded)->toBe(ConditionalVerdict::Defer);
 });
 
 it('resolveWildcard splices indices into condition field', function (): void {
@@ -153,13 +157,26 @@ it('resolveWildcard splices indices into condition field', function (): void {
     expect($resolved)->toBe('interactions.5.type');
 });
 
-it('resolveWildcard leaves * in place when no index available', function (): void {
+it('resolveWildcard leaves * in place when the position has no attribute segment', function (): void {
+    // The '*' sits at index 1, but the attribute has only one segment — nothing
+    // to map it to, so it stays a wildcard and the caller defers.
     $resolved = ConditionalEvaluationPhase::resolveWildcard(
-        'plain.field',
+        'plain',
         'other.*.type',
     );
 
     expect($resolved)->toBe('other.*.type');
+});
+
+it('resolveWildcard maps * to an associative key at the same position', function (): void {
+    // Mixed associative + numeric path: the '*' must resolve to the associative
+    // parent key ('foo'), not be back-filled from an unrelated numeric descendant.
+    $resolved = ConditionalEvaluationPhase::resolveWildcard(
+        'items.foo.rows.0.extra',
+        'items.*.type',
+    );
+
+    expect($resolved)->toBe('items.foo.type');
 });
 
 it('resolveWildcard handles multi-level wildcards', function (): void {
