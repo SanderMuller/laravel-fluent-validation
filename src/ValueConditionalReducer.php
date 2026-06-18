@@ -3,8 +3,8 @@
 namespace SanderMuller\FluentValidation;
 
 use Illuminate\Support\Arr;
-use Illuminate\Support\Str;
 use SanderMuller\FluentValidation\Internal\AbstractConditionalReducer;
+use SanderMuller\FluentValidation\Internal\ConditionalValueMatcher;
 
 /**
  * Per-item pre-evaluation of Laravel's value-conditional rules
@@ -126,21 +126,9 @@ final class ValueConditionalReducer extends AbstractConditionalReducer
             return null;
         }
 
-        $other = data_get($itemData, $depPath);
         /** @var list<?string> $rawValues */
         $rawValues = array_slice($params, 1);
-        $values = self::convertValues($rawValues, $depPath, $other, $itemRules);
-
-        // Laravel's `in_array($other, $values, is_bool($other) || is_null($other))`
-        // uses strict mode only for bool/null and loose mode otherwise (so
-        // numeric-string `"1"` matches int `1`). `phpstan-strict-rules`
-        // disallows loose `in_array`, so hand-roll the scalar loose match
-        // via string coercion — covers the scalar grid Laravel's loose
-        // comparison hits in practice. Non-scalar `$other` falls back to
-        // strict match (atypical for value-conditional deps).
-        $match = (is_bool($other) || is_null($other) || ! is_scalar($other))
-            ? in_array($other, $values, true)
-            : self::scalarLooseIn($other, $values);
+        $match = ConditionalValueMatcher::matches($depPath, $rawValues, $itemData, $itemRules);
 
         $active = match ($ruleName) {
             'required_if', 'prohibited_if' => $match,
@@ -157,77 +145,5 @@ final class ValueConditionalReducer extends AbstractConditionalReducer
         }
 
         return self::REWRITE_TARGET[$ruleName];
-    }
-
-    /**
-     * Scalar-only stand-in for PHP's loose `in_array` — string-coerces both
-     * sides and strict-compares. Covers the numeric-string ↔ numeric loose
-     * match Laravel's `in_array(..., false)` relies on here.
-     *
-     * @param  list<mixed>  $values
-     */
-    private static function scalarLooseIn(int|float|string $other, array $values): bool
-    {
-        $otherStr = (string) $other;
-
-        foreach ($values as $v) {
-            if (is_scalar($v) && (string) $v === $otherStr) {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    /**
-     * Apply Laravel's `parseDependentRuleParameters` value transforms:
-     * boolean conversion when the dep has a `boolean` rule or the resolved
-     * value is already a bool; null conversion when the resolved value is
-     * null. Order matters — bool first, then null.
-     *
-     * @param  list<mixed>  $values
-     * @param  array<string, mixed>  $itemRules
-     * @return list<mixed>
-     */
-    private static function convertValues(array $values, string $depPath, mixed $other, array $itemRules): array
-    {
-        if (is_bool($other) || self::dependentHasBooleanRule($depPath, $itemRules)) {
-            $values = array_map(static fn (mixed $v): mixed => match ($v) {
-                'true' => true,
-                'false' => false,
-                default => $v,
-            }, $values);
-        }
-
-        if (is_null($other)) {
-            return array_map(
-                static fn (mixed $v): mixed => is_string($v) && Str::lower($v) === 'null' ? null : $v,
-                $values,
-            );
-        }
-
-        return $values;
-    }
-
-    /**
-     * Does the dependent field's rule set contain a `boolean` marker?
-     * Best-effort check against the item-scoped rule set — mirrors Laravel's
-     * `shouldConvertToBoolean` which reads `$this->rules[$parameter]`.
-     *
-     * @param  array<string, mixed>  $itemRules
-     */
-    private static function dependentHasBooleanRule(string $depPath, array $itemRules): bool
-    {
-        $rules = $itemRules[$depPath] ?? null;
-
-        if (is_string($rules)) {
-            return in_array('boolean', explode('|', $rules), true);
-        }
-
-        if (! is_array($rules)) {
-            return false;
-        }
-
-        return in_array('boolean', $rules, true);
     }
 }

@@ -28,7 +28,7 @@ final class ConditionalEvaluationPhase
      * non-string keys are filtered inside.
      *
      * @param  array<array-key, mixed>  $rules
-     * @return array<string, list<array{action: string, field: string, values: list<mixed>}>>
+     * @return array<string, list<array{action: string, field: string, values: list<string>}>>
      */
     public function indexConditionalAttrs(array $rules): array
     {
@@ -39,39 +39,9 @@ final class ConditionalEvaluationPhase
                 continue;
             }
 
-            if (! is_array($attributeRules)) {
-                continue;
-            }
-
-            $tuples = [];
-
-            foreach ($attributeRules as $rule) {
-                if (! is_array($rule)) {
-                    continue;
-                }
-
-                if (count($rule) < 3) {
-                    continue;
-                }
-
-                $action = $rule[0];
-
-                if ($action !== 'exclude_unless' && $action !== 'exclude_if') {
-                    continue;
-                }
-
-                $field = $rule[1];
-
-                if (! is_string($field)) {
-                    continue;
-                }
-
-                $tuples[] = [
-                    'action' => $action,
-                    'field' => $field,
-                    'values' => array_values(array_slice($rule, 2)),
-                ];
-            }
+            // Recognise tuple AND string/pipe-joined exclude_* forms (the fluent
+            // `->excludeUnless()` API compiles to the string form).
+            $tuples = ExcludeConditionExtractor::extract($attributeRules);
 
             if ($tuples !== []) {
                 $map[$attribute] = $tuples;
@@ -95,7 +65,7 @@ final class ConditionalEvaluationPhase
      * because `Validator::getValue()` is protected — the closure must be
      * constructed inside the validator subclass to capture scope.
      *
-     * @param  list<array{action: string, field: string, values: list<mixed>}>  $tuples
+     * @param  list<array{action: string, field: string, values: list<string>}>  $tuples
      * @param  Closure(string): mixed  $getValue
      */
     public function evaluate(string $attribute, array $tuples, Closure $getValue): ConditionalVerdict
@@ -108,8 +78,8 @@ final class ConditionalEvaluationPhase
             if (str_contains($field, '*')) {
                 $field = self::resolveWildcard($attribute, $field);
 
-                // Unresolved wildcard (associative/non-numeric key) — can't pin
-                // down the dependent path, so defer to Laravel's resolution.
+                // Unresolved wildcard (the dep position has no matching segment)
+                // — can't pin down the dependent path, so defer to Laravel.
                 if (str_contains($field, '*')) {
                     $deferred = true;
 
@@ -121,23 +91,23 @@ final class ConditionalEvaluationPhase
                 $this->valueCache[$field] = $getValue($field);
             }
 
-            $rawValue = $this->valueCache[$field];
+            $value = $this->valueCache[$field];
 
-            // Only pre-decide on a plain string/numeric dependent, where a string
-            // comparison matches Laravel. A null/bool/non-scalar dependent needs
-            // Laravel's dependent-value coercion ('null'/'true'/'false'); defer
-            // those to the validator instead of risking a divergent verdict.
-            if (! is_string($rawValue) && ! is_int($rawValue) && ! is_float($rawValue)) {
+            // exclude_if is inactive when the dependent is absent. getValue()
+            // can't tell a missing field from an explicit null, so defer null
+            // exclude_if to the validator (which distinguishes them and is
+            // authoritative). exclude_unless has no such presence short-circuit.
+            if ($tuple['action'] === 'exclude_if' && $value === null) {
                 $deferred = true;
 
                 continue;
             }
 
-            $actualValue = (string) $rawValue;
-
-            $excludes = $tuple['action'] === 'exclude_unless'
-                ? ! in_array($actualValue, $tuple['values'], true)
-                : in_array($actualValue, $tuple['values'], true);
+            // Match Laravel's dependent-value coercion (null/bool/loose scalar)
+            // via the shared matcher, against the value resolved through the
+            // validator's getValue() closure.
+            $match = ConditionalValueMatcher::matchesValue($value, $tuple['values']);
+            $excludes = $tuple['action'] === 'exclude_unless' ? ! $match : $match;
 
             if ($excludes) {
                 return ConditionalVerdict::Exclude;

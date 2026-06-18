@@ -13,11 +13,25 @@ it('analyzeConditionals extracts exclude_unless tuples', function (): void {
         'title' => 'required|string',
     ]);
 
+    // analyzeConditionals returns a LIST of conditions per field.
     expect($result)->toHaveKey('price')
-        ->and($result['price']['action'])->toBe('exclude_unless')
-        ->and($result['price']['field'])->toBe('type')
-        ->and($result['price']['values'])->toBe(['product'])
+        ->and($result['price'][0]['action'])->toBe('exclude_unless')
+        ->and($result['price'][0]['field'])->toBe('type')
+        ->and($result['price'][0]['values'])->toBe(['product'])
         ->and($result)->not->toHaveKey('title');
+});
+
+it('analyzeConditionals extracts ALL exclude conditions on a field', function (): void {
+    $compiler = new ItemRuleCompiler();
+
+    $result = $compiler->analyzeConditionals([
+        'x' => [['exclude_unless', 'type', 'a'], ['exclude_if', 'other', 'z'], 'string'],
+    ]);
+
+    expect($result['x'])->toHaveCount(2)
+        ->and($result['x'][0]['action'])->toBe('exclude_unless')
+        ->and($result['x'][1]['action'])->toBe('exclude_if')
+        ->and($result['x'][1]['field'])->toBe('other');
 });
 
 it('analyzeConditionals extracts exclude_if with multiple values', function (): void {
@@ -27,8 +41,8 @@ it('analyzeConditionals extracts exclude_if with multiple values', function (): 
         'sku' => [['exclude_if', 'type', 'draft', 'template'], 'required'],
     ]);
 
-    expect($result['sku']['action'])->toBe('exclude_if')
-        ->and($result['sku']['values'])->toBe(['draft', 'template']);
+    expect($result['sku'][0]['action'])->toBe('exclude_if')
+        ->and($result['sku'][0]['values'])->toBe(['draft', 'template']);
 });
 
 it('analyzeConditionals skips rules that are not arrays or have no conditional tuple', function (): void {
@@ -42,8 +56,8 @@ it('findCommonDispatchField returns shared field when all conditionals reference
     $compiler = new ItemRuleCompiler();
 
     $field = $compiler->findCommonDispatchField([
-        'a' => ['action' => 'exclude_unless', 'field' => 'type', 'values' => ['x']],
-        'b' => ['action' => 'exclude_if', 'field' => 'type', 'values' => ['y']],
+        'a' => [['action' => 'exclude_unless', 'field' => 'type', 'values' => ['x']]],
+        'b' => [['action' => 'exclude_if', 'field' => 'type', 'values' => ['y']]],
     ]);
 
     expect($field)->toBe('type');
@@ -53,8 +67,8 @@ it('findCommonDispatchField returns null when fields differ', function (): void 
     $compiler = new ItemRuleCompiler();
 
     $field = $compiler->findCommonDispatchField([
-        'a' => ['action' => 'exclude_unless', 'field' => 'type', 'values' => ['x']],
-        'b' => ['action' => 'exclude_if', 'field' => 'status', 'values' => ['y']],
+        'a' => [['action' => 'exclude_unless', 'field' => 'type', 'values' => ['x']]],
+        'b' => [['action' => 'exclude_if', 'field' => 'status', 'values' => ['y']]],
     ]);
 
     expect($field)->toBeNull();
@@ -67,7 +81,7 @@ it('findCommonDispatchField returns null for empty input', function (): void {
 it('reduceRulesForItem strips excluded fields when action matches', function (): void {
     $compiler = new ItemRuleCompiler();
     $conditionals = [
-        'price' => ['action' => 'exclude_unless', 'field' => 'type', 'values' => ['product']],
+        'price' => [['action' => 'exclude_unless', 'field' => 'type', 'values' => ['product']]],
     ];
 
     $reduced = $compiler->reduceRulesForItem(
@@ -83,7 +97,7 @@ it('reduceRulesForItem strips excluded fields when action matches', function ():
 it('reduceRulesForItem keeps field and strips conditional tuple when active', function (): void {
     $compiler = new ItemRuleCompiler();
     $conditionals = [
-        'price' => ['action' => 'exclude_unless', 'field' => 'type', 'values' => ['product']],
+        'price' => [['action' => 'exclude_unless', 'field' => 'type', 'values' => ['product']]],
     ];
 
     $reduced = $compiler->reduceRulesForItem(

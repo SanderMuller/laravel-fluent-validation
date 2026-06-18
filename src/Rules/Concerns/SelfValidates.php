@@ -366,7 +366,11 @@ trait SelfValidates
             }
         }
 
-        if ($allStringifiable) {
+        if ($allStringifiable && ! self::anyContainsPipe($stringified)) {
+            // Skip the pipe-join when a rule token contains a literal `|` — e.g.
+            // `regex:/^(a|b)$/`. Laravel's parser splits string rules on `|`, so
+            // joining would corrupt the pattern; the array form below is parsed
+            // element-by-element and keeps it intact.
             /** @var list<string> $stringified — all elements are strings (either originally or via __toString) */
             return implode('|', $stringified);
         }
@@ -389,6 +393,24 @@ trait SelfValidates
         }
 
         return [...$presenceRules, ...$strings, ...$otherRules];
+    }
+
+    /**
+     * Does any compiled rule token contain a literal `|`? Such a token (e.g. a
+     * `regex:/^(a|b)$/` pattern) cannot be safely pipe-joined — Laravel's parser
+     * would split it. Rules with one fall back to array form instead.
+     *
+     * @param  list<string>  $rules
+     */
+    private function anyContainsPipe(array $rules): bool
+    {
+        foreach ($rules as $rule) {
+            if (str_contains($rule, '|')) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**

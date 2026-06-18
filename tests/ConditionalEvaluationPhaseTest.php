@@ -134,10 +134,12 @@ it('caches getValue lookups across tuples in one evaluate call', function (): vo
     expect($callCount)->toBe(1);
 });
 
-it('defers non-scalar dependent values to the validator instead of pre-deciding', function (): void {
-    // A non-scalar (array/null/bool) dependent needs Laravel's own coercion to
-    // evaluate correctly, so the pre-eval phase must NOT exclude on it — it
-    // returns false and leaves the rule for the validator to resolve.
+it('decides a non-scalar dependent like native (array never matches a string value)', function (): void {
+    // A non-scalar dependent (array) is compared strictly against the value
+    // list, mirroring Laravel's in_array: an array is never equal to ''. So
+    // exclude_if does not fire → NotExcluded (not Defer). The matcher decides
+    // null/bool/non-scalar correctly now; Defer is reserved for an unresolved
+    // wildcard whose position has no matching attribute segment.
     $phase = new ConditionalEvaluationPhase();
     $tuples = [
         ['action' => 'exclude_if', 'field' => 'type', 'values' => ['']],
@@ -145,7 +147,19 @@ it('defers non-scalar dependent values to the validator instead of pre-deciding'
 
     $excluded = $phase->evaluate('name', $tuples, fn (): array => ['array', 'is', 'not', 'scalar']);
 
-    expect($excluded)->toBe(ConditionalVerdict::Defer);
+    expect($excluded)->toBe(ConditionalVerdict::NotExcluded);
+});
+
+it('defers only when a wildcard position has no matching attribute segment', function (): void {
+    // attribute 'name' has one segment (index 0); the dep 'a.*.type' wildcard
+    // sits at index 1 with no attribute segment to map to → stays a wildcard → Defer.
+    $phase = new ConditionalEvaluationPhase();
+    $tuples = [
+        ['action' => 'exclude_unless', 'field' => 'a.*.type', 'values' => ['a']],
+    ];
+
+    expect($phase->evaluate('name', $tuples, fn (): string => 'x'))
+        ->toBe(ConditionalVerdict::Defer);
 });
 
 it('resolveWildcard splices indices into condition field', function (): void {

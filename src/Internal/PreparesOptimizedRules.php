@@ -3,6 +3,7 @@
 namespace SanderMuller\FluentValidation\Internal;
 
 use Closure;
+use Illuminate\Support\Arr;
 use Illuminate\Validation\Rules\Unique;
 use Illuminate\Validation\ValidationException;
 use Illuminate\Validation\Validator;
@@ -41,64 +42,35 @@ trait PreparesOptimizedRules
      */
     private function preExcludeRules(array $rules, array $data): array
     {
-        /** @var array<string, mixed> $cache */
-        $cache = [];
-
         foreach ($rules as $attribute => $ruleSet) {
-            if (! is_array($ruleSet)) {
-                continue;
-            }
+            // Recognise both the array-tuple and the string/pipe-joined forms of
+            // exclude_unless/exclude_if — the fluent `->excludeUnless()` API and
+            // plain string rules compile to the string form, which an
+            // array-tuple-only check would silently skip (leaving the rule set
+            // fully expanded and the validator quadratic).
+            foreach (ExcludeConditionExtractor::extract($ruleSet) as $condition) {
+                $conditionField = ConditionalEvaluationPhase::resolveWildcard((string) $attribute, $condition['field']);
 
-            foreach ($ruleSet as $rule) {
-                if (! is_array($rule)) {
-                    continue;
-                }
-
-                if (count($rule) < 3) {
-                    continue;
-                }
-
-                $action = $rule[0];
-
-                if ($action !== 'exclude_unless' && $action !== 'exclude_if') {
-                    continue;
-                }
-
-                /** @var string $conditionField */
-                $conditionField = $rule[1];
-                /** @var list<string> $allowedValues */
-                $allowedValues = array_slice($rule, 2);
-
-                $conditionField = ConditionalEvaluationPhase::resolveWildcard((string) $attribute, $conditionField);
-
-                // This is an optimization that strips exclude_* rules before the
-                // validator runs. It only does so when a plain string comparison
-                // matches Laravel's semantics. Anything needing Laravel's
-                // dependent-value coercion — an unresolved (non-numeric/associative)
-                // wildcard, or a null/bool/non-scalar dependent compared against
-                // 'null'/'true'/'false' — is left for the validator to evaluate
-                // authoritatively rather than risk a divergent pre-exclusion.
+                // Unresolved wildcard (the dep position has no matching segment) —
+                // leave the rule for the validator to resolve rather than guess.
                 if (str_contains($conditionField, '*')) {
                     continue;
                 }
 
-                if (! array_key_exists($conditionField, $cache)) {
-                    $cache[$conditionField] = data_get($data, $conditionField);
-                }
-
-                $rawValue = $cache[$conditionField];
-
-                if (! is_string($rawValue) && ! is_int($rawValue) && ! is_float($rawValue)) {
+                // exclude_if is inactive when the dependent field is absent
+                // (mirrors Laravel's Arr::has short-circuit), regardless of value.
+                if ($condition['action'] === 'exclude_if' && ! Arr::has($data, $conditionField)) {
                     continue;
                 }
 
-                $actual = (string) $rawValue;
-
-                $shouldExclude = ($action === 'exclude_unless' && ! in_array($actual, $allowedValues, true))
-                    || ($action === 'exclude_if' && in_array($actual, $allowedValues, true));
+                // Pass the full rule set so a `boolean`-declared dependent sent as
+                // raw '0'/'1' coerces like Laravel.
+                $match = ConditionalValueMatcher::matches($conditionField, $condition['values'], $data, $rules);
+                $shouldExclude = $condition['action'] === 'exclude_unless' ? ! $match : $match;
 
                 if ($shouldExclude) {
                     unset($rules[$attribute]);
+
                     break;
                 }
             }

@@ -62,15 +62,20 @@ parameters:
 			count: 1
 			path: src/RuleSet.php
 
-		# Relocated verbatim from RuleSet in Phase 2a. buildFastChecks branches
-		# over field-shape × closure-type (wildcard vs flat × item-aware vs
-		# value-only) — structural complexity that refactoring would only move.
+		# Inherently-complex per-item rule compiler: buildFastChecks (46) dominates
+		# the class total, and evaluating every exclude_* condition per field
+		# (fieldIsExcluded + findCommonDispatchField) adds irreducible branching
+		# for native-parity. Dropping the class under 80 is a whole-class refactor
+		# out of scope.
 		-
-			rawMessage: 'Class cognitive complexity is 91, keep it under 80'
+			rawMessage: 'Class cognitive complexity is 88, keep it under 80'
 			identifier: complexity.classLike
 			count: 1
 			path: src/Internal/ItemRuleCompiler.php
 
+		# buildFastChecks branches over field-shape × closure-type (wildcard vs
+		# flat × item-aware vs value-only) — structural complexity that
+		# refactoring would only move.
 		-
 			rawMessage: 'Cognitive complexity for "SanderMuller\FluentValidation\Internal\ItemRuleCompiler::buildFastChecks()" is 46, keep it under 20'
 			identifier: complexity.functionLike
