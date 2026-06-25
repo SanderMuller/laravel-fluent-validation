@@ -9,8 +9,6 @@ use Illuminate\Validation\ValidationException;
 use Illuminate\Validation\Validator;
 use SanderMuller\FluentValidation\BatchDatabaseChecker;
 use SanderMuller\FluentValidation\Exceptions\BatchLimitExceededException;
-use SanderMuller\FluentValidation\FluentValidator;
-use SanderMuller\FluentValidation\HasFluentRules;
 use SanderMuller\FluentValidation\OptimizedValidator;
 use SanderMuller\FluentValidation\PrecomputedPresenceVerifier;
 use SanderMuller\FluentValidation\PreparedRules;
