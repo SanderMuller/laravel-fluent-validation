@@ -6,6 +6,7 @@ use Illuminate\Routing\Redirector;
 use Illuminate\Translation\ArrayLoader;
 use Illuminate\Translation\Translator;
 use Illuminate\Validation\Validator;
+use SanderMuller\FluentValidation\FluentSchema;
 use SanderMuller\FluentValidation\HasFluentRules;
 use SanderMuller\FluentValidation\Tests\TestCase;
 
@@ -52,6 +53,49 @@ function createFormRequest(array $rules, array $data): FormRequest
 
     $formRequest::$testRules = $rules;
 
+    return bootFormRequest($formRequest, $data);
+}
+
+/**
+ * Build a FormRequest that defines its rules through the FluentSchema
+ * builder via a schema() method, mirroring createFormRequest().
+ *
+ * @param  Closure(FluentSchema): array<string, mixed>  $schema
+ * @param  array<array-key, mixed>  $data
+ */
+function createSchemaFormRequest(Closure $schema, array $data): FormRequest
+{
+    $formRequest = new class extends FormRequest {
+        use HasFluentRules;
+
+        /** @var Closure(FluentSchema): array<string, mixed> */
+        public static Closure $testSchema;
+
+        /** @return array<string, mixed> */
+        public function schema(FluentSchema $rules): array
+        {
+            return (self::$testSchema)($rules);
+        }
+
+        public function authorize(): bool
+        {
+            return true;
+        }
+    };
+
+    $formRequest::$testSchema = $schema;
+
+    return bootFormRequest($formRequest, $data);
+}
+
+/**
+ * Resolve a configured FormRequest instance against a fake POST request,
+ * wiring the container and redirector the way the framework would.
+ *
+ * @param  array<array-key, mixed>  $data
+ */
+function bootFormRequest(FormRequest $formRequest, array $data): FormRequest
+{
     $request = Request::create('/test', 'POST', $data);
     $instance = $formRequest::createFrom($request);
     $instance->setContainer(app());

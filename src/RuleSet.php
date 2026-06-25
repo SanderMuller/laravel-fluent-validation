@@ -69,6 +69,23 @@ final class RuleSet implements Arrayable, IteratorAggregate
         return $ruleSet;
     }
 
+    /**
+     * Build a RuleSet from a callback that receives a {@see FluentSchema}
+     * builder, so field starters chain off one injected instance instead of
+     * the repeated `FluentRule::` static prefix:
+     *
+     *     RuleSet::define(fn (FluentSchema $rules) => [
+     *         'name'  => $rules->string()->required()->max(255),
+     *         'email' => $rules->email()->required(),
+     *     ])->validate($data);
+     *
+     * @param  Closure(FluentSchema): array<string, mixed>  $callback
+     */
+    public static function define(Closure $callback): self
+    {
+        return self::from($callback(new FluentSchema()));
+    }
+
     public function field(string $name, mixed $rule): self
     {
         $this->fields[$name] = $rule;
