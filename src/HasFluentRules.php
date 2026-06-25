@@ -4,6 +4,8 @@ namespace SanderMuller\FluentValidation;
 
 use Illuminate\Contracts\Validation\Factory as ValidationFactory;
 use Illuminate\Validation\Validator;
+use ReflectionMethod;
+use ReflectionNamedType;
 use ReflectionObject;
 use ReflectionProperty;
 use SanderMuller\FluentValidation\Internal\PreparesOptimizedRules;
@@ -33,12 +35,34 @@ trait HasFluentRules
 {
     use PreparesOptimizedRules;
 
+    /**
+     * Whether the request's `schema()` method is the FluentSchema builder hook
+     * (its first parameter is typed FluentSchema) rather than a coincidental,
+     * unrelated `schema()`. Called only after method_exists() confirms the
+     * method, so reflecting it is safe.
+     */
+    private function schemaExpectsFluentSchema(): bool
+    {
+        $parameters = (new ReflectionMethod($this, 'schema'))->getParameters();
+        $firstType = ($parameters[0] ?? null)?->getType();
+
+        return $firstType instanceof ReflectionNamedType
+            && $firstType->getName() === FluentSchema::class;
+    }
+
     protected function createDefaultValidator(ValidationFactory $factory): Validator
     {
+        // A schema(FluentSchema $rules) method — the builder shape — takes
+        // precedence over rules(). Detection keys off the FluentSchema-typed
+        // first parameter, not just the method name, so an unrelated schema()
+        // method (e.g. one returning a JSON/DB schema) is never hijacked. The
+        // builder is resolved by the container from that type-hint.
         /** @var array<string, mixed>|RuleSet $rules */
-        $rules = method_exists($this, 'rules') // @phpstan-ignore function.alreadyNarrowedType
-            ? $this->container->call([$this, 'rules'])
-            : [];
+        $rules = match (true) {
+            method_exists($this, 'schema') && $this->schemaExpectsFluentSchema() => $this->container->call([$this, 'schema']),
+            method_exists($this, 'rules') => $this->container->call([$this, 'rules']),
+            default => [],
+        };
 
         /** @var array<string, mixed> $data */
         $data = $this->validationData();

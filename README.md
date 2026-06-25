@@ -239,6 +239,35 @@ public function rules(): array
 
 `FluentRuleContract extends Illuminate\Contracts\Validation\ValidationRule`, so downstream code already typed against Laravel's native contract keeps working. Type-specific methods (e.g. `StringRule::email()`, `NumericRule::integer()`, `ImageRule::dimensions()`) stay on their concrete classes. Narrow to the concrete type when you need to call them.
 
+#### The `schema()` builder
+
+Prefer one injected builder over repeating the `FluentRule::` prefix on every line? Define a `schema(FluentSchema $rules)` method instead of `rules()`. You receive a `FluentSchema` instance and chain field starters off it — the same shape Laravel's AI SDK uses for structured output:
+
+```php
+use SanderMuller\FluentValidation\FluentSchema;
+use SanderMuller\FluentValidation\HasFluentRules;
+
+class StorePostRequest extends FormRequest
+{
+    use HasFluentRules;
+
+    public function schema(FluentSchema $rules): array
+    {
+        return [
+            'title' => $rules->string('Title')->required()->min(2)->max(255),
+            'email' => $rules->email('Email')->required()->unique('users'),
+            'items' => $rules->array()->required()->each([
+                'name' => $rules->string()->required(),
+            ]),
+        ];
+    }
+}
+```
+
+`$rules->string()` is exactly `FluentRule::string()` — same rule objects, same labels, same four optimizations. It's pure ergonomics: one builder instead of the static prefix, with the typed parameter autocompleting the full factory list. Macros registered on `FluentRule` are reachable on `$rules` too.
+
+When a request defines both `schema()` and `rules()`, `schema()` wins — detected by the `FluentSchema`-typed parameter, so an unrelated `schema()` method is never hijacked. Like `rules()`, `schema()` may return a plain array or a `RuleSet`.
+
 ### Migrating existing rules
 
 You don't need to convert all your rules at once. Fluent rules mix freely with string rules and native rule objects in the same array:
@@ -800,9 +829,10 @@ In this section: [Building](#building-a-rule-set) · [Composing](#composing-rule
 
 ### Building a rule set
 
-Two equivalent entry points. Pick whichever reads cleaner at the call site — the array form is compact for static rule lists; the builder form is friendlier when fields are added conditionally.
+Three equivalent entry points. Pick whichever reads cleaner at the call site — the array form is compact for static rule lists; the `make()` builder form is friendlier when fields are added conditionally; `define()` hands you a `FluentSchema` so you can drop the `FluentRule::` prefix.
 
 ```php
+use SanderMuller\FluentValidation\FluentSchema;
 use SanderMuller\FluentValidation\RuleSet;
 
 // From an array
@@ -831,6 +861,15 @@ $validated = RuleSet::make()
     )
     ->merge($sharedAddressRules)
     ->validate($request->all());
+
+// Or with a FluentSchema builder — no `FluentRule::` prefix on each line
+$validated = RuleSet::define(fn (FluentSchema $rules) => [
+    'name'  => $rules->string('Full Name')->required()->min(2)->max(255),
+    'email' => $rules->email()->required(),
+    'items' => $rules->array()->required()->each([
+        'name' => $rules->string()->required(),
+    ]),
+])->validate($request->all());
 ```
 
 ### Composing rule sets
@@ -1065,6 +1104,7 @@ Alphabetical lookup of every public method. See the subsections above for usage;
 | `RuleSet::compileToArrays($rules)` | `array` | Compile to array-of-rules shape for Livewire's `$this->validate()`. |
 | `RuleSet::compileWithMetadata($rules)` | `array` | Compile + return extracted messages and attributes in one pass. |
 | `->dd()` | `never` | Dump the rule set and terminate. |
+| `RuleSet::define(fn ($rules))` | `RuleSet` | Create from a closure given a `FluentSchema` builder; drops the `FluentRule::` prefix. |
 | `->dump()` | `array` | Return `{rules, messages, attributes}` for debugging. |
 | `->except(...$fields)` | `RuleSet` | Drop the named fields (variadic strings or single array). |
 | `->expandWildcards($data)` | `array` | Pre-expand wildcards against `$data` without validating. |

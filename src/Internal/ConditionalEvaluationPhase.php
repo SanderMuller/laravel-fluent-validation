@@ -3,7 +3,6 @@
 namespace SanderMuller\FluentValidation\Internal;
 
 use Closure;
-use SanderMuller\FluentValidation\OptimizedValidator;
 
 /**
  * Pre-evaluates `exclude_unless` / `exclude_if` rule tuples against a
