@@ -4,7 +4,9 @@ namespace SanderMuller\FluentValidation\Internal;
 
 use Closure;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Validation\Validator as BaseValidator;
 use SanderMuller\FluentValidation\BatchDatabaseChecker;
+use SanderMuller\FluentValidation\MemoizingValidator;
 use SanderMuller\FluentValidation\PrecomputedPresenceVerifier;
 use SanderMuller\FluentValidation\PresenceConditionalReducer;
 use SanderMuller\FluentValidation\ValueConditionalReducer;
@@ -59,7 +61,7 @@ final readonly class ItemValidator
         $fastChecksByReduced = [];
 
         [$fastChecks, $originalSlowRules] = $this->compiler->buildFastChecks($itemRules);
-        /** @var array<string, \Illuminate\Validation\Validator> $validatorCache */
+        /** @var array<string, BaseValidator> $validatorCache */
         $validatorCache = [];
         /** @var array<string, list<string>> $errors */
         $errors = [];
@@ -119,7 +121,7 @@ final readonly class ItemValidator
                     $cacheKey = $this->compiler->ruleCacheKey($reducedSlowRules);
 
                     if (! isset($validatorCache[$cacheKey])) {
-                        $validatorCache[$cacheKey] = Validator::make($itemData, $reducedSlowRules, $itemMessages, $itemAttributes);
+                        $validatorCache[$cacheKey] = $this->makeItemValidator($itemData, $reducedSlowRules, $itemMessages, $itemAttributes);
 
                         if ($batchVerifier instanceof PrecomputedPresenceVerifier) {
                             $validatorCache[$cacheKey]->setPresenceVerifier($batchVerifier);
@@ -143,7 +145,7 @@ final readonly class ItemValidator
             $cacheKey = $this->compiler->ruleCacheKey($effectiveRules);
 
             if (! isset($validatorCache[$cacheKey])) {
-                $validatorCache[$cacheKey] = Validator::make($itemData, $effectiveRules, $itemMessages, $itemAttributes);
+                $validatorCache[$cacheKey] = $this->makeItemValidator($itemData, $effectiveRules, $itemMessages, $itemAttributes);
 
                 if ($batchVerifier instanceof PrecomputedPresenceVerifier) {
                     $validatorCache[$cacheKey]->setPresenceVerifier($batchVerifier);
@@ -162,5 +164,43 @@ final readonly class ItemValidator
         }
 
         return $errors;
+    }
+
+    /**
+     * Build a per-item validator for a distinct rule shape, reused across items
+     * via setData().
+     *
+     * With the default validator resolver the factory returns a plain
+     * {@see BaseValidator}, so we swap in a {@see MemoizingValidator} — copying
+     * the base's factory state (extensions, container, presence verifier) — so
+     * every reused item's passes() hits the shared, worker-wide parse cache
+     * instead of re-parsing identical rule strings per item.
+     *
+     * When the app registered a custom `Validator::resolver()`, the base is a
+     * bespoke subclass whose overridden behaviour our state-copy can't
+     * replicate, so it is returned unchanged: a Grease-greased validator keeps
+     * its own memoization, a consumer's overrides keep firing. Only the plain
+     * default is safe to optimize.
+     *
+     * @param  array<string, mixed>  $itemData
+     * @param  array<string, mixed>  $rules
+     * @param  array<string, string>  $messages
+     * @param  array<string, string>  $attributes
+     */
+    private function makeItemValidator(array $itemData, array $rules, array $messages, array $attributes): BaseValidator
+    {
+        $base = Validator::make($itemData, $rules, $messages, $attributes);
+
+        if ($base::class !== BaseValidator::class) {
+            return $base;
+        }
+
+        // Empty rules on the target: the pre-exploded rules are copied from the
+        // factory-built base, avoiding a second parse of the same shape.
+        $memoizing = new MemoizingValidator($base->getTranslator(), $itemData, [], $messages, $attributes);
+
+        ValidatorStateCopier::copy($base, $memoizing);
+
+        return $memoizing;
     }
 }

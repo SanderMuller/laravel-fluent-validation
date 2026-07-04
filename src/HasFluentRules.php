@@ -6,9 +6,9 @@ use Illuminate\Contracts\Validation\Factory as ValidationFactory;
 use Illuminate\Validation\Validator;
 use ReflectionMethod;
 use ReflectionNamedType;
-use ReflectionObject;
 use ReflectionProperty;
 use SanderMuller\FluentValidation\Internal\PreparesOptimizedRules;
+use SanderMuller\FluentValidation\Internal\ValidatorStateCopier;
 
 /**
  * Add this trait to a FormRequest to enable FluentRule features:
@@ -134,7 +134,8 @@ trait HasFluentRules
         $base = $factory->make($data, $rules, $messages, $attributes);
 
         // Create with EMPTY rules to skip re-parsing the 3500+ expanded rules.
-        // The parsed rules are copied from the base validator below.
+        // The parsed rules AND factory-applied configuration are copied from
+        // the base validator below.
         $optimized = new OptimizedValidator(
             $base->getTranslator(),
             $data,
@@ -143,17 +144,7 @@ trait HasFluentRules
             $attributes,
         );
 
-        // Copy parsed rules AND factory-applied configuration from the base.
-        $ref = new ReflectionObject($base);
-        foreach (['rules', 'initialRules', 'container', 'presenceVerifier', 'excludeUnvalidatedArrayKeys', 'extensions', 'implicitExtensions', 'dependentExtensions', 'replacers', 'fallbackMessages'] as $prop) {
-            if ($ref->hasProperty($prop)) {
-                $p = $ref->getProperty($prop);
-                $value = $p->getValue($base);
-                if (! in_array($value, [null, [], false], true)) {
-                    $p->setValue($optimized, $value);
-                }
-            }
-        }
+        ValidatorStateCopier::copy($base, $optimized);
 
         return $optimized;
     }

@@ -5,7 +5,6 @@ namespace SanderMuller\FluentValidation;
 use Closure;
 use Illuminate\Support\Arr;
 use Illuminate\Support\MessageBag;
-use Illuminate\Validation\Validator;
 use SanderMuller\FluentValidation\Internal\ConditionalEvaluationPhase;
 use SanderMuller\FluentValidation\Internal\ConditionalVerdict;
 use Stringable;
@@ -19,9 +18,11 @@ use Stringable;
  * speedups on large arrays (hundreds/thousands of items).
  *
  * Ineligible attributes (object rules, date comparisons, cross-field
- * references, etc.) fall through to parent::validateAttribute() transparently.
+ * references, etc.) fall through to parent::validateAttribute() transparently
+ * — and, via {@see MemoizingValidator}, their rule-string parsing is memoized
+ * across the whole worker, so the residual slow path is cheaper too.
  */
-class OptimizedValidator extends Validator
+class OptimizedValidator extends MemoizingValidator
 {
     /** @var array<string, Closure(mixed): bool> Fast checks keyed by wildcard pattern */
     private array $fastChecks = [];
