@@ -6,7 +6,7 @@ Laravel's wildcard validation (`items.*.name`) has O(n²) performance for large 
 
 ## Optimization (automatic via HasFluentRules)
 
-The `HasFluentRules` trait (and `FluentFormRequest`) applies four optimizations automatically:
+The `HasFluentRules` trait (and `FluentFormRequest`) applies five optimizations automatically:
 
 | Optimization | What it does | Speedup |
 |---|---|---|
@@ -14,6 +14,7 @@ The `HasFluentRules` trait (and `FluentFormRequest`) applies four optimizations 
 | **Per-attribute fast-checks** | Pure PHP closures skip Laravel for valid items (25 rules supported) | Up to 97x for simple rules |
 | **Partial fast-check** | Fast-checkable fields use PHP, non-eligible fields go through Laravel | 10x for mixed rule sets |
 | **Batched DB validation** | `exists`/`unique` rules batched into single `whereIn` query | N queries → 1 query |
+| **Rule-parse memoization** | Caches Laravel's rule-string parsing worker-wide; residual slow-path rules parse once instead of per probe and per item | ~2x on the slow-path residual |
 
 Fast-checked rules: `required`, `prohibited`, `filled`, `string`, `numeric`, `integer`, `boolean`, `date`, `email`, `url`, `ip`, `uuid`, `ulid`, `alpha`, `alpha_dash`, `alpha_num`, `accepted`, `declined`, `min`, `max`, `digits`, `digits_between`, `in`, `not_in`, `regex`, `not_regex`, `required_with`, `required_without`, `required_with_all`, `required_without_all`.
 

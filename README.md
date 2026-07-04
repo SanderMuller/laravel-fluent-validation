@@ -264,7 +264,7 @@ class StorePostRequest extends FormRequest
 }
 ```
 
-`$rules->string()` is exactly `FluentRule::string()` — same rule objects, same labels, same four optimizations. It's pure ergonomics: one builder instead of the static prefix, with the typed parameter autocompleting the full factory list. Macros registered on `FluentRule` are reachable on `$rules` too.
+`$rules->string()` is exactly `FluentRule::string()` — same rule objects, same labels, same five optimizations. It's pure ergonomics: one builder instead of the static prefix, with the typed parameter autocompleting the full factory list. Macros registered on `FluentRule` are reachable on `$rules` too.
 
 When a request defines both `schema()` and `rules()`, `schema()` wins — detected by the `FluentSchema`-typed parameter, so an unrelated `schema()` method is never hijacked. Like `rules()`, `schema()` may return a plain array or a `RuleSet`.
 
@@ -363,7 +363,7 @@ $validated = $request->validate([
 ]);
 ```
 
-In these direct-call contexts FluentRule objects self-validate in isolation: labels don't reach the outer validator and the [four optimizations](#performance) don't engage. Reach for the trait or `RuleSet::validate()` for production code.
+In these direct-call contexts FluentRule objects self-validate in isolation: labels don't reach the outer validator and the [five optimizations](#performance) don't engage. Reach for the trait or `RuleSet::validate()` for production code.
 
 ## Error messages
 
@@ -615,12 +615,13 @@ If you use [Laravel Boost](https://github.com/laravel/boost), the `fluent-valida
 
 The win is real for endpoints that validate **a lot of fields** or **a lot of items at once**: CSV/JSON ingest, bulk-edit, settings pages, anywhere a single request hits wildcard arrays like `items.*.id` or `orders.*.line_items.*.product_id`. On a 3-field login form FluentRule is still faster than native, but you won't notice; the saving is in microseconds.
 
-When you use one of the optimized entry points (`HasFluentRules` on a FormRequest, `HasFluentValidation` on a Livewire component, `FluentValidator`, or `RuleSet::validate()`), FluentRule objects compile down to native Laravel format before validation runs and pick up four extra optimizations:
+When you use one of the optimized entry points (`HasFluentRules` on a FormRequest, `HasFluentValidation` on a Livewire component, `FluentValidator`, or `RuleSet::validate()`), FluentRule objects compile down to native Laravel format before validation runs and pick up five extra optimizations:
 
 - [**O(n) wildcard expansion**](#on-wildcard-expansion): replaces Laravel's O(n²) `Arr::dot()` + regex expansion with a single tree walk
 - [**Pre-evaluation of conditional rules**](#pre-evaluation-of-conditional-rules): resolves `exclude_unless`/`exclude_if` before validation and removes excluded attributes from the rule set
 - [**Fast-check closures**](#fast-check-closures): compiles 30+ common rules into PHP closures that skip Laravel's validator entirely for passing values
 - [**Batched database validation**](#batched-database-validation): turns N `exists`/`unique` queries into a single `whereIn`
+- [**Rule-parse memoization**](#rule-parse-memoization): caches Laravel's rule-string parsing worker-wide so the residual slow path — rules that fall through fast-check — parses each string once instead of on every internal probe and every array item
 
 ### Benchmarks
 
@@ -687,6 +688,12 @@ public function boot(): void
 
 Power users who want to handle `parent-max` and `hard-cap` differently (e.g. map to HTTP 413) can catch `BatchLimitExceededException` before the remap; it carries `$reason`, `$ruleType`, `$valueCount`, `$limit`, and `$attribute` for routing decisions.
 
+### Rule-parse memoization
+
+Laravel re-parses each string rule (`max:255` → `['Max', ['255']]`) on every internal probe — `hasRule`, `isValidatable`, dependent-field checks — so a single `passes()` re-parses the same string many times, and a validator reused across array items pays that cost per item. The optimized entry points memoize each parse in a worker-global static, collapsing the repeats to one hash lookup. Output stays byte-identical; only string rules are cached (object rules and closures parse live, exactly as Laravel does). On a large array whose per-item rules fall through to Laravel — custom `Rule` objects, cross-field references — this roughly halves the residual validation time.
+
+The cache is a bounded, pure memoization: soft-capped and reset on overflow, so long-running workers can't grow it without bound, and it holds only rule-string → parse-result pairs, never request data. If your app registers a custom `Validator::resolver()`, the per-item path uses that validator unchanged, so any resolver-provided behaviour is preserved.
+
 ### `RuleSet::validate()`
 
 For inline validation outside form requests, `RuleSet::validate()` applies the same optimizations:
@@ -700,7 +707,7 @@ $validated = RuleSet::from([
 ])->validate($request->all());
 ```
 
-Benchmarks run automatically on PRs via GitHub Actions. All optimizations are Octane-safe (factory resolver restored via try/finally, no static state leakage).
+Benchmarks run automatically on PRs via GitHub Actions. All optimizations are Octane-safe: the shared validation factory's resolver is never mutated, and the one piece of cross-request state — the [rule-parse cache](#rule-parse-memoization) — is a bounded, pure memoization (soft-capped, reset on overflow) that holds no request data.
 
 ### Benchmark scenarios
 
