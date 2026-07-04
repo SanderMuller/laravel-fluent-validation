@@ -32,7 +32,7 @@ it('copies wildcard implicitAttributes so expansion metadata pairs with the copi
 
     $baseImplicit = readValidatorProperty($base, 'implicitAttributes');
 
-    expect($baseImplicit)->not->toBe([]); // guard: the base really has wildcard metadata
+    expect($baseImplicit)->not->toBeEmpty(); // guard: the base really has wildcard metadata
     expect(readValidatorProperty($target, 'implicitAttributes'))->toBe($baseImplicit);
 });
 
@@ -44,5 +44,5 @@ it('copies the exploded rules onto the target', function (): void {
 
     expect(readValidatorProperty($target, 'rules'))
         ->toBe(readValidatorProperty($base, 'rules'))
-        ->not->toBe([]);
+        ->not->toBeEmpty();
 });
