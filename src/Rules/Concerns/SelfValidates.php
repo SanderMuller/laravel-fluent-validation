@@ -333,8 +333,6 @@ trait SelfValidates
 
     /**
      * Dump the compiled rules.
-     *
-     * @return $this
      */
     public function dump(mixed ...$args): static
     {
