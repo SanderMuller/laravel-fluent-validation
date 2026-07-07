@@ -13,7 +13,8 @@ use SanderMuller\BoostCore\Enums\Tag;
  *
  * Docs: https://github.com/sandermuller/boost-core
  */
-return BoostConfig::configure()->withDisabledEmitters([])
+return BoostConfig::configure()
+    ->withDisabledEmitters([])
     ->withAgents([
         Agent::CLAUDE_CODE,
         Agent::COPILOT,
