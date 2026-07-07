@@ -2,6 +2,66 @@
 
 All notable changes to `laravel-fluent-validation` will be documented in this file.
 
+## 1.31.0 - 2026-07-04
+
+<!-- verified-sha: 6a8e7492e416901dc1b36009309907e0a3d853b6 -->
+Two additions this release: the **FluentSchema builder** — an instance-based mirror
+of the `FluentRule` factory that lets you drop the `FluentRule::` prefix — and a fifth
+automatic optimization, **worker-global memoization of Laravel's rule-string parsing**.
+Both are backward-compatible; existing `rules()` methods and call sites are unchanged.
+
+#### Added
+
+- **FluentSchema builder.** Define a `schema(FluentSchema $rules)` method on a form
+  request and chain field starters off the injected `$rules` builder instead of
+  repeating the `FluentRule::` prefix on every line. When a request defines both
+  `schema()` and `rules()`, `schema()` wins — detection keys off the
+  `FluentSchema`-typed parameter, so an unrelated `schema()` method is never hijacked.
+  For inline use, `RuleSet::define(fn (FluentSchema $rules) => [...])` builds a
+  `RuleSet` from the same builder. `FluentSchema` exposes typed delegates for every
+  `FluentRule` factory (single source of truth on `FluentRule`) and forwards macros,
+  and mirrors the `schema(JsonSchema)` shape Laravel's AI SDK uses for structured
+  output.
+  
+- **`MemoizingValidator`.** A `Validator` subclass that memoizes
+  `ValidationRuleParser::parse()` for string rules in a bounded, worker-global static.
+  Laravel re-parses each string rule on every internal probe — and, on a validator
+  reused across array items, once per item; the memo collapses those repeats to a
+  single hash lookup. `OptimizedValidator` now extends it, so the residual slow path
+  of the optimized entry points (`HasFluentRules`, `FluentValidator`,
+  `RuleSet::validate()`, `HasFluentValidation`) picks it up automatically. Output stays
+  byte-identical to Laravel; only string rules are cached. The cache is soft-capped and
+  reset on overflow, and holds only rule-string → parse-result pairs (never request
+  data), so it stays Octane-safe.
+  
+
+#### Performance
+
+- **Per-item slow-rule validation reuses parsed rules across an array.**
+  `RuleSet::validate()` and `HasFluentRules` route per-item slow-rule validators
+  through `MemoizingValidator`, so a large array whose items fall through to Laravel
+  (custom `Rule` objects, cross-field references) parses each rule string once for the
+  whole array rather than re-parsing per item. The gain is largest on conditional-heavy
+  and slow-rule-heavy payloads; simple fast-checkable arrays are unaffected — they
+  already bypass Laravel entirely.
+- **Custom validator resolvers are preserved.** When an application registers a custom
+  `Validator::resolver()`, the per-item path uses that validator unchanged, so any
+  resolver-provided behaviour continues to apply.
+
+#### Internal
+
+- Extracted the factory-state reflection copy shared by the optimized validator paths
+  into `ValidatorStateCopier`, and taught it to carry wildcard `implicitAttributes` so
+  nested-wildcard expansion metadata pairs with the copied rules.
+
+<!-- benchmark-start -->
+<!-- benchmark-end -->
+### What's Changed
+
+* chore(deps): bump actions/checkout from 6 to 7 by @dependabot[bot] in https://github.com/SanderMuller/laravel-fluent-validation/pull/18
+
+**Full Changelog**: https://github.com/SanderMuller/laravel-fluent-validation/compare/1.30.1...1.31.0
+
 ## 1.30.1 - 2026-06-18
 
 <!-- verified-sha: 7e97746eec6f3d347ed131b4859314760829be62 -->
@@ -168,6 +228,7 @@ Malformed wildcard rule key [items*]: a wildcard segment must be written as '.*'
 
 
 
+
 ```
 This matches the package's existing fail-fast on malformed array-rule keys.
 
@@ -244,6 +305,7 @@ illuminate/*: ^11.0||^12.0||^13.0  ->  ^12.0||^13.0
 
 
 
+
 ```
 The CI matrix drops its Laravel 11 legs (and the `orchestra/testbench ^9.0` requirement that only existed to test them); Laravel 12 and 13 remain, across PHP 8.2 / 8.3 / 8.4 on Ubuntu and Windows.
 
@@ -288,6 +350,7 @@ The file was plain markdown — zero Blade directives, zero render-time tokens �
 
 
 
+
 ```
 So the standing guidance never landed in `CLAUDE.md` / `AGENTS.md`; contributors only got it on-demand via the `fluent-validation*` skills, not as always-on context.
 
@@ -319,6 +382,7 @@ Conditional-required and presence modifiers never emit that literal `required` s
 FluentRule::email()->requiredIf($enabled)->nullable()
 // before: passed — requirement dropped          ❌
 // after:  fails, matching native Laravel         ✅
+
 
 
 
@@ -370,6 +434,7 @@ The remap built a synthetic `Validator::make([], [])`, pushed the error message 
 $caught->validator->errors()->keys();   // ['actions']                      ✅
 $caught->validator->errors()->first();  // human-readable message          ✅
 $caught->validator->failed();           // []                              ❌
+
 
 
 
@@ -433,6 +498,7 @@ $validated = RuleSet::from([
 
 
 
+
 ```
 Top-level keys outside the rule set are already excluded from `validated()`; this flag extends the same behavior to nested array shapes declared via `children()`, `each()`, or dotted rule keys. Maps to Laravel's `Validator::$excludeUnvalidatedArrayKeys`, but gives per-`RuleSet` control instead of relying on whatever the host factory's flag happens to be set to — useful when an application has called `Factory::includeUnvalidatedArrayKeys()` globally and a specific call site needs the strict default back.
 
@@ -450,6 +516,7 @@ $validated = RuleSet::from([...])->validate($request->all());
 
 // 1.27
 $validated = RuleSet::from([...])->validate($request);
+
 
 
 
