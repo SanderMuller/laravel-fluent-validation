@@ -65,6 +65,12 @@
         ]
     },
     "scripts": {
+        "post-install-cmd": [
+            "SanderMuller\\BoostCore\\Scripts\\BoostAutoSync::run"
+        ],
+        "post-update-cmd": [
+            "SanderMuller\\BoostCore\\Scripts\\BoostAutoSync::run"
+        ],
         "phpstan": "vendor/bin/phpstan analyse --memory-limit=2G",
         "phpstan-simplified": "vendor/bin/phpstan analyse --memory-limit=2G --error-format symplify",
         "phpstan-clear-cache": "vendor/bin/phpstan clear-result-cache",
