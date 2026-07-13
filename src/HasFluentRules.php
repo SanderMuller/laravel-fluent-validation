@@ -36,6 +36,16 @@ trait HasFluentRules
     use PreparesOptimizedRules;
 
     /**
+     * Memoized schema()-vs-rules() precedence per concrete class. The winner is
+     * fixed by where each method is declared, which never changes at runtime,
+     * so it is resolved by reflection once per class. Bounded by the number of
+     * FormRequest classes, so it needs no eviction.
+     *
+     * @var array<class-string, bool>
+     */
+    private static array $schemaOutranksRulesByClass = [];
+
+    /**
      * Whether the request's `schema()` method is the FluentSchema builder hook
      * (its first parameter is typed FluentSchema) rather than a coincidental,
      * unrelated `schema()`. Called only after method_exists() confirms the
@@ -50,17 +60,94 @@ trait HasFluentRules
             && $firstType->getName() === FluentSchema::class;
     }
 
+    /**
+     * Merge the already-resolved rule sets from schema() and rules() into one.
+     * The more specific declaration wins each shared field (see
+     * {@see schemaOutranksRules()}), so a base class or trait can define shared
+     * fields via one method and each implementor override or extend them via
+     * the other. Neither source is dropped and a collision never throws.
+     * Sources are resolved by the caller (where method existence is proven), so
+     * this never references a method the using class may not declare.
+     */
+    private function mergeSchemaAndRules(mixed $schema, mixed $rules): RuleSet
+    {
+        /** @var array<string, mixed>|RuleSet $schema */
+        $schemaSet = $schema instanceof RuleSet ? $schema : RuleSet::from($schema);
+        /** @var array<string, mixed>|RuleSet $rules */
+        $rulesSet = $rules instanceof RuleSet ? $rules : RuleSet::from($rules);
+
+        // RuleSet::merge lets the argument override the receiver on shared keys,
+        // so merge the loser as the base and overlay the winner on top.
+        return $this->schemaOutranksRules()
+            ? $rulesSet->merge($schemaSet)
+            : $schemaSet->merge($rulesSet);
+    }
+
+    private function schemaOutranksRules(): bool
+    {
+        return self::$schemaOutranksRulesByClass[$this::class] ??= $this->resolveSchemaOutranksRules();
+    }
+
+    /**
+     * Whether schema()'s declaration outranks rules()' on a shared field. Each
+     * method resolves to one live definition on this object's linear ancestor
+     * chain, so the deeper (more-derived) declaring class wins — a concrete
+     * request beats the abstract base or trait it inherits the other method
+     * from. When both resolve to the same class (e.g. one pulled from a trait,
+     * the other defined in the class body), a body definition outranks a trait
+     * import; if neither or both come from a trait the tie is genuine and
+     * schema() wins (preserving the pre-merge precedence for that shape).
+     */
+    private function resolveSchemaOutranksRules(): bool
+    {
+        $schemaClass = (new ReflectionMethod($this, 'schema'))->getDeclaringClass();
+        $rulesClass = (new ReflectionMethod($this, 'rules'))->getDeclaringClass();
+
+        if ($schemaClass->getName() !== $rulesClass->getName()) {
+            return $schemaClass->isSubclassOf($rulesClass->getName());
+        }
+
+        // schema() wins the same-class tie unless it is the trait import and
+        // rules() is the more-specific body definition.
+        return ! ($this->methodImportedFromTrait('schema') && ! $this->methodImportedFromTrait('rules'));
+    }
+
+    /**
+     * Best-effort check of whether the resolved $method lives in a trait rather
+     * than the declaring class's own body, by comparing the method's source
+     * file to the class's. If the file can't be determined, it is treated as
+     * body-level.
+     */
+    private function methodImportedFromTrait(string $method): bool
+    {
+        $reflection = new ReflectionMethod($this, $method);
+        $classFile = $reflection->getDeclaringClass()->getFileName();
+        $methodFile = $reflection->getFileName();
+
+        return $classFile !== false && $methodFile !== false && $methodFile !== $classFile;
+    }
+
     protected function createDefaultValidator(ValidationFactory $factory): Validator
     {
-        // A schema(FluentSchema $rules) method — the builder shape — takes
-        // precedence over rules(). Detection keys off the FluentSchema-typed
-        // first parameter, not just the method name, so an unrelated schema()
-        // method (e.g. one returning a JSON/DB schema) is never hijacked. The
-        // builder is resolved by the container from that type-hint.
+        // schema(FluentSchema $rules) — the builder shape — and rules() are both
+        // rule sources. schema() detection keys off the FluentSchema-typed first
+        // parameter (not just the method name), so an unrelated schema() method
+        // (e.g. one returning a JSON/DB schema) is never hijacked. When both are
+        // present they are merged rather than one shadowing the other — the more
+        // specific declaration wins each shared field (see mergeSchemaAndRules()),
+        // so an abstract base or trait can supply one method and a concrete
+        // request the other. Each source is resolved by the container.
+        $hasSchema = method_exists($this, 'schema') && $this->schemaExpectsFluentSchema();
+        $hasRules = method_exists($this, 'rules');
+
         /** @var array<string, mixed>|RuleSet $rules */
         $rules = match (true) {
-            method_exists($this, 'schema') && $this->schemaExpectsFluentSchema() => $this->container->call([$this, 'schema']),
-            method_exists($this, 'rules') => $this->container->call([$this, 'rules']),
+            $hasSchema && $hasRules => $this->mergeSchemaAndRules(
+                $this->container->call([$this, 'schema']),
+                $this->container->call([$this, 'rules']),
+            ),
+            $hasSchema => $this->container->call([$this, 'schema']),
+            $hasRules => $this->container->call([$this, 'rules']),
             default => [],
         };
 

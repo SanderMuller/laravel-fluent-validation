@@ -281,7 +281,9 @@ it('fails a FormRequest through schema() on invalid data', function (): void {
     $request->validateResolved();
 })->throws(ValidationException::class);
 
-it('prefers schema() over rules() when a FormRequest defines both', function (): void {
+it('lets schema() win a same-class collision with rules()', function (): void {
+    // Both methods are declared in one class body on the same field, so neither
+    // is more derived; the genuine tie resolves to schema().
     $request = bootDualFormRequest(['value' => 'from-schema']);
 
     $request->validateResolved();
@@ -289,9 +291,10 @@ it('prefers schema() over rules() when a FormRequest defines both', function ():
     expect($request->validated())->toMatchArray(['value' => 'from-schema']);
 });
 
-it('ignores rules() when schema() is present', function (): void {
-    // Data the abandoned rules() would have accepted must still fail, proving
-    // schema() fully replaces rules() rather than merging with it.
+it('applies schema() over rules() on a shared key, rejecting a rules()-only value', function (): void {
+    // schema() and rules() both define `value` in one class body; schema() wins
+    // the tie, so a value only rules() would accept must fail. rules() is merged
+    // rather than ignored — SchemaRulesMergeTest covers the non-colliding fields.
     bootDualFormRequest(['value' => 'from-rules'])->validateResolved();
 })->throws(ValidationException::class);
 

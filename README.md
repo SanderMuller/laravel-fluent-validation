@@ -266,7 +266,7 @@ class StorePostRequest extends FormRequest
 
 `$rules->string()` is exactly `FluentRule::string()` — same rule objects, same labels, same five optimizations. It's pure ergonomics: one builder instead of the static prefix, with the typed parameter autocompleting the full factory list. Macros registered on `FluentRule` are reachable on `$rules` too.
 
-When a request defines both `schema()` and `rules()`, `schema()` wins — detected by the `FluentSchema`-typed parameter, so an unrelated `schema()` method is never hijacked. Like `rules()`, `schema()` may return a plain array or a `RuleSet`.
+When a request — or anywhere in its class hierarchy — defines both `schema()` and `rules()`, the two are **merged** rather than one shadowing the other. On a shared field the more specific declaration wins: the deeper class in the hierarchy, or a body definition over a trait import — so an abstract base or trait can supply shared fields and a concrete request override or extend them, exactly like a plain method override, while non-colliding fields from both layers survive. When both are declared on the same class the tie resolves to `schema()`. Detection keys off the `FluentSchema`-typed parameter, so an unrelated `schema()` method is never hijacked. Like `rules()`, `schema()` may return a plain array or a `RuleSet`.
 
 ### Migrating existing rules
 
