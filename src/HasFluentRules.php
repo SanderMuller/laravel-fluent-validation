@@ -106,12 +106,14 @@ trait HasFluentRules
         if ($schemaClass->getName() !== $rulesClass->getName()) {
             return $schemaClass->isSubclassOf($rulesClass->getName());
         }
+
         // schema() wins the same-class tie unless it is the trait import and
         // rules() is the more-specific body definition.
-        if (!$this->methodImportedFromTrait('schema')) {
+        if (! $this->methodImportedFromTrait('schema')) {
             return true;
         }
-        return (bool) $this->methodImportedFromTrait('rules');
+
+        return $this->methodImportedFromTrait('rules');
     }
 
     /**
