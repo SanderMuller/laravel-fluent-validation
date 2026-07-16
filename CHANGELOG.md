@@ -2,6 +2,38 @@
 
 All notable changes to `laravel-fluent-validation` will be documented in this file.
 
+## 1.33.0 - 2026-07-16
+
+<!-- verified-sha: ac42caa4994a6693df4cb4f2e6558d8e9da1a94a -->
+A request that defines only `schema()` can now call `->rules()` and get the rules
+the builder produced, so tooling or interop that expects a `rules()` method works
+with schema-only requests.
+
+#### Added
+
+- **`rules()` on schema-only requests.** `HasFluentRules` now declares a `rules()`
+  method that returns `schema()`'s output (the raw field map) when a request has
+  not defined its own `rules()`. It works whether the request was resolved through
+  the container or instantiated directly. A `rules()` you define yourself still
+  takes precedence — the validator detects a consumer-declared `rules()` and only
+  then treats it as a rule source, so the fallback never merges with itself.
+
+#### Upgrading
+
+- `HasFluentRules` now declares `public function rules(): array|RuleSet`. A `rules()`
+  you define must be compatible with that signature: `public`, returning `array` or
+  `RuleSet` (Laravel's scaffolded `rules(): array` already is). Untyped or
+  non-public `rules()` methods need a small adjustment — see
+  [UPGRADING.md](UPGRADING.md).
+
+<!-- benchmark-start -->
+<!-- benchmark-end -->
+### What's Changed
+
+* chore(deps): bump actions/cache from 5 to 6 by @dependabot[bot] in https://github.com/SanderMuller/laravel-fluent-validation/pull/19
+
+**Full Changelog**: https://github.com/SanderMuller/laravel-fluent-validation/compare/1.32.0...1.33.0
+
 ## 1.32.0 - 2026-07-13
 
 <!-- verified-sha: 96135493a1859c96672b11041804ec81b7770c8f -->
@@ -259,6 +291,7 @@ Malformed wildcard rule key [items*]: a wildcard segment must be written as '.*'
 
 
 
+
 ```
 This matches the package's existing fail-fast on malformed array-rule keys.
 
@@ -337,6 +370,7 @@ illuminate/*: ^11.0||^12.0||^13.0  ->  ^12.0||^13.0
 
 
 
+
 ```
 The CI matrix drops its Laravel 11 legs (and the `orchestra/testbench ^9.0` requirement that only existed to test them); Laravel 12 and 13 remain, across PHP 8.2 / 8.3 / 8.4 on Ubuntu and Windows.
 
@@ -383,6 +417,7 @@ The file was plain markdown — zero Blade directives, zero render-time tokens �
 
 
 
+
 ```
 So the standing guidance never landed in `CLAUDE.md` / `AGENTS.md`; contributors only got it on-demand via the `fluent-validation*` skills, not as always-on context.
 
@@ -414,6 +449,7 @@ Conditional-required and presence modifiers never emit that literal `required` s
 FluentRule::email()->requiredIf($enabled)->nullable()
 // before: passed — requirement dropped          ❌
 // after:  fails, matching native Laravel         ✅
+
 
 
 
@@ -467,6 +503,7 @@ The remap built a synthetic `Validator::make([], [])`, pushed the error message 
 $caught->validator->errors()->keys();   // ['actions']                      ✅
 $caught->validator->errors()->first();  // human-readable message          ✅
 $caught->validator->failed();           // []                              ❌
+
 
 
 
@@ -534,6 +571,7 @@ $validated = RuleSet::from([
 
 
 
+
 ```
 Top-level keys outside the rule set are already excluded from `validated()`; this flag extends the same behavior to nested array shapes declared via `children()`, `each()`, or dotted rule keys. Maps to Laravel's `Validator::$excludeUnvalidatedArrayKeys`, but gives per-`RuleSet` control instead of relying on whatever the host factory's flag happens to be set to — useful when an application has called `Factory::includeUnvalidatedArrayKeys()` globally and a specific call site needs the strict default back.
 
@@ -551,6 +589,7 @@ $validated = RuleSet::from([...])->validate($request->all());
 
 // 1.27
 $validated = RuleSet::from([...])->validate($request);
+
 
 
 
