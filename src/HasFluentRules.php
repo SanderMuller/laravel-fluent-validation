@@ -2,6 +2,7 @@
 
 namespace SanderMuller\FluentValidation;
 
+use Illuminate\Container\Container;
 use Illuminate\Contracts\Validation\Factory as ValidationFactory;
 use Illuminate\Validation\Validator;
 use ReflectionMethod;
@@ -44,6 +45,34 @@ trait HasFluentRules
      * @var array<class-string, bool>
      */
     private static array $schemaOutranksRulesByClass = [];
+
+    /**
+     * Fallback so a request that defines only `schema()` still answers
+     * `rules()` — returning what the builder produced (the raw field map, the
+     * same shape a hand-written `rules()` would return) so tooling or interop
+     * expecting a `rules()` method keeps working. A consumer-defined `rules()`
+     * overrides this and it never runs; its signature must stay compatible
+     * (`public`, returning `array` or `RuleSet`). Returns `[]` when there is no
+     * FluentSchema-typed `schema()`.
+     *
+     * @return array<string, mixed>|RuleSet
+     */
+    public function rules(): array|RuleSet
+    {
+        if (! method_exists($this, 'schema') || ! $this->schemaExpectsFluentSchema()) {
+            return [];
+        }
+
+        // Resolve schema()'s FluentSchema (and any other typed dependency) from
+        // the global container. This can be called before the request is
+        // resolved (when its own container isn't set yet), and schema() has no
+        // request-scoped dependencies, so the app container is enough — in a
+        // booted app it is the same instance the request would hold anyway.
+        /** @var array<string, mixed>|RuleSet $schema */
+        $schema = Container::getInstance()->call([$this, 'schema']);
+
+        return $schema;
+    }
 
     /**
      * Whether the request's `schema()` method is the FluentSchema builder hook
@@ -131,18 +160,32 @@ trait HasFluentRules
         return $classFile !== false && $methodFile !== false && $methodFile !== $classFile;
     }
 
+    /**
+     * Whether the consumer declared their own rules(), as opposed to inheriting
+     * this trait's fallback. The fallback lives in this file, so a rules()
+     * resolved to any other file is consumer-defined and counts as a rule
+     * source; the fallback does not (it just re-exposes schema()).
+     */
+    private function definesOwnRules(): bool
+    {
+        return (new ReflectionMethod($this, 'rules'))->getFileName() !== __FILE__;
+    }
+
     protected function createDefaultValidator(ValidationFactory $factory): Validator
     {
         // schema(FluentSchema $rules) — the builder shape — and rules() are both
         // rule sources. schema() detection keys off the FluentSchema-typed first
         // parameter (not just the method name), so an unrelated schema() method
-        // (e.g. one returning a JSON/DB schema) is never hijacked. When both are
-        // present they are merged rather than one shadowing the other — the more
-        // specific declaration wins each shared field (see mergeSchemaAndRules()),
-        // so an abstract base or trait can supply one method and a concrete
-        // request the other. Each source is resolved by the container.
+        // (e.g. one returning a JSON/DB schema) is never hijacked. rules() counts
+        // only when the consumer declared their own (definesOwnRules()); the
+        // trait's fallback rules() just re-exposes schema() and must not trigger
+        // a merge. When both are present they are merged rather than one shadowing
+        // the other — the more specific declaration wins each shared field (see
+        // mergeSchemaAndRules()), so an abstract base or trait can supply one
+        // method and a concrete request the other. Each source is resolved by the
+        // container.
         $hasSchema = method_exists($this, 'schema') && $this->schemaExpectsFluentSchema();
-        $hasRules = method_exists($this, 'rules');
+        $hasRules = $this->definesOwnRules();
 
         /** @var array<string, mixed>|RuleSet $rules */
         $rules = match (true) {

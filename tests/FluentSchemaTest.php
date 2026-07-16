@@ -327,6 +327,68 @@ it('does not hijack an unrelated schema() method that lacks a FluentSchema param
     expect($request->validated())->toMatchArray(['value' => 'from-rules']);
 });
 
+it('answers rules() with the schema() output when a request defines only schema()', function (): void {
+    $request = new class extends FormRequest {
+        use HasFluentRules;
+
+        /** @return array<string, mixed> */
+        public function schema(FluentSchema $rules): array
+        {
+            return [
+                'title' => $rules->string()->required()->max(10),
+                'author' => $rules->string()->required(),
+            ];
+        }
+
+        public function authorize(): bool
+        {
+            return true;
+        }
+    };
+
+    expect(bootFormRequest($request, ['title' => 'hello', 'author' => 'me'])->rules())
+        ->toHaveKeys(['title', 'author']);
+});
+
+it('returns a RuleSet from rules() when schema() returns one', function (): void {
+    $request = new class extends FormRequest {
+        use HasFluentRules;
+
+        public function schema(FluentSchema $rules): RuleSet
+        {
+            return RuleSet::from(['title' => $rules->string()->required()]);
+        }
+
+        public function authorize(): bool
+        {
+            return true;
+        }
+    };
+
+    expect(bootFormRequest($request, ['title' => 'x'])->rules())->toBeInstanceOf(RuleSet::class);
+});
+
+it('answers rules() on a directly-instantiated request before it is resolved', function (): void {
+    // No bootFormRequest: rules() is called straight after `new`, so the
+    // request's container is unset and the fallback must use the global one.
+    $request = new class extends FormRequest {
+        use HasFluentRules;
+
+        /** @return array<string, mixed> */
+        public function schema(FluentSchema $rules): array
+        {
+            return ['title' => $rules->string()->required()];
+        }
+
+        public function authorize(): bool
+        {
+            return true;
+        }
+    };
+
+    expect($request->rules())->toHaveKey('title');
+});
+
 // =========================================================================
 // Macro forwarding via __call
 // =========================================================================

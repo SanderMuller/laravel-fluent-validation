@@ -92,7 +92,11 @@ function createSchemaFormRequest(Closure $schema, array $data): FormRequest
  * Resolve a configured FormRequest instance against a fake POST request,
  * wiring the container and redirector the way the framework would.
  *
+ * @template T of FormRequest
+ *
+ * @param  T  $formRequest
  * @param  array<array-key, mixed>  $data
+ * @return T
  */
 function bootFormRequest(FormRequest $formRequest, array $data): FormRequest
 {

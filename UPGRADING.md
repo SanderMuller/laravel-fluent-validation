@@ -4,6 +4,28 @@ This document describes breaking and constraint-affecting changes between
 releases and the steps to adopt them. For the full per-release log, see
 [CHANGELOG.md](CHANGELOG.md).
 
+## Upgrading to 1.33 from 1.32
+
+### `HasFluentRules` now declares a `rules()` method
+
+So a request that defines only `schema()` can still call `->rules()` (it returns
+the builder's output), the `HasFluentRules` trait now declares:
+
+```php
+public function rules(): array|RuleSet
+```
+
+A `rules()` you define yourself still takes precedence, but its signature must be
+compatible with the trait's, or PHP raises a "Declaration must be compatible"
+fatal:
+
+- `public function rules(): array` — no change (Laravel's default).
+- `public function rules(): RuleSet` — no change.
+- An untyped `public function rules()` — add a return type (`: array` or `: RuleSet`).
+- A non-`public` `rules()` — make it `public`.
+
+Most requests need no change.
+
 ## Upgrading to 1.28 from 1.27
 
 ### Laravel 11 support dropped

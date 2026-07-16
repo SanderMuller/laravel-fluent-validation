@@ -268,6 +268,8 @@ class StorePostRequest extends FormRequest
 
 When a request (or any class in its hierarchy) defines both `schema()` and `rules()`, the two are merged rather than one shadowing the other. On a shared field the more specific declaration wins: the deeper class in the hierarchy, or a body definition over a trait import. So an abstract base or trait can supply shared fields, and a concrete request overrides or extends them, exactly like a plain method override. Non-colliding fields from both survive. When both are declared on the same class, the tie resolves to `schema()`. Detection keys off the `FluentSchema`-typed parameter, so an unrelated `schema()` method is never hijacked, and either method may return a plain array or a `RuleSet`.
 
+A request that defines only `schema()` can still call `->rules()`; it returns the builder's output, so tooling or interop that expects a `rules()` method keeps working.
+
 ### Migrating existing rules
 
 You don't need to convert all your rules at once. Fluent rules mix freely with string rules and native rule objects in the same array:
