@@ -35,7 +35,7 @@ Write Laravel validation rules with IDE autocompletion instead of memorizing str
 **Getting started**
 - [Why this package?](#why-this-package): DX, type safety, structure, performance, and how it compares to Laravel's `Rule` class
 - [Installation](#installation)
-- [Usage](#usage): Form Requests, migrating existing rules, extending parent rules, other contexts
+- [Usage](#usage): Form Requests, the `schema()` builder, migrating existing rules, extending parent rules, other contexts
 - [Error messages](#error-messages): labels, per-rule messages
 - [Array validation](#array-validation-with-each-and-children): each, children, nesting
 
@@ -244,6 +244,7 @@ public function rules(): array
 Prefer one injected builder over repeating the `FluentRule::` prefix on every line? Define a `schema(FluentSchema $rules)` method in place of `rules()`, or alongside it, since the two merge (see below). You receive a `FluentSchema` instance and chain field starters off it — the same shape Laravel's AI SDK uses for structured output:
 
 ```php
+use Illuminate\Foundation\Http\FormRequest;
 use SanderMuller\FluentValidation\FluentSchema;
 use SanderMuller\FluentValidation\HasFluentRules;
 
