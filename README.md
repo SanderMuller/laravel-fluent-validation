@@ -1,3 +1,5 @@
+[![Laravel Fluent Validation](docs/public/header.png)](https://sandermuller.github.io/laravel-fluent-validation/)
+
 # Fluent validation rule builders for Laravel
 
 [![Latest Version on Packagist](https://img.shields.io/packagist/v/sandermuller/laravel-fluent-validation.svg?style=flat-square)](https://packagist.org/packages/sandermuller/laravel-fluent-validation)
