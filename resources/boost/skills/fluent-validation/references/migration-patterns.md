@@ -2,7 +2,7 @@
 
 When converting existing validation rules to FluentRule, use the native method — do NOT use `->rule()` escape hatch unless the rule is app-specific or third-party.
 
-> Paired with the README's [Migrating existing validation with Rector](../../../../../README.md#migrating-existing-validation-with-rector) section. Start with the Rector run there; reach for this doc when you hit a file Rector left alone, or when you want the decision matrix for picking the right factory (`string()` vs `field()` vs `integer()` etc).
+> Paired with the docs' [Migrating existing validation with Rector](https://github.com/SanderMuller/laravel-fluent-validation/blob/main/docs/12-migration.md#migrating-existing-validation-with-rector) section. Start with the Rector run there; reach for this doc when you hit a file Rector left alone, or when you want the decision matrix for picking the right factory (`string()` vs `field()` vs `integer()` etc).
 
 ---
 

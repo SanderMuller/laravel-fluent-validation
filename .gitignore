@@ -30,11 +30,15 @@ _ide_helper_models.php
 # Claude Code
 .claude/scheduled_tasks.lock
 
+# Docs site (VitePress)
+docs/node_modules/
+docs/.vitepress/cache/
+docs/.vitepress/dist/
+
 # Misc
 phpunit.xml
 phpstan.neon
 testbench.yaml
-/docs
 /coverage
 /autoresearch
 benchmark-snapshot.json
