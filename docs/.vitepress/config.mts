@@ -28,8 +28,16 @@ export default defineConfig({
     cleanUrls: true,
     lastUpdated: true,
 
+    head: [
+        ['link', { rel: 'icon', type: 'image/svg+xml', href: '/laravel-fluent-validation/logo.svg' }],
+        ['meta', { name: 'theme-color', content: '#FF2D20' }],
+    ],
+
+    // README.md is the GitHub-facing folder index; the site's home is home.md.
+    srcExclude: ['README.md'],
+
     rewrites: {
-        'README.md': 'index.md',
+        'home.md': 'index.md',
         ...Object.fromEntries(pages.map(page => [`${page}.md`, `${page.replace(/^\d+-/, '')}.md`])),
     },
 
@@ -50,6 +58,8 @@ export default defineConfig({
     },
 
     themeConfig: {
+        logo: '/logo.svg',
+
         nav: [
             { text: 'Guide', link: link('01-why-this-package') },
             { text: 'Rule reference', link: link('11-rule-reference') },

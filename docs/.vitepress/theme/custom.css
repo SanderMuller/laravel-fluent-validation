@@ -1,0 +1,36 @@
+/**
+ * Brand palette: Laravel red, tuned per mode so link/text usage keeps contrast
+ * (brand-1 = text/links, brand-2 = hover, brand-3 = solid button background).
+ */
+:root {
+    --vp-c-brand-1: #d9230f;
+    --vp-c-brand-2: #b81d0c;
+    --vp-c-brand-3: #ff2d20;
+    --vp-c-brand-soft: rgba(255, 45, 32, 0.14);
+}
+
+.dark {
+    --vp-c-brand-1: #ff7a70;
+    --vp-c-brand-2: #ff594d;
+    --vp-c-brand-3: #ff2d20;
+    --vp-c-brand-soft: rgba(255, 45, 32, 0.18);
+}
+
+/* Home hero: gradient wordmark and a soft glow behind the logo. */
+:root {
+    --vp-home-hero-name-color: transparent;
+    --vp-home-hero-name-background: linear-gradient(120deg, #ff2d20 30%, #ff9a3c);
+    --vp-home-hero-image-background-image: linear-gradient(-45deg, rgba(255, 45, 32, 0.5) 40%, rgba(255, 154, 60, 0.5) 60%);
+    --vp-home-hero-image-filter: blur(56px);
+}
+
+.dark {
+    --vp-home-hero-image-background-image: linear-gradient(-45deg, rgba(255, 45, 32, 0.35) 40%, rgba(255, 154, 60, 0.35) 60%);
+}
+
+/* Solid brand button needs dark text nowhere — keep white on red in both modes. */
+:root {
+    --vp-button-brand-bg: var(--vp-c-brand-3);
+    --vp-button-brand-hover-bg: #e6281c;
+    --vp-button-brand-active-bg: #cc2419;
+}
