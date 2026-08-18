@@ -33,4 +33,5 @@ return BoostConfig::configure()
         Tag::Github,
         'release-automation',
         Tag::Pest,
+        'voice',
     ]);
