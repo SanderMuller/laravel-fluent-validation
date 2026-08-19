@@ -9,7 +9,7 @@
 [![License](https://img.shields.io/github/license/sandermuller/laravel-fluent-validation.svg?style=flat-square)](LICENSE.md)
 [![Laravel Compatibility](https://badge.laravel.cloud/badge/sandermuller/laravel-fluent-validation?style=flat)](https://packagist.org/packages/sandermuller/laravel-fluent-validation)
 
-Write Laravel validation rules with IDE autocompletion instead of memorizing string syntax. Each rule type exposes only the methods that apply to it: `FluentRule::string()` won't offer `digits()`, `FluentRule::date()` won't offer `mimes()`. `each()` and `children()` keep parent and child rules in one place instead of scattered across dot-notation keys. For large arrays, the `HasFluentRules` trait makes wildcard validation [up to 160x faster](docs/08-performance.md#benchmarks).
+Write Laravel validation rules with IDE autocompletion instead of memorizing string syntax. Each rule type exposes only the methods that apply to it: `FluentRule::string()` won't offer `digits()`, `FluentRule::date()` won't offer `mimes()`. `each()` and `children()` keep parent and child rules in one place instead of scattered across dot-notation keys. For large arrays, the `HasFluentRules` trait makes wildcard validation [up to 160x faster](https://sandermuller.github.io/laravel-fluent-validation/performance#benchmarks).
 
 ```php
 // Before
@@ -30,7 +30,7 @@ Write Laravel validation rules with IDE autocompletion instead of memorizing str
 ]),
 ```
 
-> **Migrating an existing codebase?** Jump straight to [Migrating to fluent validation](docs/12-migration.md); a companion package automates the bulk of the rewrite.
+> **Migrating an existing codebase?** Jump straight to [Migrating to fluent validation](https://sandermuller.github.io/laravel-fluent-validation/migration); a companion package automates the bulk of the rewrite.
 
 ## Installation
 
@@ -40,7 +40,7 @@ You can install the package via composer:
 composer require sandermuller/laravel-fluent-validation
 ```
 
-Requires PHP 8.2+ and Laravel 12+. See [Installation](docs/02-installation.md) for AI-assisted development with [Laravel Boost](https://github.com/laravel/boost), and [UPGRADING.md](UPGRADING.md) when upgrading from an older release.
+Requires PHP 8.2+ and Laravel 12+. See [Installation](https://sandermuller.github.io/laravel-fluent-validation/installation) for AI-assisted development with [Laravel Boost](https://github.com/laravel/boost), and [UPGRADING.md](UPGRADING.md) when upgrading from an older release.
 
 ## Usage
 
@@ -73,31 +73,31 @@ class StorePostRequest extends FormRequest
 
 The label `'Title'` replaces `:attribute` in error messages. You get "The Title field is required" instead of "The title field is required", without a separate `attributes()` array.
 
-See [Basic usage](docs/03-basic-usage.md) for the `schema()` builder, typing your `rules()` return, and using fluent rules outside form requests.
+See [Basic usage](https://sandermuller.github.io/laravel-fluent-validation/basic-usage) for the `schema()` builder, typing your `rules()` return, and using fluent rules outside form requests.
 
 ## Documentation
 
-Full documentation is published at **[sandermuller.github.io/laravel-fluent-validation](https://sandermuller.github.io/laravel-fluent-validation/)** and lives in the [`docs/`](docs/README.md) directory.
+Read the full documentation at **[sandermuller.github.io/laravel-fluent-validation](https://sandermuller.github.io/laravel-fluent-validation/)**.
 
 **Getting started**
-- [Why this package?](docs/01-why-this-package.md) — DX, type safety, structure, performance, and how it compares to Laravel's `Rule` class
-- [Installation](docs/02-installation.md)
-- [Basic usage](docs/03-basic-usage.md) — Form Requests, typing `rules()`, the `schema()` builder, other contexts
-- [Error messages](docs/04-error-messages.md) — labels, per-rule messages
-- [Array validation](docs/05-array-validation.md) — `each()`, `children()`, nesting
+- [Why this package?](https://sandermuller.github.io/laravel-fluent-validation/why-this-package) — DX, type safety, structure, performance, and how it compares to Laravel's `Rule` class
+- [Installation](https://sandermuller.github.io/laravel-fluent-validation/installation)
+- [Basic usage](https://sandermuller.github.io/laravel-fluent-validation/basic-usage) — Form Requests, typing `rules()`, the `schema()` builder, other contexts
+- [Error messages](https://sandermuller.github.io/laravel-fluent-validation/error-messages) — labels, per-rule messages
+- [Array validation](https://sandermuller.github.io/laravel-fluent-validation/array-validation) — `each()`, `children()`, nesting
 
 **Digging deeper**
-- [Extending parent rules](docs/06-extending-rules.md) — child form requests, `modifyEach`, `modifyChildren`, returning a `RuleSet`
-- [Livewire](docs/07-livewire.md) — `HasFluentValidation` trait, Filament workaround
-- [Performance](docs/08-performance.md) — O(n) wildcards, pre-evaluation, fast-check closures, batched DB, benchmarks
-- [RuleSet](docs/09-ruleset.md) — build, compose, inspect, validate, escape hatches, method reference
-- [Testing](docs/10-testing.md) — `FluentRulesTester`, Pest expectations
-- [Rule reference](docs/11-rule-reference.md) — all types, modifiers, conditionals, macros
+- [Extending parent rules](https://sandermuller.github.io/laravel-fluent-validation/extending-rules) — child form requests, `modifyEach`, `modifyChildren`, returning a `RuleSet`
+- [Livewire](https://sandermuller.github.io/laravel-fluent-validation/livewire) — `HasFluentValidation` trait, Filament workaround
+- [Performance](https://sandermuller.github.io/laravel-fluent-validation/performance) — O(n) wildcards, pre-evaluation, fast-check closures, batched DB, benchmarks
+- [RuleSet](https://sandermuller.github.io/laravel-fluent-validation/ruleset) — build, compose, inspect, validate, escape hatches, method reference
+- [Testing](https://sandermuller.github.io/laravel-fluent-validation/testing) — `FluentRulesTester`, Pest expectations
+- [Rule reference](https://sandermuller.github.io/laravel-fluent-validation/rule-reference) — all types, modifiers, conditionals, macros
 
 **Migration and tooling**
-- [Migrating to fluent validation](docs/12-migration.md) — incremental migration and the automated [Rector companion](https://github.com/sandermuller/laravel-fluent-validation-rector)
-- [Static analysis with PHPStan](docs/13-static-analysis.md) — opt-in [PHPStan rules package](https://github.com/sandermuller/laravel-fluent-validation-phpstan) that flags unbounded `each()` chains
-- [Troubleshooting](docs/14-troubleshooting.md) — common issues and solutions
+- [Migrating to fluent validation](https://sandermuller.github.io/laravel-fluent-validation/migration) — incremental migration and the automated [Rector companion](https://github.com/sandermuller/laravel-fluent-validation-rector)
+- [Static analysis with PHPStan](https://sandermuller.github.io/laravel-fluent-validation/static-analysis) — opt-in [PHPStan rules package](https://github.com/sandermuller/laravel-fluent-validation-phpstan) that flags unbounded `each()` chains
+- [Troubleshooting](https://sandermuller.github.io/laravel-fluent-validation/troubleshooting) — common issues and solutions
 
 ## Contributing
 
