@@ -98,6 +98,8 @@ jobs:
           - **Test outcome:** ${{ steps.tests.outcome }}
 
           Failure mode — check the install step first: if \`composer require\` / \`composer update\` failed, the break is in dependency resolution (removed package, changed constraint, abandoned dep). Otherwise inspect the test step for runtime regressions: rule-string parser format, \`Validator::\$customMessages\` shape, \`Rule::in()\` / \`Rule::exists()\` / \`Rule::unique()\` return types.
+
+          Before blaming the framework, diff \`composer show -D\` against the last green run — \`composer.lock\` is gitignored, so a fresh resolve can jump the test toolchain itself (a Pest/PHPUnit major, unlocked by a plugin release), which has produced an exit-1 run with zero reported failures. The \`pest-logs-*\` artifact on this run carries the JUnit XML and the PHPUnit event log; runner-level warnings and risky verdicts that Pest's output hides appear only there.
           EOF
 
       - name: Create tracking issue
