@@ -15,7 +15,9 @@ export default defineConfig({
     lastUpdated: true,
 
     sitemap: {
-        hostname: SITE_URL,
+        // Trailing slash required: routes resolve against this URL, and
+        // without it the base path segment is dropped from every entry.
+        hostname: `${SITE_URL}/`,
     },
 
     // llms.txt (https://llmstxt.org): a machine-readable index plus the full

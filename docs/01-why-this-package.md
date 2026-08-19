@@ -2,7 +2,7 @@
 
 ## Chainable, readable rules
 
-A fluent chain reads as a sentence: the field is a date, it is required, it must be today or later, and it must fall before `ends_at`. Every constraint is a real method call, so a typo is "method not found" in your editor instead of a silently ignored substring inside a pipe-delimited string.
+A fluent chain reads as a sentence: the field is a date, it is required, it must be today or later, and it must fall before `ends_at`. Every constraint is a real method call, so a typo is "method not found" in your editor instead of a `BadMethodCallException` when the request finally runs.
 
 ```php
 // One string, four rules, two of them easy to get subtly wrong

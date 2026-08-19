@@ -2474,14 +2474,14 @@ it('dump is chainable on rules', function (): void {
     // cannot intercept it and the leak trips beStrictAboutOutputDuringTests.
     $rule = FluentRule::string()->required();
     $dumped = [];
-    VarDumper::setHandler(static function (mixed $var) use (&$dumped): void {
+    $previousHandler = VarDumper::setHandler(static function (mixed $var) use (&$dumped): void {
         $dumped[] = $var;
     });
 
     try {
         $result = $rule->dump();
     } finally {
-        VarDumper::setHandler(null);
+        VarDumper::setHandler($previousHandler);
     }
 
     expect($result)->toBe($rule)
