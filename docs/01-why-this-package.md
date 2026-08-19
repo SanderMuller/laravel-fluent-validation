@@ -1,8 +1,30 @@
 # Why this package?
 
-## Fluent
+## Chainable, readable rules
 
-If you've ever wondered whether `min:5` means characters, an integer, array elements, or kilobytes (it depends on the type rule next to it), forgotten which slot in `unique:users,email,$ignoreId,id` holds the ignored ID, or had to look up whether to use `date_equals`, `same`, or `before_or_equal` to compare two dates, you know the frustration. The IDE answers that for you now. Each type has its own class, so `FluentRule::string()` won't even offer `digits()`, and `FluentRule::date()` won't offer `mimes()`.
+A fluent chain reads as a sentence: the field is a date, it is required, it must be today or later, and it must fall before `ends_at`. Every constraint is a real method call, so a typo is "method not found" in your editor instead of a silently ignored substring inside a pipe-delimited string.
+
+```php
+// One string, four rules, two of them easy to get subtly wrong
+'starts_at' => 'required|date|after_or_equal:today|before:ends_at',
+
+// The same rules, each one visible and verifiable
+'starts_at' => FluentRule::date()->required()->todayOrAfter()->before('ends_at'),
+```
+
+## One builder per type
+
+`FluentRule::string()`, `integer()`, `date()`, `email()`, `file()`, and friends each return a builder that exposes only the methods valid for that type. `FluentRule::date()` has no `mimes()`; `FluentRule::string()` has no `digits()`. A whole class of copy-paste mistakes stops existing, because the wrong method is simply not there.
+
+Type-scoping also removes the ambiguity baked into string rules. `min:5` means five characters on a string, a minimum value of five on a number, five elements on an array, and five kilobytes on a file — it depends on whichever type rule happens to sit next to it. With a typed builder the type comes first, so `->min(5)` has exactly one meaning.
+
+## Your IDE does the remembering
+
+Everything you used to look up now autocompletes:
+
+- Which slot in `unique:users,email,$ignoreId,id` holds the ignored ID? It's a named call now: `->unique('users', 'email', fn ($r) => $r->ignore($id))`.
+- `date_equals`, `same`, or `before_or_equal` to compare two dates? Type `->` on a date rule and pick from the list.
+- Parameters are typed, so passing the wrong shape is flagged while you write, not when the request fails in production.
 
 ## Array notation
 

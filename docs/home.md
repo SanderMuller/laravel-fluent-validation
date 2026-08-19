@@ -20,9 +20,9 @@ hero:
       link: https://github.com/SanderMuller/laravel-fluent-validation
 
 features:
-  - title: Autocomplete, not memorize
-    details: "Each rule type exposes only the methods that apply to it: FluentRule::string() won't offer digits(), FluentRule::date() won't offer mimes()."
-    link: /why-this-package
+  - title: Your IDE knows the rules
+    details: "One typed builder per rule category — string, integer, date, email, file — exposing only the methods that apply. Autocompletion replaces the string-syntax cheat sheet."
+    link: /why-this-package#one-builder-per-type
   - title: Co-located array rules
     details: each() and children() keep parent and child rules in one place instead of scattered across dot-notation keys. Nested arrays nest naturally.
     link: /array-validation
