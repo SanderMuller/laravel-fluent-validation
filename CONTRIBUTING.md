@@ -9,11 +9,18 @@ page, `NN-` prefixed so GitHub renders the folder in reading order. The
 prefix is stripped at build time, so a page's site URL stays stable when
 pages are reordered.
 
-`docs/.vitepress/config.mts` holds the nav, sidebar, and the `pages`
-list. Add a new page to that list, or its route will not resolve.
-`docs/README.md` is the GitHub-facing folder index and is excluded from
-the site; `docs/home.md` becomes the site home page. Keep both in sync
-with the page list when you add or rename a page.
+`docs/.vitepress/pages.ts` holds the reading order — one entry per page
+with its title and the blurb the end-of-page "Next" card shows. A page
+that is missing from that list still builds, but it keeps its `NN-`
+prefix in the URL and gets no sidebar entry and no "Next" card, so add
+every new page there. `config.mts` builds the sidebar and the route
+rewrites from the list. `HomeNextSteps.vue` reads the titles and blurbs
+from it too, but picks the three home page steps by name — change that
+component to show different steps.
+
+`docs/README.md` is the GitHub-facing folder index. It is excluded from
+the site and still lists the pages by hand, so update it too when you
+add or rename a page.
 
 Build the site locally before you push:
 

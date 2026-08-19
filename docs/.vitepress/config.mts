@@ -1,25 +1,5 @@
 import { defineConfig } from 'vitepress'
-
-// Filenames keep their NN- prefix so GitHub renders docs/ in reading order;
-// rewrites strip the prefix so site URLs stay stable when pages are reordered.
-const pages = [
-    '01-why-this-package',
-    '02-installation',
-    '03-basic-usage',
-    '04-error-messages',
-    '05-array-validation',
-    '06-extending-rules',
-    '07-livewire',
-    '08-performance',
-    '09-ruleset',
-    '10-testing',
-    '11-rule-reference',
-    '12-migration',
-    '13-static-analysis',
-    '14-troubleshooting',
-]
-
-const link = (page: string) => `/${page.replace(/^\d+-/, '')}`
+import { link, pages, sections } from './pages'
 
 export default defineConfig({
     title: 'Laravel Fluent Validation',
@@ -44,7 +24,7 @@ export default defineConfig({
 
     rewrites: {
         'home.md': 'index.md',
-        ...Object.fromEntries(pages.map(page => [`${page}.md`, `${page.replace(/^\d+-/, '')}.md`])),
+        ...Object.fromEntries(pages.map(page => [`${page.file}.md`, `${page.file.replace(/^\d+-/, '')}.md`])),
     },
 
     markdown: {
@@ -72,41 +52,18 @@ export default defineConfig({
             { text: 'Packagist', link: 'https://packagist.org/packages/sandermuller/laravel-fluent-validation' },
         ],
 
-        sidebar: [
-            {
-                text: 'Getting started',
-                items: [
-                    { text: 'Why this package?', link: link('01-why-this-package') },
-                    { text: 'Installation', link: link('02-installation') },
-                    { text: 'Basic usage', link: link('03-basic-usage') },
-                    { text: 'Error messages', link: link('04-error-messages') },
-                    { text: 'Array validation', link: link('05-array-validation') },
-                ],
-            },
-            {
-                text: 'Digging deeper',
-                items: [
-                    { text: 'Extending parent rules', link: link('06-extending-rules') },
-                    { text: 'Livewire', link: link('07-livewire') },
-                    { text: 'Performance', link: link('08-performance') },
-                    { text: 'RuleSet', link: link('09-ruleset') },
-                    { text: 'Testing', link: link('10-testing') },
-                    { text: 'Rule reference', link: link('11-rule-reference') },
-                ],
-            },
-            {
-                text: 'Migration and tooling',
-                items: [
-                    { text: 'Migrating to fluent validation', link: link('12-migration') },
-                    { text: 'Static analysis with PHPStan', link: link('13-static-analysis') },
-                    { text: 'Troubleshooting', link: link('14-troubleshooting') },
-                ],
-            },
-        ],
+        sidebar: sections.map(section => ({
+            text: section.text,
+            items: section.pages.map(page => ({ text: page.text, link: link(page.file) })),
+        })),
 
         socialLinks: [
             { icon: 'github', link: 'https://github.com/SanderMuller/laravel-fluent-validation' },
         ],
+
+        docFooter: {
+            next: false,
+        },
 
         editLink: {
             pattern: 'https://github.com/SanderMuller/laravel-fluent-validation/edit/main/docs/:path',

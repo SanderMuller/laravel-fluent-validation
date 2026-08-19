@@ -64,3 +64,7 @@ Install with Composer and add one trait to your form request — existing string
 ```bash
 composer require sandermuller/laravel-fluent-validation
 ```
+
+## Where to next
+
+<HomeNextSteps />
