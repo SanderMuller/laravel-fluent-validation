@@ -1,6 +1,6 @@
 # RuleSet
 
-`RuleSet` is the composable, immutable rule container that powers everything outside a Form Request: inline validation, shared rule libraries, conditional fields, errors-as-data flows. Reach for it whenever the rules are not bound to a single HTTP request — Form Requests already wrap a `RuleSet` for you under the hood.
+`RuleSet` is the composable, immutable rule container that powers everything outside a form request: inline validation, shared rule libraries, conditional fields, errors-as-data flows. Reach for it whenever the rules are not bound to a single HTTP request — form requests already wrap a `RuleSet` for you under the hood.
 
 On this page: [Building](#building-a-rule-set) · [Composing](#composing-rule-sets) · [Inspecting and exporting](#inspecting-and-exporting-a-rule-set) · [Validating data](#validating-data) · [Raw Validator](#integrating-with-a-raw-validator) · [Custom Validators](#using-with-custom-validators) · [Compile pipeline](#compile-pipeline-advanced) · [Method reference](#method-reference)
 
@@ -204,7 +204,7 @@ The same applies inside wildcard arrays. If the first item fails, the rest are s
 
 ### Named error bags (`withBag`)
 
-Multiple forms on one page (Fortify's update-password + reset-password, a Livewire multi-card screen, etc.) need separate error bags so their validation messages don't collide. Chain `->withBag($name)` on the rule set; the thrown `ValidationException`'s `errorBag` is set to that name:
+Multiple forms on one page (Fortify's update-password + reset-password, a Livewire multi-card screen, etc.) need separate error bags so their validation errors don't collide. Chain `->withBag($name)` on the rule set; the thrown `ValidationException`'s `errorBag` is set to that name:
 
 ```php
 RuleSet::from([

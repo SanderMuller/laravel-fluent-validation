@@ -14,17 +14,17 @@ A fluent chain reads as a sentence: the field is a date, it is required, it must
 
 ## One builder per type
 
-`FluentRule::string()`, `integer()`, `date()`, `email()`, `file()`, and friends each return a builder that exposes only the methods valid for that type. `FluentRule::date()` has no `mimes()`; `FluentRule::string()` has no `digits()`. A whole class of copy-paste mistakes stops existing, because the wrong method is simply not there.
+`FluentRule::string()`, `integer()`, `date()`, `email()`, `file()`, and friends each return a builder that exposes only the methods valid for that type. `FluentRule::date()` has no `mimes()`; `FluentRule::string()` has no `digits()`. That closes off a whole class of copy-paste mistakes: the wrong method is not there to call.
 
-Type-scoping also removes the ambiguity baked into string rules. `min:5` means five characters on a string, a minimum value of five on a number, five elements on an array, and five kilobytes on a file — it depends on whichever type rule happens to sit next to it. With a typed builder the type comes first, so `->min(5)` has exactly one meaning.
+Type-scoping also removes the ambiguity baked into string rules. `min:5` means five characters on a string, a minimum value of five on a number, five elements on an array, and five kilobytes on a file, depending on whichever type rule sits next to it. With a typed builder the type comes first, so `->min(5)` has exactly one meaning.
 
 ## Your IDE does the remembering
 
-Everything you used to look up now autocompletes:
+The syntax you used to look up now autocompletes:
 
 - Which slot in `unique:users,email,$ignoreId,id` holds the ignored ID? It's a named call now: `->unique('users', 'email', fn ($r) => $r->ignore($id))`.
 - `date_equals`, `same`, or `before_or_equal` to compare two dates? Type `->` on a date rule and pick from the list.
-- Parameters are typed, so passing the wrong shape is flagged while you write, not when the request fails in production.
+- Parameters are typed, so your editor flags a wrong argument shape while you write it.
 
 ## Array notation
 
@@ -32,7 +32,7 @@ Everything you used to look up now autocompletes:
 
 ## Messages & attributes
 
-Labels and per-rule messages attach to the rule itself, so there's no separate `messages()` or `attributes()` array to drift out of sync with `rules()`. `FluentRule::email('Email Address')->required(message: 'We need your :attribute.')` carries both the human-readable name and the failure copy with the rule definition.
+Labels and per-rule messages attach to the rule itself, so there's no separate `messages()` or `attributes()` array to drift out of sync with `rules()`. `FluentRule::email('Email Address')->required(message: 'We need your :attribute.')` carries both the human-readable name and the custom error message with the rule definition.
 
 ## Performance
 

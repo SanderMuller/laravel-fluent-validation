@@ -82,7 +82,7 @@ Read the full documentation at **[sandermuller.github.io/laravel-fluent-validati
 **Getting started**
 - [Why this package?](https://sandermuller.github.io/laravel-fluent-validation/why-this-package) — DX, type safety, structure, performance, and how it compares to Laravel's `Rule` class
 - [Installation](https://sandermuller.github.io/laravel-fluent-validation/installation)
-- [Basic usage](https://sandermuller.github.io/laravel-fluent-validation/basic-usage) — Form Requests, typing `rules()`, the `schema()` builder, other contexts
+- [Basic usage](https://sandermuller.github.io/laravel-fluent-validation/basic-usage) — form requests, typing `rules()`, the `schema()` builder, other contexts
 - [Error messages](https://sandermuller.github.io/laravel-fluent-validation/error-messages) — labels, per-rule messages
 - [Array validation](https://sandermuller.github.io/laravel-fluent-validation/array-validation) — `each()`, `children()`, nesting
 

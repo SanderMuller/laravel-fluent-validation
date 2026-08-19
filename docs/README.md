@@ -6,7 +6,7 @@ Fluent validation rule builders for Laravel. For a quick overview and installati
 
 - [Why this package?](01-why-this-package.md) — DX, type safety, structure, performance, and how it compares to Laravel's `Rule` class
 - [Installation](02-installation.md)
-- [Basic usage](03-basic-usage.md) — Form Requests, typing `rules()`, the `schema()` builder, other contexts
+- [Basic usage](03-basic-usage.md) — form requests, typing `rules()`, the `schema()` builder, other contexts
 - [Error messages](04-error-messages.md) — labels, per-rule messages
 - [Array validation](05-array-validation.md) — `each()`, `children()`, nesting
 

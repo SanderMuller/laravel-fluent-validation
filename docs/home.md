@@ -21,7 +21,7 @@ hero:
 
 features:
   - title: Your IDE knows the rules
-    details: "One typed builder per rule category — string, integer, date, email, file — exposing only the methods that apply. Autocompletion replaces the string-syntax cheat sheet."
+    details: "One typed builder per rule category: string, integer, date, email, file. Each exposes only the methods that apply, and autocompletion replaces the string-syntax cheat sheet."
     link: /why-this-package#one-builder-per-type
   - title: Co-located array rules
     details: each() and children() keep parent and child rules in one place instead of scattered across dot-notation keys. Nested arrays nest naturally.
@@ -30,7 +30,7 @@ features:
     details: O(n) wildcard expansion, fast-check closures, batched database checks, and rule-parse memoization on every optimized entry point.
     link: /performance
   - title: Labels and messages on the rule
-    details: No separate messages() or attributes() arrays to drift out of sync. The label and failure copy travel with the rule definition.
+    details: The label and the custom error message travel with the rule definition, so there is no separate messages() or attributes() array to drift out of sync.
     link: /error-messages
   - title: Automated migration
     details: "A companion Rector package rewrites existing string and Rule object validation. 448 files converted in real-world testing with zero regressions."
@@ -59,7 +59,7 @@ features:
 ]),
 ```
 
-Install with Composer and add one trait to your form request — existing string rules keep working while you migrate field by field.
+Install with Composer and add one trait to your form request. Existing string rules keep working while you migrate field by field.
 
 ```bash
 composer require sandermuller/laravel-fluent-validation

@@ -2,7 +2,7 @@
 
 ## Labels
 
-Pass a label as the first argument to any factory method. It replaces `:attribute` in error messages for that field:
+A label is the fluent equivalent of Laravel's [custom attribute name](https://laravel.com/docs/validation#specifying-custom-attribute-values): the value you would otherwise put in an `attributes()` array. Pass it as the first argument to any factory method and it replaces `:attribute` in error messages for that field:
 
 ```php
 use Illuminate\Foundation\Http\FormRequest;
