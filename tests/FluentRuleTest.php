@@ -21,6 +21,7 @@ use SanderMuller\FluentValidation\Tests\Fixtures\TestArrayKeyEnum;
 use SanderMuller\FluentValidation\Tests\Fixtures\TestIntEnum;
 use SanderMuller\FluentValidation\Tests\Fixtures\TestStringEnum;
 use SanderMuller\FluentValidation\Tests\Fixtures\TestUnitEnum;
+use Symfony\Component\VarDumper\VarDumper;
 
 // =========================================================================
 // BooleanRule
@@ -2468,12 +2469,23 @@ it('RuleSet dump returns rules messages and attributes', function (): void {
 });
 
 it('dump is chainable on rules', function (): void {
-    // dump() should return $this for chaining
+    // dump() should return $this for chaining. Capture via a VarDumper
+    // handler — the CLI dumper writes to STDOUT directly, so ob_start()
+    // cannot intercept it and the leak trips beStrictAboutOutputDuringTests.
     $rule = FluentRule::string()->required();
-    ob_start();
-    $result = $rule->dump();
-    ob_end_clean();
-    expect($result)->toBe($rule);
+    $dumped = [];
+    VarDumper::setHandler(static function (mixed $var) use (&$dumped): void {
+        $dumped[] = $var;
+    });
+
+    try {
+        $result = $rule->dump();
+    } finally {
+        VarDumper::setHandler(null);
+    }
+
+    expect($result)->toBe($rule)
+        ->and($dumped)->toBe([['required', 'string']]);
 });
 
 // =========================================================================
