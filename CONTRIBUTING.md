@@ -1,5 +1,32 @@
 # Contributing
 
+## Documentation
+
+The documentation site is published at
+[sandermuller.github.io/laravel-fluent-validation](https://sandermuller.github.io/laravel-fluent-validation/).
+Its sources live in [`docs/`](docs/README.md) — one Markdown file per
+page, `NN-` prefixed so GitHub renders the folder in reading order. The
+prefix is stripped at build time, so a page's site URL stays stable when
+pages are reordered.
+
+`docs/.vitepress/config.mts` holds the nav, sidebar, and the `pages`
+list. Add a new page to that list, or its route will not resolve.
+`docs/README.md` is the GitHub-facing folder index and is excluded from
+the site; `docs/home.md` becomes the site home page. Keep both in sync
+with the page list when you add or rename a page.
+
+Build the site locally before you push:
+
+```bash
+cd docs
+npm ci
+npm run dev     # local preview
+npm run build   # what CI runs
+```
+
+`.github/workflows/docs.yml` builds and deploys to GitHub Pages on every
+push to `main` that touches `docs/`.
+
 ## AI Tooling
 
 This package uses [boost-core](https://github.com/sandermuller/boost-core)
