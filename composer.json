@@ -77,6 +77,7 @@
         "rector": "vendor/bin/rector process",
         "test": "vendor/bin/pest",
         "test-coverage": "vendor/bin/pest --coverage",
+        "test-tia": "vendor/bin/pest --tia",
         "sync-ai": "vendor/bin/boost sync",
         "qa": [
             "@rector",

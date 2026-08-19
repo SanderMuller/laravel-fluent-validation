@@ -1,0 +1,75 @@
+name: tia-baseline
+
+# Records the Pest test-impact-analysis dependency graph on main and
+# publishes it as the `pest-tia-baseline` artifact. Local runs of
+# `vendor/bin/pest --tia --baselined` fetch this artifact (via gh) so a
+# fresh clone gets a warm graph without a local recording run.
+#
+# The artifact name, workflow filename, and required `graph.json` file
+# are Pest conventions — see Pest\Plugins\Tia\BaselineSync.
+
+permissions:
+  contents: read
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - '**.php'
+      - '.github/workflows/tia-baseline.yml'
+      - 'phpunit.xml.dist'
+      - 'composer.json'
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: true
+
+jobs:
+  record:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+        with:
+          # TIA runs git queries (commit anchor, default-branch comparison);
+          # a shallow clone can starve them.
+          fetch-depth: 0
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: 8.4
+          extensions: dom, curl, libxml, mbstring, zip, pcntl, pdo, sqlite, pdo_sqlite, bcmath, soap, intl, gd, exif, iconv, imagick, fileinfo
+          coverage: pcov
+
+      - name: Install dependencies
+        run: |
+          # Same removal as run-tests.yml — the AI authoring tooling is
+          # not needed to run the suite.
+          composer remove --dev sandermuller/boost-skills sandermuller/package-boost-laravel laravel/pao --no-interaction --no-update
+          composer update --prefer-stable --prefer-dist --no-interaction
+
+      - name: Record TIA graph
+        run: vendor/bin/pest --tia
+
+      - name: Collect baseline files
+        run: |
+          STORAGE="$(vendor/bin/pest --baseline | tail -1)"
+          echo "TIA storage: $STORAGE"
+          test -f "$STORAGE/graph.json"
+          mkdir -p tia-baseline-artifact
+          cp "$STORAGE/graph.json" tia-baseline-artifact/
+          if [ -f "$STORAGE/coverage.bin.gz" ]; then
+            cp "$STORAGE/coverage.bin.gz" tia-baseline-artifact/
+          fi
+
+      - name: Upload baseline artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: pest-tia-baseline
+          path: tia-baseline-artifact/
+          if-no-files-found: error
