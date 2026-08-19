@@ -59,7 +59,22 @@ jobs:
 
       - name: Execute tests
         id: tests
-        run: vendor/bin/pest --ci
+        run: vendor/bin/pest --ci --log-junit=pest-junit.xml --log-events-text=pest-events.txt
+
+      # Diagnostic capture for the exit-1-with-all-green failure mode
+      # (https://github.com/SanderMuller/laravel-fluent-validation/issues/20):
+      # the event log records runner-level warnings and risky verdicts that
+      # neither Pest's output nor the JUnit XML surface.
+      - name: Upload test logs
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: pest-logs-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            pest-junit.xml
+            pest-events.txt
+          if-no-files-found: warn
+          retention-days: 7
 
       - name: Look up existing tracking issue
         id: lookup
