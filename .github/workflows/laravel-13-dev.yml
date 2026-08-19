@@ -7,7 +7,7 @@ name: laravel-13-dev
 # shape) before they ship as tagged releases.
 #
 # Why 13.x and not dev-master:
-# composer.json supports ^11 || ^12 || ^13. `dev-master` aliases to
+# composer.json supports ^12 || ^13. `dev-master` aliases to
 # whatever the next major's dev branch is (currently 14.x), which we
 # explicitly don't claim to support — running tests against it produces
 # false-positive regression reports for unsupported versions. Pinning to
