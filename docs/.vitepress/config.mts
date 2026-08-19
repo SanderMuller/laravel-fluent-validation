@@ -1,12 +1,47 @@
+import { writeFileSync } from 'node:fs'
+import { readFile } from 'node:fs/promises'
+import { resolve } from 'node:path'
 import { defineConfig } from 'vitepress'
 import { link, pages, sections } from './pages'
 
+const SITE_URL = 'https://sandermuller.github.io/laravel-fluent-validation'
+const DESCRIPTION = 'Fluent validation rule builders for Laravel with IDE autocompletion, co-located array rules, and up to 160x faster wildcard validation.'
+
 export default defineConfig({
     title: 'Laravel Fluent Validation',
-    description: 'Fluent validation rule builders for Laravel with IDE autocompletion, co-located array rules, and up to 160x faster wildcard validation.',
+    description: DESCRIPTION,
     base: '/laravel-fluent-validation/',
     cleanUrls: true,
     lastUpdated: true,
+
+    sitemap: {
+        hostname: SITE_URL,
+    },
+
+    // llms.txt (https://llmstxt.org): a machine-readable index plus the full
+    // markdown corpus, generated from the same page list as the sidebar so it
+    // cannot drift from the site.
+    async buildEnd(siteConfig) {
+        const index = [
+            '# Laravel Fluent Validation',
+            '',
+            `> ${DESCRIPTION}`,
+            '',
+        ]
+        for (const section of sections) {
+            index.push(`## ${section.text}`, '')
+            for (const page of section.pages) {
+                index.push(`- [${page.text}](${SITE_URL}${link(page.file)}): ${page.blurb}`)
+            }
+            index.push('')
+        }
+        writeFileSync(resolve(siteConfig.outDir, 'llms.txt'), index.join('\n'))
+
+        const sources = await Promise.all(
+            pages.map(page => readFile(resolve(siteConfig.srcDir, `${page.file}.md`), 'utf8')),
+        )
+        writeFileSync(resolve(siteConfig.outDir, 'llms-full.txt'), sources.join('\n\n---\n\n'))
+    },
 
     head: [
         ['link', { rel: 'icon', type: 'image/svg+xml', href: '/laravel-fluent-validation/logo.svg' }],
@@ -49,6 +84,7 @@ export default defineConfig({
         nav: [
             { text: 'Guide', link: link('01-why-this-package') },
             { text: 'Rule reference', link: link('11-rule-reference') },
+            { text: 'Releases', link: 'https://github.com/SanderMuller/laravel-fluent-validation/releases' },
             { text: 'Packagist', link: 'https://packagist.org/packages/sandermuller/laravel-fluent-validation' },
         ],
 
