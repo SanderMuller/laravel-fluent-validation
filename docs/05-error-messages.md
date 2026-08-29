@@ -45,10 +45,10 @@ You can also set a label after construction with `->label('Name')`.
 >
 > | Context           | Use                                                |
 > |-------------------|----------------------------------------------------|
-> | FormRequest       | [`HasFluentRules`](03-basic-usage.md#in-a-form-request)             |
-> | Inline / anywhere | [`RuleSet::validate()`](09-ruleset.md#validating-data)          |
-> | Livewire          | [`HasFluentValidation`](07-livewire.md)                 |
-> | Custom validator  | [`FluentValidator`](09-ruleset.md#using-with-custom-validators) |
+> | FormRequest       | [`HasFluentRules`](04-basic-usage.md#in-a-form-request)             |
+> | Inline / anywhere | [`RuleSet::validate()`](10-ruleset.md#validating-data)          |
+> | Livewire          | [`HasFluentValidation`](08-livewire.md)                 |
+> | Custom validator  | [`FluentValidator`](10-ruleset.md#using-with-custom-validators) |
 
 ## Per-rule messages
 

@@ -61,7 +61,7 @@ return UserRules::base()
     ->put('email_confirmation', FluentRule::email()->required()->same('email'));
 ```
 
-**Read-modify-write** — `modify`, `modifyEach`, `modifyChildren`. All three clone the existing rule before handing it to your callback so parent rule sets aren't mutated. `modify()` is the primitive; `modifyEach()` and `modifyChildren()` are sugar for the common case of extending a keyed `each([...])` (wildcard arrays) or `children([...])` (fixed-key objects) map. The "[Extending parent rules in child form requests](06-extending-rules.md)" section walks through the parent/child inheritance flow with `modify`/`modifyEach`. The same shape works for `modifyChildren` on a fixed-key object:
+**Read-modify-write** — `modify`, `modifyEach`, `modifyChildren`. All three clone the existing rule before handing it to your callback so parent rule sets aren't mutated. `modify()` is the primitive; `modifyEach()` and `modifyChildren()` are sugar for the common case of extending a keyed `each([...])` (wildcard arrays) or `children([...])` (fixed-key objects) map. The "[Extending parent rules in child form requests](07-extending-rules.md)" section walks through the parent/child inheritance flow with `modify`/`modifyEach`. The same shape works for `modifyChildren` on a fixed-key object:
 
 ```php
 // Parent
@@ -113,11 +113,11 @@ RuleSet::from([
 
 ## Validating data
 
-`validate()` is the default entry point and throws `ValidationException` on failure. `check()` is the errors-as-data alternative. Both accept either an `array` or an `Illuminate\Http\Request` — passing the request directly keeps the `$request->all()` read scoped to the library, which keeps controllers clean for static-analysis rules that flag unsafe input access. The remaining methods (`failOnUnknownFields`, `dropUnknownFields`, `stopOnFirstFailure`, `withBag`) are per-call options chained before the terminal `validate()` / `check()` call.
+`validate()` throws `ValidationException` on failure; `check()` returns the outcome as data. Both take an `array` or an `Illuminate\Http\Request`, and passing the request keeps the `$request->all()` read inside the library, which satisfies static-analysis rules that flag unsafe input access. `failOnUnknownFields`, `dropUnknownFields`, `stopOnFirstFailure` and `withBag` chain before either terminal call.
 
 ### Errors-as-data with `check()`
 
-`validate()` throws `ValidationException` on failure. For import pipelines, batch jobs, and any flow where exceptions are the wrong control structure, use `check()` instead. It returns an immutable `Validated` object:
+For import pipelines, batch jobs, and any flow where an exception is the wrong control structure. Returns an immutable `Validated`:
 
 ```php
 use SanderMuller\FluentValidation\RuleSet;
@@ -146,7 +146,7 @@ foreach ($rows as $row) {
 | `->safe()`             | `ValidatedInput`    | Same data as `validated()`, wrapped for `->only()`/`->except()`/`->collect()` access |
 | `->validator()`        | `ValidatorContract` | Escape hatch for deep Laravel integration (`->after()`, `->sometimes()`, extensions) |
 
-`check()` runs the same internal engine as `validate()` (fast-check closures, wildcard expansion, batched DB queries). There is no double-parse; the result object just wraps the outcome.
+`check()` runs the same engine as `validate()` — fast-check closures, wildcard expansion, batched DB queries — and wraps the outcome rather than re-parsing.
 
 ### Rejecting unknown fields
 
@@ -259,9 +259,12 @@ class JsonImportValidator extends FluentValidator
 
 **Migrating rules in a non-standard method?** If your custom Validator holds its rules in a method that isn't named `rules()` (for example `rulesWithoutPrefix()` for a JSON-import pipeline), mark the method with `#[SanderMuller\FluentValidation\FluentRules]` so the migration Rector rules detect it. The attribute has no runtime effect; see the [`#[FluentRules]` opt-in docs](https://github.com/sandermuller/laravel-fluent-validation-rector#opting-in-fluentrules-attribute) for the full semantics and guard interactions.
 
-## Compile pipeline (advanced)
+## Compile pipeline
 
-Escape hatches for tooling, codegen, and framework interop. Most application code never reaches for these — `validate()`, `check()`, `prepare()`, and `toArray()` cover the common cases. They are exposed publicly so external Rector rules, PHPStan extensions, and the Livewire bridge can hook into the same compile pipeline RuleSet uses internally.
+<details>
+<summary>Escape hatches for tooling, codegen and framework interop</summary>
+
+Application code does not reach for these; `validate()`, `check()`, `prepare()` and `toArray()` cover it. They are public so external Rector rules, PHPStan extensions and the Livewire bridge can hook the same pipeline RuleSet uses internally.
 
 - `RuleSet::compile($rules)` — compile a fluent-rules array to native Laravel `string|array` rule format. The lowest-level transform.
 - `RuleSet::compileToArrays($rules)` — compile to the array-of-rules shape Livewire's `$this->validate()` expects. Used by `HasFluentValidation` under the hood.
@@ -269,9 +272,12 @@ Escape hatches for tooling, codegen, and framework interop. Most application cod
 - `RuleSet::extractMetadata($rules)` — extract `[messages, attributes]` from labelled fluent rules without compiling. For tooling that only wants the metadata side.
 - `$set->expandWildcards($data)` — pre-expand wildcard rules against a concrete payload without validating. Useful when generating per-row error keys ahead of time.
 
+</details>
+
 ## Method reference
 
-Alphabetical lookup of every public method. See the subsections above for usage; this table is for "does this method exist?" checks.
+<details>
+<summary>Every public method, alphabetically</summary>
 
 | Method | Returns | Description |
 |---|---|---|
@@ -305,6 +311,8 @@ Alphabetical lookup of every public method. See the subsections above for usage;
 | `->put($field, $rule)` | `RuleSet` | Add or replace a single field's rule. |
 | `->stopOnFirstFailure()` | `RuleSet` | Stop validating after the first field fails. |
 | `->toArray()` | `array` | Compiled flat output; `each()` expanded to wildcards. |
-| `->validate($data, $messages = [], $attributes = [])` | `array` | Validate with full optimization (see [Performance](08-performance.md)). `$data` accepts `array` or `Illuminate\Http\Request`. |
+| `->validate($data, $messages = [], $attributes = [])` | `array` | Validate with full optimization (see [Performance](09-performance.md)). `$data` accepts `array` or `Illuminate\Http\Request`. |
 | `->when($cond, $cb)` / `->unless(...)` | `RuleSet` | Conditionally add fields (Laravel's `Conditionable` trait). |
 | `->withBag($name)` | `RuleSet` | Set the error bag name on the thrown `ValidationException`. |
+
+</details>

@@ -27,10 +27,10 @@ FluentRule::array()->each([
 ])
 ```
 
-`each()` works standalone and through form requests with `HasFluentRules`. The trait and [`RuleSet`](09-ruleset.md) both [optimize wildcard expansion](08-performance.md).
+`each()` works standalone and through form requests with `HasFluentRules`. The trait and [`RuleSet`](10-ruleset.md) both [optimize wildcard expansion](09-performance.md).
 
 > [!TIP]
-> **Catch unbounded `each()` at analyse time.** The companion [PHPStan package](13-static-analysis.md) flags `each()` chains without a size cap (`->max()`, `->between()`, `->exactly()`, or a key whitelist). That's the shape that turns into an N+1 / DoS footgun with `->exists()` or closure rules on large payloads.
+> **Catch unbounded `each()` at analyse time.** The companion [PHPStan package](14-static-analysis.md) flags `each()` chains without a size cap (`->max()`, `->between()`, `->exactly()`, or a key whitelist). That's the shape that turns into an N+1 / DoS footgun with `->exists()` or closure rules on large payloads.
 
 ## Fixed-key children with `children()`
 

@@ -95,13 +95,15 @@ class StorePostRequest extends FormRequest
 
 `$rules->string()` is exactly `FluentRule::string()` — same rule objects, same labels, same five optimizations. It's pure ergonomics: one builder instead of the static prefix, with the typed parameter autocompleting the full factory list. Macros registered on `FluentRule` are reachable on `$rules` too.
 
-When a request (or any class in its hierarchy) defines both `schema()` and `rules()`, the two are merged rather than one shadowing the other. On a shared field the more specific declaration wins: the deeper class in the hierarchy, or a body definition over a trait import. So an abstract base or trait can supply shared fields, and a concrete request overrides or extends them, exactly like a plain method override. Non-colliding fields from both survive. When both are declared on the same class, the tie resolves to `schema()`. Detection keys off the `FluentSchema`-typed parameter, so an unrelated `schema()` method is never hijacked, and either method may return a plain array or a `RuleSet`.
+When a request, or any class in its hierarchy, defines both `schema()` and `rules()`, the two are merged rather than one shadowing the other. On a shared field the more specific declaration wins: the deeper class in the hierarchy, or a body definition over a trait import.
+
+So an abstract base or trait can supply shared fields while a concrete request overrides or extends them, exactly like a plain method override. Non-colliding fields from both survive.When both are declared on the same class, the tie resolves to `schema()`. Detection keys off the `FluentSchema`-typed parameter, so an unrelated `schema()` method is never hijacked, and either method may return a plain array or a `RuleSet`.
 
 A request that defines only `schema()` can still call `->rules()`; it returns the builder's output, so tooling or interop that expects a `rules()` method keeps working.
 
 ## Other contexts
 
-For Livewire components, use the [`HasFluentValidation`](07-livewire.md) trait. For inline validation outside form requests, use [`RuleSet::validate()`](09-ruleset.md#validating-data). For custom Validator subclasses, extend [`FluentValidator`](09-ruleset.md#using-with-custom-validators).
+For Livewire components, use the [`HasFluentValidation`](08-livewire.md) trait. For inline validation outside form requests, use [`RuleSet::validate()`](10-ruleset.md#validating-data). For custom Validator subclasses, extend [`FluentValidator`](10-ruleset.md#using-with-custom-validators).
 
 FluentRule objects implement Laravel's `ValidationRule` interface, so they also work directly in `$request->validate()`, `Validator::make()`, `Rule::forEach()`, and `Rule::when()`:
 
@@ -115,4 +117,4 @@ $validated = $request->validate([
 ]);
 ```
 
-In these direct-call contexts FluentRule objects self-validate in isolation: labels don't reach the outer validator and the [five optimizations](08-performance.md) don't engage. Reach for the trait or `RuleSet::validate()` for production code.
+In these direct-call contexts FluentRule objects self-validate in isolation: labels don't reach the outer validator and the [five optimizations](09-performance.md) don't engage. Reach for the trait or `RuleSet::validate()` for production code.

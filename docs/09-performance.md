@@ -79,9 +79,11 @@ Power users who want to handle `parent-max` and `hard-cap` differently (e.g. map
 
 ## Rule-parse memoization
 
-Laravel re-parses each string rule (`max:255` → `['Max', ['255']]`) on every internal probe — `hasRule`, `isValidatable`, dependent-field checks — so a single `passes()` re-parses the same string many times, and a validator reused across array items pays that cost per item. The optimized entry points memoize each parse in a worker-global static, collapsing the repeats to one hash lookup. Output stays byte-identical; only string rules are cached (object rules and closures parse live, exactly as Laravel does). On a large array whose per-item rules fall through to Laravel — custom `Rule` objects, cross-field references — this roughly halves the residual validation time.
+Laravel re-parses each string rule (`max:255` → `['Max', ['255']]`) on every internal probe: `hasRule`, `isValidatable`, dependent-field checks. One `passes()` re-parses the same string many times, and a validator reused across array items pays that cost per item.
 
-The cache is a bounded, pure memoization: soft-capped and reset on overflow, so long-running workers can't grow it without bound, and it holds only rule-string → parse-result pairs, never request data. If your app registers a custom `Validator::resolver()`, the per-item path uses that validator unchanged, so any resolver-provided behaviour is preserved.
+The optimized entry points memoize each parse in a worker-global static, so the repeats collapse to one hash lookup. Output stays byte-identical, and only string rules are cached; object rules and closures parse live, as in Laravel. On a large array whose per-item rules fall through to Laravel, this roughly halves the residual time.
+
+The cache is bounded and pure: soft-capped, reset on overflow, holding only rule-string to parse-result pairs and never request data. A custom `Validator::resolver()` is used unchanged on the per-item path, so resolver behaviour is preserved.
 
 ## `RuleSet::validate()`
 
@@ -99,6 +101,9 @@ $validated = RuleSet::from([
 Benchmarks run automatically on PRs via GitHub Actions. All optimizations are Octane-safe: the shared validation factory's resolver is never mutated, and the one piece of cross-request state — the [rule-parse cache](#rule-parse-memoization) — is a bounded, pure memoization (soft-capped, reset on overflow) that holds no request data.
 
 ## Benchmark scenarios
+
+<details>
+<summary>The six rule sets behind the numbers above</summary>
 
 ### Product import
 
@@ -199,6 +204,8 @@ Benchmarks run automatically on PRs via GitHub Actions. All optimizations are Oc
 ```
 
 **Optimizations**: Fast-check closures for all three fields, with the compiled closures cached by rule string so repeat FormRequest validations skip recompilation. Absolute savings are small (~0.1ms → ~0.01ms), but the relative speedup is ~12x since a simple form doesn't give Laravel much wildcard work to amortize against.
+
+</details>
 
 ## When this won't help
 

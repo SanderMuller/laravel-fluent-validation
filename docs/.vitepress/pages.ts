@@ -32,17 +32,22 @@ export const sections: DocSection[] = [
                 blurb: 'Require the package, add the trait, and check the PHP and Laravel versions you need.',
             },
             {
-                file: '03-basic-usage',
+                file: '03-getting-started',
+                text: 'Getting started',
+                blurb: 'One form request, three fluent rules, and a validated payload.',
+            },
+            {
+                file: '04-basic-usage',
                 text: 'Basic usage',
                 blurb: 'Write your first fluent rules in a form request, type rules(), and use the schema() builder.',
             },
             {
-                file: '04-error-messages',
+                file: '05-error-messages',
                 text: 'Error messages',
                 blurb: 'Attach labels and per-rule messages to the rule itself, with no separate arrays to keep in sync.',
             },
             {
-                file: '05-array-validation',
+                file: '06-array-validation',
                 text: 'Array validation',
                 blurb: 'Keep parent and child rules together with each() and children(), and nest arrays naturally.',
             },
@@ -52,32 +57,32 @@ export const sections: DocSection[] = [
         text: 'Digging deeper',
         pages: [
             {
-                file: '06-extending-rules',
+                file: '07-extending-rules',
                 text: 'Extending parent rules',
                 blurb: 'Reshape inherited rules in child form requests with modifyEach and modifyChildren.',
             },
             {
-                file: '07-livewire',
+                file: '08-livewire',
                 text: 'Livewire',
                 blurb: 'Use fluent rules in Livewire components with the HasFluentValidation trait.',
             },
             {
-                file: '08-performance',
+                file: '09-performance',
                 text: 'Performance',
                 blurb: 'O(n) wildcard expansion, fast-check closures, batched database checks, and the benchmarks.',
             },
             {
-                file: '09-ruleset',
+                file: '10-ruleset',
                 text: 'RuleSet',
                 blurb: 'Build, compose, inspect, and validate rule collections, plus the escape hatches.',
             },
             {
-                file: '10-testing',
+                file: '11-testing',
                 text: 'Testing',
                 blurb: 'Assert rules, RuleSets, form requests, and Livewire components with FluentRulesTester.',
             },
             {
-                file: '11-rule-reference',
+                file: '12-rule-reference',
                 text: 'Rule reference',
                 blurb: 'Every rule type, modifier, conditional, and macro in one place.',
             },
@@ -87,17 +92,17 @@ export const sections: DocSection[] = [
         text: 'Migration and tooling',
         pages: [
             {
-                file: '12-migration',
+                file: '13-migration',
                 text: 'Migrating to fluent validation',
                 blurb: 'Migrate field by field, and let the Rector companion rewrite the bulk of it for you.',
             },
             {
-                file: '13-static-analysis',
+                file: '14-static-analysis',
                 text: 'Static analysis with PHPStan',
                 blurb: 'Opt-in PHPStan rules that flag unbounded each() chains before they reach production.',
             },
             {
-                file: '14-troubleshooting',
+                file: '15-troubleshooting',
                 text: 'Troubleshooting',
                 blurb: 'Common issues and their solutions.',
             },

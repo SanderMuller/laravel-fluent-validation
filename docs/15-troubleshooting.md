@@ -10,7 +10,7 @@ Add `use HasFluentRules`. The trait extracts labels from rule objects and passes
 These require `HasFluentRules` or `FluentValidator` to resolve wildcard paths. Standalone FluentRule objects self-validate in isolation.
 
 **Child form request loses or corrupts parent rules**
-`array_merge_recursive` flattens FluentRule objects into arrays. See [Extending parent rules](06-extending-rules.md) for the supported merge patterns (spread, clone, `modifyEach`, `modifyChildren`).
+`array_merge_recursive` flattens FluentRule objects into arrays. See [Extending parent rules](07-extending-rules.md) for the supported merge patterns (spread, clone, `modifyEach`, `modifyChildren`).
 
 **Method not found on a rule type**
 Use `->rule('method_name')` as an escape hatch for any Laravel rule not yet available as a fluent method. Accepts strings, objects, and `['rule', ...$params]` tuples.
@@ -29,7 +29,7 @@ FluentRule::file()->required()->min('2mb');  // file size
 The smell-form `FluentRule::field()->rule('min:1')` (or any `->rule('some_type_rule:...')` on `field()`) works at runtime but is non-idiomatic. Pick the typed builder. The [Rector companion](https://github.com/sandermuller/laravel-fluent-validation-rector) auto-simplifies it. For test-time coverage, see `SanderMuller\FluentValidation\Testing\Arch\BansFieldRuleTypeMethods` (requires `nikic/php-parser` dev dep).
 
 **`HasFluentValidation` conflicts with Filament's `InteractsWithForms` / `InteractsWithSchemas`**
-Use `HasFluentValidationForFilament` instead. See [Livewire → Filament components](07-livewire.md). The Rector companion picks it plus the `insteadof` block automatically.
+Use `HasFluentValidationForFilament` instead. See [Livewire → Filament components](08-livewire.md). The Rector companion picks it plus the `insteadof` block automatically.
 
 **Migration issues (Rector companion)**
 Rector-specific issues are tracked in the [laravel-fluent-validation-rector README](https://github.com/sandermuller/laravel-fluent-validation-rector#troubleshooting). Update the Rector companion to the latest version first; most are fixed upstream.
