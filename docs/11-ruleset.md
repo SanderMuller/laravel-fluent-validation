@@ -1,12 +1,12 @@
 # RuleSet
 
-`RuleSet` is the composable, immutable rule container that powers everything outside a form request: inline validation, shared rule libraries, conditional fields, errors-as-data flows. Reach for it whenever the rules are not bound to a single HTTP request — form requests already wrap a `RuleSet` for you under the hood.
+`RuleSet` is the composable, immutable rule container that powers everything outside a form request: inline validation, shared rule libraries, conditional fields, errors-as-data flows. Reach for it whenever the rules are not bound to a single HTTP request. Form requests already wrap a `RuleSet` for you under the hood.
 
 On this page: [Building](#building-a-rule-set) · [Composing](#composing-rule-sets) · [Inspecting and exporting](#inspecting-and-exporting-a-rule-set) · [Validating data](#validating-data) · [Raw Validator](#integrating-with-a-raw-validator) · [Custom Validators](#using-with-custom-validators) · [Compile pipeline](#compile-pipeline-advanced) · [Method reference](#method-reference)
 
 ## Building a rule set
 
-Three equivalent entry points. Pick whichever reads cleaner at the call site — the array form is compact for static rule lists; the `make()` builder form is friendlier when fields are added conditionally; `define()` hands you a `FluentSchema` so you can drop the `FluentRule::` prefix.
+Three equivalent entry points. Pick whichever reads cleaner at the call site. The array form is compact for static rule lists; the `make()` builder form is friendlier when fields are added conditionally; `define()` hands you a `FluentSchema` so you can drop the `FluentRule::` prefix.
 
 ```php
 use SanderMuller\FluentValidation\FluentSchema;
@@ -53,7 +53,7 @@ $validated = RuleSet::define(fn (FluentSchema $rules) => [
 
 Most non-trivial validation is assembled, not declared in one shot: shared address rules merged in, parent rules sliced down for a child request, a single field tweaked without rewriting the rest. RuleSet exposes three groups of composition tools.
 
-**Slice and combine** — `merge`, `only`, `except`, `put`, `get`. `merge()` accepts a `RuleSet` or a plain array; later wins on key collision.
+**Slice and combine**: `merge`, `only`, `except`, `put`, `get`. `merge()` accepts a `RuleSet` or a plain array; later wins on key collision.
 
 ```php
 return UserRules::base()
@@ -61,7 +61,7 @@ return UserRules::base()
     ->put('email_confirmation', FluentRule::email()->required()->same('email'));
 ```
 
-**Read-modify-write** — `modify`, `modifyEach`, `modifyChildren`. All three clone the existing rule before handing it to your callback so parent rule sets aren't mutated. `modify()` is the primitive; `modifyEach()` and `modifyChildren()` are sugar for the common case of extending a keyed `each([...])` (wildcard arrays) or `children([...])` (fixed-key objects) map. The "[Extending parent rules in child form requests](07-extending-rules.md)" section walks through the parent/child inheritance flow with `modify`/`modifyEach`. The same shape works for `modifyChildren` on a fixed-key object:
+**Read-modify-write**: `modify`, `modifyEach`, `modifyChildren`. All three clone the existing rule before handing it to your callback so parent rule sets aren't mutated. `modify()` is the primitive; `modifyEach()` and `modifyChildren()` are sugar for the common case of extending a keyed `each([...])` (wildcard arrays) or `children([...])` (fixed-key objects) map. The "[Extending parent rules in child form requests](07-extending-rules.md)" section walks through the parent/child inheritance flow with `modify`/`modifyEach`. The same shape works for `modifyChildren` on a fixed-key object:
 
 ```php
 // Parent
@@ -78,17 +78,17 @@ return parent::rules()->modifyChildren('address', [
 ]);
 ```
 
-**Conditionals** — `when()` and `unless()` from Laravel's `Conditionable` trait. Use these to branch field inclusion based on a flag without breaking the chain (shown in the building example above).
+**Conditionals**: `when()` and `unless()` from Laravel's `Conditionable` trait. Use these to branch field inclusion based on a flag without breaking the chain (shown in the building example above).
 
 ## Inspecting and exporting a rule set
 
-Reads of the in-memory `RuleSet`: predicates for branching code, debugging dumps, and the user-facing `toArray()` export that hands rules off to a Validator. The lower-level static `compile*` family lives under [Compile pipeline](#compile-pipeline-advanced) — that's the transform surface for tooling and codegen.
+Reads of the in-memory `RuleSet`: predicates for branching code, debugging dumps, and the user-facing `toArray()` export that hands rules off to a Validator. The lower-level static `compile*` family lives under [Compile pipeline](#compile-pipeline-advanced). That's the transform surface for tooling and codegen.
 
-- `toArray()` / `all()` — compiled flat output, ready for `Validator::make()`. `all()` is a Collection-style alias.
-- `[...$ruleSet]` — spread via `IteratorAggregate`; yields the `toArray()` shape, so `[...$parent, 'extra' => $rule]` works.
-- `isEmpty()` — `true` when no fields have been registered. Useful for "skip validation if empty" branches.
-- `hasObjectRules()` — `true` when at least one field uses `each()` or `children()`. Useful for tooling that needs to distinguish flat from nested rule sets.
-- `flattenRules()` — flattened dotted/wildcard form of the rules. Useful for codegen and debug logging:
+- `toArray()` / `all()`: compiled flat output, ready for `Validator::make()`. `all()` is a Collection-style alias.
+- `[...$ruleSet]`: spread via `IteratorAggregate`; yields the `toArray()` shape, so `[...$parent, 'extra' => $rule]` works.
+- `isEmpty()`: `true` when no fields have been registered. Useful for "skip validation if empty" branches.
+- `hasObjectRules()`: `true` when at least one field uses `each()` or `children()`. Useful for tooling that needs to distinguish flat from nested rule sets.
+- `flattenRules()`: flattened dotted/wildcard form of the rules. Useful for codegen and debug logging:
 
 ```php
 RuleSet::from([
@@ -108,8 +108,8 @@ RuleSet::from([
 // ]
 ```
 
-- `dump()` — returns `['rules' => ..., 'messages' => ..., 'attributes' => ...]` for inspection; does not terminate.
-- `dd()` — dumps and terminates. Sugar for the same shape during development.
+- `dump()`: returns `['rules' => ..., 'messages' => ..., 'attributes' => ...]` for inspection; does not terminate.
+- `dd()`: dumps and terminates. Sugar for the same shape during development.
 
 ## Validating
 
@@ -164,11 +164,11 @@ class JsonImportValidator extends FluentValidator
 
 Application code does not reach for these; `validate()`, `check()`, `prepare()` and `toArray()` cover it. They are public so external Rector rules, PHPStan extensions and the Livewire bridge can hook the same pipeline RuleSet uses internally.
 
-- `RuleSet::compile($rules)` — compile a fluent-rules array to native Laravel `string|array` rule format. The lowest-level transform.
-- `RuleSet::compileToArrays($rules)` — compile to the array-of-rules shape Livewire's `$this->validate()` expects. Used by `HasFluentValidation` under the hood.
-- `RuleSet::compileWithMetadata($rules)` — compile alongside extracted custom messages and attribute labels in one pass. For tooling that needs the metadata without re-walking the rule tree.
-- `RuleSet::extractMetadata($rules)` — extract `[messages, attributes]` from labelled fluent rules without compiling. For tooling that only wants the metadata side.
-- `$set->expandWildcards($data)` — pre-expand wildcard rules against a concrete payload without validating. Useful when generating per-row error keys ahead of time.
+- `RuleSet::compile($rules)`: compile a fluent-rules array to native Laravel `string|array` rule format. The lowest-level transform.
+- `RuleSet::compileToArrays($rules)`: compile to the array-of-rules shape Livewire's `$this->validate()` expects. Used by `HasFluentValidation` under the hood.
+- `RuleSet::compileWithMetadata($rules)`: compile alongside extracted custom messages and attribute labels in one pass. For tooling that needs the metadata without re-walking the rule tree.
+- `RuleSet::extractMetadata($rules)`: extract `[messages, attributes]` from labelled fluent rules without compiling. For tooling that only wants the metadata side.
+- `$set->expandWildcards($data)`: pre-expand wildcard rules against a concrete payload without validating. Useful when generating per-row error keys ahead of time.
 
 </details>
 

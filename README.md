@@ -80,27 +80,27 @@ See [Basic usage](https://sandermuller.github.io/laravel-fluent-validation/basic
 Read the full documentation at **[sandermuller.github.io/laravel-fluent-validation](https://sandermuller.github.io/laravel-fluent-validation/)**.
 
 **Getting started**
-- [Why this package?](https://sandermuller.github.io/laravel-fluent-validation/why-this-package) — DX, type safety, structure, performance, and how it compares to Laravel's `Rule` class
+- [Why this package?](https://sandermuller.github.io/laravel-fluent-validation/why-this-package): DX, type safety, structure, performance, and how it compares to Laravel's `Rule` class
 - [Installation](https://sandermuller.github.io/laravel-fluent-validation/installation)
-- [Getting started](https://sandermuller.github.io/laravel-fluent-validation/getting-started) — one form request, three rules, a validated payload
-- [Basic usage](https://sandermuller.github.io/laravel-fluent-validation/basic-usage) — form requests, typing `rules()`, the `schema()` builder, other contexts
-- [Error messages](https://sandermuller.github.io/laravel-fluent-validation/error-messages) — labels, per-rule messages
-- [Array validation](https://sandermuller.github.io/laravel-fluent-validation/array-validation) — `each()`, `children()`, nesting
+- [Getting started](https://sandermuller.github.io/laravel-fluent-validation/getting-started): one form request, three rules, a validated payload
+- [Basic usage](https://sandermuller.github.io/laravel-fluent-validation/basic-usage): form requests, typing `rules()`, the `schema()` builder, other contexts
+- [Error messages](https://sandermuller.github.io/laravel-fluent-validation/error-messages): labels, per-rule messages
+- [Array validation](https://sandermuller.github.io/laravel-fluent-validation/array-validation): `each()`, `children()`, nesting
 
 **Digging deeper**
-- [Extending parent rules](https://sandermuller.github.io/laravel-fluent-validation/extending-rules) — child form requests, `modifyEach`, `modifyChildren`, returning a `RuleSet`
-- [Livewire](https://sandermuller.github.io/laravel-fluent-validation/livewire) — `HasFluentValidation` trait, Filament workaround
-- [Performance](https://sandermuller.github.io/laravel-fluent-validation/performance) — O(n) wildcards, pre-evaluation, fast-check closures, batched DB
-- [Benchmarks](https://sandermuller.github.io/laravel-fluent-validation/benchmarks) — the measured numbers and the rule sets behind them
-- [RuleSet](https://sandermuller.github.io/laravel-fluent-validation/ruleset) — build, compose, inspect, escape hatches, method reference
-- [Validating with a RuleSet](https://sandermuller.github.io/laravel-fluent-validation/validating) — `validate()`, `check()`, unknown fields, error bags
-- [Testing](https://sandermuller.github.io/laravel-fluent-validation/testing) — `FluentRulesTester`, Pest expectations
-- [Rule reference](https://sandermuller.github.io/laravel-fluent-validation/rule-reference) — all types, modifiers, conditionals, macros
+- [Extending parent rules](https://sandermuller.github.io/laravel-fluent-validation/extending-rules): child form requests, `modifyEach`, `modifyChildren`, returning a `RuleSet`
+- [Livewire](https://sandermuller.github.io/laravel-fluent-validation/livewire): `HasFluentValidation` trait, Filament workaround
+- [Performance](https://sandermuller.github.io/laravel-fluent-validation/performance): O(n) wildcards, pre-evaluation, fast-check closures, batched DB
+- [Benchmarks](https://sandermuller.github.io/laravel-fluent-validation/benchmarks): the measured numbers and the rule sets behind them
+- [RuleSet](https://sandermuller.github.io/laravel-fluent-validation/ruleset): build, compose, inspect, escape hatches, method reference
+- [Validating with a RuleSet](https://sandermuller.github.io/laravel-fluent-validation/validating): `validate()`, `check()`, unknown fields, error bags
+- [Testing](https://sandermuller.github.io/laravel-fluent-validation/testing): `FluentRulesTester`, Pest expectations
+- [Rule reference](https://sandermuller.github.io/laravel-fluent-validation/rule-reference): all types, modifiers, conditionals, macros
 
 **Migration and tooling**
-- [Migrating to fluent validation](https://sandermuller.github.io/laravel-fluent-validation/migration) — incremental migration and the automated [Rector companion](https://github.com/sandermuller/laravel-fluent-validation-rector)
-- [Static analysis with PHPStan](https://sandermuller.github.io/laravel-fluent-validation/static-analysis) — opt-in [PHPStan rules package](https://github.com/sandermuller/laravel-fluent-validation-phpstan) that flags unbounded `each()` chains
-- [Troubleshooting](https://sandermuller.github.io/laravel-fluent-validation/troubleshooting) — common issues and solutions
+- [Migrating to fluent validation](https://sandermuller.github.io/laravel-fluent-validation/migration): incremental migration and the automated [Rector companion](https://github.com/sandermuller/laravel-fluent-validation-rector)
+- [Static analysis with PHPStan](https://sandermuller.github.io/laravel-fluent-validation/static-analysis): opt-in [PHPStan rules package](https://github.com/sandermuller/laravel-fluent-validation-phpstan) that flags unbounded `each()` chains
+- [Troubleshooting](https://sandermuller.github.io/laravel-fluent-validation/troubleshooting): common issues and solutions
 
 ## Contributing
 

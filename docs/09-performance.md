@@ -10,7 +10,7 @@ When you use one of the optimized entry points (`HasFluentRules` on a FormReques
 - [**Pre-evaluation of conditional rules**](#pre-evaluation-of-conditional-rules): resolves `exclude_unless`/`exclude_if` before validation and removes excluded attributes from the rule set
 - [**Fast-check closures**](#fast-check-closures): compiles 30+ common rules into PHP closures that skip Laravel's validator entirely for passing values
 - [**Batched database validation**](#batched-database-validation): turns N `exists`/`unique` queries into a single `whereIn`
-- [**Rule-parse memoization**](#rule-parse-memoization): caches Laravel's rule-string parsing worker-wide so the residual slow path — rules that fall through fast-check — parses each string once instead of on every internal probe and every array item
+- [**Rule-parse memoization**](#rule-parse-memoization): caches Laravel's rule-string parsing worker-wide so the residual slow path (rules that fall through fast-check) parses each string once instead of on every internal probe and every array item
 
 ## O(n) wildcard expansion
 
@@ -85,7 +85,7 @@ $validated = RuleSet::from([
 ])->validate($request->all());
 ```
 
-Benchmarks run automatically on PRs via GitHub Actions. All optimizations are Octane-safe: the shared validation factory's resolver is never mutated, and the one piece of cross-request state — the [rule-parse cache](#rule-parse-memoization) — is a bounded, pure memoization (soft-capped, reset on overflow) that holds no request data.
+Benchmarks run automatically on PRs via GitHub Actions. All optimizations are Octane-safe: the shared validation factory's resolver is never mutated, and the one piece of cross-request state (the [rule-parse cache](#rule-parse-memoization)) is a bounded, pure memoization (soft-capped, reset on overflow) that holds no request data.
 
 ## When this won't help
 
