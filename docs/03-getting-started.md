@@ -43,4 +43,4 @@ Two things are already working that you did not configure:
 - [Basic usage](04-basic-usage.md): the other places rules live: `$request->validate()`, `Validator::make()`, and `FluentFormRequest`.
 - [Error messages](05-error-messages.md): labels, per-rule messages, and translations.
 - [Array validation](06-array-validation.md): `each()` and `children()` for nested payloads.
-- [Migrating an existing app](13-migration.md): the Rector rules that convert what you already have.
+- [Migrating an existing app](15-migration.md): the Rector rules that convert what you already have.

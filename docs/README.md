@@ -15,12 +15,12 @@ Fluent validation rule builders for Laravel. For a quick overview and installati
 - [Extending parent rules](07-extending-rules.md) — child form requests, `modifyEach`, `modifyChildren`, returning a `RuleSet`
 - [Livewire](08-livewire.md) — `HasFluentValidation` trait, Filament workaround
 - [Performance](09-performance.md) — O(n) wildcards, pre-evaluation, fast-check closures, batched DB, benchmarks
-- [RuleSet](10-ruleset.md) — build, compose, inspect, validate, escape hatches, method reference
-- [Testing](11-testing.md) — `FluentRulesTester`, Pest expectations
-- [Rule reference](12-rule-reference.md) — all types, modifiers, conditionals, macros
+- [RuleSet](11-ruleset.md) — build, compose, inspect, validate, escape hatches, method reference
+- [Testing](13-testing.md) — `FluentRulesTester`, Pest expectations
+- [Rule reference](14-rule-reference.md) — all types, modifiers, conditionals, macros
 
 ## Migration and tooling
 
-- [Migrating to fluent validation](13-migration.md) — incremental migration and the automated [Rector companion](https://github.com/sandermuller/laravel-fluent-validation-rector)
-- [Static analysis with PHPStan](14-static-analysis.md) — opt-in [PHPStan rules package](https://github.com/sandermuller/laravel-fluent-validation-phpstan) that flags unbounded `each()` chains
-- [Troubleshooting](15-troubleshooting.md) — common issues and solutions
+- [Migrating to fluent validation](15-migration.md) — incremental migration and the automated [Rector companion](https://github.com/sandermuller/laravel-fluent-validation-rector)
+- [Static analysis with PHPStan](16-static-analysis.md) — opt-in [PHPStan rules package](https://github.com/sandermuller/laravel-fluent-validation-phpstan) that flags unbounded `each()` chains
+- [Troubleshooting](17-troubleshooting.md) — common issues and solutions

@@ -103,7 +103,7 @@ A request that defines only `schema()` can still call `->rules()`; it returns th
 
 ## Other contexts
 
-For Livewire components, use the [`HasFluentValidation`](08-livewire.md) trait. For inline validation outside form requests, use [`RuleSet::validate()`](10-ruleset.md#validating-data). For custom Validator subclasses, extend [`FluentValidator`](10-ruleset.md#using-with-custom-validators).
+For Livewire components, use the [`HasFluentValidation`](08-livewire.md) trait. For inline validation outside form requests, use [`RuleSet::validate()`](11-ruleset.md#validating-data). For custom Validator subclasses, extend [`FluentValidator`](11-ruleset.md#using-with-custom-validators).
 
 FluentRule objects implement Laravel's `ValidationRule` interface, so they also work directly in `$request->validate()`, `Validator::make()`, `Rule::forEach()`, and `Rule::when()`:
 

@@ -38,7 +38,7 @@ Labels and per-rule messages attach to the rule itself, so there's no separate `
 
 Where you'll actually feel this is on endpoints that validate **a lot of fields** or **a lot of items at once**: CSV/JSON imports, bulk-edit forms, settings pages, anything with wildcard arrays like `items.*.id` or `orders.*.line_items.*.product_id`. On a 3-field login form FluentRule is still faster than the native pipeline, but you won't notice; the saving is in microseconds.
 
-Laravel's wildcard validation is O(n²) on large arrays; `HasFluentRules` rewrites the expansion as a single tree walk and makes it [up to 160x faster](09-performance.md#benchmarks) for nested wildcards, 62x faster for conditional-heavy payloads. Database `exists`/`unique` checks against wildcard arrays batch into a single `whereIn` query instead of one per item. Common rules compile to PHP closures that bypass Laravel's validator entirely on the happy path.
+Laravel's wildcard validation is O(n²) on large arrays; `HasFluentRules` rewrites the expansion as a single tree walk and makes it [up to 160x faster](10-benchmarks.md) for nested wildcards, 62x faster for conditional-heavy payloads. Database `exists`/`unique` checks against wildcard arrays batch into a single `whereIn` query instead of one per item. Common rules compile to PHP closures that bypass Laravel's validator entirely on the happy path.
 
 <details>
 <summary><a name="compared-to-rule"></a>Compared to Laravel's <code>Rule</code> class</summary>

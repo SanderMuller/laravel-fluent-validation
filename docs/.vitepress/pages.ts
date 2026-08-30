@@ -72,17 +72,27 @@ export const sections: DocSection[] = [
                 blurb: 'O(n) wildcard expansion, fast-check closures, batched database checks, and the benchmarks.',
             },
             {
-                file: '10-ruleset',
+                file: '10-benchmarks',
+                text: 'Benchmarks',
+                blurb: 'The measured numbers, and the six rule sets behind them.',
+            },
+            {
+                file: '11-ruleset',
                 text: 'RuleSet',
                 blurb: 'Build, compose, inspect, and validate rule collections, plus the escape hatches.',
             },
             {
-                file: '11-testing',
+                file: '12-validating',
+                text: 'Validating with a RuleSet',
+                blurb: 'validate() and check(), unknown-field handling, and named error bags.',
+            },
+            {
+                file: '13-testing',
                 text: 'Testing',
                 blurb: 'Assert rules, RuleSets, form requests, and Livewire components with FluentRulesTester.',
             },
             {
-                file: '12-rule-reference',
+                file: '14-rule-reference',
                 text: 'Rule reference',
                 blurb: 'Every rule type, modifier, conditional, and macro in one place.',
             },
@@ -92,17 +102,17 @@ export const sections: DocSection[] = [
         text: 'Migration and tooling',
         pages: [
             {
-                file: '13-migration',
+                file: '15-migration',
                 text: 'Migrating to fluent validation',
                 blurb: 'Migrate field by field, and let the Rector companion rewrite the bulk of it for you.',
             },
             {
-                file: '14-static-analysis',
+                file: '16-static-analysis',
                 text: 'Static analysis with PHPStan',
                 blurb: 'Opt-in PHPStan rules that flag unbounded each() chains before they reach production.',
             },
             {
-                file: '15-troubleshooting',
+                file: '17-troubleshooting',
                 text: 'Troubleshooting',
                 blurb: 'Common issues and their solutions.',
             },

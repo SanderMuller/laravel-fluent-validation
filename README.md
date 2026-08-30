@@ -9,7 +9,7 @@
 [![License](https://img.shields.io/github/license/sandermuller/laravel-fluent-validation.svg?style=flat-square)](LICENSE.md)
 [![Laravel Compatibility](https://badge.laravel.cloud/badge/sandermuller/laravel-fluent-validation?style=flat)](https://packagist.org/packages/sandermuller/laravel-fluent-validation)
 
-Write Laravel validation rules with IDE autocompletion instead of memorizing string syntax. Each rule type exposes only the methods that apply to it: `FluentRule::string()` won't offer `digits()`, `FluentRule::date()` won't offer `mimes()`. `each()` and `children()` keep parent and child rules in one place instead of scattered across dot-notation keys. For large arrays, the `HasFluentRules` trait makes wildcard validation [up to 160x faster](https://sandermuller.github.io/laravel-fluent-validation/performance#benchmarks).
+Write Laravel validation rules with IDE autocompletion instead of memorizing string syntax. Each rule type exposes only the methods that apply to it: `FluentRule::string()` won't offer `digits()`, `FluentRule::date()` won't offer `mimes()`. `each()` and `children()` keep parent and child rules in one place instead of scattered across dot-notation keys. For large arrays, the `HasFluentRules` trait makes wildcard validation [up to 160x faster](https://sandermuller.github.io/laravel-fluent-validation/benchmarks).
 
 ```php
 // Before
@@ -90,8 +90,10 @@ Read the full documentation at **[sandermuller.github.io/laravel-fluent-validati
 **Digging deeper**
 - [Extending parent rules](https://sandermuller.github.io/laravel-fluent-validation/extending-rules) — child form requests, `modifyEach`, `modifyChildren`, returning a `RuleSet`
 - [Livewire](https://sandermuller.github.io/laravel-fluent-validation/livewire) — `HasFluentValidation` trait, Filament workaround
-- [Performance](https://sandermuller.github.io/laravel-fluent-validation/performance) — O(n) wildcards, pre-evaluation, fast-check closures, batched DB, benchmarks
-- [RuleSet](https://sandermuller.github.io/laravel-fluent-validation/ruleset) — build, compose, inspect, validate, escape hatches, method reference
+- [Performance](https://sandermuller.github.io/laravel-fluent-validation/performance) — O(n) wildcards, pre-evaluation, fast-check closures, batched DB
+- [Benchmarks](https://sandermuller.github.io/laravel-fluent-validation/benchmarks) — the measured numbers and the rule sets behind them
+- [RuleSet](https://sandermuller.github.io/laravel-fluent-validation/ruleset) — build, compose, inspect, escape hatches, method reference
+- [Validating with a RuleSet](https://sandermuller.github.io/laravel-fluent-validation/validating) — `validate()`, `check()`, unknown fields, error bags
 - [Testing](https://sandermuller.github.io/laravel-fluent-validation/testing) — `FluentRulesTester`, Pest expectations
 - [Rule reference](https://sandermuller.github.io/laravel-fluent-validation/rule-reference) — all types, modifiers, conditionals, macros
 
