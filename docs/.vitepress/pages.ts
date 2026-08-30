@@ -126,3 +126,21 @@ export const pages: DocPage[] = sections.flatMap(section => section.pages)
 export const slug = (file: string) => file.replace(/^\d+-/, '')
 
 export const link = (file: string) => `/${slug(file)}`
+
+/**
+ * The three cards the home page shows under "Where to next".
+ *
+ * Resolved here rather than in the component: this module is imported while VitePress
+ * loads its config, so a stale id fails the build. Thrown from inside the component it
+ * would only be logged, and the section would render empty — which is how a renumbering
+ * once emptied it on three sites at once without a red build.
+ */
+export const homeSteps: DocPage[] = ['02-installation', '03-getting-started', '06-array-validation'].map(file => {
+    const page = pages.find(entry => entry.file === file)
+
+    if (!page) {
+        throw new Error(`Home page step "${file}" is missing from the documentation page list.`)
+    }
+
+    return page
+})
