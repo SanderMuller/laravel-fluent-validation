@@ -10,14 +10,14 @@ hero:
     alt: Laravel Fluent Validation
   actions:
     - theme: brand
-      text: Get started
-      link: /installation
-    - theme: alt
       text: Why this package?
       link: /why-this-package
     - theme: alt
-      text: GitHub
-      link: https://github.com/SanderMuller/laravel-fluent-validation
+      text: Installation
+      link: /installation
+    - theme: alt
+      text: Getting started
+      link: /getting-started
 
 features:
   - title: Your IDE knows the rules
