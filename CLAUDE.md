@@ -174,6 +174,7 @@ This table decides which rule applies to a piece of text. Never apply both to th
 | Surface | Rule |
 |---|---|
 | Chat replies to the user | Simplified Technical English |
+| Messages between agents — a peer message, a subagent prompt, a subagent report, a handoff note | Simplified Technical English. Never run a `humanizer` pass: machine-to-machine text needs no human voice |
 | PR titles, descriptions, checklists | Simplified Technical English |
 | PR review comments and replies to reviewers | Simplified Technical English |
 | Issue and ticket descriptions, comments, QA testables | Simplified Technical English |
