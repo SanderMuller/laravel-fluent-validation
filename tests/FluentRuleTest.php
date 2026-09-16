@@ -2212,6 +2212,20 @@ it('validates url shortcut', function (): void {
     expect($v->passes())->toBeFalse();
 });
 
+it('validates httpUrl shortcut', function (): void {
+    $v = makeValidator(
+        ['website' => 'https://example.com'],
+        ['website' => FluentRule::httpUrl()->required()]
+    );
+    expect($v->passes())->toBeTrue();
+
+    $v = makeValidator(
+        ['website' => 'ftp://example.com/a.jpg'],
+        ['website' => FluentRule::httpUrl()->required()]
+    );
+    expect($v->passes())->toBeFalse();
+});
+
 it('validates uuid shortcut', function (): void {
     $v = makeValidator(
         ['id' => '550e8400-e29b-41d4-a716-446655440000'],

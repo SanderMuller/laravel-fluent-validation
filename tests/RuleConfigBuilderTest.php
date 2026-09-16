@@ -58,6 +58,14 @@ it('CoreValueCompiler still rejects unsupported parts', function (): void {
         ->toBeNull(); // size without type
 });
 
+// A `url:` arm in parseValuePart would set url => true and drop the scheme
+// list, so the fast closure would accept ftp:// where the rule rejects it.
+it('CoreValueCompiler rejects url with a protocol list but accepts bare url', function (): void {
+    expect(CoreValueCompiler::compile('string|url:http,https'))->toBeNull()
+        ->and(CoreValueCompiler::compile('string|url'))
+        ->toBeInstanceOf(Closure::class);
+});
+
 /**
  * Bailout: gt/gte/lt/lte against a sibling field require an explicit type
  * flag so the closure knows how to size both sides. ItemContextCompiler

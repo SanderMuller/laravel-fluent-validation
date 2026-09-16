@@ -248,6 +248,38 @@ it('validates through RuleSet::define', function (): void {
     expect($validated)->toMatchArray(['name' => 'Sander', 'email' => 'sander@example.com']);
 });
 
+// Drives httpUrl() through the package's own validation path, not a plain
+// Validator, so the scheme restriction is proven past fast-check compilation.
+it('rejects a non-http scheme through RuleSet::define', function (): void {
+    RuleSet::define(fn (FluentSchema $rules): array => [
+        'site' => $rules->httpUrl()->required(),
+    ])->validate(['site' => 'ftp://example.com/a.jpg']);
+})->throws(ValidationException::class);
+
+// The message key is derived by stripping the rule parameters, so this proves
+// `url:http,https` reaches Laravel under the plain `url` key.
+it('delivers the httpUrl inline message through RuleSet::define', function (): void {
+    try {
+        RuleSet::define(fn (FluentSchema $rules): array => [
+            'site' => $rules->string()->required()->httpUrl(message: 'Use an http or https link.'),
+        ])->validate(['site' => 'ftp://example.com/a.jpg']);
+    } catch (ValidationException $validationException) {
+        expect($validationException->errors()['site'][0])->toBe('Use an http or https link.');
+
+        return;
+    }
+
+    $this->fail('Expected a ValidationException.');
+});
+
+it('accepts an https url through RuleSet::define', function (): void {
+    $validated = RuleSet::define(fn (FluentSchema $rules): array => [
+        'site' => $rules->httpUrl()->required(),
+    ])->validate(['site' => 'https://example.com/a.jpg']);
+
+    expect($validated)->toMatchArray(['site' => 'https://example.com/a.jpg']);
+});
+
 it('throws through RuleSet::define on invalid data', function (): void {
     RuleSet::define(fn (FluentSchema $rules): array => [
         'name' => $rules->string()->required()->min(2),

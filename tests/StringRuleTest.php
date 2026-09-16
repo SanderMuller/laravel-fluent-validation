@@ -330,11 +330,6 @@ it('accepts an ftp url under the bare url rule that httpUrl rejects', function (
     expect($v->passes())->toBeTrue();
 });
 
-it('validates string with the httpUrl shortcut', function (): void {
-    $v = makeValidator(['site' => 'ftp://example.com/a.jpg'], ['site' => FluentRule::httpUrl()]);
-    expect($v->passes())->toBeFalse();
-});
-
 it('validates string with activeUrl', function (): void {
     $v = makeValidator(['site' => 'https://example.com'], ['site' => FluentRule::string()->activeUrl()]);
     expect($v->passes())->toBeTrue();
