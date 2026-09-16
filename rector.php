@@ -4,14 +4,13 @@ use Rector\Caching\ValueObject\Storage\FileCacheStorage;
 use Rector\Carbon\Rector\FuncCall\DateFuncCallToCarbonRector;
 use Rector\CodeQuality\Rector\BooleanOr\RepeatedOrEqualToInArrayRector;
 use Rector\CodeQuality\Rector\ClassMethod\InlineArrayReturnAssignRector;
-use Rector\CodeQuality\Rector\If_\ExplicitBoolCompareRector;
-use Rector\CodingStyle\Rector\Encapsed\EncapsedStringsToSprintfRector;
 use Rector\Config\RectorConfig;
 use Rector\DeadCode\Rector\ClassMethod\RemoveUselessParamTagRector;
 use Rector\DeadCode\Rector\ClassMethod\RemoveUselessReturnTagRector;
 use Rector\Php81\Rector\FuncCall\NullToStrictStringFuncCallArgRector;
 use Rector\Privatization\Rector\ClassMethod\PrivatizeFinalClassMethodRector;
 use Rector\TypeDeclaration\Rector\ArrowFunction\AddArrowFunctionReturnTypeRector;
+use RectorLaravel\Rector\Class_\StopOnFirstFailurePropertyToStopOnFirstFailureAttributeRector;
 use RectorLaravel\Set\LaravelSetList;
 use RectorPest\Set\PestSetList;
 
@@ -47,7 +46,6 @@ return RectorConfig::configure()
     ->withMemoryLimit('3G')
     ->withPhpSets(php82: true)
     ->withSets([
-        LaravelSetList::LARAVEL_110,
         LaravelSetList::LARAVEL_CODE_QUALITY,
         LaravelSetList::LARAVEL_ARRAYACCESS_TO_METHOD_CALL,
         LaravelSetList::LARAVEL_CONTAINER_STRING_TO_FULLY_QUALIFIED_NAME,
@@ -56,16 +54,20 @@ return RectorConfig::configure()
         PestSetList::PEST_CHAIN,
         PestSetList::PEST_LARAVEL,
     ])
+    ->withComposerBased(
+        laravel: true,
+    )
     ->withSkip([
         DateFuncCallToCarbonRector::class,
         NullToStrictStringFuncCallArgRector::class,
         AddArrowFunctionReturnTypeRector::class,
-        EncapsedStringsToSprintfRector::class,
-        ExplicitBoolCompareRector::class,
         InlineArrayReturnAssignRector::class,
         PrivatizeFinalClassMethodRector::class,
         RemoveUselessParamTagRector::class,
         RemoveUselessReturnTagRector::class,
+        // #[StopOnFirstFailure] is Laravel 13 only, and the package still
+        // supports ^12.0. The property form works on both.
+        StopOnFirstFailurePropertyToStopOnFirstFailureAttributeRector::class,
         // Hot-path closure allocates a literal array on every invocation
         // when in_array() is used. Explicit === comparisons avoid that.
         RepeatedOrEqualToInArrayRector::class => [

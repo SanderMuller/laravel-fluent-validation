@@ -59,6 +59,10 @@ Write a test when the PHPStan error indicates a fault that would surface at runt
 - Accessing a property or method that does not exist
 - Any type error that would manifest as a runtime exception
 
+### Annotate Rather Than Suppress
+
+Some errors are PHPStan reading a signature that says less than the code does — a return type a parameter decides, a bool helper that proves a type. The `backend-quality` skill carries the two annotations that state the missing fact, and the rules for when each one lies.
+
 ### When to Skip the Test
 
 Skip the test when the error is purely static and cannot cause a runtime failure:
@@ -82,6 +86,29 @@ When signing is enabled, every commit must be signed. If the signing backend or 
 - **Do not** retry with `--no-gpg-sign`, unset `commit.gpgsign`, or otherwise produce an unsigned commit to "get past" the problem.
 
 A missing signature is a blocker to resolve (unlock the agent, re-authenticate 1Password, plug in the key), not a step to skip. Let the user fix the signing setup, then commit signed.
+
+---
+
+## Task Scope and Edits
+
+For session, branch, and PR scope, see the `single-issue-scope` guideline when the project enables it.
+
+### The Task Sets the Scope
+
+- Do not fix a pre-existing bug, a performance problem, or unrelated behaviour you find on the way, unless the requested behaviour cannot work without it. The same holds for refactors, cleanup, and documentation nobody asked for. A defect your own change introduces is not pre-existing: fix it.
+- A sibling rule that requires an update on a line you already change still applies. The rule removes extras, not obligations.
+- Report the rest as a follow-up in your summary. Propose an issue when the project tracks work that way, and let the user decide whether to file it. Report it; do not fix it.
+- Implement every behaviour the task does ask for, completely. This rule cuts extras, never the requested scope.
+
+### One Reading of an Ambiguous Ask
+
+Implement the reading that the wording and the surrounding code support most directly. State that assumption in your summary. Do not build for both readings.
+
+Materially different work is the test. When two readings would produce the same change, pick one and carry on. When they would not, or when a wrong guess is unsafe or makes the work useless, ask before building — through the `clarify` skill where the whole ask is fuzzy, otherwise with a direct question.
+
+### Edit in Place
+
+Change only the lines that must change. Rewrite a whole file only when the file is short, or when most of it changes. A rewrite churns lines the task never touched and can drop content by accident.
 
 ---
 
@@ -115,6 +142,12 @@ Use the project's own commands — check its `composer.json` / `package.json` sc
 
 Where the project has dedicated quality-check skills synced, delegate to them — `backend-quality` for backend files, `frontend-quality` for frontend files, both when a change spans both. Otherwise, run the project's own equivalent commands directly.
 
+### A Commit Is a Claim Too
+
+Commit a change once its own checks pass against the tree as it stands, not while the approach is still being tried. A commit reads as a decision. The next defect then gets patched on top of the approach instead of the approach being dropped, and each extra commit raises the cost of the revert that was the right answer.
+
+Deferring is not "never commit". Uncommitted work is unprotected, and a commit is still the safe way to set work aside or to hand it over. A measurement loop inverts the rule on purpose — it commits before it measures, so a rejected experiment reverts in one step. Where a skill states that it commits first, that skill wins for its own flow.
+
 ### Never Use Without Evidence
 
 - "should work now"
@@ -123,6 +156,14 @@ Where the project has dedicated quality-check skills synced, delegate to them �
 - "I'm confident this works"
 
 These phrases indicate missing verification. Run the command first, then report what actually happened.
+
+### Say What You Did Not Verify
+
+State the limits of your own check. A reader cannot tell a gap you did not mention from a check you ran, so an unmentioned gap counts as a claim you did not make good on.
+
+When you report a result, name what you ran and what you did not. "The unit suite passes; I did not run the browser tests" is a complete report. "Tests pass" is not, when you ran one suite of three. The same holds for a claim you carried over from an earlier step: if you did not re-run it against the tree as it stands now, say so.
+
+This is the outward half of the `NEEDS-CONFIRMATION` rule above. That rule stops you asserting an untraced cause. This one stops a traced, true statement from implying more than it covers.
 
 ---
 
@@ -146,7 +187,7 @@ This table decides which rule applies to a piece of text. Never apply both to th
 
 A surface the table does not list gets Simplified Technical English, unless an end user reads it. Then it gets the project's tone-of-voice rules. A project without documented tone-of-voice rules gets Simplified Technical English everywhere.
 
-This guideline governs **how a sentence is built**. It never overrides what a document is allowed to say: an issue-format doc still owns issue content, and a PR template still owns its sections.
+This guideline governs **how a sentence is built**, and how much you write. It never overrides what a document is allowed to say: an issue-format doc still owns issue content, and a PR template still owns its sections.
 
 ### Simplified Technical English
 
@@ -166,6 +207,20 @@ This guideline governs **how a sentence is built**. It never overrides what a do
 - No metaphors, no clichés, no jokes that carry meaning the plain sentence does not.
 
 The sentence limits, the tense list, the article rule, and the paragraph limit come from the ASD-STE100 writing rules. The everyday-words, Latin-abbreviation, no-shouting, and no-metaphor rules come from the GOV.UK content style guide.
+
+### Register and Volume
+
+Simplified Technical English decides how a sentence is built. This section decides how much you write and how you format it. A reply can pass every rule above and still read as machine output, because it is ten times the size of the question and formatted as a report.
+
+**Answer at the size of the question.** A one-line question gets a one-line answer. A yes/no question gets "yes" or "no", and a reason only if the reader cannot act without it. Do not pad a short answer to look thorough. A longer answer does not show more care, and the reader has to find the answer inside it. A sentence that names what you did not verify is content, not padding, and stays.
+
+**Do not format someone else's thread like a document.** In a PR comment, an issue comment, a chat reply, or a review reply, do not use bold section headings, tables, or fenced evidence blocks unless the reader asked for detail or the content cannot be read without them. A code block that quotes real output or a real diff is content and stays. The rest reads as machine output whatever the words are worth.
+
+**One answer per turn.** Do not answer a question and then add a closing observation about what the work taught you. Stop when the answer is complete.
+
+**Read the thread again as the last step before you post.** The thread can move while you draft. A reply to a question the other person already withdrew costs more than a slow reply.
+
+Apply these rules most strictly outside your own repository. A maintainer who does not know you can reject a contribution on this basis alone, and the change itself is then no longer read on merit.
 
 ---
 
