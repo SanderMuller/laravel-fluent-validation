@@ -2256,6 +2256,7 @@ it('validates ip shortcut', function (): void {
 
 it('passes label through convenience shortcuts', function (): void {
     expect(FluentRule::url('Website')->getLabel())->toBe('Website')
+        ->and(FluentRule::httpUrl('Website')->getLabel())->toBe('Website')
         ->and(FluentRule::uuid('ID')->getLabel())->toBe('ID')
         ->and(FluentRule::ulid('ID')->getLabel())->toBe('ID')
         ->and(FluentRule::ip('Address')->getLabel())->toBe('Address')

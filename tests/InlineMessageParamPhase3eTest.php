@@ -71,6 +71,10 @@ dataset('phase3e_shortcut_factories', [
         fn () => FluentRule::url(message: 'x'),
         ['url' => 'x'],
     ],
+    'httpUrl' => [
+        fn () => FluentRule::httpUrl(message: 'x'),
+        ['url' => 'x'],
+    ],
     'uuid' => [
         fn () => FluentRule::uuid(message: 'x'),
         ['uuid' => 'x'],

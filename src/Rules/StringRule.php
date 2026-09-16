@@ -107,6 +107,18 @@ class StringRule implements DataAwareRule, FluentRuleContract, ValidatorAwareRul
         return $this->addRule('url', $message);
     }
 
+    /**
+     * Restricts the scheme to `http` and `https`. The bare `url` rule accepts
+     * any scheme Laravel considers valid, `ftp://` included.
+     *
+     * Unlike bare `url`, this is not fast-checkable: `RuleConfigBuilder`
+     * has no arm for `url:`, so the rule falls through to the slow path.
+     */
+    public function httpUrl(?string $message = null): static
+    {
+        return $this->addRule('url:http,https', $message);
+    }
+
     public function activeUrl(?string $message = null): static
     {
         return $this->addRule('active_url', $message);

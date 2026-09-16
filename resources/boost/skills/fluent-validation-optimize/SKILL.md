@@ -192,6 +192,7 @@ Then convert one field at a time:
 | `'confirmed'` | `->confirmed()` |
 | `'json'` | `->json()` |
 | `'url'` | `->url()` |
+| `'url:http,https'` | `->httpUrl()` |
 | `'uuid'` | `->uuid()` |
 | `'ulid'` | `->ulid()` |
 | `'ip'` | `->ip()` |

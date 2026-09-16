@@ -112,6 +112,11 @@ final class FluentSchema
         return FluentRule::url($label, $message);
     }
 
+    public function httpUrl(?string $label = null, ?string $message = null): StringRule
+    {
+        return FluentRule::httpUrl($label, $message);
+    }
+
     public function uuid(?string $label = null, ?string $message = null): StringRule
     {
         return FluentRule::uuid($label, $message);

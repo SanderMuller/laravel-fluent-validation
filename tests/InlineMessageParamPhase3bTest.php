@@ -44,6 +44,11 @@ dataset('phase3b_string', [
         fn () => FluentRule::string()->url()->message('x'),
         ['url' => 'x'],
     ],
+    'httpUrl' => [
+        fn () => FluentRule::string()->httpUrl(message: 'x'),
+        fn () => FluentRule::string()->httpUrl()->message('x'),
+        ['url' => 'x'],
+    ],
     'uuid' => [
         fn () => FluentRule::string()->uuid(message: 'x'),
         fn () => FluentRule::string()->uuid()->message('x'),

@@ -199,6 +199,11 @@ class FluentRule
         return self::string($label)->url($message);
     }
 
+    public static function httpUrl(?string $label = null, ?string $message = null): StringRule
+    {
+        return self::string($label)->httpUrl($message);
+    }
+
     public static function uuid(?string $label = null, ?string $message = null): StringRule
     {
         return self::string($label)->uuid($message);

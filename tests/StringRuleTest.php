@@ -311,6 +311,30 @@ it('validates string with url', function (): void {
     expect($v->passes())->toBeFalse();
 });
 
+it('validates string with httpUrl', function (): void {
+    $v = makeValidator(['site' => 'https://example.com/a.jpg'], ['site' => FluentRule::string()->httpUrl()]);
+    expect($v->passes())->toBeTrue();
+
+    $v = makeValidator(['site' => 'http://example.com/a.jpg'], ['site' => FluentRule::string()->httpUrl()]);
+    expect($v->passes())->toBeTrue();
+
+    $v = makeValidator(['site' => 'ftp://example.com/a.jpg'], ['site' => FluentRule::string()->httpUrl()]);
+    expect($v->passes())->toBeFalse();
+});
+
+// Pins upstream Laravel behaviour on purpose: it is the reason httpUrl()
+// exists. If Laravel tightens the bare `url` rule, this fails. Review the
+// rationale rather than deleting the test.
+it('accepts an ftp url under the bare url rule that httpUrl rejects', function (): void {
+    $v = makeValidator(['site' => 'ftp://example.com/a.jpg'], ['site' => FluentRule::string()->url()]);
+    expect($v->passes())->toBeTrue();
+});
+
+it('validates string with the httpUrl shortcut', function (): void {
+    $v = makeValidator(['site' => 'ftp://example.com/a.jpg'], ['site' => FluentRule::httpUrl()]);
+    expect($v->passes())->toBeFalse();
+});
+
 it('validates string with activeUrl', function (): void {
     $v = makeValidator(['site' => 'https://example.com'], ['site' => FluentRule::string()->activeUrl()]);
     expect($v->passes())->toBeTrue();

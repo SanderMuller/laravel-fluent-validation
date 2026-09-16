@@ -7,7 +7,7 @@
 - Starts/ends: `startsWith(...$v)`, `endsWith(...$v)`, `doesntStartWith(...$v)`, `doesntEndWith(...$v)`
 - Case: `lowercase()`, `uppercase()`
 - Email: `email(...$modes)` — e.g. `email()`, `email('rfc', 'dns')`
-- Format: `url()`, `activeUrl()`, `uuid()`, `ulid()`, `json()`, `ip()`, `ipv4()`, `ipv6()`, `macAddress()`, `timezone()`, `hexColor()`
+- Format: `url()`, `httpUrl()` (http/https only), `activeUrl()`, `uuid()`, `ulid()`, `json()`, `ip()`, `ipv4()`, `ipv6()`, `macAddress()`, `timezone()`, `hexColor()`
 - Encoding: `encoding($encoding)` — validates string encoding (e.g., `encoding('UTF-8')`)
 - Date: `date()`, `dateFormat($format)`
 - Auth: `currentPassword($guard?)`

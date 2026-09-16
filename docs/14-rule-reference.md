@@ -1,6 +1,6 @@
 # Rule reference
 
-Available types: `FluentRule::string()`, `integer()`, `numeric()`, `email()`, `password()`, `date()`, `dateTime()`, `boolean()`, `array()`, `file()`, `image()`, `field()`, `anyOf()`. Shortcuts: `url()`, `uuid()`, `ulid()`, `ip()`.
+Available types: `FluentRule::string()`, `integer()`, `numeric()`, `email()`, `password()`, `date()`, `dateTime()`, `boolean()`, `array()`, `file()`, `image()`, `field()`, `anyOf()`. Shortcuts: `url()`, `httpUrl()`, `uuid()`, `ulid()`, `ip()`.
 
 <details>
 <summary><a name="rule-string"></a><strong>String</strong>: length, pattern, format, comparison</summary>
@@ -23,7 +23,9 @@ FluentRule::string()->startsWith('prefix_')->endsWith('.txt') // also: doesntSta
 FluentRule::string()->lowercase()                            // or: uppercase()
 
 // Formats (pick the one that matches your field)
-FluentRule::string()->url()                                  // also: activeUrl(), uuid(), ulid(), json(), ip(),
+FluentRule::string()->url()                                  // any scheme Laravel accepts, `ftp://` included
+FluentRule::string()->httpUrl()                              // `http` and `https` only
+                                                             // also: activeUrl(), uuid(), ulid(), json(), ip(),
                                                              //       ipv4(), ipv6(), macAddress(), timezone(), hexColor()
 FluentRule::string()->encoding('UTF-8')
 
@@ -38,7 +40,7 @@ FluentRule::string()->distinct()                             // for `'tags.*'` r
 ```
 
 > [!TIP]
-> Top-level shortcuts for the most common single-rule strings: `FluentRule::url()`, `uuid()`, `ulid()`, `ip()`, `ipv4()`, `ipv6()`, `macAddress()`, `json()`, `timezone()`, `hexColor()`, `activeUrl()`, `regex($pattern)`. All accept an optional `$label`. Each is `FluentRule::string()->X()`; use the shortcut when the string type is the only constraint beyond the format.
+> Top-level shortcuts for the most common single-rule strings: `FluentRule::url()`, `httpUrl()`, `uuid()`, `ulid()`, `ip()`, `ipv4()`, `ipv6()`, `macAddress()`, `json()`, `timezone()`, `hexColor()`, `activeUrl()`, `regex($pattern)`. All accept an optional `$label`. Each is `FluentRule::string()->X()`; use the shortcut when the string type is the only constraint beyond the format.
 
 </details>
 

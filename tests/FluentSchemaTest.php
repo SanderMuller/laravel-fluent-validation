@@ -203,6 +203,7 @@ it('forwards every non-default argument identically to FluentRule', function (Cl
     'file' => [fn (FluentSchema $s): mixed => $s->file('L', 'm')->required(), fn (): mixed => FluentRule::file('L', 'm')->required()],
     'image' => [fn (FluentSchema $s): mixed => $s->image('L', 'm')->required(), fn (): mixed => FluentRule::image('L', 'm')->required()],
     'url' => [fn (FluentSchema $s): mixed => $s->url('L', 'm')->required(), fn (): mixed => FluentRule::url('L', 'm')->required()],
+    'httpUrl' => [fn (FluentSchema $s): mixed => $s->httpUrl('L', 'm')->required(), fn (): mixed => FluentRule::httpUrl('L', 'm')->required()],
     'uuid' => [fn (FluentSchema $s): mixed => $s->uuid('L', 'm')->required(), fn (): mixed => FluentRule::uuid('L', 'm')->required()],
     'ulid' => [fn (FluentSchema $s): mixed => $s->ulid('L', 'm')->required(), fn (): mixed => FluentRule::ulid('L', 'm')->required()],
     'ip' => [fn (FluentSchema $s): mixed => $s->ip('L', 'm')->required(), fn (): mixed => FluentRule::ip('L', 'm')->required()],
