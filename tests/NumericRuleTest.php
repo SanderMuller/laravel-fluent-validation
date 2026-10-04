@@ -264,15 +264,6 @@ it('FluentRule::integer(label:, message:, strict: true) routes label, message, a
 });
 
 // =========================================================================
-// NumericRule — inArrayKeys
-// =========================================================================
-
-it('compiles numeric with inArrayKeys rule', function (): void {
-    $numericRule = FluentRule::numeric()->inArrayKeys('options.*');
-    expect($numericRule->compiledRules())->toBe('numeric|in_array_keys:options.*');
-});
-
-// =========================================================================
 // NumericRule — positive / negative / nonNegative / nonPositive
 // =========================================================================
 

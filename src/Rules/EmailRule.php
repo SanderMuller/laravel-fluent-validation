@@ -87,6 +87,16 @@ class EmailRule implements DataAwareRule, FluentRuleContract, ValidatorAwareRule
         return $this->addRule('different:' . $field, $message);
     }
 
+    public function inArray(string $field, ?string $message = null): static
+    {
+        return $this->addRule('in_array:' . $field, $message);
+    }
+
+    public function distinct(?string $mode = null, ?string $message = null): static
+    {
+        return $this->addRule($mode ? 'distinct:' . $mode : 'distinct', $message);
+    }
+
     /** @return string|list<string|object> */
     public function compiledRules(): string|array
     {

@@ -255,6 +255,14 @@ class ArrayRule implements DataAwareRule, FluentRuleContract, ValidatorAwareRule
         return $this->addRule('required_array_keys:' . implode(',', $keys));
     }
 
+    /**
+     * The value must be an array that has at least one of the given keys.
+     */
+    public function inArrayKeys(string ...$keys): static
+    {
+        return $this->addRule('in_array_keys:' . implode(',', $keys));
+    }
+
     public function distinct(?string $mode = null, ?string $message = null): static
     {
         return $this->addRule($mode ? 'distinct:' . $mode : 'distinct', $message);

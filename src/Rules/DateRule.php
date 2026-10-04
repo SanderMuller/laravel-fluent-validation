@@ -159,6 +159,21 @@ class DateRule implements DataAwareRule, FluentRuleContract, ValidatorAwareRule
         return $this->addRule('different:' . $field, $message);
     }
 
+    public function confirmed(?string $message = null): static
+    {
+        return $this->addRule('confirmed', $message);
+    }
+
+    public function inArray(string $field, ?string $message = null): static
+    {
+        return $this->addRule('in_array:' . $field, $message);
+    }
+
+    public function distinct(?string $mode = null, ?string $message = null): static
+    {
+        return $this->addRule($mode ? 'distinct:' . $mode : 'distinct', $message);
+    }
+
     protected function formatDate(DateTimeInterface|string $date): string
     {
         return $date instanceof DateTimeInterface

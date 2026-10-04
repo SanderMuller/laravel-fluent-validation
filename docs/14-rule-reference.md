@@ -35,7 +35,7 @@ FluentRule::string()->currentPassword()                      // matches the auth
 FluentRule::string()->same('confirm_field')                  // also: different('other_field')
 
 // Wildcards & uniqueness in arrays
-FluentRule::string()->inArray('values.*')                    // also: inArrayKeys('values.*')
+FluentRule::string()->inArray('values.*')                    // value must appear in `values`
 FluentRule::string()->distinct()                             // for `'tags.*'` rules; also: distinct('strict'), distinct('ignore_case')
 ```
 
@@ -55,6 +55,7 @@ FluentRule::email(defaults: false)->required()       // basic 'email' validation
 FluentRule::email()->rfcCompliant()->strict()         // explicit modes override defaults
 FluentRule::email()->validateMxRecord()->preventSpoofing()
 FluentRule::email()->required()->unique('users', 'email')
+FluentRule::email()->distinct()                      // for `'emails.*'` rules; also: inArray('values.*')
 ```
 
 > [!TIP]
@@ -127,7 +128,8 @@ FluentRule::date()->format('Y-m-d')->dateEquals('2025-06-15')
 FluentRule::dateTime()->afterToday()                              // shortcut for date()->format('Y-m-d H:i:s')
 
 // Cross-field
-FluentRule::date()->same('start_date')                            // also: different('other_field')
+FluentRule::date()->same('start_date')                            // also: different('other_field'), confirmed()
+FluentRule::date()->distinct()                                    // for `'dates.*'` rules; also: inArray('values.*')
 ```
 
 </details>
@@ -164,6 +166,7 @@ FluentRule::list()                                    // shortcut for array()->l
 FluentRule::array(['name', 'email'])                  // restrict allowed keys
 FluentRule::array(MyEnum::cases())                    // BackedEnum keys
 FluentRule::array()->requiredArrayKeys('name', 'email')
+FluentRule::array()->inArrayKeys('id', 'uuid')        // at least one of these keys
 
 // Element membership
 FluentRule::array()->contains('required_value')       // also: doesntContain('forbidden_value')
@@ -202,6 +205,7 @@ FluentRule::image()->ratio(16 / 9)                    // also: ratio('16/9'), ra
 FluentRule::field()->present()
 FluentRule::field()->requiredIf('type', 'special')
 FluentRule::field('Answer')->nullable()->in(['yes', 'no'])
+FluentRule::enum(Color::class)->distinct('strict')   // for `'colors.*'` rules; also: inArray('values.*')
 ```
 
 **AnyOf.** Value passes if it matches any rule set (Laravel 13+):

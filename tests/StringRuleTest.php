@@ -521,13 +521,8 @@ it('compiles string with distinct strict mode rule', function (): void {
 });
 
 // =========================================================================
-// StringRule — inArrayKeys / currentPassword
+// StringRule — currentPassword
 // =========================================================================
-
-it('compiles string with inArrayKeys rule', function (): void {
-    $stringRule = FluentRule::string()->inArrayKeys('options.*');
-    expect($stringRule->compiledRules())->toBe('string|in_array_keys:options.*');
-});
 
 it('compiles string with currentPassword rule', function (): void {
     $stringRule = FluentRule::string()->currentPassword();

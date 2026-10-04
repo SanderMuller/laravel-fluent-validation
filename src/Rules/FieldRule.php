@@ -134,6 +134,24 @@ class FieldRule implements DataAwareRule, FluentRuleContract, ValidatorAwareRule
         return $this->addRule('confirmed', $message);
     }
 
+    public function inArray(string $field, ?string $message = null): static
+    {
+        return $this->addRule('in_array:' . $field, $message);
+    }
+
+    /**
+     * The value must be an array that has at least one of the given keys.
+     */
+    public function inArrayKeys(string ...$keys): static
+    {
+        return $this->addRule('in_array_keys:' . implode(',', $keys));
+    }
+
+    public function distinct(?string $mode = null, ?string $message = null): static
+    {
+        return $this->addRule($mode ? 'distinct:' . $mode : 'distinct', $message);
+    }
+
     /** @return array<string, mixed> */
     public function buildNestedRules(string $attribute): array
     {

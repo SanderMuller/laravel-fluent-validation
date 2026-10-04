@@ -11,13 +11,13 @@
 - Encoding: `encoding($encoding)` — validates string encoding (e.g., `encoding('UTF-8')`)
 - Date: `date()`, `dateFormat($format)`
 - Auth: `currentPassword($guard?)`
-- Comparison: `confirmed()`, `same($field)`, `different($field)`, `inArray($field)`, `inArrayKeys($field)`, `distinct($mode?)`
+- Comparison: `confirmed()`, `same($field)`, `different($field)`, `inArray($field)`, `distinct($mode?)`
 
 ## Email
 
 - `FluentRule::email()` uses `Email::default()` when app defaults are configured. Pass `defaults: false` for basic validation: `FluentRule::email(defaults: false)`
 - Explicit modes override defaults: `rfcCompliant(strict?)`, `strict()`, `validateMxRecord()`, `preventSpoofing()`, `withNativeValidation(allowUnicode?)`
-- Constraints: `max($n)`, `confirmed()`, `same($field)`, `different($field)`
+- Constraints: `max($n)`, `confirmed()`, `same($field)`, `different($field)`, `inArray($field)`, `distinct($mode?)`
 - Embedded: `in($values)`, `notIn($values)`, `enum($class, $callback?)`, `unique($table, $column?)`, `exists($table, $column?)`
 - Also available as `FluentRule::string()->email(...$modes)` for inline use
 
@@ -35,7 +35,7 @@
 - Type: `integer(strict?)`, `decimal($min, $max?)`
 - Size: `min($n)`, `max($n)`, `between($min, $max)`, `exactly($n)` — `exactly()` implicitly adds `integer()`
 - Digits: `digits($n)`, `digitsBetween($min, $max)`, `minDigits($n)`, `maxDigits($n)`
-- Comparison: `greaterThan($field)`, `greaterThanOrEqualTo($field)`, `lessThan($field)`, `lessThanOrEqualTo($field)`, `multipleOf($n)`, `confirmed()`, `same($field)`, `different($field)`, `inArray($field)`, `inArrayKeys($field)`, `distinct($mode?)`
+- Comparison: `greaterThan($field)`, `greaterThanOrEqualTo($field)`, `lessThan($field)`, `lessThanOrEqualTo($field)`, `multipleOf($n)`, `confirmed()`, `same($field)`, `different($field)`, `inArray($field)`, `distinct($mode?)`
 
 ## Date
 
@@ -44,7 +44,7 @@ All comparison methods accept `DateTimeInterface|string`:
 - Format: `format($format)` — REPLACES the `date` base type with `date_format:$format`. Use for time-only: `FluentRule::date()->format('H:i')` → `date_format:H:i`
 - Today: `beforeToday()`, `afterToday()`, `todayOrBefore()`, `todayOrAfter()`
 - Now: `past()`, `future()`, `nowOrPast()`, `nowOrFuture()`
-- Compare: `before($date)`, `after($date)`, `beforeOrEqual($date)`, `afterOrEqual($date)`, `between($from, $to)`, `betweenOrEqual($from, $to)`, `dateEquals($date)`, `same($field)`, `different($field)`
+- Compare: `before($date)`, `after($date)`, `beforeOrEqual($date)`, `afterOrEqual($date)`, `between($from, $to)`, `betweenOrEqual($from, $to)`, `dateEquals($date)`, `same($field)`, `different($field)`, `confirmed()`, `inArray($field)`, `distinct($mode?)`
 
 ## Boolean
 
@@ -66,7 +66,7 @@ All comparison methods accept `DateTimeInterface|string`:
 ## Array
 
 - Size: `min($n)`, `max($n)`, `between($min, $max)`, `exactly($n)`
-- Structure: `list()`, `requiredArrayKeys(...$keys)`, `contains(...$values)`, `doesntContain(...$values)`
+- Structure: `list()`, `requiredArrayKeys(...$keys)`, `inArrayKeys(...$keys)` (at least one key), `contains(...$values)`, `doesntContain(...$values)`
 - Wildcard children: `each($rule)` for scalar items, `each([...])` for object items → produces `items.*.name`
 - Fixed-key children: `children([...])` for known-key objects → produces `search.value` (no wildcard). Also available on `FluentRule::field()`
 - Polymorphic fields: `FluentRule::field()->rule(FluentRule::anyOf([...]))->children([...])` for fields that can be different types with optional child keys
@@ -91,7 +91,9 @@ All comparison methods accept `DateTimeInterface|string`:
 - No base type constraint — use for fields that need modifiers without a type
 - Supports `children([...])` for fixed-key child rules
 - Supports all field modifiers and embedded rules
-- Comparison: `same($field)`, `different($field)`, `confirmed()`
+- Comparison: `same($field)`, `different($field)`, `confirmed()`, `inArray($field)`, `distinct($mode?)`
+- Array keys: `inArrayKeys(...$keys)` — the value must be an array with at least one of the keys
+- `FluentRule::enum($class)` returns this builder, so `FluentRule::enum(Color::class)->distinct()` works
 - Also the escape hatch the Rector migration rules reach for when they can't narrow the type from pipe/array rules. When reviewing migrated code, consider whether a typed factory (`string()`, `integer()`) better expresses intent — don't leave `field()` in place if the field has an inherent type that was just obscured by the original string-rule syntax.
 
 ## Embedded Rules (string, numeric, date, email)

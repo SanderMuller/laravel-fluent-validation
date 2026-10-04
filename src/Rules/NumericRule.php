@@ -160,6 +160,11 @@ class NumericRule implements DataAwareRule, FluentRuleContract, ValidatorAwareRu
         return $this->addRule('in_array:' . $field, $message);
     }
 
+    /**
+     * @deprecated Laravel's `in_array_keys` rule passes only when the value is an
+     *             array, so it always fails on this builder. Use
+     *             `FluentRule::array()->inArrayKeys(...)` or `FluentRule::field()->inArrayKeys(...)`.
+     */
     public function inArrayKeys(string $field, ?string $message = null): static
     {
         return $this->addRule('in_array_keys:' . $field, $message);
