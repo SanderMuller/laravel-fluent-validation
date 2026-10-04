@@ -66,7 +66,7 @@ it('benchmarks all code paths', function (): void {
                 'name' => FluentRule::string()->required()->min(2)->max(255),
                 'email' => FluentRule::date()->required()->after('2024-01-01'),
             ]),
-        ])->validate(['users' => array_map(fn (array $u): array => [...$u, 'email' => '2025-06-15'], $users500)])],
+        ])->validate(['users' => array_map(fn (array $u): array => array_replace($u, ['email' => '2025-06-15']), $users500)])],
 
         ['string+boolean', 'per-item', fn () => RuleSet::from([
             'users' => FluentRule::array()->required()->each([
