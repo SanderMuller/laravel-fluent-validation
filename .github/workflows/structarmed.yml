@@ -1,0 +1,36 @@
+name: StructArmed
+
+permissions:
+  contents: read
+
+on:
+  push:
+    paths:
+      - '**.php'
+      - 'composer.json'
+      - '.github/workflows/structarmed.yml'
+  pull_request:
+    paths:
+      - '**.php'
+      - 'composer.json'
+      - '.github/workflows/structarmed.yml'
+
+jobs:
+  structarmed:
+    name: structarmed
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          coverage: none
+
+      - name: Install composer dependencies
+        uses: ramsey/composer-install@v4
+
+      - name: Run StructArmed
+        run: vendor/bin/structarmed analyze

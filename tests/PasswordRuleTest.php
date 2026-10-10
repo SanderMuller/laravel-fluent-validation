@@ -76,7 +76,7 @@ it('password supports field modifiers', function (): void {
 });
 
 it('password rejects non-string', function (): void {
-    $validator = makeValidator(['password' => 12345678], ['password' => FluentRule::password()->required()]);
+    $validator = makeValidator(['password' => 12_345_678], ['password' => FluentRule::password()->required()]);
     expect($validator->passes())->toBeFalse();
 });
 

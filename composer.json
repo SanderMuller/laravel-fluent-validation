@@ -25,6 +25,7 @@
         "illuminate/validation": "^12.0||^13.0"
     },
     "require-dev": {
+        "boundwize/structarmed": "^0.19",
         "brianium/paratest": "<7.26.1",
         "driftingly/rector-laravel": "^2.3",
         "larastan/larastan": "^3.12.1",
@@ -78,6 +79,7 @@
         "phpstan-clear-cache": "vendor/bin/phpstan clear-result-cache",
         "format": "vendor/bin/pint",
         "rector": "vendor/bin/rector process",
+        "structarmed": "vendor/bin/structarmed analyze",
         "test": "vendor/bin/pest",
         "test-coverage": "vendor/bin/pest --coverage",
         "test-tia": "vendor/bin/pest --tia",
@@ -85,7 +87,8 @@
         "qa": [
             "@rector",
             "@format",
-            "@phpstan-simplified"
+            "@phpstan-simplified",
+            "@structarmed"
         ]
     },
     "config": {
