@@ -7,7 +7,6 @@ use Rector\CodeQuality\Rector\ClassMethod\InlineArrayReturnAssignRector;
 use Rector\Config\RectorConfig;
 use Rector\DeadCode\Rector\ClassMethod\RemoveUselessParamTagRector;
 use Rector\DeadCode\Rector\ClassMethod\RemoveUselessReturnTagRector;
-use Rector\Php81\Rector\FuncCall\NullToStrictStringFuncCallArgRector;
 use Rector\Privatization\Rector\ClassMethod\PrivatizeFinalClassMethodRector;
 use Rector\TypeDeclaration\Rector\ArrowFunction\AddArrowFunctionReturnTypeRector;
 use RectorLaravel\Set\LaravelSetList;
@@ -58,7 +57,6 @@ return RectorConfig::configure()
     )
     ->withSkip([
         DateFuncCallToCarbonRector::class,
-        NullToStrictStringFuncCallArgRector::class,
         AddArrowFunctionReturnTypeRector::class,
         InlineArrayReturnAssignRector::class,
         PrivatizeFinalClassMethodRector::class,
