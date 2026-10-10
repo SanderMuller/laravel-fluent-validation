@@ -14,8 +14,6 @@ it('throws UnknownFluentRuleMethod when an undefined method is called on field()
 })->throws(UnknownFluentRuleMethod::class);
 
 it('extends BadMethodCallException so existing catches keep working', function (): void {
-    $caught = null;
-
     try {
         throw UnknownFluentRuleMethod::on('min');
     } catch (BadMethodCallException $badMethodCallException) {

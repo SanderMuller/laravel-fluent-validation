@@ -27,7 +27,7 @@
     "require-dev": {
         "boundwize/structarmed": "^0.19",
         "driftingly/rector-laravel": "^2.3",
-        "larastan/larastan": "^3.9.3",
+        "larastan/larastan": "^3.12.1",
         "laravel/framework": "^12.0||^13.0",
         "laravel/pao": "^1.1",
         "laravel/pint": "^1.29",
