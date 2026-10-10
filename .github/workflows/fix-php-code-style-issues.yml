@@ -11,7 +11,7 @@ on:
       - 'pint.json'
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   php-code-styling:
@@ -21,24 +21,10 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v7
-        with:
-          ref: ${{ github.head_ref }}
 
-      - name: Fix PHP code style issues
+      - name: Check PHP code style
         uses: aglipanci/laravel-pint-action@2.6
         with:
           configPath: pint.json
+          testMode: true
           verboseMode: true
-
-      - name: Pull latest changes
-        env:
-          BRANCH: ${{ github.head_ref || github.ref_name }}
-        run: |
-          git stash
-          git pull --rebase origin "$BRANCH"
-          git stash pop || true
-
-      - name: Commit changes
-        uses: stefanzweifel/git-auto-commit-action@v7
-        with:
-          commit_message: 'chore: pint'
