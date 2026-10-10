@@ -13,7 +13,7 @@ on:
       - '.github/workflows/rector.yml'
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   rector:
@@ -23,8 +23,6 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v7
-        with:
-          ref: ${{ github.head_ref }}
 
       - name: Setup PHP
         uses: shivammathur/setup-php@v2
@@ -45,17 +43,4 @@ jobs:
       - name: Run Rector
         run: |
           mkdir -p .cache/rector .cache/rectorContainer
-          vendor/bin/rector process --no-diffs
-
-      - name: Pull latest changes
-        env:
-          BRANCH: ${{ github.head_ref || github.ref_name }}
-        run: |
-          git stash
-          git pull --rebase origin "$BRANCH"
-          git stash pop || true
-
-      - name: Commit changes
-        uses: stefanzweifel/git-auto-commit-action@v7
-        with:
-          commit_message: 'chore: rector'
+          vendor/bin/rector process --dry-run
