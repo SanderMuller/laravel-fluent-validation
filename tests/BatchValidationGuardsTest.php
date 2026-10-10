@@ -768,7 +768,7 @@ it('FormRequest path does not short-circuit when parent is within max:N', functi
     $factory = resolve(Factory::class);
     $validator = (fn () => $this->createDefaultValidator($factory))->call($formRequest);
 
-    expect($validator->passes())->toBeTrue();
+    expect($validator->fails())->toBeFalse();
 
     $queryLog = DB::connection('testing')->getQueryLog();
     DB::connection('testing')->disableQueryLog();

@@ -1590,7 +1590,7 @@ it('HasFluentRules handles cross-field wildcard references', function (): void {
     $factory = resolve(Factory::class);
     $validator = (fn () => $this->createDefaultValidator($factory))->call($formRequest);
 
-    expect($validator->passes())->toBeTrue();
+    expect($validator->fails())->toBeFalse();
 });
 
 // =========================================================================

@@ -1,5 +1,7 @@
 parameters:
 	ignoreErrors:
+		# cognitive-complexity 1.3.0 scores the same code higher than 1.2.0 did.
+		# The scores below were raised to the 1.3.0 values with no source change.
 		# Hot-path closure builders: complexity comes from intentional
 		# inlining (size, in/regex, date comparisons) to avoid closure
 		# allocation + call overhead on every validated item.
@@ -7,37 +9,37 @@ parameters:
 		# Relocated from CoreValueCompiler to RuleConfigBuilder in the
 		# May 2026 maintainability refactor — same code, new home.
 		-
-			rawMessage: 'Class cognitive complexity is 115, keep it under 80'
+			rawMessage: 'Class cognitive complexity is 157, keep it under 80'
 			identifier: complexity.classLike
 			count: 1
 			path: src/FastCheck/RuleConfigBuilder.php
 
 		-
-			rawMessage: 'Cognitive complexity for "SanderMuller\FluentValidation\FastCheck\RuleConfigBuilder::buildValueClosure()" is 52, keep it under 20'
+			rawMessage: 'Cognitive complexity for "SanderMuller\FluentValidation\FastCheck\RuleConfigBuilder::buildValueClosure()" is 76, keep it under 20'
 			identifier: complexity.functionLike
 			count: 1
 			path: src/FastCheck/RuleConfigBuilder.php
 
 		-
-			rawMessage: 'Cognitive complexity for "SanderMuller\FluentValidation\FastCheck\RuleConfigBuilder::addDateChecks()" is 23, keep it under 20'
+			rawMessage: 'Cognitive complexity for "SanderMuller\FluentValidation\FastCheck\RuleConfigBuilder::addDateChecks()" is 34, keep it under 20'
 			identifier: complexity.functionLike
 			count: 1
 			path: src/FastCheck/RuleConfigBuilder.php
 
 		-
-			rawMessage: 'Class cognitive complexity is 101, keep it under 80'
+			rawMessage: 'Class cognitive complexity is 127, keep it under 80'
 			identifier: complexity.classLike
 			count: 1
 			path: src/FastCheck/ItemContextCompiler.php
 
 		-
-			rawMessage: 'Cognitive complexity for "SanderMuller\FluentValidation\FastCheck\ItemContextCompiler::buildItemAwareClosure()" is 59, keep it under 20'
+			rawMessage: 'Cognitive complexity for "SanderMuller\FluentValidation\FastCheck\ItemContextCompiler::buildItemAwareClosure()" is 86, keep it under 20'
 			identifier: complexity.functionLike
 			count: 1
 			path: src/FastCheck/ItemContextCompiler.php
 
 		-
-			rawMessage: 'Cognitive complexity for "SanderMuller\FluentValidation\FastCheck\PresenceConditionalCompiler::compile()" is 25, keep it under 20'
+			rawMessage: 'Cognitive complexity for "SanderMuller\FluentValidation\FastCheck\PresenceConditionalCompiler::compile()" is 24, keep it under 20'
 			identifier: complexity.functionLike
 			count: 1
 			path: src/FastCheck/PresenceConditionalCompiler.php
@@ -57,18 +59,18 @@ parameters:
 		# per-function complexity stays under 20 (logic in stripPrefixFromConstraints);
 		# only the class total moves.
 		-
-			rawMessage: 'Class cognitive complexity is 145, keep it under 80'
+			rawMessage: 'Class cognitive complexity is 165, keep it under 80'
 			identifier: complexity.classLike
 			count: 1
 			path: src/RuleSet.php
 
-		# Inherently-complex per-item rule compiler: buildFastChecks (46) dominates
+		# Inherently-complex per-item rule compiler: buildFastChecks (68) dominates
 		# the class total, and evaluating every exclude_* condition per field
 		# (fieldIsExcluded + findCommonDispatchField) adds irreducible branching
 		# for native-parity. Dropping the class under 80 is a whole-class refactor
 		# out of scope.
 		-
-			rawMessage: 'Class cognitive complexity is 88, keep it under 80'
+			rawMessage: 'Class cognitive complexity is 111, keep it under 80'
 			identifier: complexity.classLike
 			count: 1
 			path: src/Internal/ItemRuleCompiler.php
@@ -77,27 +79,47 @@ parameters:
 		# flat × item-aware vs value-only) — structural complexity that
 		# refactoring would only move.
 		-
-			rawMessage: 'Cognitive complexity for "SanderMuller\FluentValidation\Internal\ItemRuleCompiler::buildFastChecks()" is 46, keep it under 20'
+			rawMessage: 'Cognitive complexity for "SanderMuller\FluentValidation\Internal\ItemRuleCompiler::buildFastChecks()" is 68, keep it under 20'
 			identifier: complexity.functionLike
 			count: 1
 			path: src/Internal/ItemRuleCompiler.php
 
 		-
-			rawMessage: 'Cognitive complexity for "SanderMuller\FluentValidation\RuleSet::validateInternal()" is 25, keep it under 20'
+			rawMessage: 'Cognitive complexity for "SanderMuller\FluentValidation\RuleSet::validateInternal()" is 30, keep it under 20'
 			identifier: complexity.functionLike
 			count: 1
 			path: src/RuleSet.php
 
 		# Phase 2b: RuleSet::validateItems body relocated verbatim to
-		# ItemValidator::validate. Complexity is identical (49) — the loop's
+		# ItemValidator::validate. Complexity is identical (64) — the loop's
 		# nested fast-check → dispatch-cache → validator-cache structure
 		# carries the score, and refactoring those caches has measurable
 		# perf cost (per-item validator reuse + dispatch reduction).
 		-
-			rawMessage: 'Cognitive complexity for "SanderMuller\FluentValidation\Internal\ItemValidator::validate()" is 49, keep it under 20'
+			rawMessage: 'Cognitive complexity for "SanderMuller\FluentValidation\Internal\ItemValidator::validate()" is 64, keep it under 20'
 			identifier: complexity.functionLike
 			count: 1
 			path: src/Internal/ItemValidator.php
+
+		# BatchDatabaseChecker crossed the thresholds only through the
+		# cognitive-complexity 1.3.0 rescore, with no source change.
+		-
+			rawMessage: 'Class cognitive complexity is 96, keep it under 80'
+			identifier: complexity.classLike
+			count: 1
+			path: src/BatchDatabaseChecker.php
+
+		-
+			rawMessage: 'Cognitive complexity for "SanderMuller\FluentValidation\BatchDatabaseChecker::collectValues()" is 22, keep it under 20'
+			identifier: complexity.functionLike
+			count: 1
+			path: src/BatchDatabaseChecker.php
+
+		-
+			rawMessage: 'Cognitive complexity for "SanderMuller\FluentValidation\BatchDatabaseChecker::collectExpandedValues()" is 23, keep it under 20'
+			identifier: complexity.functionLike
+			count: 1
+			path: src/BatchDatabaseChecker.php
 
 		# Cross-version Filament guard. The trait may be mixed into components
 		# that lack getCachedForms (plain Livewire without InteractsWithForms),

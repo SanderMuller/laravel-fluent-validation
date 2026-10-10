@@ -28,7 +28,7 @@ it('expands wildcards via createDefaultValidator', function (): void {
     $factory = resolve(Factory::class);
     $validator = (fn () => $this->createDefaultValidator($factory))->call($formRequest);
 
-    expect($validator->passes())->toBeTrue()
+    expect($validator->fails())->toBeFalse()
         ->and($validator->validated())->toHaveKeys(['items']);
 });
 
@@ -49,7 +49,7 @@ it('reports errors with correct paths via createDefaultValidator', function (): 
     $factory = resolve(Factory::class);
     $validator = (fn () => $this->createDefaultValidator($factory))->call($formRequest);
 
-    expect($validator->passes())->toBeFalse()
+    expect($validator->fails())->toBeTrue()
         ->and($validator->errors()->keys())->toContain('items.0.name');
 });
 
@@ -101,7 +101,7 @@ it('returns 422 with errors for invalid data through a FormRequest', function ()
         $validator = (fn () => $this->createDefaultValidator($factory))->call($formRequest);
 
         if ($validator->fails()) {
-            throw new ValidationException($validator); // @phpstan-ignore argument.type
+            throw new ValidationException($validator);
         }
 
         return response()->json($validator->validated());
@@ -136,7 +136,7 @@ it('works with mixed fluent and string rules', function (): void {
     $factory = resolve(Factory::class);
     $validator = (fn () => $this->createDefaultValidator($factory))->call($formRequest);
 
-    expect($validator->passes())->toBeTrue()
+    expect($validator->fails())->toBeFalse()
         ->and($validator->validated())->toHaveKeys(['title', 'items']);
 });
 
@@ -160,5 +160,5 @@ it('works with nested each() rules', function (): void {
     $factory = resolve(Factory::class);
     $validator = (fn () => $this->createDefaultValidator($factory))->call($formRequest);
 
-    expect($validator->passes())->toBeTrue();
+    expect($validator->fails())->toBeFalse();
 });
