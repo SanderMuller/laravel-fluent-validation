@@ -13,7 +13,7 @@ it('benchmarks all code paths', function (): void {
         'name' => "User {$i}",
         'email' => "user{$i}@example.com",
         'username' => 'user-' . $i,
-        'phone' => '+1' . str_pad((string) (2000000000 + $i), 10, '0', STR_PAD_LEFT),
+        'phone' => '+1' . str_pad((string) (2_000_000_000 + $i), 10, '0', STR_PAD_LEFT),
         'country' => ['US', 'NL', 'DE', 'GB', 'FR'][$i % 5],
         'website' => 'https://example.com/' . $i,
         'agree_tos' => true,
