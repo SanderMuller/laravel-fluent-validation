@@ -180,7 +180,7 @@ This table decides which rule applies to a piece of text. Never apply both to th
 | Issue and ticket descriptions, comments, QA testables | Simplified Technical English |
 | Spec files | Simplified Technical English |
 | `AskUserQuestion` questions, options, descriptions | Simplified Technical English — plus the pronoun rules in the `AskUserQuestion Phrasing` guideline, when the project has it |
-| Commit messages | Simplified Technical English — an issue key the project's commit format requires stays as it is |
+| Commit messages | Simplified Technical English — a prefix or token the project's commit format requires stays as it is: an issue key, or a `type(scope)!:` prefix |
 | Text an end user reads — in-app copy, translations, release notes, help text, seed content | The project's own tone-of-voice rules, not this guideline |
 | Suggested translation strings inside an issue or ticket | The project's own tone-of-voice rules — the prose around them stays Simplified Technical English |
 | Code and code comments | Neither — the language guidelines own those |
