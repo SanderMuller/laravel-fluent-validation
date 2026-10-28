@@ -791,11 +791,6 @@ function createBatchFormRequest(array $rules, array $data): FormRequest
         {
             return self::$testRules;
         }
-
-        public function authorize(): bool
-        {
-            return true;
-        }
     };
 
     $formRequest::$testRules = $rules;

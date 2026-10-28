@@ -184,7 +184,7 @@ This table decides which rule applies to a piece of text. Never apply both to th
 | Text an end user reads — in-app copy, translations, release notes, help text, seed content | The project's own tone-of-voice rules, not this guideline |
 | Suggested translation strings inside an issue or ticket | The project's own tone-of-voice rules — the prose around them stays Simplified Technical English |
 | Code and code comments | Neither — the language guidelines own those |
-| Prose the user asks for in a named style, or an artifact whose own skill defines its voice — `humanizer`, `readme`, `release-notes` | That instruction or skill wins. This guideline does not override it |
+| Prose the user asks for in a named style, or an artifact whose own skill defines its voice — `readme`, `release-notes`, or `humanizer` on an essay, post or opinion piece | That instruction or skill wins. This guideline does not override it. On the surfaces above, `humanizer` only removes AI tells and this guideline keeps the tone |
 
 A surface the table does not list gets Simplified Technical English, unless an end user reads it. Then it gets the project's tone-of-voice rules. A project without documented tone-of-voice rules gets Simplified Technical English everywhere.
 
@@ -194,7 +194,8 @@ This guideline governs **how a sentence is built**, and how much you write. It n
 
 **Write in ASD-STE100 Simplified Technical English.** Say the same thing in fewer, simpler words.
 
-- One idea per sentence. Keep procedural sentences to 20 words or less, descriptive sentences to 25 or less.
+- One idea per sentence. Keep procedural sentences to 20 words or less, descriptive sentences to 25 or less. These limits are a ceiling, not a target.
+- Vary sentence length. A run of short sentences of the same size reads as machine output, as a run of long ones does. Join two clauses that carry one idea with "because", "so", or "although" instead of splitting them into two short sentences.
 - Use the active voice. Name the actor. Use the passive only when the actor is unknown.
 - Use simple tenses only — simple present, simple past, simple future, infinitive, imperative. No complex constructions built from auxiliary verbs.
 - Use one word for one meaning. Use the same word for the same thing every time — do not vary it for style.

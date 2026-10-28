@@ -52,11 +52,6 @@ function bootDualFormRequest(array $data): FormRequest
         {
             return ['value' => FluentRule::string()->required()->in(['from-rules'])];
         }
-
-        public function authorize(): bool
-        {
-            return true;
-        }
     };
 
     return bootFormRequest($formRequest, $data);
@@ -346,11 +341,6 @@ it('does not hijack an unrelated schema() method that lacks a FluentSchema param
         {
             return ['value' => FluentRule::string()->required()->in(['from-rules'])];
         }
-
-        public function authorize(): bool
-        {
-            return true;
-        }
     };
 
     $request = bootFormRequest($formRequest, ['value' => 'from-rules']);
@@ -372,11 +362,6 @@ it('answers rules() with the schema() output when a request defines only schema(
                 'author' => $rules->string()->required(),
             ];
         }
-
-        public function authorize(): bool
-        {
-            return true;
-        }
     };
 
     expect(bootFormRequest($request, ['title' => 'hello', 'author' => 'me'])->rules())
@@ -390,11 +375,6 @@ it('returns a RuleSet from rules() when schema() returns one', function (): void
         public function schema(FluentSchema $rules): RuleSet
         {
             return RuleSet::from(['title' => $rules->string()->required()]);
-        }
-
-        public function authorize(): bool
-        {
-            return true;
         }
     };
 
@@ -411,11 +391,6 @@ it('answers rules() on a directly-instantiated request before it is resolved', f
         public function schema(FluentSchema $rules): array
         {
             return ['title' => $rules->string()->required()];
-        }
-
-        public function authorize(): bool
-        {
-            return true;
         }
     };
 

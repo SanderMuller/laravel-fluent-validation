@@ -38,7 +38,7 @@ final class LaravelEmptiness
         }
 
         if ($value instanceof File) {
-            return (string) $value->getPath() === '';
+            return $value->getPath() === '';
         }
 
         return false;

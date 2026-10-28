@@ -14,19 +14,11 @@ use SanderMuller\FluentValidation\FluentRule;
  */
 final class BailMaxEachFluentFormRequest extends FluentFormRequest
 {
-    public function authorize(): bool
-    {
-        return true;
-    }
-
     /** @return array<string, mixed> */
     public function rules(): array
     {
         return [
-            'actions' => FluentRule::array()->bail()->required()->max(50)->each([
-                'action' => FluentRule::string()->bail()->required()->in(['bookmark', 'favorite', 'rate']),
-                'article_id' => FluentRule::integer()->bail()->required(),
-            ]),
+            'actions' => FluentRule::array()->bail()->required()->max(50)->each(['action' => FluentRule::string()->bail()->required()->in(['bookmark', 'favorite', 'rate']), 'article_id' => FluentRule::integer()->bail()->required()]),
         ];
     }
 }
