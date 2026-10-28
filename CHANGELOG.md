@@ -2,6 +2,24 @@
 
 All notable changes to `laravel-fluent-validation` will be documented in this file.
 
+## 1.36.0 - 2026-10-28
+
+<!-- verified-sha: c27cb91c13803744646935222582d47522be591b -->
+### Added
+
+- Added a `TValidated` PHPStan generic to `RuleSet` and `Validated`; it defaults to `array<string, mixed>` (#24).
+- `validate()` and `check()->validated()` carry a narrowed shape when a PHPStan extension infers one from the rules.
+- `field()`, `merge()`, `only()`, `except()`, `put()` and the `modify*()` methods reset the shape to the default.
+
+### Internal
+
+- Added StructArmed architecture checks to the QA pipeline (#23).
+- Raised the dev floor to larastan 3.12.1 and fixed the new PHPStan findings.
+
+**Full Changelog**: https://github.com/SanderMuller/laravel-fluent-validation/compare/1.35.0...1.36.0
+
+<!-- benchmark-start -->
+<!-- benchmark-end -->
 ## 1.35.0 - 2026-10-04
 
 <!-- verified-sha: 69f0dc7589e0c2887530d13a998a16ca34386dcf -->
@@ -352,6 +370,7 @@ Malformed wildcard rule key [items*]: a wildcard segment must be written as '.*'
 
 
 
+
 ```
 This matches the package's existing fail-fast on malformed array-rule keys.
 
@@ -433,6 +452,7 @@ illuminate/*: ^11.0||^12.0||^13.0  ->  ^12.0||^13.0
 
 
 
+
 ```
 The CI matrix drops its Laravel 11 legs (and the `orchestra/testbench ^9.0` requirement that only existed to test them); Laravel 12 and 13 remain, across PHP 8.2 / 8.3 / 8.4 on Ubuntu and Windows.
 
@@ -482,6 +502,7 @@ The file was plain markdown — zero Blade directives, zero render-time tokens �
 
 
 
+
 ```
 So the standing guidance never landed in `CLAUDE.md` / `AGENTS.md`; contributors only got it on-demand via the `fluent-validation*` skills, not as always-on context.
 
@@ -513,6 +534,7 @@ Conditional-required and presence modifiers never emit that literal `required` s
 FluentRule::email()->requiredIf($enabled)->nullable()
 // before: passed — requirement dropped          ❌
 // after:  fails, matching native Laravel         ✅
+
 
 
 
@@ -569,6 +591,7 @@ The remap built a synthetic `Validator::make([], [])`, pushed the error message 
 $caught->validator->errors()->keys();   // ['actions']                      ✅
 $caught->validator->errors()->first();  // human-readable message          ✅
 $caught->validator->failed();           // []                              ❌
+
 
 
 
@@ -642,6 +665,7 @@ $validated = RuleSet::from([
 
 
 
+
 ```
 Top-level keys outside the rule set are already excluded from `validated()`; this flag extends the same behavior to nested array shapes declared via `children()`, `each()`, or dotted rule keys. Maps to Laravel's `Validator::$excludeUnvalidatedArrayKeys`, but gives per-`RuleSet` control instead of relying on whatever the host factory's flag happens to be set to — useful when an application has called `Factory::includeUnvalidatedArrayKeys()` globally and a specific call site needs the strict default back.
 
@@ -659,6 +683,7 @@ $validated = RuleSet::from([...])->validate($request->all());
 
 // 1.27
 $validated = RuleSet::from([...])->validate($request);
+
 
 
 
