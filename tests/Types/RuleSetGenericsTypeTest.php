@@ -1,22 +1,13 @@
 <?php declare(strict_types=1);
 
-namespace SanderMuller\FluentValidation\Tests\Types;
-
-use Iterator;
 use PHPStan\Testing\TypeInferenceTestCase;
-use PHPUnit\Framework\Attributes\DataProvider;
 
-final class RuleSetGenericsTypeTest extends TypeInferenceTestCase
-{
-    /** @return Iterator<mixed> */
-    public static function dataFileAsserts(): Iterator
-    {
-        yield from self::gatherAssertTypes(__DIR__ . '/data/rule-set-generics.php');
-    }
+// Pest's TIA mode rejects PHPUnit test classes, so this Pest test drives
+// PHPStan's TypeInferenceTestCase through an anonymous subclass.
+dataset('rule set generics type asserts', static fn (): array => iterator_to_array(
+    TypeInferenceTestCase::gatherAssertTypes(__DIR__ . '/data/rule-set-generics.php'),
+));
 
-    #[DataProvider('dataFileAsserts')]
-    public function test_file_asserts(string $assertType, string $file, mixed ...$args): void
-    {
-        $this->assertFileAsserts($assertType, $file, ...$args);
-    }
-}
+it('infers the validated shape of RuleSet and Validated', function (string $assertType, string $file, mixed ...$args): void {
+    (new class ('typeInference') extends TypeInferenceTestCase {})->assertFileAsserts($assertType, $file, ...$args);
+})->with('rule set generics type asserts');
