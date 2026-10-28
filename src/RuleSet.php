@@ -26,6 +26,12 @@ use SanderMuller\FluentValidation\Rules\FieldRule;
 use Traversable;
 
 /**
+ * TValidated is the shape `validate()` and `check()->validated()` return.
+ * It stays `array<string, mixed>` unless a PHPStan extension narrows it from
+ * the rules. Methods that change the field set reset it to the default.
+ *
+ * @template-covariant TValidated of array<string, mixed> = array<string, mixed>
+ *
  * @implements Arrayable<string, mixed>
  * @implements IteratorAggregate<string, mixed>
  */
@@ -55,12 +61,16 @@ final class RuleSet implements Arrayable, IteratorAggregate
         $this->errorCollector = new ItemErrorCollector();
     }
 
+    /** @return self<array<string, mixed>> */
     public static function make(): self
     {
         return new self();
     }
 
-    /** @param  array<string, mixed>  $rules */
+    /**
+     * @param  array<string, mixed>  $rules
+     * @return self<array<string, mixed>>
+     */
     public static function from(array $rules): self
     {
         $ruleSet = new self();
@@ -80,12 +90,14 @@ final class RuleSet implements Arrayable, IteratorAggregate
      *     ])->validate($data);
      *
      * @param  Closure(FluentSchema): array<string, mixed>  $callback
+     * @return self<array<string, mixed>>
      */
     public static function define(Closure $callback): self
     {
         return self::from($callback(new FluentSchema()));
     }
 
+    /** @return self<array<string, mixed>> */
     public function field(string $name, mixed $rule): self
     {
         $this->fields[$name] = $rule;
@@ -93,7 +105,10 @@ final class RuleSet implements Arrayable, IteratorAggregate
         return $this;
     }
 
-    /** @param  self|array<string, mixed>  $rules */
+    /**
+     * @param  RuleSet<array<string, mixed>>|array<string, mixed>  $rules
+     * @return self<array<string, mixed>>
+     */
     public function merge(self|array $rules): self
     {
         $this->fields = array_merge(
@@ -109,6 +124,7 @@ final class RuleSet implements Arrayable, IteratorAggregate
      *                                           (`->only('a', 'b')`) or as a single
      *                                           array (`->only(['a', 'b'])`) — matches
      *                                           Collection::only / Arr::only semantics.
+     * @return self<array<string, mixed>>
      */
     public function only(string|array ...$fields): self
     {
@@ -118,7 +134,10 @@ final class RuleSet implements Arrayable, IteratorAggregate
         return $this;
     }
 
-    /** @param  string|list<string>  ...$fields  Accepts variadic strings or a single array (matches `only()`). */
+    /**
+     * @param  string|list<string>  ...$fields  Accepts variadic strings or a single array (matches `only()`).
+     * @return self<array<string, mixed>>
+     */
     public function except(string|array ...$fields): self
     {
         $flat = array_merge(...array_map(static fn (string|array $entry): array => is_array($entry) ? $entry : [$entry], $fields));
@@ -127,7 +146,11 @@ final class RuleSet implements Arrayable, IteratorAggregate
         return $this;
     }
 
-    /** Collection-style alias of field(). */
+    /**
+     * Collection-style alias of field().
+     *
+     * @return self<array<string, mixed>>
+     */
     public function put(string $field, mixed $rule): self
     {
         return $this->field($field, $rule);
@@ -169,6 +192,7 @@ final class RuleSet implements Arrayable, IteratorAggregate
      * silently creating missing keys would conflate the two.
      *
      * @param Closure(mixed): mixed $callback Receives the clone, returns the replacement rule.
+     * @return self<array<string, mixed>>
      *
      * @throws LogicException When `$field` is not in the rule set.
      */
@@ -206,6 +230,7 @@ final class RuleSet implements Arrayable, IteratorAggregate
      * primitive `modify($field, fn ($r) => $r->addEachRule($key, $rule))`.
      *
      * @param  array<string, ValidationRule>  $rules
+     * @return self<array<string, mixed>>
      *
      * @throws LogicException When `$field` is not in the rule set, when the
      *                         stored rule is not an `ArrayRule`, or when the
@@ -236,6 +261,7 @@ final class RuleSet implements Arrayable, IteratorAggregate
      * primitive if you need to extend an `ArrayRule`'s `children()`.
      *
      * @param  array<string, ValidationRule>  $rules
+     * @return self<array<string, mixed>>
      *
      * @throws LogicException When `$field` is not in the rule set or the
      *                         stored rule is not a `FieldRule`.
@@ -256,6 +282,8 @@ final class RuleSet implements Arrayable, IteratorAggregate
     /**
      * Reject input keys that are not present in the rule set.
      * Unknown fields will receive a "prohibited" validation error.
+     *
+     * @return self<TValidated>
      */
     public function failOnUnknownFields(): self
     {
@@ -277,6 +305,8 @@ final class RuleSet implements Arrayable, IteratorAggregate
      *
      * If both flags are set, `failOnUnknownFields()` wins — unknown keys
      * trigger a validation error before the drop ever applies.
+     *
+     * @return self<TValidated>
      */
     public function dropUnknownFields(): self
     {
@@ -287,6 +317,8 @@ final class RuleSet implements Arrayable, IteratorAggregate
 
     /**
      * Stop validating remaining fields after the first failure.
+     *
+     * @return self<TValidated>
      */
     public function stopOnFirstFailure(): self
     {
@@ -305,6 +337,8 @@ final class RuleSet implements Arrayable, IteratorAggregate
      * (it never throws, and the `MessageBag` it exposes has no "default" name).
      *
      *     RuleSet::from($rules)->withBag('updatePassword')->validate($input);
+     *
+     * @return self<TValidated>
      */
     public function withBag(string $name): self
     {
@@ -414,6 +448,7 @@ final class RuleSet implements Arrayable, IteratorAggregate
      * @param  array<string, mixed>|Request  $data
      * @param  array<string, string>  $messages
      * @param  array<string, string>  $attributes
+     * @return Validated<TValidated>
      */
     public function check(array|Request $data, array $messages = [], array $attributes = []): Validated
     {
@@ -429,6 +464,9 @@ final class RuleSet implements Arrayable, IteratorAggregate
                 validator: Validator::make($data, []),
             );
         } catch (ValidationException $validationException) {
+            // `validated()` and `safe()` throw when `passes` is false, so
+            // the empty array never reaches a caller as TValidated.
+            /** @var Validated<TValidated> */
             return new Validated(
                 passes: false,
                 validated: [],
@@ -461,7 +499,7 @@ final class RuleSet implements Arrayable, IteratorAggregate
      * @param  array<string, mixed>|Request  $data
      * @param  array<string, string>  $messages
      * @param  array<string, string>  $attributes
-     * @return array<string, mixed>
+     * @return TValidated
      *
      * @throws ValidationException
      */
@@ -474,6 +512,7 @@ final class RuleSet implements Arrayable, IteratorAggregate
             // stamp the error bag before rethrowing. Mirrors Laravel's
             // `Validator::validateWithBag`.
             try {
+                /** @var TValidated */
                 return $this->runValidateInternal($data, $messages, $attributes);
             } catch (ValidationException $validationException) {
                 $validationException->errorBag = $this->errorBag;
@@ -482,6 +521,10 @@ final class RuleSet implements Arrayable, IteratorAggregate
             }
         }
 
+        // The validator returns `array<string, mixed>`. TValidated is the
+        // shape a PHPStan extension infers from the rules; that extension
+        // must match what the validator returns (no casts, unknown keys dropped).
+        /** @var TValidated */
         return $this->runValidateInternal($data, $messages, $attributes);
     }
 

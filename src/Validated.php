@@ -18,11 +18,13 @@ use Illuminate\Validation\ValidationException;
  *         return null;
  *     }
  *     $validated = $result->validated();
+ *
+ * @template-covariant TValidated of array<string, mixed> = array<string, mixed>
  */
 final readonly class Validated
 {
     /**
-     * @param  array<string, mixed>  $validated
+     * @param  TValidated  $validated
      */
     public function __construct(
         private bool $passes,
@@ -56,7 +58,7 @@ final readonly class Validated
     /**
      * Return validated data. Throws ValidationException if validation failed.
      *
-     * @return array<string, mixed>
+     * @return TValidated
      *
      * @throws ValidationException
      */
