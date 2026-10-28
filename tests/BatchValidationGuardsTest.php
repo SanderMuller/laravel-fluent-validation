@@ -58,11 +58,6 @@ function createGuardsFormRequest(array $rules, array $data): FormRequest
         {
             return self::$testRules;
         }
-
-        public function authorize(): bool
-        {
-            return true;
-        }
     };
 
     $formRequest::$testRules = $rules;
@@ -969,11 +964,6 @@ it('FormRequest failedValidation() override sees parent-max remapped ValidationE
                     'id' => FluentRule::integer()->required()->exists('testing.widgets', 'id'),
                 ]),
             ];
-        }
-
-        public function authorize(): bool
-        {
-            return true;
         }
 
         protected function failedValidation(Validator $validator): void

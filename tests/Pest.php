@@ -44,11 +44,6 @@ function createFormRequest(array $rules, array $data): FormRequest
         {
             return self::$testRules;
         }
-
-        public function authorize(): bool
-        {
-            return true;
-        }
     };
 
     $formRequest::$testRules = $rules;
@@ -75,11 +70,6 @@ function createSchemaFormRequest(Closure $schema, array $data): FormRequest
         public function schema(FluentSchema $rules): array
         {
             return (self::$testSchema)($rules);
-        }
-
-        public function authorize(): bool
-        {
-            return true;
         }
     };
 

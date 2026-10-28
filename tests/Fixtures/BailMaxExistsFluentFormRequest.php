@@ -17,18 +17,11 @@ use SanderMuller\FluentValidation\FluentRule;
  */
 final class BailMaxExistsFluentFormRequest extends FluentFormRequest
 {
-    public function authorize(): bool
-    {
-        return true;
-    }
-
     /** @return array<string, mixed> */
     public function rules(): array
     {
         return [
-            'actions' => FluentRule::array()->bail()->required()->max(5)->each([
-                'id' => FluentRule::integer()->bail()->required()->exists('testing.widgets', 'id'),
-            ]),
+            'actions' => FluentRule::array()->bail()->required()->max(5)->each(['id' => FluentRule::integer()->bail()->required()->exists('testing.widgets', 'id')]),
         ];
     }
 }

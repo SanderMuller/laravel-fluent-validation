@@ -14,19 +14,11 @@ use SanderMuller\FluentValidation\FluentRule;
  */
 final class AuthorizedEachFluentFormRequest extends FluentFormRequest
 {
-    public function authorize(): bool
-    {
-        return true;
-    }
-
     /** @return array<string, mixed> */
     public function rules(): array
     {
         return [
-            'items' => FluentRule::array()->required()->each([
-                'name' => FluentRule::string('Name')->required()->max(255),
-                'qty' => FluentRule::numeric('Quantity')->required()->integer()->min(1),
-            ]),
+            'items' => FluentRule::array()->required()->each(['name' => FluentRule::string('Name')->required()->max(255), 'qty' => FluentRule::numeric('Quantity')->required()->integer()->min(1)]),
         ];
     }
 }
