@@ -271,6 +271,7 @@ trait HasFieldModifiers
         return $this->addRule('required_if:' . $field . ',' . self::serializeValues($values));
     }
 
+    /** @param (Closure(): bool)|bool|string $field */
     public function requiredUnless(Closure|bool|string $field, string|int|bool|BackedEnum ...$values): static
     {
         if ($field instanceof Closure || is_bool($field)) {
@@ -329,6 +330,7 @@ trait HasFieldModifiers
         return $this->addRule('exclude_if:' . $field . ',' . self::serializeValues($values));
     }
 
+    /** @param (Closure(): bool)|bool|string $field */
     public function excludeUnless(Closure|bool|string $field, string|int|bool|BackedEnum ...$values): static
     {
         if ($field instanceof Closure || is_bool($field)) {
@@ -364,6 +366,7 @@ trait HasFieldModifiers
         return $this->addRule('prohibited_if:' . $field . ',' . self::serializeValues($values));
     }
 
+    /** @param (Closure(): bool)|bool|string $field */
     public function prohibitedUnless(Closure|bool|string $field, string|int|bool|BackedEnum ...$values): static
     {
         if ($field instanceof Closure || is_bool($field)) {

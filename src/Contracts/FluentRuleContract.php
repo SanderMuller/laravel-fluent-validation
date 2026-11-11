@@ -96,6 +96,7 @@ interface FluentRuleContract extends ValidationRule
 
     public function requiredIf(Closure|bool|string $field, string|int|bool|BackedEnum ...$values): static;
 
+    /** @param (Closure(): bool)|bool|string $field */
     public function requiredUnless(Closure|bool|string $field, string|int|bool|BackedEnum ...$values): static;
 
     public function requiredWith(string ...$fields): static;
@@ -112,6 +113,7 @@ interface FluentRuleContract extends ValidationRule
 
     public function excludeIf(Closure|bool|string $field, string|int|bool|BackedEnum ...$values): static;
 
+    /** @param (Closure(): bool)|bool|string $field */
     public function excludeUnless(Closure|bool|string $field, string|int|bool|BackedEnum ...$values): static;
 
     public function excludeWith(string $field): static;
@@ -120,6 +122,7 @@ interface FluentRuleContract extends ValidationRule
 
     public function prohibitedIf(Closure|bool|string $field, string|int|bool|BackedEnum ...$values): static;
 
+    /** @param (Closure(): bool)|bool|string $field */
     public function prohibitedUnless(Closure|bool|string $field, string|int|bool|BackedEnum ...$values): static;
 
     public function prohibits(string ...$fields): static;
