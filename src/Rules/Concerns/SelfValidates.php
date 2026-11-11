@@ -14,7 +14,6 @@ use Illuminate\Validation\Rules\ProhibitedUnless;
 use Illuminate\Validation\Rules\RequiredIf;
 use Illuminate\Validation\Rules\RequiredUnless;
 use ReflectionProperty;
-use SanderMuller\FluentValidation\Internal\Boolean;
 use Stringable;
 
 trait SelfValidates
@@ -377,13 +376,13 @@ trait SelfValidates
         // Presence modifiers (ExcludeIf, RequiredIf, etc.) must run before
         // type constraints. Other object rules (closures, custom ValidationRule)
         // run after constraints so bail/type checks can stop validation first.
-        // Boolean stands in for the `boolean` string (allowWords()) and keeps its place.
+        // An object that stands in for a string constraint keeps its place.
         $presenceRules = [];
         $constraints = [];
         $otherRules = [];
 
         foreach ($rules as $rule) {
-            if (is_string($rule) || $rule instanceof Boolean) {
+            if (is_string($rule) || $this->isConstraintObject($rule)) {
                 $constraints[] = $rule;
             } elseif ($this->isPresenceModifier($rule)) {
                 $presenceRules[] = $rule;
@@ -393,6 +392,15 @@ trait SelfValidates
         }
 
         return [...$presenceRules, ...$constraints, ...$otherRules];
+    }
+
+    /**
+     * Whether an object rule replaces a string constraint, so it must keep
+     * that constraint's position. BooleanRule::allowWords() uses this.
+     */
+    protected function isConstraintObject(object $rule): bool
+    {
+        return false;
     }
 
     /**

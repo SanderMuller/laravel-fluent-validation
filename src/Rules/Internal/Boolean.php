@@ -1,6 +1,6 @@
 <?php declare(strict_types=1);
 
-namespace SanderMuller\FluentValidation\Internal;
+namespace SanderMuller\FluentValidation\Rules\Internal;
 
 use Closure;
 use Illuminate\Contracts\Validation\ValidationRule;

@@ -5,9 +5,9 @@ use Illuminate\Contracts\Validation\Factory;
 use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Support\Facades\Validator as ValidatorFacade;
 use SanderMuller\FluentValidation\FluentRule;
-use SanderMuller\FluentValidation\Internal\Boolean;
 use SanderMuller\FluentValidation\OptimizedValidator;
 use SanderMuller\FluentValidation\Rules\BooleanRule;
+use SanderMuller\FluentValidation\Rules\Internal\Boolean;
 use SanderMuller\FluentValidation\RuleSet;
 
 dataset('boolean words that pass', [

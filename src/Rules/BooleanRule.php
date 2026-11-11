@@ -7,9 +7,9 @@ use Illuminate\Contracts\Validation\ValidatorAwareRule;
 use Illuminate\Support\Traits\Conditionable;
 use Illuminate\Support\Traits\Macroable;
 use SanderMuller\FluentValidation\Contracts\FluentRuleContract;
-use SanderMuller\FluentValidation\Internal\Boolean;
 use SanderMuller\FluentValidation\Rules\Concerns\HasFieldModifiers;
 use SanderMuller\FluentValidation\Rules\Concerns\SelfValidates;
+use SanderMuller\FluentValidation\Rules\Internal\Boolean;
 
 class BooleanRule implements DataAwareRule, FluentRuleContract, ValidatorAwareRule
 {
@@ -60,6 +60,11 @@ class BooleanRule implements DataAwareRule, FluentRuleContract, ValidatorAwareRu
     public function declinedIf(string $field, string|int|bool ...$values): static
     {
         return $this->addRule('declined_if:' . $field . ',' . self::serializeValues($values));
+    }
+
+    protected function isConstraintObject(object $rule): bool
+    {
+        return $rule instanceof Boolean;
     }
 
     public function canCompile(): bool
