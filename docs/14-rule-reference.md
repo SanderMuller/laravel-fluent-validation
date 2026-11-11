@@ -142,7 +142,17 @@ FluentRule::date()->distinct()                                    // for `'dates
 ```php
 FluentRule::boolean()->required()                       // strict boolean
 FluentRule::boolean()->acceptedIf('role', 'admin')      // also: declinedIf('type', 'free')
+FluentRule::boolean()->allowWords()                     // also 'true', 'false', 'yes', 'no', 'on', 'off'
 ```
+
+`allowWords()` accepts every value that Laravel's `accepted` or `declined` rule accepts. Use it for query strings and form posts that send a boolean as a word, for example jQuery's `'true'`/`'false'`. The match is case-sensitive, so `'TRUE'` fails. Validation does not cast, so read the value back with `$request->safe()->boolean('field')` or `RuleSet::from($rules)->check($data)->safe()->boolean('field')`.
+
+`allowWords()` uses a rule object, so the field gets no fast check, the same as `exists()` or a custom rule. Some differences from the plain `boolean` rule:
+
+- `->message()` and `messageFor('boolean', ...)` work as before. A `'field.boolean'` key in a messages array also works, but a bare `'field'` key now wins over it.
+- A global `'boolean'` key and a `validation.custom.field.boolean` lang line do not apply.
+- `allowWords()` has no effect inside a `whenInput()` branch. Call it on the rule itself, or use `when()`.
+- Conditional rules on other fields compare the raw value. `requiredIf('flag', true)` matches `'1'` and `1`, but not `'true'` or `'on'`.
 
 **Accepted / Declined.** Standalone factories for the permissive `accepted`/`declined` families without a strict `boolean` base. Useful for terms-of-service / opt-in checkboxes where form posts deliver `'yes'` or `'on'` values that Laravel's `boolean` rule rejects:
 
@@ -153,7 +163,7 @@ FluentRule::declined()                          // false | 0 | '0' | 'no' | 'off
 FluentRule::declined()->declinedIf('under_18', 'yes')
 ```
 
-> **Footgun:** `FluentRule::boolean()->accepted()` compiles to `boolean|accepted`; `boolean` rejects `'yes'` / `'on'` which `accepted` would otherwise permit. Use `FluentRule::accepted()` (or `::declined()`) when the input shape is HTML-form-ish.
+> **Footgun:** `FluentRule::boolean()->accepted()` compiles to `boolean|accepted`; `boolean` rejects `'yes'` / `'on'` which `accepted` would otherwise permit. Use `FluentRule::accepted()` (or `::declined()`) when the input shape is HTML-form-ish, or add `->allowWords()`: `FluentRule::boolean()->allowWords()->accepted()` accepts `'yes'` / `'on'`.
 
 **Array.** Size, structure, allowed keys:
 

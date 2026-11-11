@@ -111,8 +111,8 @@ final class TypedBuilderHint
     private static function specialCase(string $method): ?string
     {
         return match ($method) {
-            'accepted' => "Use `FluentRule::accepted()` for permissive accepted values (`'yes'`, `'on'`, `'1'`, `true`). Avoid `FluentRule::boolean()->accepted()` — the `boolean` base rule rejects `'yes'`/`'on'`.",
-            'declined' => "Use `FluentRule::boolean()->declined(...)` for strict boolean-only input. If HTML form values (`'no'`, `'off'`) need to pass, use `->rule('declined')` on the untyped builder instead.",
+            'accepted' => "Use `FluentRule::accepted()` for permissive accepted values (`'yes'`, `'on'`, `'1'`, `true`). Plain `FluentRule::boolean()->accepted()` fails on `'yes'`/`'on'`, because the `boolean` base rule rejects them. Add `->allowWords()` to make it accept them.",
+            'declined' => "Use `FluentRule::boolean()->declined(...)` for strict boolean-only input. If HTML form values (`'no'`, `'off'`) need to pass, add `->allowWords()`.",
             'size' => "No `size()` method — use `->exactly(...)` on a typed builder. (This package renames Laravel's `size:` rule to `exactly()` for clarity.)",
             'gt', 'gte', 'lt', 'lte' => 'No `gt()`/`lt()` methods — use `FluentRule::numeric()->greaterThan(FIELD)`, `->greaterThanOrEqualTo(FIELD)`, `->lessThan(FIELD)`, `->lessThanOrEqualTo(FIELD)`.',
             'alphaNum' => 'No `alphaNum()` method — use `FluentRule::string()->alphaNumeric(...)`.',

@@ -48,14 +48,15 @@ All comparison methods accept `DateTimeInterface|string`:
 
 ## Boolean
 
-`FluentRule::boolean()` validates that the value is `true`, `false`, `1`, `0`, `'1'`, or `'0'`. It does NOT accept `'yes'`, `'on'`, `'no'`, `'off'`.
+`FluentRule::boolean()` validates that the value is `true`, `false`, `1`, `0`, `'1'`, or `'0'`. It does NOT accept `'yes'`, `'on'`, `'no'`, `'off'`, `'true'` or `'false'` unless you add `allowWords()`.
 
+- `allowWords()` — also accept every value Laravel's `accepted` or `declined` accepts: `'true'`, `'false'`, `'yes'`, `'no'`, `'on'`, `'off'` (case-sensitive). Use it for query strings and jQuery form posts. Read the value back with `$request->safe()->boolean('field')`. The field gets no fast check, the same as `exists()`. Set custom messages with `->message()` or a `'field.boolean'` key; a `validation.custom.field.boolean` lang line does not apply.
 - `accepted()` — value must be `'yes'`, `'on'`, `'1'`, `1`, `true`, or `'true'`
 - `acceptedIf($field, ...$values)` — accepted only when another field has a given value
 - `declined()` — value must be `'no'`, `'off'`, `'0'`, `0`, `false`, or `'false'`
 - `declinedIf($field, ...$values)` — declined only when another field has a given value
 
-**Footgun:** `FluentRule::boolean()->accepted()` compiles to `boolean|accepted` — `boolean` rejects `'yes'` / `'on'` which `accepted` permits. For HTML-form-style inputs, use the standalone `FluentRule::accepted()` factory (below) instead.
+**Footgun:** `FluentRule::boolean()->accepted()` compiles to `boolean|accepted` — `boolean` rejects `'yes'` / `'on'` which `accepted` permits. For HTML-form-style inputs, use the standalone `FluentRule::accepted()` factory (below), or `FluentRule::boolean()->allowWords()->accepted()`.
 
 ## Accepted
 
