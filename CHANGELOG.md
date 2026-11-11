@@ -2,6 +2,27 @@
 
 All notable changes to `laravel-fluent-validation` will be documented in this file.
 
+## 1.37.0 - 2026-11-11
+
+<!-- verified-sha: dfb268f522905b1f52f85eec525dea6fdaffe527 -->
+### Added
+
+- Added `FluentRule::boolean()->allowWords()`. It also accepts `'true'`, `'false'`, `'yes'`, `'no'`, `'on'` and `'off'`, the values Laravel's `accepted` and `declined` rules accept. The match is case-sensitive. Read the value back with `$request->safe()->boolean('field')`.
+- A field with `allowWords()` gets no fast check, the same as `exists()`. The rule reference lists how custom messages and conditional rules differ from the plain `boolean` rule.
+
+### Changed
+
+- The `accepted` and `declined` hints for the untyped builder now point at `allowWords()`.
+- The closure parameter of `requiredUnless()`, `excludeUnless()` and `prohibitedUnless()` is now documented as `Closure(): bool`.
+
+### Internal
+
+- Fixed the PHPStan findings from larastan 3.14.
+
+**Full Changelog**: https://github.com/SanderMuller/laravel-fluent-validation/compare/1.36.0...1.37.0
+
+<!-- benchmark-start -->
+<!-- benchmark-end -->
 ## 1.36.0 - 2026-10-28
 
 <!-- verified-sha: c27cb91c13803744646935222582d47522be591b -->
@@ -371,6 +392,7 @@ Malformed wildcard rule key [items*]: a wildcard segment must be written as '.*'
 
 
 
+
 ```
 This matches the package's existing fail-fast on malformed array-rule keys.
 
@@ -453,6 +475,7 @@ illuminate/*: ^11.0||^12.0||^13.0  ->  ^12.0||^13.0
 
 
 
+
 ```
 The CI matrix drops its Laravel 11 legs (and the `orchestra/testbench ^9.0` requirement that only existed to test them); Laravel 12 and 13 remain, across PHP 8.2 / 8.3 / 8.4 on Ubuntu and Windows.
 
@@ -503,6 +526,7 @@ The file was plain markdown — zero Blade directives, zero render-time tokens �
 
 
 
+
 ```
 So the standing guidance never landed in `CLAUDE.md` / `AGENTS.md`; contributors only got it on-demand via the `fluent-validation*` skills, not as always-on context.
 
@@ -534,6 +558,7 @@ Conditional-required and presence modifiers never emit that literal `required` s
 FluentRule::email()->requiredIf($enabled)->nullable()
 // before: passed — requirement dropped          ❌
 // after:  fails, matching native Laravel         ✅
+
 
 
 
@@ -591,6 +616,7 @@ The remap built a synthetic `Validator::make([], [])`, pushed the error message 
 $caught->validator->errors()->keys();   // ['actions']                      ✅
 $caught->validator->errors()->first();  // human-readable message          ✅
 $caught->validator->failed();           // []                              ❌
+
 
 
 
@@ -666,6 +692,7 @@ $validated = RuleSet::from([
 
 
 
+
 ```
 Top-level keys outside the rule set are already excluded from `validated()`; this flag extends the same behavior to nested array shapes declared via `children()`, `each()`, or dotted rule keys. Maps to Laravel's `Validator::$excludeUnvalidatedArrayKeys`, but gives per-`RuleSet` control instead of relying on whatever the host factory's flag happens to be set to — useful when an application has called `Factory::includeUnvalidatedArrayKeys()` globally and a specific call site needs the strict default back.
 
@@ -683,6 +710,7 @@ $validated = RuleSet::from([...])->validate($request->all());
 
 // 1.27
 $validated = RuleSet::from([...])->validate($request);
+
 
 
 
