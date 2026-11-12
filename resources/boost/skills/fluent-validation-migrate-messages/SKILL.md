@@ -92,7 +92,7 @@ One file at a time. For each:
 2. Rewrite the chain with `message:` / `messageFor` / closure inline per the classification.
 3. Remove the migrated key from `messages()`.
 4. If `messages()` returns `[]` after all migrations, delete the method.
-5. Run tests on that file's FormRequest immediately (`vendor/bin/pest --filter={ClassName}`).
+5. Run the tests for that file's FormRequest immediately, with the project's test runner filtered to it (`vendor/bin/pest --filter={ClassName}` or `vendor/bin/phpunit --filter={ClassName}`).
 6. If tests fail, inspect and fix or revert — do not proceed to the next file until the current one is green.
 
 ## Step 6: Preserve behaviour — test parity
