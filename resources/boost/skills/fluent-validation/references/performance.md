@@ -24,11 +24,11 @@ The presence-conditional family (`required_with*` / `required_without*`) is fast
 
 `exists` and `unique` rules on wildcard arrays are automatically batched into a single `whereIn` query instead of one query per item. 500 items with `exists('products', 'id')` fires 1 query, not 500.
 
-**What's batched:** Simple `exists('table', 'column')` and `unique('table', 'column')` rules, including those with scalar `where()` clauses (e.g., `->exists('subjects', 'id', fn ($r) => $r->where('video_id', $id))`).
+**What's batched:** Simple `exists('table', 'column')` and `unique('table', 'column')` rules, including those with scalar `where()` clauses (e.g., `->exists('subjects', 'id', fn ($r) => $r->where('video_id', $id))`). Fields that run the same query with the same rule type share one batched query. Each different query (other `where()` clauses, connection or ignored id) gets its own.
 
-**What's NOT batched (falls through to per-item):** Rules with closure callbacks (`->where(fn ($q) => ...)`), rules without an explicit column, and non-wildcard single-field rules.
+**What's NOT batched (falls through to per-item):** Rules with closure callbacks (`->where(fn ($q) => ...)`), rules without an explicit column, rules with more than one `where()` on the same column, and (on newer Laravel releases) rules with a literal `where()` value of `NULL`, `NOT_NULL` or one starting with `!`.
 
-The batching is transparent — error messages, custom messages, `validated()` output, and `ignore()` on unique rules all work unchanged. Uses `useWritePdo()` to match Laravel's native verifier behavior in read/write split setups.
+The database compares the values, so collations and column types give the same result as Laravel's own query. The batching is transparent — error messages, custom messages, `validated()` output, and `ignore()` on unique rules all work unchanged. Uses `useWritePdo()` to match Laravel's native verifier behavior in read/write split setups.
 
 ```php
 use SanderMuller\FluentValidation\HasFluentRules;

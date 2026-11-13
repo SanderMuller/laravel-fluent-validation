@@ -56,7 +56,7 @@ function setupTestDatabase(): void
 
 it('precomputed verifier returns 1 for existing values and 0 for missing', function (): void {
     $verifier = new PrecomputedPresenceVerifier();
-    $verifier->addLookup('t', 'c', ['a', 'b', 'c']);
+    $verifier->addLookup('t', 'c', ['a', 'b', 'c']); // @phpstan-ignore method.deprecated (tests the deprecated method)
 
     expect($verifier->getCount('t', 'c', 'a'))->toBe(1)
         ->and($verifier->getCount('t', 'c', 'z'))->toBe(0);
@@ -64,7 +64,7 @@ it('precomputed verifier returns 1 for existing values and 0 for missing', funct
 
 it('precomputed verifier counts multi values correctly', function (): void {
     $verifier = new PrecomputedPresenceVerifier();
-    $verifier->addLookup('t', 'c', ['a', 'b', 'c']);
+    $verifier->addLookup('t', 'c', ['a', 'b', 'c']); // @phpstan-ignore method.deprecated (tests the deprecated method)
 
     expect($verifier->getMultiCount('t', 'c', ['a', 'b', 'z']))->toBe(2)
         ->and($verifier->getMultiCount('t', 'c', ['x', 'y']))->toBe(0);
@@ -72,8 +72,8 @@ it('precomputed verifier counts multi values correctly', function (): void {
 
 it('precomputed verifier scopes lookups by table and column', function (): void {
     $verifier = new PrecomputedPresenceVerifier();
-    $verifier->addLookup('users', 'email', ['alice@example.com']);
-    $verifier->addLookup('users', 'username', ['bob']);
+    $verifier->addLookup('users', 'email', ['alice@example.com']); // @phpstan-ignore method.deprecated (tests the deprecated method)
+    $verifier->addLookup('users', 'username', ['bob']); // @phpstan-ignore method.deprecated (tests the deprecated method)
 
     // Each lookup is independent
     expect($verifier->getCount('users', 'email', 'alice@example.com'))->toBe(1)
@@ -88,7 +88,7 @@ it('precomputed verifier scopes lookups by table and column', function (): void 
 
 it('precomputed verifier preserves custom messages keyed by rule name', function (): void {
     $verifier = new PrecomputedPresenceVerifier();
-    $verifier->addLookup('users', 'email', ['known@example.com']);
+    $verifier->addQueryLookup(null, 'users', 'email', [], null, null, ['known@example.com', 'unknown@example.com'], ['known@example.com']); // @phpstan-ignore method.internal
 
     $validator = Validator::make(
         ['email' => 'unknown@example.com'],
@@ -103,7 +103,7 @@ it('precomputed verifier preserves custom messages keyed by rule name', function
 
 it('precomputed verifier produces standard exists message', function (): void {
     $verifier = new PrecomputedPresenceVerifier();
-    $verifier->addLookup('users', 'email', ['known@example.com']);
+    $verifier->addQueryLookup(null, 'users', 'email', [], null, null, ['known@example.com', 'unknown@example.com'], ['known@example.com']); // @phpstan-ignore method.internal
 
     $validator = Validator::make(
         ['email' => 'unknown@example.com'],
@@ -117,7 +117,7 @@ it('precomputed verifier produces standard exists message', function (): void {
 
 it('precomputed verifier passes for values in the lookup set', function (): void {
     $verifier = new PrecomputedPresenceVerifier();
-    $verifier->addLookup('users', 'email', ['known@example.com']);
+    $verifier->addQueryLookup(null, 'users', 'email', [], null, null, ['known@example.com', 'unknown@example.com'], ['known@example.com']); // @phpstan-ignore method.internal
 
     $validator = Validator::make(
         ['email' => 'known@example.com'],
@@ -130,7 +130,7 @@ it('precomputed verifier passes for values in the lookup set', function (): void
 
 it('precomputed verifier preserves custom attributes', function (): void {
     $verifier = new PrecomputedPresenceVerifier();
-    $verifier->addLookup('users', 'email', ['known@example.com']);
+    $verifier->addQueryLookup(null, 'users', 'email', [], null, null, ['known@example.com', 'unknown@example.com'], ['known@example.com']); // @phpstan-ignore method.internal
 
     $validator = Validator::make(
         ['email' => 'unknown@example.com'],
@@ -413,7 +413,7 @@ it('precomputed verifier falls back to original verifier for unknown lookups', f
     $originalVerifier = resolve(DatabasePresenceVerifier::class);
     $verifier = new PrecomputedPresenceVerifier($originalVerifier);
     // Only email is pre-computed — username is NOT
-    $verifier->addLookup('users', 'email', ['alice@example.com']);
+    $verifier->addQueryLookup(null, 'users', 'email', [], null, null, ['alice@example.com', 'unknown@example.com'], ['alice@example.com']); // @phpstan-ignore method.internal
 
     // email lookup hits the precomputed set
     expect($verifier->getCount('users', 'email', 'alice@example.com'))->toBe(1)

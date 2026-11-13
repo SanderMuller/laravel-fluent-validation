@@ -67,10 +67,8 @@ it('FluentValidator batches exists queries for wildcard arrays', function (): vo
     $queryLog = DB::connection('testing')->getQueryLog();
     DB::connection('testing')->disableQueryLog();
 
-    // One batched whereIn (+ possibly a schema query), not one per item.
-    $existsQueries = array_filter($queryLog, static fn (array $q): bool => str_contains($q['query'], 'users'));
-
-    expect(count($existsQueries))->toBeLessThanOrEqual(2)
+    expect($queryLog)->toHaveCount(1)
+        ->and($queryLog[0]['query'])->toContain('"users"')
         ->and($validated['items'])->toHaveCount(3);
 });
 

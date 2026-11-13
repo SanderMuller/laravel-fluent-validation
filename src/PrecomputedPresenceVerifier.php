@@ -20,7 +20,8 @@ use Stringable;
  * for example from a rule with a closure or a different where clause, goes
  * to the fallback verifier.
  *
- * Lookups registered with addLookup() are scoped by table+column only.
+ * Lookups registered with the deprecated addLookup() are scoped by
+ * table+column only.
  */
 final class PrecomputedPresenceVerifier implements DatabasePresenceVerifierInterface
 {
@@ -40,6 +41,11 @@ final class PrecomputedPresenceVerifier implements DatabasePresenceVerifierInter
      * (databases do implicit type coercion on WHERE column = value).
      *
      * @param  array<int, mixed>  $values  Values that exist in the database
+     *
+     * @deprecated The lookup answers every call for the table and column, also
+     *             calls with other where conditions, connections or ignored ids.
+     *             The package no longer uses it. It will be removed in the next
+     *             major release.
      */
     public function addLookup(string $table, string $column, array $values): void
     {
