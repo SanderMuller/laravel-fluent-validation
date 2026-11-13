@@ -350,32 +350,37 @@ it('RuleSet path skips bad-type integer values when batching exists', function (
 // Phase 2: group-key disambiguation
 // =========================================================================
 
-it('exists and unique against same (table, column) fall back to per-item queries (conflict skip)', function (): void {
+it('exists and unique against same (table, column) share one lookup', function (): void {
     setupGuardsDatabase();
 
-    // Same (table, column) carrying both an exists and a unique group cannot
-    // be unambiguously routed through the shared PresenceVerifier interface
-    // — `getCount` is called by both rule types. registerLookups detects the
-    // conflict and registers neither lookup, letting the fallback
-    // DatabasePresenceVerifier handle each rule with a real per-item query.
+    // Without an ignored id, Laravel runs the same presence query for both
+    // rule types, so both groups answer from one lookup.
     $existsRule = Rule::exists('testing.widgets', 'uuid');
     $uniqueRule = Rule::unique('testing.widgets', 'uuid');
 
     $groups = [
-        'widgets:uuid:exists' => [
+        'testing.widgets:uuid:exists' => [
             'rule' => $existsRule,
             'values' => ['11111111-2222-3333-4444-555555555555'],
         ],
-        'widgets:uuid:unique' => [
+        'testing.widgets:uuid:unique' => [
             'rule' => $uniqueRule,
             'values' => ['99999999-0000-0000-0000-000000000000'],
         ],
     ];
 
     $verifier = BatchDatabaseChecker::buildVerifier($groups);
+    expect($verifier)->not->toBeNull();
 
-    // Verifier is null because no lookups were registered (both groups skipped).
-    expect($verifier)->toBeNull();
+    $verifier->setConnection('testing');
+    DB::connection('testing')->enableQueryLog();
+
+    expect($verifier->getCount('widgets', 'uuid', '11111111-2222-3333-4444-555555555555'))->toBe(1)
+        ->and($verifier->getCount('widgets', 'uuid', '99999999-0000-0000-0000-000000000000', null, 'id'))->toBe(0)
+        ->and(DB::connection('testing')->getQueryLog())
+        ->toBeEmpty();
+
+    DB::connection('testing')->disableQueryLog();
 });
 
 it('non-conflicting (different columns) exists and unique groups are both registered', function (): void {
@@ -397,11 +402,17 @@ it('non-conflicting (different columns) exists and unique groups are both regist
     ];
 
     $verifier = BatchDatabaseChecker::buildVerifier($groups);
+    expect($verifier)->not->toBeNull();
 
-    expect($verifier)->not->toBeNull()
-        ->and($verifier->getMultiCount('widgets', 'uuid', ['11111111-2222-3333-4444-555555555555']))->toBe(1)
+    $verifier->setConnection('testing');
+    DB::connection('testing')->enableQueryLog();
+
+    expect($verifier->getCount('widgets', 'uuid', '11111111-2222-3333-4444-555555555555'))->toBe(1)
         // id=1 exists in the table, so getCount returns 1 (unique fails, as expected).
-        ->and($verifier->getCount('widgets', 'id', '1'))->toBe(1);
+        ->and($verifier->getCount('widgets', 'id', '1', null, 'id'))->toBe(1)
+        ->and(DB::connection('testing')->getQueryLog())->toBeEmpty();
+
+    DB::connection('testing')->disableQueryLog();
 });
 
 it('collectExpandedValues keeps exists and unique against same (table, column) in separate groups', function (): void {

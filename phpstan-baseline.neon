@@ -101,26 +101,6 @@ parameters:
 			count: 1
 			path: src/Internal/ItemValidator.php
 
-		# BatchDatabaseChecker crossed the thresholds only through the
-		# cognitive-complexity 1.3.0 rescore, with no source change.
-		-
-			rawMessage: 'Class cognitive complexity is 96, keep it under 80'
-			identifier: complexity.classLike
-			count: 1
-			path: src/BatchDatabaseChecker.php
-
-		-
-			rawMessage: 'Cognitive complexity for "SanderMuller\FluentValidation\BatchDatabaseChecker::collectValues()" is 22, keep it under 20'
-			identifier: complexity.functionLike
-			count: 1
-			path: src/BatchDatabaseChecker.php
-
-		-
-			rawMessage: 'Cognitive complexity for "SanderMuller\FluentValidation\BatchDatabaseChecker::collectExpandedValues()" is 23, keep it under 20'
-			identifier: complexity.functionLike
-			count: 1
-			path: src/BatchDatabaseChecker.php
-
 		# Cross-version Filament guard. The trait may be mixed into components
 		# that lack getCachedForms (plain Livewire without InteractsWithForms),
 		# so the method_exists() check is required at runtime. PHPStan only ever

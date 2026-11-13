@@ -1,6 +1,9 @@
 <?php declare(strict_types=1);
 
 use Illuminate\Contracts\Validation\Factory;
+use Illuminate\Contracts\Validation\ValidationRule;
+use Illuminate\Contracts\Validation\Validator as ValidatorContract;
+use Illuminate\Database\Query\Builder;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Http\Request;
@@ -8,12 +11,17 @@ use Illuminate\Routing\Redirector;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Str;
 use Illuminate\Validation\DatabasePresenceVerifier;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\Rules\Exists;
+use Illuminate\Validation\Rules\Unique;
 use Illuminate\Validation\ValidationException;
+use Illuminate\Validation\Validator as BaseValidator;
 use SanderMuller\FluentValidation\BatchDatabaseChecker;
 use SanderMuller\FluentValidation\FluentRule;
 use SanderMuller\FluentValidation\HasFluentRules;
+use SanderMuller\FluentValidation\Internal\DatabaseRuleWheres;
 use SanderMuller\FluentValidation\PrecomputedPresenceVerifier;
 use SanderMuller\FluentValidation\RuleSet;
 
@@ -655,9 +663,305 @@ it('withoutTrashed exists rule batches correctly', function (): void {
     }
 
     // carol is soft-deleted, so exists with withoutTrashed should fail
-    // Note: withoutTrashed uses a closure callback, so this falls through to per-item
     expect($errors)->toHaveKey('items.1.email')
         ->and($errors)->not->toHaveKey('items.0.email');
+});
+
+it('batched where clauses match Laravel per-item validation', function (string $ruleType, string $case): void {
+    setupTestDatabase();
+    seedUserTypes();
+
+    $modify = static fn (Exists|Unique $rule): Exists|Unique => match ($case) {
+        'whereNot' => $rule->whereNot('type', 'admin'),
+        'whereNull' => $rule->whereNull('type'),
+        'whereNotNull' => $rule->whereNotNull('type'),
+        'leading !' => $rule->where('type', '!admin'),
+        'NOT_NULL' => $rule->where('type', 'NOT_NULL'),
+        default => throw new InvalidArgumentException($case),
+    };
+
+    $data = ['items' => [
+        ['email' => 'alice@example.com'],
+        ['email' => 'bob@example.com'],
+        ['email' => 'carol@example.com'],
+    ]];
+
+    $laravelRule = $ruleType === 'exists'
+        ? Rule::exists('testing.users', 'email')
+        : Rule::unique('testing.users', 'email');
+
+    $email = FluentRule::string()->required();
+    $email = $ruleType === 'exists'
+        ? $email->exists('testing.users', 'email', $modify)
+        : $email->unique('testing.users', 'email', $modify);
+
+    $errors = [];
+    $queries = countTestingUsersQueries(static function () use ($data, $email, &$errors): void {
+        $errors = ruleSetErrorKeys($data, [
+            'items' => FluentRule::array()->required()->each(['email' => $email]),
+        ]);
+    });
+
+    expect($errors)->toBe(laravelErrorKeys($data, [
+        'items' => ['required', 'array'],
+        'items.*.email' => ['required', 'string', $modify($laravelRule)],
+    ]));
+
+    // Releases with the `operator` where shape compare the literal cases
+    // literally and pass them as closures, so those run once per item.
+    $literal = in_array($case, ['leading !', 'NOT_NULL'], true);
+
+    expect($queries)->toBe($literal && whereShapeHasOperator() ? 3 : 1);
+})->with([
+    'exists',
+    'unique',
+])->with([
+    'whereNot',
+    'whereNull',
+    'whereNotNull',
+    'leading !',
+    'NOT_NULL',
+]);
+
+it('a where clause with a non-scalar value is not batched', function (): void {
+    // Older Laravel releases keep a Stringable where() value as an object.
+    // The batch query cannot replay it, so the rule must stay per-item
+    // instead of losing the clause.
+    expect(DatabaseRuleWheres::normalize([['column' => 'type', 'value' => Str::of('admin')]]))->toBeNull()
+        ->and(DatabaseRuleWheres::normalize([['column' => 'type', 'operator' => '=', 'value' => Str::of('admin')]]))->toBeNull()
+        ->and(DatabaseRuleWheres::normalize([['column' => 'type', 'value' => 'admin']]))
+        ->toBe([['column' => 'type', 'operator' => '=', 'value' => 'admin']]);
+});
+
+it('normalizes both where shapes to the conditions Laravel passes', function (array $wheres, ?array $conditions): void {
+    $normalized = DatabaseRuleWheres::normalize($wheres);
+
+    expect($normalized === null ? null : DatabaseRuleWheres::presenceConditions($normalized))->toBe($conditions);
+})->with([
+    'old: value' => [[['column' => 'type', 'value' => 'admin']], ['type' => 'admin']],
+    'old: !value' => [[['column' => 'type', 'value' => '!admin']], ['type' => '!admin']],
+    'old: NULL' => [[['column' => 'type', 'value' => 'NULL']], ['type' => 'NULL']],
+    'old: NOT_NULL' => [[['column' => 'type', 'value' => 'NOT_NULL']], ['type' => 'NOT_NULL']],
+    'old: int' => [[['column' => 'id', 'value' => 5]], ['id' => '5']],
+    'old: repeated column' => [[['column' => 'type', 'value' => 'a'], ['column' => 'type', 'value' => 'b']], null],
+    'new: =' => [[['column' => 'type', 'operator' => '=', 'value' => 'admin']], ['type' => 'admin']],
+    'new: !=' => [[['column' => 'type', 'operator' => '!=', 'value' => 'admin']], ['type' => '!admin']],
+    'new: NULL' => [[['column' => 'type', 'operator' => 'NULL', 'value' => null]], ['type' => 'NULL']],
+    'new: NOT_NULL' => [[['column' => 'type', 'operator' => 'NOT_NULL', 'value' => null]], ['type' => 'NOT_NULL']],
+    'new: literal NULL' => [[['column' => 'type', 'operator' => '=', 'value' => 'NULL']], null],
+    'new: literal NOT_NULL' => [[['column' => 'type', 'operator' => '=', 'value' => 'NOT_NULL']], null],
+    'new: literal !x' => [[['column' => 'type', 'operator' => '=', 'value' => '!admin']], null],
+    'new: unknown operator' => [[['column' => 'type', 'operator' => '>', 'value' => '1']], null],
+    'new: repeated column' => [[['column' => 'type', 'operator' => '!=', 'value' => 'a'], ['column' => 'type', 'operator' => '!=', 'value' => 'b']], null],
+    'missing column' => [[['value' => 'admin']], null],
+]);
+
+it('a batched lookup only answers the query it ran', function (string $scenario): void {
+    setupTestDatabase();
+    seedUserTypes();
+    seedOtherConnection();
+
+    [$fluentEach, $laravelRules, $item] = eachLookupScenario($scenario);
+    $data = ['items' => [$item]];
+
+    expect(ruleSetErrorKeys($data, ['items' => FluentRule::array()->required()->each($fluentEach)]))
+        ->toBe(laravelErrorKeys($data, $laravelRules));
+})->with([
+    'different where, restricted field first',
+    'different where, plain field first',
+    'two exists rules on one field',
+    'unique with different ignored ids',
+    'same table on two connections',
+    'where value with invalid UTF-8',
+    'ignored id with invalid UTF-8',
+    'exists with two where clauses on one column',
+    'unique with two where clauses on one column',
+    'unique ignoring the same id in different id columns',
+]);
+
+it('a batched lookup matches values the way the database compares them', function (string $ruleType, string $column, string $value): void {
+    setupTestDatabase();
+
+    // A case-insensitive column and an integer column: the database matches
+    // 'ALICE' to 'alice' and '05' to 5, so the batch must not compare the
+    // stored values with the input as plain strings.
+    DB::connection('testing')->statement('CREATE TABLE tags (id INTEGER PRIMARY KEY, name TEXT COLLATE NOCASE)');
+    DB::connection('testing')->table('tags')->insert(['id' => 5, 'name' => 'alice']);
+
+    $fluent = FluentRule::string();
+    $fluent = $ruleType === 'exists' ? $fluent->exists('testing.tags', $column) : $fluent->unique('testing.tags', $column);
+
+    $laravel = $ruleType === 'exists' ? Rule::exists('testing.tags', $column) : Rule::unique('testing.tags', $column);
+    $data = ['items' => [['field' => $value], ['field' => 'zed']]];
+
+    expect(ruleSetErrorKeys($data, ['items' => FluentRule::array()->each(['field' => $fluent])]))
+        ->toBe(laravelErrorKeys($data, ['items.*.field' => [$laravel]]));
+})->with([
+    'exists',
+    'unique',
+])->with([
+    'case-insensitive collation' => ['name', 'ALICE'],
+    'integer column, leading zero' => ['id', '05'],
+    'integer column, decimal' => ['id', '5.0'],
+]);
+
+it('an array-valued exists field counts distinct database values like Laravel', function (): void {
+    setupTestDatabase();
+
+    // '5' and '05' both match the row with id 5. Laravel counts distinct
+    // stored values (1) against two distinct inputs and rejects the array.
+    // The batched lookup from the plain field must not count them as two.
+    $data = ['items' => [['id' => '5', 'ids' => ['5', '05']], ['id' => '05', 'ids' => ['5']]]];
+    DB::connection('testing')->table('users')->insert(['id' => 5, 'email' => 'eve@example.com']);
+
+    expect(ruleSetErrorKeys($data, ['items' => FluentRule::array()->each([
+        'id' => FluentRule::string()->exists('testing.users', 'id'),
+        'ids' => FluentRule::array()->rule(Rule::exists('testing.users', 'id')),
+    ])]))->toBe(laravelErrorKeys($data, [
+        'items.*.id' => [Rule::exists('testing.users', 'id')],
+        'items.*.ids' => ['array', Rule::exists('testing.users', 'id')],
+    ]));
+});
+
+it('rules with the same where clauses in a different order share one batched query', function (): void {
+    setupTestDatabase();
+    seedUserTypes();
+
+    $items = [
+        ['a' => 'alice@example.com', 'b' => 'alice@example.com'],
+        ['a' => 'bob@example.com', 'b' => 'carol@example.com'],
+    ];
+
+    $errors = [];
+    $queries = countTestingUsersQueries(static function () use ($items, &$errors): void {
+        $errors = ruleSetErrorKeys(['items' => $items], ['items' => FluentRule::array()->each([
+            'a' => FluentRule::string()->exists('testing.users', 'email', fn (Exists $rule) => $rule->where('type', 'admin')->whereNotNull('email')),
+            'b' => FluentRule::string()->exists('testing.users', 'email', fn (Exists $rule) => $rule->whereNotNull('email')->where('type', 'admin')),
+        ])]);
+    });
+
+    expect($queries)->toBe(1)
+        ->and($errors)->toBe(['items.1.a', 'items.1.b']);
+});
+
+it('a FormRequest batched lookup only answers the query it ran', function (string $scenario): void {
+    setupTestDatabase();
+    seedUserTypes();
+
+    [$fluentRules, $laravelRules, $data] = formRequestLookupScenario($scenario);
+
+    $withValidator = $scenario === 'rule added in withValidator()'
+        ? static function (BaseValidator $validator): void {
+            $validator->sometimes('owner', [Rule::exists('testing.users', 'email')->where('type', 'admin')], static fn (): bool => true);
+        }
+    : null;
+
+    // getValidatorInstance() runs the full FormRequest lifecycle, so a rule
+    // added in withValidator() reaches the batched presence verifier.
+    $formRequest = createBatchFormRequest(rules: $fluentRules, data: $data, withValidator: $withValidator);
+    $validator = (new ReflectionMethod($formRequest, 'getValidatorInstance'))->invoke($formRequest);
+
+    if (! $validator instanceof ValidatorContract) {
+        throw new RuntimeException('getValidatorInstance() did not return a validator.');
+    }
+
+    $laravel = Validator::make($data, $laravelRules);
+    $withValidator?->__invoke($laravel);
+
+    $actual = $validator->errors()->keys();
+    $expected = $laravel->errors()->keys();
+    sort($actual);
+    sort($expected);
+
+    expect($actual)->toBe($expected);
+
+    if ($withValidator instanceof Closure) {
+        expect($expected)->toBe(['owner']);
+    }
+})->with([
+    'different where, plain field first',
+    'different where, restricted field first',
+    'plain field with a value the batch did not query',
+    'plain field with a closure rule',
+    'rule added in withValidator()',
+    'plain field with a value another field filtered out',
+]);
+
+it('the FormRequest path still batches into one query', function (bool $withWhere): void {
+    setupTestDatabase();
+    seedUserTypes();
+
+    $email = FluentRule::string()->exists(
+        'testing.users',
+        'email',
+        static fn (Exists $rule): Exists => $withWhere ? $rule->whereNotNull('type') : $rule,
+    );
+
+    $formRequest = createBatchFormRequest(
+        rules: ['items' => FluentRule::array()->each(['email' => $email])],
+        data: ['items' => [
+            ['email' => 'alice@example.com'],
+            ['email' => 'bob@example.com'],
+            ['email' => 'carol@example.com'],
+        ]],
+    );
+
+    $errors = [];
+    $queries = countTestingUsersQueries(static function () use ($formRequest, &$errors): void {
+        $validator = (fn () => $this->createDefaultValidator(resolve(Factory::class)))->call($formRequest);
+        $errors = $validator->errors()->keys();
+    });
+
+    expect($queries)->toBe(1)
+        ->and($errors)->toBe($withWhere ? ['items.2.email'] : []);
+})->with([
+    'without where' => [false],
+    'with where' => [true],
+]);
+
+it('fields that run the same query share one batched query', function (): void {
+    setupTestDatabase();
+
+    // Each field holds different values, so both fields' values must reach
+    // the shared query.
+    $items = [
+        ['a' => 'alice@example.com', 'b' => 'bob@example.com'],
+        ['a' => 'carol@example.com', 'b' => 'bob@example.com'],
+        ['a' => 'alice@example.com', 'b' => 'zed@example.com'],
+    ];
+
+    $errors = [];
+    $queries = countTestingUsersQueries(static function () use ($items, &$errors): void {
+        $errors = ruleSetErrorKeys(['items' => $items], ['items' => FluentRule::array()->each([
+            'a' => FluentRule::string()->exists('testing.users', 'email'),
+            'b' => FluentRule::string()->exists('testing.users', 'email'),
+        ])]);
+    });
+
+    expect($queries)->toBe(1)
+        ->and($errors)->toBe(['items.2.b']);
+});
+
+it('fields that run different queries each get one batched query', function (): void {
+    setupTestDatabase();
+    seedUserTypes();
+
+    $items = [
+        ['a' => 'alice@example.com', 'b' => 'bob@example.com'],
+        ['a' => 'alice@example.com', 'b' => 'carol@example.com'],
+        ['a' => 'bob@example.com', 'b' => 'alice@example.com'],
+    ];
+
+    $errors = [];
+    $queries = countTestingUsersQueries(static function () use ($items, &$errors): void {
+        $errors = ruleSetErrorKeys(['items' => $items], ['items' => FluentRule::array()->each([
+            'a' => FluentRule::string()->exists('testing.users', 'email', fn (Exists $rule) => $rule->where('type', 'admin')),
+            'b' => FluentRule::string()->exists('testing.users', 'email'),
+        ])]);
+    });
+
+    expect($queries)->toBe(2)
+        ->and($errors)->toBe(['items.2.a']);
 });
 
 it('empty string values are excluded from batch query', function (): void {
@@ -778,7 +1082,7 @@ it('duplicate values are deduplicated before batch query', function (): void {
  * @param  array<string, mixed>  $rules
  * @param  array<string, mixed>  $data
  */
-function createBatchFormRequest(array $rules, array $data): FormRequest
+function createBatchFormRequest(array $rules, array $data, ?Closure $withValidator = null): FormRequest
 {
     $formRequest = new class extends FormRequest {
         use HasFluentRules;
@@ -786,14 +1090,24 @@ function createBatchFormRequest(array $rules, array $data): FormRequest
         /** @var array<string, mixed> */
         public static array $testRules = [];
 
+        public static ?Closure $testWithValidator = null;
+
         /** @return array<string, mixed> */
         public function rules(): array
         {
             return self::$testRules;
         }
+
+        public function withValidator(BaseValidator $validator): void
+        {
+            if (self::$testWithValidator instanceof Closure) {
+                (self::$testWithValidator)($validator);
+            }
+        }
     };
 
     $formRequest::$testRules = $rules;
+    $formRequest::$testWithValidator = $withValidator;
 
     $request = Request::create('/test', 'POST', $data);
     $instance = $formRequest::createFrom($request);
@@ -801,4 +1115,265 @@ function createBatchFormRequest(array $rules, array $data): FormRequest
     $instance->setRedirector(resolve(Redirector::class));
 
     return $instance;
+}
+
+/** Give alice the type `admin` and bob the type `user`. Carol has no type. */
+function seedUserTypes(): void
+{
+    DB::connection('testing')->statement('ALTER TABLE users ADD COLUMN type VARCHAR(255) NULL');
+    DB::connection('testing')->table('users')->where('email', 'alice@example.com')->update(['type' => 'admin']);
+    DB::connection('testing')->table('users')->where('email', 'bob@example.com')->update(['type' => 'user']);
+}
+
+/** A second connection with its own users table that holds only zed. */
+function seedOtherConnection(): void
+{
+    config(['database.connections.other' => ['driver' => 'sqlite', 'database' => ':memory:']]);
+
+    Schema::connection('other')->create('users', function (Blueprint $table): void {
+        $table->id();
+        $table->string('email');
+    });
+
+    DB::connection('other')->table('users')->insert(['email' => 'zed@example.com']);
+}
+
+/**
+ * @param  array<string, mixed>  $data
+ * @param  array<string, mixed>  $rules
+ * @return list<string>
+ */
+function laravelErrorKeys(array $data, array $rules): array
+{
+    $keys = Validator::make($data, $rules)->errors()->keys();
+    sort($keys);
+
+    return $keys;
+}
+
+/**
+ * @param  array<string, mixed>  $data
+ * @param  array<string, mixed>  $rules
+ * @return list<string>
+ */
+function ruleSetErrorKeys(array $data, array $rules): array
+{
+    try {
+        RuleSet::from($rules)->validate($data);
+    } catch (ValidationException $validationException) {
+        $keys = array_keys($validationException->errors());
+        sort($keys);
+
+        return $keys;
+    }
+
+    return [];
+}
+
+function countTestingUsersQueries(Closure $callback): int
+{
+    DB::connection('testing')->flushQueryLog();
+    DB::connection('testing')->enableQueryLog();
+
+    try {
+        $callback();
+    } finally {
+        $log = DB::connection('testing')->getQueryLog();
+        DB::connection('testing')->disableQueryLog();
+    }
+
+    return count(array_filter($log, static fn (array $query): bool => str_contains($query['query'], 'users')));
+}
+
+/**
+ * @return array{0: array<string, ValidationRule>, 1: array<string, mixed>, 2: array<string, string>}
+ */
+function eachLookupScenario(string $scenario): array
+{
+    $admin = static fn (Exists $rule): Exists => $rule->where('type', 'admin');
+
+    return match ($scenario) {
+        'different where, restricted field first' => [
+            [
+                'a' => FluentRule::string()->exists('testing.users', 'email', $admin),
+                'b' => FluentRule::string()->exists('testing.users', 'email'),
+            ],
+            [
+                'items.*.a' => [Rule::exists('testing.users', 'email')->where('type', 'admin')],
+                'items.*.b' => [Rule::exists('testing.users', 'email')],
+            ],
+            ['a' => 'bob@example.com', 'b' => 'bob@example.com'],
+        ],
+        'different where, plain field first' => [
+            [
+                'b' => FluentRule::string()->exists('testing.users', 'email'),
+                'a' => FluentRule::string()->exists('testing.users', 'email', $admin),
+            ],
+            [
+                'items.*.b' => [Rule::exists('testing.users', 'email')],
+                'items.*.a' => [Rule::exists('testing.users', 'email')->where('type', 'admin')],
+            ],
+            ['b' => 'bob@example.com', 'a' => 'bob@example.com'],
+        ],
+        'two exists rules on one field' => [
+            [
+                'email' => FluentRule::string()
+                    ->exists('testing.users', 'email')
+                    ->exists('testing.users', 'email', $admin),
+            ],
+            [
+                'items.*.email' => [Rule::exists('testing.users', 'email'), Rule::exists('testing.users', 'email')->where('type', 'admin')],
+            ],
+            ['email' => 'bob@example.com'],
+        ],
+        'unique with different ignored ids' => [
+            [
+                'a' => FluentRule::string()->unique('testing.users', 'email', static fn (Unique $rule): Unique => $rule->ignore(1)),
+                'b' => FluentRule::string()->unique('testing.users', 'email', static fn (Unique $rule): Unique => $rule->ignore(2)),
+            ],
+            [
+                'items.*.a' => [Rule::unique('testing.users', 'email')->ignore(1)],
+                'items.*.b' => [Rule::unique('testing.users', 'email')->ignore(2)],
+            ],
+            ['a' => 'alice@example.com', 'b' => 'alice@example.com'],
+        ],
+        'same table on two connections' => [
+            [
+                'a' => FluentRule::string()->exists('testing.users', 'email'),
+                'b' => FluentRule::string()->exists('other.users', 'email'),
+            ],
+            [
+                'items.*.a' => [Rule::exists('testing.users', 'email')],
+                'items.*.b' => [Rule::exists('other.users', 'email')],
+            ],
+            ['a' => 'alice@example.com', 'b' => 'alice@example.com'],
+        ],
+        // Request input can carry invalid UTF-8 into a where() value or an
+        // ignored id. Validation must not crash on it.
+        'where value with invalid UTF-8' => [
+            ['email' => FluentRule::string()->exists('testing.users', 'email', static fn (Exists $rule): Exists => $rule->where('type', "\xFF"))],
+            ['items.*.email' => [Rule::exists('testing.users', 'email')->where('type', "\xFF")]],
+            ['email' => 'alice@example.com'],
+        ],
+        'ignored id with invalid UTF-8' => [
+            ['email' => FluentRule::string()->unique('testing.users', 'email', static fn (Unique $rule): Unique => $rule->ignore("\xFF"))],
+            ['items.*.email' => [Rule::unique('testing.users', 'email')->ignore("\xFF")]],
+            ['email' => 'alice@example.com'],
+        ],
+        // Older releases keep only the last clause for a column, newer ones
+        // keep both. The batch query must not decide either way.
+        'exists with two where clauses on one column' => [
+            ['email' => FluentRule::string()->exists('testing.users', 'email', static fn (Exists $rule): Exists => $rule->where('type', 'admin')->where('type', 'user'))],
+            ['items.*.email' => [Rule::exists('testing.users', 'email')->where('type', 'admin')->where('type', 'user')]],
+            ['email' => 'bob@example.com'],
+        ],
+        'unique with two where clauses on one column' => [
+            ['email' => FluentRule::string()->unique('testing.users', 'email', static fn (Unique $rule): Unique => $rule->where('type', 'admin')->where('type', 'user'))],
+            ['items.*.email' => [Rule::unique('testing.users', 'email')->where('type', 'admin')->where('type', 'user')]],
+            ['email' => 'bob@example.com'],
+        ],
+        'unique ignoring the same id in different id columns' => [
+            [
+                'a' => FluentRule::string()->unique('testing.users', 'email', static fn (Unique $rule): Unique => $rule->ignore('admin', 'type')),
+                'b' => FluentRule::string()->unique('testing.users', 'email', static fn (Unique $rule): Unique => $rule->ignore('admin', 'email')),
+            ],
+            [
+                'items.*.a' => [Rule::unique('testing.users', 'email')->ignore('admin', 'type')],
+                'items.*.b' => [Rule::unique('testing.users', 'email')->ignore('admin', 'email')],
+            ],
+            ['a' => 'alice@example.com', 'b' => 'alice@example.com'],
+        ],
+        default => throw new InvalidArgumentException($scenario),
+    };
+}
+
+/** Whether the installed Laravel stores database rule wheres with an `operator` key. */
+function whereShapeHasOperator(): bool
+{
+    $wheres = (new ReflectionProperty(Exists::class, 'wheres'))->getValue(Rule::exists('users')->where('type', 'x'));
+
+    return is_array($wheres) && is_array($wheres[0] ?? null) && array_key_exists('operator', $wheres[0]);
+}
+
+/**
+ * @return array{0: array<string, mixed>, 1: array<string, mixed>, 2: array<string, mixed>}
+ */
+function formRequestLookupScenario(string $scenario): array
+{
+    $admin = static fn (Exists $rule): Exists => $rule->where('type', 'admin');
+    $adminQuery = static fn (Builder $query): Builder => $query->where('type', 'admin');
+
+    return match ($scenario) {
+        'different where, plain field first' => [
+            [
+                'anyone' => FluentRule::array()->each(['email' => FluentRule::string()->exists('testing.users', 'email')]),
+                'admins' => FluentRule::array()->each(['email' => FluentRule::string()->exists('testing.users', 'email', $admin)]),
+            ],
+            [
+                'anyone.*.email' => [Rule::exists('testing.users', 'email')],
+                'admins.*.email' => [Rule::exists('testing.users', 'email')->where('type', 'admin')],
+            ],
+            ['anyone' => [['email' => 'bob@example.com']], 'admins' => [['email' => 'bob@example.com']]],
+        ],
+        'different where, restricted field first' => [
+            [
+                'admins' => FluentRule::array()->each(['email' => FluentRule::string()->exists('testing.users', 'email', $admin)]),
+                'anyone' => FluentRule::array()->each(['email' => FluentRule::string()->exists('testing.users', 'email')]),
+            ],
+            [
+                'admins.*.email' => [Rule::exists('testing.users', 'email')->where('type', 'admin')],
+                'anyone.*.email' => [Rule::exists('testing.users', 'email')],
+            ],
+            ['admins' => [['email' => 'bob@example.com']], 'anyone' => [['email' => 'bob@example.com']]],
+        ],
+        'plain field with a value the batch did not query' => [
+            [
+                'owner' => FluentRule::string()->exists('testing.users', 'email'),
+                'items' => FluentRule::array()->each(['email' => FluentRule::string()->exists('testing.users', 'email')]),
+            ],
+            [
+                'owner' => [Rule::exists('testing.users', 'email')],
+                'items.*.email' => [Rule::exists('testing.users', 'email')],
+            ],
+            ['owner' => 'carol@example.com', 'items' => [['email' => 'alice@example.com']]],
+        ],
+        'plain field with a closure rule' => [
+            [
+                'owner' => FluentRule::string()->exists('testing.users', 'email', static fn (Exists $rule): Exists => $rule->using($adminQuery)),
+                'items' => FluentRule::array()->each(['email' => FluentRule::string()->exists('testing.users', 'email')]),
+            ],
+            [
+                'owner' => [Rule::exists('testing.users', 'email')->using($adminQuery)],
+                'items.*.email' => [Rule::exists('testing.users', 'email')],
+            ],
+            ['owner' => 'bob@example.com', 'items' => [['email' => 'bob@example.com']]],
+        ],
+        // The wildcard field's integer rule keeps alice out of the batch. The
+        // owner field runs the same unique query and must still see her as taken.
+        'plain field with a value another field filtered out' => [
+            [
+                'owner' => ['required', 'string', Rule::unique('testing.users', 'email')],
+                'items' => ['required', 'array'],
+                'items.*.email' => ['required', 'integer', Rule::unique('testing.users', 'email')],
+            ],
+            [
+                'owner' => ['required', 'string', Rule::unique('testing.users', 'email')],
+                'items' => ['required', 'array'],
+                'items.*.email' => ['required', 'integer', Rule::unique('testing.users', 'email')],
+            ],
+            ['owner' => 'alice@example.com', 'items' => [['email' => 'alice@example.com'], ['email' => '5']]],
+        ],
+        'rule added in withValidator()' => [
+            [
+                'owner' => FluentRule::string(),
+                'items' => FluentRule::array()->each(['email' => FluentRule::string()->exists('testing.users', 'email')]),
+            ],
+            [
+                'owner' => ['string'],
+                'items.*.email' => [Rule::exists('testing.users', 'email')],
+            ],
+            ['owner' => 'bob@example.com', 'items' => [['email' => 'bob@example.com']]],
+        ],
+        default => throw new InvalidArgumentException($scenario),
+    };
 }

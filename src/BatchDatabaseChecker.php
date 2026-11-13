@@ -6,10 +6,9 @@ use Illuminate\Validation\DatabasePresenceVerifier;
 use Illuminate\Validation\PresenceVerifierInterface;
 use Illuminate\Validation\Rules\Exists;
 use Illuminate\Validation\Rules\Unique;
-use ReflectionException;
-use ReflectionProperty;
 use SanderMuller\FluentValidation\Exceptions\BatchLimitExceededException;
 use SanderMuller\FluentValidation\Internal\BatchPresenceQuery;
+use SanderMuller\FluentValidation\Internal\DatabaseRuleMeta;
 use SanderMuller\FluentValidation\Internal\ValueTypePredicates;
 use Stringable;
 use Throwable;
@@ -22,8 +21,8 @@ use Throwable;
  * per-item validators, keeping original rule objects intact for correct
  * error message resolution.
  *
- * Only batchable for rules without closure callbacks. Rules with
- * queryCallbacks() fall through to per-item validation as before.
+ * A rule is batched only when its query can be replayed exactly (see
+ * isBatchable()). Other rules fall through to per-item validation.
  */
 final class BatchDatabaseChecker
 {
@@ -52,8 +51,9 @@ final class BatchDatabaseChecker
     }
 
     /**
-     * Check if a database rule can be batched.
-     * Rules with closure callbacks are not batchable.
+     * Check if a database rule can be batched: it has an explicit column, no
+     * closure callbacks, and where clauses and an ignored id that can be
+     * replayed exactly.
      */
     public static function isBatchable(Exists|Unique $rule): bool
     {
@@ -61,23 +61,19 @@ final class BatchDatabaseChecker
             return false;
         }
 
-        // Rules without an explicit column (column='NULL') rely on Laravel
-        // inferring the column from the attribute name at validation time.
-        // We can't replicate that inference, so skip batching.
-        try {
-            $column = self::readProperty($rule, 'column');
+        // A rule stays per-item when its where clauses or ignored id cannot be
+        // replayed exactly, or when Laravel infers its column from the
+        // attribute name (column 'NULL').
+        $meta = DatabaseRuleMeta::extract($rule);
 
-            return is_string($column) && $column !== 'NULL';
-        } catch (ReflectionException) {
-            return false;
-        }
+        return $meta !== null && $meta['column'] !== '';
     }
 
     /**
      * Batch-query which values exist in the database for an Exists rule.
      *
      * @param  array<int, mixed>  $values  Deduplicated, non-null values to check
-     * @return array<int, mixed>  Values that exist in the DB
+     * @return array<int, mixed>  The given values that match a row, as the database compares them
      */
     public static function fetchExisting(array $values, Exists $rule): array
     {
@@ -85,10 +81,10 @@ final class BatchDatabaseChecker
             return [];
         }
 
-        $meta = self::extractMeta($rule);
+        $meta = DatabaseRuleMeta::extract($rule);
 
         if ($meta === null) {
-            return $values; // Reflection failed — assume all exist (safe fallback)
+            return $values; // Not batchable (see isBatchable()) — assume all exist
         }
 
         return BatchPresenceQuery::run($meta['connection'], $meta['table'], $meta['column'], $values, $meta['wheres']);
@@ -98,7 +94,7 @@ final class BatchDatabaseChecker
      * Batch-query which values are already taken for a Unique rule.
      *
      * @param  array<int, mixed>  $values  Deduplicated, non-null values to check
-     * @return array<int, mixed>  Values that already exist (taken)
+     * @return array<int, mixed>  The given values that are taken, as the database compares them
      */
     public static function fetchTaken(array $values, Unique $rule): array
     {
@@ -106,10 +102,10 @@ final class BatchDatabaseChecker
             return [];
         }
 
-        $meta = self::extractMeta($rule);
+        $meta = DatabaseRuleMeta::extract($rule);
 
         if ($meta === null) {
-            return []; // Reflection failed — assume none taken (safe fallback: lets per-item handle it)
+            return []; // Not batchable (see isBatchable()) — assume none taken
         }
 
         return BatchPresenceQuery::run(
@@ -137,7 +133,7 @@ final class BatchDatabaseChecker
      */
     public static function getVerifierTable(Exists|Unique $rule): ?string
     {
-        return self::extractMeta($rule)['table'] ?? null;
+        return DatabaseRuleMeta::extract($rule)['table'] ?? null;
     }
 
     /**
@@ -145,7 +141,7 @@ final class BatchDatabaseChecker
      */
     public static function getVerifierColumn(Exists|Unique $rule): ?string
     {
-        return self::extractMeta($rule)['column'] ?? null;
+        return DatabaseRuleMeta::extract($rule)['column'] ?? null;
     }
 
     /**
@@ -175,7 +171,7 @@ final class BatchDatabaseChecker
     }
 
     /**
-     * Collect values from items for batchable rules and group by table:column.
+     * Collect values from items for batchable rules and group them by groupKey().
      *
      * @param  array<string, Exists|Unique>  $batchableFields
      * @param  array<int|string, mixed>  $items
@@ -209,26 +205,20 @@ final class BatchDatabaseChecker
             $filtered = (is_array($rulesForField) || is_string($rulesForField))
                 ? self::filterValuesByType($raw, $rulesForField)
                 : $raw;
-            $values = self::uniqueStringValues($filtered);
+            $key = self::groupKey($rule);
 
-            if ($values === []) {
+            if ($filtered === [] || $key === null) {
                 continue;
             }
 
-            $table = self::getVerifierTable($rule);
-            $column = self::getVerifierColumn($rule);
-            if ($table === null) {
-                continue;
-            }
-
-            if ($column === null) {
-                continue;
-            }
-
-            $groups[self::groupKey($table, $column, $rule)] = ['rule' => $rule, 'values' => $values];
+            // Fields with the same group key run one query on all their values.
+            $groups[$key] = [
+                'rule' => $groups[$key]['rule'] ?? $rule,
+                'values' => [...$groups[$key]['values'] ?? [], ...$filtered],
+            ];
         }
 
-        return $groups;
+        return self::uniqueGroupValues($groups);
     }
 
     /**
@@ -244,8 +234,6 @@ final class BatchDatabaseChecker
     {
         /** @var array<string, array{rule: Exists|Unique, values: list<mixed>}> $groups */
         $groups = [];
-        /** @var array<string, array<mixed>|string> $groupItemRules */
-        $groupItemRules = [];
 
         foreach ($preparedRules as $attribute => $attributeRules) {
             if (! is_array($attributeRules)) {
@@ -261,47 +249,66 @@ final class BatchDatabaseChecker
                     continue;
                 }
 
-                $table = self::getVerifierTable($rule);
-                $column = self::getVerifierColumn($rule);
-                if ($table === null) {
+                $key = self::groupKey($rule);
+
+                if ($key === null) {
                     continue;
                 }
 
-                if ($column === null) {
-                    continue;
-                }
-
-                $key = self::groupKey($table, $column, $rule);
                 $groups[$key] ??= ['rule' => $rule, 'values' => []];
-                $groupItemRules[$key] ??= $attributeRules;
 
                 $value = data_get($data, $attribute);
 
-                if ($value !== null && $value !== '') {
-                    $groups[$key]['values'][] = $value;
+                if ($value === null || $value === '') {
+                    continue;
                 }
+
+                // Filter with this attribute's own type rules: attributes that
+                // share a group can carry different ones.
+                array_push($groups[$key]['values'], ...self::filterValuesByType([$value], $attributeRules));
             }
         }
 
+        return self::uniqueGroupValues(array_filter($groups, static fn (array $group): bool => $group['values'] !== []));
+    }
+
+    /**
+     * @param  array<string, array{rule: Exists|Unique, values: list<mixed>}>  $groups
+     * @return array<string, array{rule: Exists|Unique, values: list<mixed>}>
+     */
+    private static function uniqueGroupValues(array $groups): array
+    {
         foreach ($groups as $key => $group) {
-            $filtered = self::filterValuesByType(
-                $group['values'],
-                $groupItemRules[$key] ?? [],
-            );
-            $groups[$key]['values'] = self::uniqueStringValues($filtered);
+            $groups[$key]['values'] = self::uniqueStringValues($group['values']);
         }
 
         return $groups;
     }
 
     /**
-     * Build the grouping key for a batched rule. Disambiguates exists / unique
-     * against the same (table, column) so a validator carrying both rules
-     * does not conflate them.
+     * Rules share a group only when they run the same query and have the
+     * same rule type.
      */
-    private static function groupKey(string $table, string $column, Exists|Unique $rule): string
+    private static function groupKey(Exists|Unique $rule): ?string
     {
-        return $table . ':' . $column . ':' . ($rule instanceof Unique ? 'unique' : 'exists');
+        $meta = DatabaseRuleMeta::extract($rule);
+
+        if ($meta === null) {
+            return null;
+        }
+
+        $key = ($meta['connection'] !== null ? $meta['connection'] . '.' : '')
+            . $meta['table'] . ':' . $meta['column'] . ':' . ($rule instanceof Unique ? 'unique' : 'exists');
+
+        if ($meta['conditions'] === [] && $meta['ignore'] === null) {
+            return $key;
+        }
+
+        $conditions = $meta['conditions'];
+        ksort($conditions, SORT_STRING);
+
+        // serialize() cannot fail on strings; json_encode() fails on invalid UTF-8.
+        return $key . ' ' . serialize([$conditions, $meta['ignore'], $meta['idColumn']]);
     }
 
     /**
@@ -360,19 +367,17 @@ final class BatchDatabaseChecker
      */
     private static function assertWithinCap(array $groups): void
     {
-        foreach ($groups as $key => $group) {
+        foreach ($groups as $group) {
             $count = count($group['values']);
 
             if ($count <= self::$maxValuesPerGroup) {
                 continue;
             }
 
-            [$table, $column, $ruleType] = self::parseGroupKey($key);
-
             throw new BatchLimitExceededException(
-                table: $table,
-                column: $column,
-                ruleType: $ruleType,
+                table: self::getVerifierTable($group['rule']) ?? '',
+                column: self::getVerifierColumn($group['rule']) ?? '',
+                ruleType: $group['rule'] instanceof Unique ? 'unique' : 'exists',
                 reason: BatchLimitExceededException::REASON_HARD_CAP,
                 valueCount: $count,
                 limit: self::$maxValuesPerGroup,
@@ -386,31 +391,19 @@ final class BatchDatabaseChecker
      * Groups are already filtered + deduped by the collector — no further
      * normalisation here.
      *
-     * If the same (table, column) appears in BOTH an `exists` and a `unique`
-     * group in this validator, the two rules need semantically distinct
-     * lookups (unique with `ignore()` excludes a specific row from "taken")
-     * but Laravel's presence-verifier interface — `getCount` is called by
-     * both rule types — cannot route to the right bucket from the method
-     * alone. Register neither; the fallback `DatabasePresenceVerifier` then
-     * handles each rule correctly via per-item queries. Rare case, small
-     * perf hit — exists and unique on the same (table, column) is unusual.
+     * Lookups are keyed by the exact verifier call, so a rule never reads
+     * another query's result. Exists and unique without an ignored id run the
+     * same query and share one lookup.
      *
-     * @param  array<string, array{rule: Exists|Unique, values: list<mixed>}>  $groups  Keyed by "table:column:ruleType"
+     * @param  array<string, array{rule: Exists|Unique, values: list<mixed>}>  $groups
      */
     public static function registerLookups(PrecomputedPresenceVerifier $verifier, array $groups): void
     {
-        $conflicting = self::findConflictingTableColumns($groups);
-
-        foreach ($groups as $key => $group) {
+        foreach ($groups as $group) {
             $values = $group['values'];
+            $meta = DatabaseRuleMeta::extract($group['rule']);
 
-            if ($values === []) {
-                continue;
-            }
-
-            [$table, $column] = self::parseGroupKey($key);
-
-            if (isset($conflicting[$table . ':' . $column])) {
+            if ($values === [] || $meta === null) {
                 continue;
             }
 
@@ -418,103 +411,16 @@ final class BatchDatabaseChecker
                 ? self::fetchTaken($values, $group['rule'])
                 : self::fetchExisting($values, $group['rule']);
 
-            $verifier->addLookup($table, $column, $fetched);
-        }
-    }
-
-    /**
-     * Return the set of "table:column" strings that appear under more than
-     * one rule type in the grouped rules (i.e. both an exists and a unique
-     * group exist for the same physical column).
-     *
-     * @param  array<string, array{rule: Exists|Unique, values: list<mixed>}>  $groups
-     * @return array<string, true>
-     */
-    private static function findConflictingTableColumns(array $groups): array
-    {
-        /** @var array<string, array<string, true>> $seen */
-        $seen = [];
-
-        foreach (array_keys($groups) as $key) {
-            [$table, $column, $ruleType] = self::parseGroupKey($key);
-            $seen[$table . ':' . $column][$ruleType] = true;
-        }
-
-        $conflicting = [];
-
-        foreach ($seen as $tableColumn => $ruleTypes) {
-            if (count($ruleTypes) > 1) {
-                $conflicting[$tableColumn] = true;
-            }
-        }
-
-        return $conflicting;
-    }
-
-    /**
-     * @return array{0: string, 1: string, 2: string}
-     */
-    private static function parseGroupKey(string $key): array
-    {
-        $parts = explode(':', $key, 3);
-
-        return [$parts[0] ?? '', $parts[1] ?? '', $parts[2] ?? 'exists'];
-    }
-
-    /**
-     * Extract metadata from a database rule via reflection.
-     *
-     * @return array{connection: string|null, table: string, column: string, wheres: array<int, array{column: string, value: string}>, ignore: mixed, idColumn: string}|null
-     */
-    private static function extractMeta(Exists|Unique $rule): ?array
-    {
-        try {
-            $table = self::readProperty($rule, 'table');
-            $column = self::readProperty($rule, 'column');
-            $wheres = self::readProperty($rule, 'wheres');
-
-            if (! is_string($table) || ! is_string($column) || ! is_array($wheres)) {
-                return null;
-            }
-
-            // Parse connection.table format (matching Laravel's parseTable())
-            $connection = null;
-
-            if (str_contains($table, '.')) {
-                $parts = explode('.', $table, 2);
-                $connection = $parts[0];
-                $table = $parts[1];
-            }
-
-            $ignore = null;
-            $idColumn = 'id';
-
-            if ($rule instanceof Unique) {
-                $ignore = self::readProperty($rule, 'ignore');
-                $rawIdColumn = self::readProperty($rule, 'idColumn');
-                $idColumn = is_string($rawIdColumn) ? $rawIdColumn : 'id';
-            }
-
-            /** @var array<int, array{column: string, value: string}> $typedWheres */
-            $typedWheres = [];
-
-            foreach ($wheres as $where) {
-                if (is_array($where) && isset($where['column'], $where['value'])
-                    && is_string($where['column']) && is_scalar($where['value'])) {
-                    $typedWheres[] = ['column' => $where['column'], 'value' => (string) $where['value']];
-                }
-            }
-
-            return [
-                'connection' => $connection,
-                'table' => $table,
-                'column' => $column === 'NULL' ? '' : $column,
-                'wheres' => $typedWheres,
-                'ignore' => $ignore,
-                'idColumn' => $idColumn,
-            ];
-        } catch (ReflectionException) {
-            return null;
+            $verifier->addQueryLookup(
+                $meta['connection'],
+                $meta['table'],
+                $meta['column'],
+                $meta['conditions'],
+                $meta['ignore'],
+                $meta['idColumn'],
+                $values,
+                $fetched,
+            );
         }
     }
 
@@ -533,10 +439,5 @@ final class BatchDatabaseChecker
             ),
             SORT_STRING,
         ));
-    }
-
-    private static function readProperty(object $object, string $property): mixed
-    {
-        return (new ReflectionProperty($object, $property))->getValue($object);
     }
 }

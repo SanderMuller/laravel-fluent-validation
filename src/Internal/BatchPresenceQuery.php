@@ -7,19 +7,28 @@ use Illuminate\Support\Facades\DB;
 
 /**
  * Runs the batched whereIn query for exists/unique presence verification,
- * replaying Laravel's scalar where conditions (NULL / NOT_NULL / !value /
- * literal) and the unique-rule ignore clause.
+ * replaying the rule's where conditions (normalized to explicit operators by
+ * DatabaseRuleWheres) and the unique-rule ignore clause.
+ *
+ * The database decides which input values match, with one
+ * `MAX(CASE WHEN column = ? ...)` column per value. A collation or a type
+ * coercion can match a stored value that differs from the input ('ALICE'
+ * and 'alice', '05' and 5), so comparing the stored values with the input
+ * in PHP gives wrong results.
+ *
+ * @phpstan-import-type NormalizedWhere from DatabaseRuleWheres
  *
  * @internal
  */
 final class BatchPresenceQuery
 {
-    private const CHUNK_SIZE = 1000;
+    /** Each value is bound twice; SQL Server allows 2100 parameters per query. */
+    private const CHUNK_SIZE = 500;
 
     /**
      * @param  array<int, mixed>  $values
-     * @param  array<int, array{column: string, value: string}>  $wheres
-     * @return array<int, mixed>
+     * @param  list<NormalizedWhere>  $wheres
+     * @return list<mixed>  The input values that match a row
      */
     public static function run(
         ?string $connection,
@@ -30,8 +39,7 @@ final class BatchPresenceQuery
         mixed $ignore = null,
         string $idColumn = 'id',
     ): array {
-        /** @var list<array<int, mixed>> $chunks */
-        $chunks = [];
+        $matched = [];
 
         foreach (array_chunk($values, self::CHUNK_SIZE) as $chunk) {
             $query = ($connection !== null
@@ -39,9 +47,18 @@ final class BatchPresenceQuery
                 : DB::table($table)
             )->useWritePdo();
 
+            $wrappedColumn = $query->getGrammar()->wrap($column);
+            $selects = [];
+
+            foreach (array_keys($chunk) as $index) {
+                $selects[] = "MAX(CASE WHEN {$wrappedColumn} = ? THEN 1 ELSE 0 END) AS m{$index}";
+            }
+
+            // The column is quoted by the grammar and every value is bound.
+            $query->selectRaw(implode(', ', $selects), $chunk); // @phpstan-ignore argument.type
             $query->whereIn($column, $chunk);
 
-            // Replay scalar where conditions (matches DatabasePresenceVerifier::addWhere()).
+            // Replay where conditions (matches DatabasePresenceVerifier::addWhere()).
             foreach ($wheres as $where) {
                 self::applyWhere($query, $where);
             }
@@ -50,39 +67,29 @@ final class BatchPresenceQuery
                 $query->where($idColumn, '<>', $ignore);
             }
 
-            $chunks[] = array_values($query->pluck($column)->all());
+            $row = (array) $query->first();
+
+            foreach ($chunk as $index => $value) {
+                $flag = $row['m' . $index] ?? 0;
+
+                // Drivers return the flag as an int or as a string.
+                if ($flag === 1 || $flag === '1') {
+                    $matched[] = $value;
+                }
+            }
         }
 
-        return array_merge(...$chunks);
+        return $matched;
     }
 
-    /**
-     * Apply a single Laravel-style where condition to the query.
-     *
-     * @param  array{column: string, value: string}  $where
-     */
+    /** @param  NormalizedWhere  $where */
     private static function applyWhere(Builder $query, array $where): void
     {
-        $extraValue = $where['value'];
-
-        if ($extraValue === 'NULL') {
-            $query->whereNull($where['column']);
-
-            return;
-        }
-
-        if ($extraValue === 'NOT_NULL') {
-            $query->whereNotNull($where['column']);
-
-            return;
-        }
-
-        if (str_starts_with($extraValue, '!')) {
-            $query->where($where['column'], '!=', mb_substr($extraValue, 1));
-
-            return;
-        }
-
-        $query->where($where['column'], $extraValue);
+        match ($where['operator']) {
+            'NULL' => $query->whereNull($where['column']),
+            'NOT_NULL' => $query->whereNotNull($where['column']),
+            '!=' => $query->where($where['column'], '!=', $where['value']),
+            '=' => $query->where($where['column'], $where['value']),
+        };
     }
 }
