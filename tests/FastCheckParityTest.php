@@ -759,3 +759,15 @@ it('fast-checks date and digits input like Laravel', function (string $rule, mix
     'digits, true' => ['digits:1', true],
     'digits, a digit string' => ['digits:2', '12'],
 ]);
+
+it('fast-checks decimal size bounds like Laravel', function (string $rule, mixed $value): void {
+    $closure = FastCheckCompiler::compile($rule);
+    $laravel = Validator::make(['f' => $value], ['f' => $rule])->passes();
+
+    expect($closure instanceof Closure ? $closure($value) : $laravel)->toBe($laravel);
+})->with([
+    'numeric min below a decimal bound' => ['numeric|min:0.01', 0.005],
+    'numeric min above a decimal bound' => ['numeric|min:0.01', 0.02],
+    'string min with a decimal bound' => ['string|min:2.5', 'ab'],
+    'numeric max above a decimal bound' => ['numeric|max:1.5', 1.7],
+]);

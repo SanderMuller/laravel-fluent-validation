@@ -92,8 +92,9 @@ final class RuleConfigBuilder
             $part === 'sometimes' => null,
             $part === 'bail' => $config,
             // Size bounds intersect: Laravel applies every min/max/between rule.
-            str_starts_with($part, 'min:') => [...$config, 'min' => max((int) substr($part, 4), $config['min'] ?? PHP_INT_MIN)],
-            str_starts_with($part, 'max:') => [...$config, 'max' => min((int) substr($part, 4), $config['max'] ?? PHP_INT_MAX)],
+            // Integer bounds only: a decimal bound such as min:0.01 stays with Laravel.
+            preg_match('/^min:(-?\d+)$/', $part, $bound) === 1 => [...$config, 'min' => max((int) $bound[1], $config['min'] ?? PHP_INT_MIN)],
+            preg_match('/^max:(-?\d+)$/', $part, $bound) === 1 => [...$config, 'max' => min((int) $bound[1], $config['max'] ?? PHP_INT_MAX)],
             preg_match('/^between:(\d+),(\d+)$/', $part, $bounds) === 1 => [
                 ...$config,
                 'min' => max((int) $bounds[1], $config['min'] ?? PHP_INT_MIN),

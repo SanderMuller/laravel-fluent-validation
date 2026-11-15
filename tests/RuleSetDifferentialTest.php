@@ -19,7 +19,7 @@ const DIFFERENTIAL_RULE_PARTS = [
     'string', 'numeric', 'integer', 'boolean', 'array', 'email', 'date', 'url', 'uuid',
     'alpha', 'alpha_dash', 'alpha_num', 'accepted', 'declined',
     'required', 'nullable', 'sometimes', 'bail', 'filled', 'present',
-    'min:1', 'min:3', 'max:2', 'max:10', 'between:1,10', 'between:2,4', 'size:3', 'digits:2', 'digits_between:1,3',
+    'min:1', 'min:3', 'max:2', 'max:10', 'min:0.5', 'max:1.5', 'between:1,10', 'between:2,4', 'size:3', 'digits:2', 'digits_between:1,3',
     'in:a,b', 'in:b,c', 'in:"a,b"', 'not_in:a', 'not_in:b,c', 'regex:/^a/', 'regex:/^(a|b)$/', 'not_regex:/z/',
     'date_format:Y-m-d', 'date_format:d/m/Y', 'after:2025-01-01', 'before:2026-01-01', 'after_or_equal:2025-01-01', 'date_equals:2025-06-01',
     'required_if:items.*.type,a', 'required_if:items.*.flag,true', 'required_unless:items.*.type,b',
@@ -34,7 +34,7 @@ const DIFFERENTIAL_TUPLES = [['required_if', 'items.*.type', 'a'], ['required_wi
 
 const DIFFERENTIAL_VALUES = [
     null, '', 'a', 'b', 'c', 'abc', 'a,b', '5', 5, 5.5, '99', 99, 0, '0', '1', true, false, [], ['x'], ['x', 'y', 'z'],
-    '2020-01-01', '2025-06-01', '2026-06-01', '01/12/2025', 'test@example.com', 'https://x.test', '12', 'ab',
+    0.2, 1.7, '2020-01-01', '2025-06-01', '2026-06-01', '01/12/2025', 'test@example.com', 'https://x.test', '12', 'ab',
 ];
 
 /**
