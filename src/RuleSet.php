@@ -883,18 +883,15 @@ final class RuleSet implements Arrayable, IteratorAggregate
             // this point, so strip it here or the per-item reducer's data_get on
             // the relative item never resolves it.
             if (is_object($rule) && method_exists($rule, 'compiledRules')) {
-                $compiled = $rule->compiledRules();
+                $rule = $rule->compiledRules();
+            }
 
-                if (is_string($compiled)) {
-                    // Strip the prefix on the whole string — never explode on '|',
-                    // which would corrupt a regex token like `regex:/^(a|b)$/`.
-                    // Laravel's own parser splits the pipe-string downstream.
-                    $rewritten[$field] = str_replace($prefix, '', $compiled);
+            // Strip on the whole string; exploding on '|' would corrupt a
+            // regex token like `regex:/^(a|b)$/`.
+            if (is_string($rule)) {
+                $rewritten[$field] = str_replace($prefix, '', $rule);
 
-                    continue;
-                }
-
-                $rule = $compiled;
+                continue;
             }
 
             $rewritten[$field] = is_array($rule)
