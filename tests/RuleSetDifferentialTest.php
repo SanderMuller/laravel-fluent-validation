@@ -1,5 +1,6 @@
 <?php declare(strict_types=1);
 
+use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Validation\Rule;
 use Random\Engine\Mt19937;
 use Random\Randomizer;
@@ -49,6 +50,35 @@ function differentialPick(Randomizer $random, array $list): mixed
 }
 
 /**
+ * A plain custom rule, and one that declares itself implicit.
+ *
+ * @return list<ValidationRule>
+ */
+function differentialCustomRules(): array
+{
+    return [
+        new class implements ValidationRule {
+            public function validate(string $attribute, mixed $value, Closure $fail): void
+            {
+                if ($value === 'b' || $value === null) {
+                    $fail('The :attribute is not allowed.');
+                }
+            }
+        },
+        new class implements ValidationRule {
+            public bool $implicit = true;
+
+            public function validate(string $attribute, mixed $value, Closure $fail): void
+            {
+                if ($value === null || $value === '') {
+                    $fail('The :attribute is needed.');
+                }
+            }
+        },
+    ];
+}
+
+/**
  * @return array{0: array<string, mixed>, 1: array<string, mixed>}
  */
 function differentialCase(int $seed): array
@@ -65,7 +95,7 @@ function differentialCase(int $seed): array
 
         for ($count = $random->getInt(1, 4); $count > 0; $count--) {
             $list[] = match ($random->getInt(0, 19)) {
-                0 => differentialPick($random, [Rule::in(['a', 'b']), Rule::in(['a,b', 'c']), Rule::notIn(['b'])]),
+                0 => differentialPick($random, [Rule::in(['a', 'b']), Rule::in(['a,b', 'c']), Rule::notIn(['b']), ...differentialCustomRules()]),
                 1 => differentialPick($random, DIFFERENTIAL_TUPLES),
                 default => differentialPick($random, DIFFERENTIAL_RULE_PARTS),
             };

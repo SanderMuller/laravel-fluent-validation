@@ -208,8 +208,8 @@ final class ItemRuleCompiler
      */
     public function buildFastChecks(array $compiledRules): array
     {
-        $checks = [];
         [$readableRules, $slowRules] = PathFastCheck::splitUnreadable($compiledRules);
+        [$checks, $readableRules] = CustomRuleFastCheck::split($readableRules);
 
         foreach ($readableRules as $field => $rule) {
             if (! is_string($rule)) {

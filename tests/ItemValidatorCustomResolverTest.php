@@ -1,7 +1,6 @@
 <?php declare(strict_types=1);
 
 use Illuminate\Contracts\Translation\Translator;
-use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Validator as BaseValidator;
 use SanderMuller\FluentValidation\RuleSet;
@@ -27,11 +26,6 @@ final class CustomResolverCountingValidator extends BaseValidator
     }
 }
 
-final class CustomResolverAlwaysPassesRule implements ValidationRule
-{
-    public function validate(string $attribute, mixed $value, Closure $fail): void {}
-}
-
 /**
  * @param  array<array-key, mixed>  $data
  * @param  array<array-key, mixed>  $rules
@@ -48,11 +42,11 @@ it('uses the custom resolver validator for per-item slow-rule validation', funct
 
     Validator::resolver(makeCustomResolverValidator(...));
 
-    // The custom Rule object makes `rows.*.a` non-fast-checkable, forcing the
+    // The closure rule makes `rows.*.a` non-fast-checkable, forcing the
     // per-item slow path (makeItemValidator) rather than a fast-check closure.
     $rules = [
         'rows' => 'required|array',
-        'rows.*.a' => ['required', 'string', new CustomResolverAlwaysPassesRule()],
+        'rows.*.a' => ['required', 'string', static function (string $attribute, mixed $value, Closure $fail): void {}],
     ];
 
     RuleSet::from($rules)->validate(['rows' => [['a' => 'x'], ['a' => 'y']]]);
