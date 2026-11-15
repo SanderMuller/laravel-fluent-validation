@@ -47,13 +47,7 @@ final readonly class ItemValidator
         $hasValueConditionals = ValueConditionalReducer::hasAny($itemRules);
         $hasSiblingDependentConditionals = $hasPresenceConditionals || $hasValueConditionals;
 
-        // Presence and value conditionals (required_with*, required_if, etc.)
-        // depend on arbitrary sibling fields within each item, so two items
-        // sharing the same dispatch-field value can still reduce to different
-        // rule sets. Skip the dispatch cache when either is in play.
-        $dispatchField = $hasSiblingDependentConditionals
-            ? null
-            : $this->compiler->findCommonDispatchField($conditionalFields);
+        $dispatchField = DispatchField::find($this->compiler, $conditionalFields, $itemRules, $hasSiblingDependentConditionals);
         /** @var array<string, array<string, mixed>> $rulesByDispatch */
         $rulesByDispatch = [];
         /** @var array<string, array{0: array<string, Closure(array<string, mixed>): bool>, 1: array<string, mixed>}> $fastChecksByDispatch */
@@ -81,10 +75,9 @@ final readonly class ItemValidator
             /** @var array<string, mixed> $itemData */
             $itemData = $isScalar ? ['_v' => $item] : (is_array($item) ? $item : []);
 
-            if ($dispatchField !== null) {
-                $rawDispatch = $itemData[$dispatchField] ?? '';
-                $dispatchValue = is_scalar($rawDispatch) ? (string) $rawDispatch : '';
+            $dispatchValue = $dispatchField !== null ? DispatchField::key($itemData, $dispatchField) : null;
 
+            if ($dispatchValue !== null) {
                 if (! isset($rulesByDispatch[$dispatchValue])) {
                     $rulesByDispatch[$dispatchValue] = $this->compiler->reduceRulesForItem($itemRules, $itemData, $conditionalFields, $itemMessages, $hasSiblingDependentConditionals);
                     $fastChecksByDispatch[$dispatchValue] = $this->compiler->buildFastChecks($rulesByDispatch[$dispatchValue]);

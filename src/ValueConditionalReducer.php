@@ -87,6 +87,18 @@ final class ValueConditionalReducer extends AbstractConditionalReducer
     }
 
     /**
+     * The first parameter is the field; the rest are values.
+     *
+     * @return list<string>
+     */
+    protected static function dependencyFields(string $rawParam): array
+    {
+        $field = str_getcsv($rawParam, ',', '"', '\\')[0];
+
+        return is_string($field) ? [$field] : [];
+    }
+
+    /**
      * Rewrite one rule string: drop when the conditional is inactive,
      * collapse to plain `required` / `prohibited` when active and no custom
      * message overrides the original rule name, otherwise return unchanged.

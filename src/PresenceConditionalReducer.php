@@ -67,6 +67,16 @@ final class PresenceConditionalReducer extends AbstractConditionalReducer
     }
 
     /**
+     * Presence conditionals name only fields: `required_with:a,b`.
+     *
+     * @return list<string>
+     */
+    protected static function dependencyFields(string $rawParam): array
+    {
+        return array_values(array_filter(str_getcsv($rawParam, ',', '"', '\\'), is_string(...)));
+    }
+
+    /**
      * Rewrite one rule string: drop when the conditional is inactive,
      * collapse to plain `required` when active and no custom message
      * overrides the original rule name, otherwise return unchanged.

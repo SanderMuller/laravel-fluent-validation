@@ -31,6 +31,36 @@ abstract class AbstractConditionalReducer
     abstract protected static function parse(string $rule): ?array;
 
     /**
+     * The fields a recognised rule's raw parameter names as dependencies.
+     *
+     * @return list<string>
+     */
+    abstract protected static function dependencyFields(string $rawParam): array;
+
+    /**
+     * Every field the recognised rules in the set depend on.
+     *
+     * @param  array<string, mixed>  $itemRules
+     * @return list<string>
+     */
+    public static function dependencies(array $itemRules): array
+    {
+        $fields = [];
+
+        foreach ($itemRules as $rule) {
+            foreach (is_string($rule) ? explode('|', $rule) : (is_array($rule) ? $rule : []) as $part) {
+                $parsed = is_string($part) ? static::parse($part) : null;
+
+                if ($parsed !== null) {
+                    array_push($fields, ...static::dependencyFields($parsed[1]));
+                }
+            }
+        }
+
+        return $fields;
+    }
+
+    /**
      * Cheap pre-check: does any rule in the set carry a conditional this
      * reducer recognises? Used by callers to decide whether the per-item
      * reducer path must engage.
