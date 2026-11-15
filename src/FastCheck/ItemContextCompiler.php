@@ -95,7 +95,7 @@ final class ItemContextCompiler
         $config = RuleConfigBuilder::initialConfig();
 
         foreach (explode('|', $ruleString) as $part) {
-            $result = self::parsePartWithItemContext($part, $config);
+            $result = RepeatedRuleGuard::check($config, self::parsePartWithItemContext($part, $config));
 
             if ($result === null) {
                 return null;

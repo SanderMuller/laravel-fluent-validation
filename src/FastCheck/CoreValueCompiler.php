@@ -31,7 +31,7 @@ final class CoreValueCompiler
         $config = RuleConfigBuilder::initialConfig();
 
         foreach (explode('|', $ruleString) as $part) {
-            $result = RuleConfigBuilder::parseValuePart($part, $config);
+            $result = RepeatedRuleGuard::check($config, RuleConfigBuilder::parseValuePart($part, $config));
 
             if ($result === null) {
                 return null;

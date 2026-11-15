@@ -726,3 +726,21 @@ it('fast-check reads quoted in and not_in values like Laravel', function (string
     'not_in, part of a quoted value' => ['not_in:"a,b"', 'a'],
     'not_in, the whole quoted value' => ['not_in:"a,b"', 'a,b'],
 ]);
+
+it('applies every repeated rule and Laravel size order like Laravel', function (string $rule, mixed $value): void {
+    $closure = FastCheckCompiler::compile($rule);
+    $laravel = Validator::make(['f' => $value], ['f' => $rule])->passes();
+
+    // A rule left to Laravel has no closure; a compiled one must agree with Laravel.
+    expect($closure instanceof Closure ? $closure($value) : $laravel)->toBe($laravel);
+})->with([
+    'in twice, value in the first only' => ['in:a,b|in:b,c', 'a'],
+    'in twice, value in the second only' => ['in:a,b|in:b,c', 'c'],
+    'in twice, value in both' => ['in:a,b|in:b,c', 'b'],
+    'not_in twice, first value' => ['not_in:a|not_in:b', 'a'],
+    'regex twice' => ['regex:/^a/|regex:/b$/', 'ax'],
+    'string and numeric, between, large number' => ['string|numeric|between:1,10', '99'],
+    'string and numeric, max, large number' => ['string|numeric|max:10', '99'],
+    'string and numeric, min, small number' => ['string|numeric|min:5', '12345'],
+    'string and integer, between, in range' => ['string|integer|between:1,10', '5'],
+]);

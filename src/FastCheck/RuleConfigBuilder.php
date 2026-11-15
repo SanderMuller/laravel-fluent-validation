@@ -199,14 +199,15 @@ final class RuleConfigBuilder
             }
 
             if ($hasSize) {
-                if ($isString && is_string($value)) {
-                    $size = mb_strlen($value);
-                } elseif ($isArray && is_array($value)) {
-                    $size = count($value);
-                } elseif (($isNumeric || $isInteger) && is_numeric($value)) {
+                // Laravel's getSize() order: a numeric rule measures the number first.
+                if (($isNumeric || $isInteger) && is_numeric($value)) {
                     // is_numeric narrows to int|float|numeric-string; +0
                     // promotes string to int/float uniformly.
                     $size = is_string($value) ? $value + 0 : $value;
+                } elseif ($isString && is_string($value)) {
+                    $size = mb_strlen($value);
+                } elseif ($isArray && is_array($value)) {
+                    $size = count($value);
                 } else {
                     $size = null;
                 }
