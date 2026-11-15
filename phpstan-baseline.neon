@@ -85,12 +85,12 @@ parameters:
 			path: src/Internal/ItemRuleCompiler.php
 
 		# Phase 2b: RuleSet::validateItems body relocated verbatim to
-		# ItemValidator::validate. Complexity stays high (62) — the loop's
+		# ItemValidator::validate. Complexity stays high (61) — the loop's
 		# nested fast-check → dispatch-cache → validator-cache structure
 		# carries the score, and refactoring those caches has measurable
 		# perf cost (per-item validator reuse + dispatch reduction).
 		-
-			rawMessage: 'Cognitive complexity for "SanderMuller\FluentValidation\Internal\ItemValidator::validate()" is 62, keep it under 20'
+			rawMessage: 'Cognitive complexity for "SanderMuller\FluentValidation\Internal\ItemValidator::validate()" is 61, keep it under 20'
 			identifier: complexity.functionLike
 			count: 1
 			path: src/Internal/ItemValidator.php

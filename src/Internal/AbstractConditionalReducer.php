@@ -10,7 +10,7 @@ use Illuminate\Support\Arr;
  * Shared template for per-item conditional-rule reducers. Subclasses
  * (`PresenceConditionalReducer`, `ValueConditionalReducer`) implement the
  * rule-family-specific `parse()` and `apply()` entry points; this base
- * owns the dispatch shape (`hasAny()`, `applyTemplate()`) and the custom
+ * owns the dispatch shape (`fields()`, `applyTemplate()`) and the custom
  * message lookup that both subclasses agree on.
  *
  * Static-by-design: subclasses' public entry points are static, so the
@@ -83,22 +83,30 @@ abstract class AbstractConditionalReducer
     }
 
     /**
-     * Cheap pre-check: does any rule in the set carry a conditional this
-     * reducer recognises? Used by callers to decide whether the per-item
-     * reducer path must engage.
+     * The fields whose rules carry a conditional this reducer recognises.
+     * Every other field passes through `apply()` unchanged.
      *
      * @param  array<string, mixed>  $itemRules
+     * @return array<string, true>
      */
-    public static function hasAny(array $itemRules): bool
+    public static function fields(array $itemRules): array
     {
-        return self::recognisedRules($itemRules)->valid();
+        $fields = [];
+
+        foreach ($itemRules as $field => $rule) {
+            if (self::recognisedRules([$rule])->valid()) {
+                $fields[$field] = true;
+            }
+        }
+
+        return $fields;
     }
 
     /**
      * Each recognised rule as `[ruleName, rawParam]`. A string rule splits on
      * '|'; a list's elements are single rules, as Laravel parses them.
      *
-     * @param  array<string, mixed>  $itemRules
+     * @param  array<mixed>  $itemRules
      * @return Generator<int, array{0: string, 1: string}>
      */
     private static function recognisedRules(array $itemRules): Generator

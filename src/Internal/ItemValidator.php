@@ -43,9 +43,8 @@ final readonly class ItemValidator
     {
         $conditionalFields = $this->compiler->analyzeConditionals($itemRules);
         $itemRules = PlainRuleJoiner::joinAll($itemRules, $conditionalFields);
-        $hasPresenceConditionals = PresenceConditionalReducer::hasAny($itemRules);
-        $hasValueConditionals = ValueConditionalReducer::hasAny($itemRules);
-        $hasSiblingDependentConditionals = $hasPresenceConditionals || $hasValueConditionals;
+        $siblingFields = PresenceConditionalReducer::fields($itemRules) + ValueConditionalReducer::fields($itemRules);
+        $hasSiblingDependentConditionals = $siblingFields !== [];
 
         $dispatchField = DispatchField::find($this->compiler, $conditionalFields, $itemRules, $hasSiblingDependentConditionals);
         /** @var array<string, array<string, mixed>> $rulesByDispatch */
@@ -79,14 +78,14 @@ final readonly class ItemValidator
 
             if ($dispatchValue !== null) {
                 if (! isset($rulesByDispatch[$dispatchValue])) {
-                    $rulesByDispatch[$dispatchValue] = $this->compiler->reduceRulesForItem($itemRules, $itemData, $conditionalFields, $itemMessages, $hasSiblingDependentConditionals);
+                    $rulesByDispatch[$dispatchValue] = $this->compiler->reduceRulesForItem($itemRules, $itemData, $conditionalFields, $itemMessages, $siblingFields);
                     $fastChecksByDispatch[$dispatchValue] = $this->compiler->buildFastChecks($rulesByDispatch[$dispatchValue]);
                 }
 
                 $effectiveRules = $rulesByDispatch[$dispatchValue];
                 [$dispatchFastChecks, $dispatchSlowRules] = $fastChecksByDispatch[$dispatchValue];
             } elseif ($conditionalFields !== [] || $hasSiblingDependentConditionals) {
-                $effectiveRules = $this->compiler->reduceRulesForItem($itemRules, $itemData, $conditionalFields, $itemMessages, $hasSiblingDependentConditionals);
+                $effectiveRules = $this->compiler->reduceRulesForItem($itemRules, $itemData, $conditionalFields, $itemMessages, $siblingFields);
                 $reducedKey = $this->compiler->ruleCacheKey($effectiveRules);
                 // Memoize compiled fast-checks per distinct reduced rule set —
                 // many items reduce identically, so reuse beats recompiling.
