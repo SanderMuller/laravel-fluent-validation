@@ -598,35 +598,10 @@ final class RuleSet implements Arrayable, IteratorAggregate
 
         if ($wildcardGroups === []) {
             $compiled = self::compile($topRules);
+            $fastValidated = $this->fastValidatedTopRules($data, $compiled);
 
-            // Fast-check pass: run compiled closures on top-level fields when
-            // all keys are flat (no dots). Dotted keys from children() require
-            // nested lookup and validated-data shaping that Laravel provides.
-            $hasDottedKey = false;
-            foreach (array_keys($compiled) as $key) {
-                if (str_contains($key, '.')) {
-                    $hasDottedKey = true;
-                    break;
-                }
-            }
-
-            if (! $hasDottedKey) {
-                [$fastChecks, $slowRules] = $this->ruleCompiler->buildFastChecks($compiled);
-
-                if ($slowRules === [] && $fastChecks !== []) {
-                    $allPass = true;
-                    foreach ($fastChecks as $check) {
-                        if (! $check($data)) {
-                            $allPass = false;
-                            break;
-                        }
-                    }
-
-                    if ($allPass) {
-                        /** @var array<string, mixed> */
-                        return array_intersect_key($data, $compiled);
-                    }
-                }
+            if ($fastValidated !== null) {
+                return $fastValidated;
             }
 
             $validator = Validator::make($data, $compiled, $messages, $attributes)
@@ -637,11 +612,12 @@ final class RuleSet implements Arrayable, IteratorAggregate
             return $validator->validate();
         }
 
-        $topValidator = Validator::make($data, self::compile($topRules), $messages, $attributes)
-            ->stopOnFirstFailure($this->stopOnFirstFailure);
-        if ($topValidator->fails()) {
-            throw new ValidationException($topValidator);
-        }
+        // validated() throws the ValidationException when a top rule fails.
+        $topCompiled = self::compile($topRules);
+        $topValidated = $this->fastValidatedTopRules($data, $topCompiled)
+            ?? Validator::make($data, $topCompiled, $messages, $attributes)
+                ->stopOnFirstFailure($this->stopOnFirstFailure)
+                ->validated();
 
         $fallbackResult = null;
         $allErrors = $this->validateWildcardGroups($wildcardGroups, $data, $messages, $attributes, $fallbackResult, $this->stopOnFirstFailure);
@@ -655,7 +631,40 @@ final class RuleSet implements Arrayable, IteratorAggregate
         }
 
         /** @var array<string, mixed> */
-        return $topValidator->validated();
+        return $topValidated;
+    }
+
+    /**
+     * Validate top-level rules with fast checks alone. Returns the validated
+     * data, or null when Laravel must run: a dotted key (children() needs
+     * nested lookup and validated-data shaping), a rule with no fast check,
+     * or a failed check (Laravel builds the error messages).
+     *
+     * @param  array<string, mixed>  $data
+     * @param  array<string, mixed>  $compiled
+     * @return array<string, mixed>|null
+     */
+    private function fastValidatedTopRules(array $data, array $compiled): ?array
+    {
+        foreach (array_keys($compiled) as $key) {
+            if (str_contains($key, '.')) {
+                return null;
+            }
+        }
+
+        [$fastChecks, $slowRules] = $this->ruleCompiler->buildFastChecks($compiled);
+
+        if ($slowRules !== [] || $fastChecks === []) {
+            return null;
+        }
+
+        foreach ($fastChecks as $check) {
+            if (! $check($data)) {
+                return null;
+            }
+        }
+
+        return array_intersect_key($data, $compiled);
     }
 
     /**

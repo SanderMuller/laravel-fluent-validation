@@ -59,7 +59,7 @@ parameters:
 		# per-function complexity stays under 20 (logic in stripPrefixFromConstraints);
 		# only the class total moves.
 		-
-			rawMessage: 'Class cognitive complexity is 152, keep it under 80'
+			rawMessage: 'Class cognitive complexity is 137, keep it under 80'
 			identifier: complexity.classLike
 			count: 1
 			path: src/RuleSet.php
@@ -83,12 +83,6 @@ parameters:
 			identifier: complexity.functionLike
 			count: 1
 			path: src/Internal/ItemRuleCompiler.php
-
-		-
-			rawMessage: 'Cognitive complexity for "SanderMuller\FluentValidation\RuleSet::validateInternal()" is 30, keep it under 20'
-			identifier: complexity.functionLike
-			count: 1
-			path: src/RuleSet.php
 
 		# Phase 2b: RuleSet::validateItems body relocated verbatim to
 		# ItemValidator::validate. Complexity is identical (64) — the loop's
