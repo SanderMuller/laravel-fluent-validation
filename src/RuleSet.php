@@ -21,6 +21,7 @@ use SanderMuller\FluentValidation\Internal\BatchLimitRemap;
 use SanderMuller\FluentValidation\Internal\ItemErrorCollector;
 use SanderMuller\FluentValidation\Internal\ItemRuleCompiler;
 use SanderMuller\FluentValidation\Internal\ItemValidator;
+use SanderMuller\FluentValidation\Internal\WildcardReferenceRewriter;
 use SanderMuller\FluentValidation\Rules\ArrayRule;
 use SanderMuller\FluentValidation\Rules\FieldRule;
 use Traversable;
@@ -863,8 +864,8 @@ final class RuleSet implements Arrayable, IteratorAggregate
     }
 
     /**
-     * Rewrite conditional rule references from wildcard paths to relative paths
-     * so per-item validation works. Transforms:
+     * Rewrite wildcard field references to item-relative paths so per-item
+     * validation works. Transforms:
      *   ['exclude_unless', 'items.*.type', 'chapter'] → ['exclude_unless', 'type', 'chapter']
      *   'gte:items.*.start_time' → 'gte:start_time'
      *
@@ -873,7 +874,7 @@ final class RuleSet implements Arrayable, IteratorAggregate
      */
     private function rewriteRulesForPerItem(array $groupRules, string $parent): array
     {
-        $prefix = $parent . '.*.';
+        $rewriter = new WildcardReferenceRewriter($parent . '.*.');
         $rewritten = [];
 
         foreach ($groupRules as $field => $rule) {
@@ -886,53 +887,10 @@ final class RuleSet implements Arrayable, IteratorAggregate
                 $rule = $rule->compiledRules();
             }
 
-            // Strip on the whole string; exploding on '|' would corrupt a
-            // regex token like `regex:/^(a|b)$/`.
-            if (is_string($rule)) {
-                $rewritten[$field] = str_replace($prefix, '', $rule);
-
-                continue;
-            }
-
-            $rewritten[$field] = is_array($rule)
-                ? $this->stripPrefixFromConstraints($rule, $prefix)
-                : $rule;
+            $rewritten[$field] = $rewriter->rewrite($rule);
         }
 
         return $rewritten;
-    }
-
-    /**
-     * Strip the `parent.*.` prefix from each conditional dep reference in a
-     * rule's constraint list so per-item validation resolves the dep against
-     * the relative item.
-     *
-     * @param  array<int|string, mixed>  $rule
-     * @return list<mixed>
-     */
-    private function stripPrefixFromConstraints(array $rule, string $prefix): array
-    {
-        $newRules = [];
-
-        foreach ($rule as $r) {
-            if (is_array($r) && count($r) >= 2 && is_string($r[1])) {
-                // ['exclude_unless', 'items.*.type', ...] → ['exclude_unless', 'type', ...]
-                $r[1] = $this->stripPrefix($r[1], $prefix);
-                $newRules[] = $r;
-            } elseif (is_string($r) && str_contains($r, $prefix)) {
-                // 'gte:items.*.start_time' → 'gte:start_time'
-                $newRules[] = str_replace($prefix, '', $r);
-            } else {
-                $newRules[] = $r;
-            }
-        }
-
-        return $newRules;
-    }
-
-    private function stripPrefix(string $value, string $prefix): string
-    {
-        return str_starts_with($value, $prefix) ? substr($value, strlen($prefix)) : $value;
     }
 
     /** @param  array<string, mixed>  $compiledRules */

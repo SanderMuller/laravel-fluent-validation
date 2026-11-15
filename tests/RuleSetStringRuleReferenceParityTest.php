@@ -1,5 +1,8 @@
 <?php declare(strict_types=1);
 
+use Illuminate\Support\Facades\Validator;
+use Illuminate\Validation\Validator as BaseValidator;
+use SanderMuller\FluentValidation\FluentRule;
 use SanderMuller\FluentValidation\RuleSet;
 
 // =========================================================================
@@ -31,3 +34,42 @@ it('resolves wildcard field references in pipe-string rules like native', functi
     'after an earlier sibling date' => ['date|after:items.*.other', ['other' => '2025-06-01', 'b' => '2025-01-01']],
     'before a later sibling date' => ['date|before:items.*.other', ['other' => '2025-01-01', 'b' => '2025-06-01']],
 ]);
+
+it('keeps wildcard-like literal values in non-dependent rules like native', function (mixed $rule, mixed $nativeRule, string $value): void {
+    $data = ['items' => [['b' => $value]]];
+
+    $native = validator($data, ['items.*.b' => $nativeRule])->passes();
+    $fluent = RuleSet::from(['items.*.b' => $rule])->check($data)->passes();
+
+    expect($fluent)->toBe($native);
+})->with([
+    'string, literal value' => ['in:items.*.foo', 'in:items.*.foo', 'items.*.foo'],
+    'string, stripped value' => ['in:items.*.foo', 'in:items.*.foo', 'foo'],
+    'array, literal value' => [['in:items.*.foo'], ['in:items.*.foo'], 'items.*.foo'],
+    'array, stripped value' => [['in:items.*.foo'], ['in:items.*.foo'], 'foo'],
+    'FluentRule, literal value' => [FluentRule::string()->in(['items.*.foo']), ['string', 'in:"items.*.foo"'], 'items.*.foo'],
+    'FluentRule, stripped value' => [FluentRule::string()->in(['items.*.foo']), ['string', 'in:"items.*.foo"'], 'foo'],
+]);
+
+it('rewrites every field parameter of a dependent tuple like native', function (): void {
+    $data = ['items' => [['first' => 'x', 'second' => 'y']]];
+    $rules = ['items.*.b' => [['required_with_all', 'items.*.first', 'items.*.second'], 'string']];
+
+    expect(RuleSet::from($rules)->check($data)->errors()->keys())
+        ->toBe(validator($data, $rules)->errors()->keys())
+        ->toBe(['items.0.b']);
+});
+
+it('rewrites references in custom dependent rules like native', function (): void {
+    Validator::extendDependent(
+        'matches_sibling',
+        static fn (string $attribute, mixed $value, array $parameters, BaseValidator $validator): bool => $validator->validateSame($attribute, $value, array_values(array_filter($parameters, is_string(...)))),
+    );
+
+    $data = ['items' => [['other' => 'x', 'b' => 'x'], ['other' => 'x', 'b' => 'y']]];
+    $rules = ['items.*.other' => 'string', 'items.*.b' => 'matches_sibling:items.*.other'];
+
+    expect(RuleSet::from($rules)->check($data)->errors()->keys())
+        ->toBe(validator($data, $rules)->errors()->keys())
+        ->toBe(['items.1.b']);
+});
