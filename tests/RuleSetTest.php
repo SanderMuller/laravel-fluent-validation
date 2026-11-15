@@ -2517,6 +2517,17 @@ it('check() safe() returns ValidatedInput on success', function (): void {
     expect($safe->only(['name']))->toBe(['name' => 'John']);
 });
 
+it('check() safe() collect() returns the validated input as a collection', function (): void {
+    $safe = RuleSet::from([
+        'name' => FluentRule::string()->required(),
+        'tags' => FluentRule::array()->required(),
+        'tags.*' => FluentRule::string(),
+    ])->check(['name' => 'John', 'tags' => ['a', 'b'], 'unvalidated' => 'x'])->safe();
+
+    expect($safe->collect('tags')->all())->toBe(['a', 'b'])
+        ->and($safe->collect()->all())->toBe(['name' => 'John', 'tags' => ['a', 'b']]);
+});
+
 it('check() safe() throws on failed validation', function (): void {
     $result = RuleSet::from([
         'name' => FluentRule::string()->required(),
