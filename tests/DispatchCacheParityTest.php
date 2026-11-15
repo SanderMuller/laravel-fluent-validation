@@ -66,3 +66,38 @@ it('keeps reducing per item when a conditional reads another field', function ()
         [['type' => 'image', 'kind' => 'full'], ['type' => 'image', 'kind' => 'thin'], ['type' => 'image', 'kind' => 'full']],
     );
 });
+
+it('reduces tuple-form conditionals like native', function (array $urlRule, array $items, ?string $message): void {
+    $data = ['items' => $items];
+    $rules = ['items.*.type' => 'nullable', 'items.*.flag' => 'boolean', 'items.*.url' => $urlRule];
+    $messages = $message === null ? [] : ['items.*.url.required_if' => $message];
+
+    expect(RuleSet::from($rules)->check($data, $messages)->errors()->keys())
+        ->toBe(validator($data, $rules, $messages)->errors()->keys());
+})->with([
+    'required_if on the dispatch field' => [
+        [['exclude_unless', 'items.*.type', 'image', 'video'], ['required_if', 'items.*.type', 'image'], 'nullable', 'string'],
+        [['type' => 'image'], ['type' => 'video'], ['type' => 'image', 'url' => 'x']],
+        null,
+    ],
+    'required_if with a custom message' => [
+        [['required_if', 'items.*.type', 'image'], 'string'],
+        [['type' => 'image'], ['type' => 'video']],
+        'Image rows need a url.',
+    ],
+    'required_with' => [
+        [['required_with', 'items.*.type'], 'string'],
+        [['type' => 'a'], []],
+        null,
+    ],
+    'value with a comma stays with Laravel' => [
+        [['required_if', 'items.*.type', 'a,b'], 'string'],
+        [['type' => 'a,b'], ['type' => 'a']],
+        null,
+    ],
+    'boolean dependency sent as "1"' => [
+        [['required_if', 'items.*.flag', 'true'], 'string'],
+        [['flag' => '1'], ['flag' => '0']],
+        null,
+    ],
+]);

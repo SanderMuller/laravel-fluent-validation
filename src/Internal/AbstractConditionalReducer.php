@@ -3,6 +3,7 @@
 namespace SanderMuller\FluentValidation\Internal;
 
 use Closure;
+use Generator;
 use Illuminate\Support\Arr;
 
 /**
@@ -47,17 +48,38 @@ abstract class AbstractConditionalReducer
     {
         $fields = [];
 
-        foreach ($itemRules as $rule) {
-            foreach (is_string($rule) ? explode('|', $rule) : (is_array($rule) ? $rule : []) as $part) {
-                $parsed = is_string($part) ? static::parse($part) : null;
-
-                if ($parsed !== null) {
-                    array_push($fields, ...static::dependencyFields($parsed[1]));
-                }
-            }
+        foreach (self::recognisedRules($itemRules) as [, $rawParam]) {
+            array_push($fields, ...static::dependencyFields($rawParam));
         }
 
         return $fields;
+    }
+
+    /**
+     * `['required_if', 'type', 'image']` → `'required_if:type,image'` for a
+     * recognised rule whose parameters are plain strings. A comma or quote
+     * would parse differently in the string form, so such a tuple stays
+     * with Laravel.
+     */
+    protected static function tupleAsString(mixed $rule): ?string
+    {
+        if (! is_array($rule) || ! isset($rule[0]) || ! is_string($rule[0]) || count($rule) < 2) {
+            return null;
+        }
+
+        $parameters = [];
+
+        foreach (array_slice($rule, 1) as $parameter) {
+            if (! is_string($parameter) || str_contains($parameter, ',') || str_contains($parameter, '"')) {
+                return null;
+            }
+
+            $parameters[] = $parameter;
+        }
+
+        $string = $rule[0] . ':' . implode(',', $parameters);
+
+        return static::parse($string) !== null ? $string : null;
     }
 
     /**
@@ -69,21 +91,28 @@ abstract class AbstractConditionalReducer
      */
     public static function hasAny(array $itemRules): bool
     {
-        foreach ($itemRules as $rule) {
-            if (is_string($rule) && static::stringContainsRule($rule)) {
-                return true;
-            }
+        return self::recognisedRules($itemRules)->valid();
+    }
 
-            if (is_array($rule)) {
-                foreach ($rule as $sub) {
-                    if (is_string($sub) && static::stringContainsRule($sub)) {
-                        return true;
-                    }
+    /**
+     * Each recognised rule as `[ruleName, rawParam]`. A string rule splits on
+     * '|'; a list's elements are single rules, as Laravel parses them.
+     *
+     * @param  array<string, mixed>  $itemRules
+     * @return Generator<int, array{0: string, 1: string}>
+     */
+    private static function recognisedRules(array $itemRules): Generator
+    {
+        foreach ($itemRules as $rule) {
+            foreach (is_string($rule) ? explode('|', $rule) : (is_array($rule) ? $rule : []) as $part) {
+                $part = static::tupleAsString($part) ?? $part;
+                $parsed = is_string($part) ? static::parse($part) : null;
+
+                if ($parsed !== null) {
+                    yield $parsed;
                 }
             }
         }
-
-        return false;
     }
 
     /**
@@ -120,21 +149,47 @@ abstract class AbstractConditionalReducer
             return $rule;
         }
 
+        return self::applyToList($rule, $rewriteOne);
+    }
+
+    /**
+     * @param  array<int|string, mixed>  $rule
+     * @param  Closure(string): ?string  $rewriteOne
+     */
+    private static function applyToList(array $rule, Closure $rewriteOne): mixed
+    {
         $out = [];
+
         foreach ($rule as $sub) {
-            if (is_string($sub)) {
-                $rewritten = $rewriteOne($sub);
-                if ($rewritten !== null) {
-                    $out[] = $rewritten;
-                }
+            $asString = static::tupleAsString($sub) ?? $sub;
+
+            if (! is_string($asString)) {
+                $out[] = $sub;
 
                 continue;
             }
 
-            $out[] = $sub;
+            $rewritten = $rewriteOne($asString);
+
+            // Unchanged keeps the original element: a tuple whose custom
+            // message must keep the rule stays a tuple.
+            if ($rewritten !== null) {
+                $out[] = $rewritten === $asString ? $sub : $rewritten;
+            }
         }
 
-        return $out;
+        if ($out === array_values($rule)) {
+            return $rule;
+        }
+
+        // A rewritten list of plain strings joins so it can fast-check.
+        foreach ($out as $part) {
+            if (! is_string($part) || str_contains($part, '|')) {
+                return $out;
+            }
+        }
+
+        return implode('|', $out);
     }
 
     /**
@@ -185,24 +240,5 @@ abstract class AbstractConditionalReducer
         }
 
         return false;
-    }
-
-    /**
-     * Pipe-aware wrapper around `parse()` for `hasAny()`. Returns true when
-     * any pipe-segment matches a recognised rule.
-     */
-    protected static function stringContainsRule(string $rule): bool
-    {
-        if (str_contains($rule, '|')) {
-            foreach (explode('|', $rule) as $part) {
-                if (static::parse($part) !== null) {
-                    return true;
-                }
-            }
-
-            return false;
-        }
-
-        return static::parse($rule) !== null;
     }
 }
