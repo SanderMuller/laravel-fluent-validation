@@ -129,13 +129,10 @@ it('custom message on bare-field key is used when rule stays active', function (
         ->and($errors['addresses.0.postcode'])->toContain('Vul postcode in');
 });
 
-it('without a custom message, rule rewrites to plain required (uses generic required message)', function (): void {
+it('without a custom message, a failing item gets the required_without message', function (): void {
     $errors = runPresenceItems([[]]);
-    expect($errors)->toHaveKey('addresses.0.postcode');
-    // The generic 'required' message should fire — not a required_without-specific string.
-    $msg = $errors['addresses.0.postcode'][0];
-    expect($msg)->toContain('required')
-        ->and($msg)->not->toContain('birthdate');
+
+    expect($errors['addresses.0.postcode'] ?? null)->toBe(['The postcode field is required when birthdate is not present.']);
 });
 
 // ---------- Translator override detection -----------------------------------

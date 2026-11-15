@@ -57,9 +57,10 @@ final class ItemRuleCompiler
      * @param  array<string, list<array{action: string, field: string, values: list<string>}>>  $conditionalFields
      * @param  array<string, string>  $itemMessages
      * @param  array<string, true>|null  $siblingFields  the fields with a presence or value conditional; null reduces every field
+     * @param  bool  $keepActiveConditionals  true keeps active presence and value conditionals as they are, for the Laravel validator
      * @return array<string, mixed>
      */
-    public function reduceRulesForItem(array $itemRules, array $itemData, array $conditionalFields, array $itemMessages = [], ?array $siblingFields = null): array
+    public function reduceRulesForItem(array $itemRules, array $itemData, array $conditionalFields, array $itemMessages = [], ?array $siblingFields = null, bool $keepActiveConditionals = false): array
     {
         foreach ($conditionalFields as $field => $conditions) {
             if ($this->fieldIsExcluded($conditions, $itemData, $itemRules)) {
@@ -74,8 +75,8 @@ final class ItemRuleCompiler
         $reducible = $siblingFields === null ? $itemRules : array_intersect_key($itemRules, $siblingFields);
 
         foreach ($reducible as $field => $rule) {
-            $rule = PresenceConditionalReducer::apply($rule, (string) $field, $itemData, $itemMessages);
-            $itemRules[$field] = ValueConditionalReducer::apply($rule, (string) $field, $itemData, $itemMessages, $itemRules);
+            $rule = PresenceConditionalReducer::apply($rule, (string) $field, $itemData, $itemMessages, $keepActiveConditionals);
+            $itemRules[$field] = ValueConditionalReducer::apply($rule, (string) $field, $itemData, $itemMessages, $itemRules, $keepActiveConditionals);
         }
 
         return $itemRules;

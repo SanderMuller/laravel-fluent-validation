@@ -38,12 +38,13 @@ final class PresenceConditionalReducer extends AbstractConditionalReducer
      *
      * @param  array<string, mixed>   $itemData
      * @param  array<string, string>  $itemMessages
+     * @param  bool  $keepActive  true keeps an active rule as it is, so Laravel writes its own message
      */
-    public static function apply(mixed $rule, string $field, array $itemData, array $itemMessages): mixed
+    public static function apply(mixed $rule, string $field, array $itemData, array $itemMessages, bool $keepActive = false): mixed
     {
         return self::applyTemplate(
             $rule,
-            static fn (string $r): ?string => self::rewriteOne($r, $field, $itemData, $itemMessages),
+            static fn (string $r): ?string => self::rewriteOne($r, $field, $itemData, $itemMessages, $keepActive),
         );
     }
 
@@ -86,7 +87,7 @@ final class PresenceConditionalReducer extends AbstractConditionalReducer
      * @param  array<string, mixed>   $itemData
      * @param  array<string, string>  $itemMessages
      */
-    private static function rewriteOne(string $rule, string $field, array $itemData, array $itemMessages): ?string
+    private static function rewriteOne(string $rule, string $field, array $itemData, array $itemMessages, bool $keepActive): ?string
     {
         $parsed = self::parse($rule);
         if ($parsed === null) {
@@ -111,7 +112,7 @@ final class PresenceConditionalReducer extends AbstractConditionalReducer
             return null;
         }
 
-        if (self::hasCustomMessage($field, $ruleName, $itemMessages)) {
+        if ($keepActive || self::hasCustomMessage($field, $ruleName, $itemMessages)) {
             return $rule;
         }
 

@@ -59,12 +59,13 @@ final class ValueConditionalReducer extends AbstractConditionalReducer
      * @param  array<string, mixed>   $itemData
      * @param  array<string, string>  $itemMessages
      * @param  array<string, mixed>   $itemRules
+     * @param  bool  $keepActive  true keeps an active rule as it is, so Laravel writes its own message
      */
-    public static function apply(mixed $rule, string $field, array $itemData, array $itemMessages, array $itemRules): mixed
+    public static function apply(mixed $rule, string $field, array $itemData, array $itemMessages, array $itemRules, bool $keepActive = false): mixed
     {
         return self::applyTemplate(
             $rule,
-            static fn (string $r): ?string => self::rewriteOne($r, $field, $itemData, $itemMessages, $itemRules),
+            static fn (string $r): ?string => self::rewriteOne($r, $field, $itemData, $itemMessages, $itemRules, $keepActive),
         );
     }
 
@@ -107,7 +108,7 @@ final class ValueConditionalReducer extends AbstractConditionalReducer
      * @param  array<string, string>  $itemMessages
      * @param  array<string, mixed>   $itemRules
      */
-    private static function rewriteOne(string $rule, string $field, array $itemData, array $itemMessages, array $itemRules): ?string
+    private static function rewriteOne(string $rule, string $field, array $itemData, array $itemMessages, array $itemRules, bool $keepActive): ?string
     {
         $parsed = self::parse($rule);
         if ($parsed === null) {
@@ -152,7 +153,7 @@ final class ValueConditionalReducer extends AbstractConditionalReducer
             return null;
         }
 
-        if (self::hasCustomMessage($field, $ruleName, $itemMessages)) {
+        if ($keepActive || self::hasCustomMessage($field, $ruleName, $itemMessages)) {
             return $rule;
         }
 

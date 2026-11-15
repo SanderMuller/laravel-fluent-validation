@@ -53,6 +53,8 @@ final readonly class ItemValidator
         $fastChecksByDispatch = [];
         /** @var array<string, array{0: list<Closure(array<string, mixed>): bool>, 1: array<string, mixed>}> $fastChecksByReduced */
         $fastChecksByReduced = [];
+        /** @var array<string, array<string, mixed>> $laravelRulesByDispatch */
+        $laravelRulesByDispatch = [];
 
         [$fastChecks, $originalSlowRules] = $this->compiler->buildFastChecks($itemRules);
         /** @var array<string, BaseValidator> $validatorCache */
@@ -105,7 +107,7 @@ final readonly class ItemValidator
                 }
 
                 if ($fastPass) {
-                    $reducedSlowRules = $dispatchSlowRules;
+                    $reducedSlowRules = $this->rulesForLaravel($dispatchSlowRules, $itemRules, $itemData, $conditionalFields, $itemMessages, $siblingFields, $dispatchValue, $laravelRulesByDispatch);
 
                     if ($reducedSlowRules === []) {
                         continue;
@@ -135,6 +137,7 @@ final readonly class ItemValidator
                 }
             }
 
+            $effectiveRules = $this->rulesForLaravel($effectiveRules, $itemRules, $itemData, $conditionalFields, $itemMessages, $siblingFields, $dispatchValue, $laravelRulesByDispatch);
             $cacheKey = $this->compiler->ruleCacheKey($effectiveRules);
 
             if (! isset($validatorCache[$cacheKey])) {
@@ -157,6 +160,37 @@ final readonly class ItemValidator
         }
 
         return $errors;
+    }
+
+    /**
+     * The rules Laravel validates an item against. A reduced field keeps its
+     * active presence or value conditional as written, so Laravel writes its
+     * own message ("required when type is image") instead of plain "required".
+     *
+     * @param  array<string, mixed>  $rules  reduced rules for the item
+     * @param  array<string, mixed>  $itemRules
+     * @param  array<string, mixed>  $itemData
+     * @param  array<string, list<array{action: string, field: string, values: list<string>}>>  $conditionalFields
+     * @param  array<string, string>  $itemMessages
+     * @param  array<string, true>  $siblingFields
+     * @param  array<string, array<string, mixed>>  $byDispatch
+     * @return array<string, mixed>
+     */
+    private function rulesForLaravel(array $rules, array $itemRules, array $itemData, array $conditionalFields, array $itemMessages, array $siblingFields, ?string $dispatchValue, array &$byDispatch): array
+    {
+        if (array_intersect_key($rules, $siblingFields) === []) {
+            return $rules;
+        }
+
+        $laravelRules = $dispatchValue !== null && isset($byDispatch[$dispatchValue])
+            ? $byDispatch[$dispatchValue]
+            : $this->compiler->reduceRulesForItem($itemRules, $itemData, $conditionalFields, $itemMessages, $siblingFields, keepActiveConditionals: true);
+
+        if ($dispatchValue !== null) {
+            $byDispatch[$dispatchValue] = $laravelRules;
+        }
+
+        return array_intersect_key($laravelRules, $rules);
     }
 
     /**
