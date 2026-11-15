@@ -101,17 +101,17 @@ it('skips fast checks for size rules', function (): void {
     expect($sizeCheck)->not->toHaveKey('items.*.code');
 });
 
-it('fast-checks between with integer bounds and skips decimal bounds', function (): void {
-    $checks = OptimizedValidator::buildFastChecks([
-        'items.*.score' => 'required|numeric|between:1,10',
-        'items.*.ratio' => 'required|numeric|between:0.5,2',
-    ]);
+it('fast-checks between with integer and decimal bounds like Laravel', function (string $rule, int|float $value): void {
+    $checks = OptimizedValidator::buildFastChecks(['items.*.n' => $rule]);
 
-    expect($checks)->toHaveKey('items.*.score')
-        ->and($checks)->not->toHaveKey('items.*.ratio')
-        ->and($checks['items.*.score'](5))->toBeTrue()
-        ->and($checks['items.*.score'](11))->toBeFalse();
-});
+    expect($checks)->toHaveKey('items.*.n')
+        ->and($checks['items.*.n']($value))->toBe(validator(['n' => $value], ['n' => $rule])->passes());
+})->with([
+    'integer bounds, inside' => ['required|numeric|between:1,10', 5],
+    'integer bounds, above' => ['required|numeric|between:1,10', 11],
+    'decimal bounds, inside' => ['required|numeric|between:0.5,2', 1.5],
+    'decimal bounds, below' => ['required|numeric|between:0.5,2', 0.4],
+]);
 
 it('intersects between with min and max in either order', function (string $rule, int $value, bool $passes): void {
     $checks = OptimizedValidator::buildFastChecks(['items.*.n' => $rule]);

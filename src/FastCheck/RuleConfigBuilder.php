@@ -92,13 +92,13 @@ final class RuleConfigBuilder
             $part === 'sometimes' => null,
             $part === 'bail' => $config,
             // Size bounds intersect: Laravel applies every min/max/between rule.
-            // Integer bounds only: a decimal bound such as min:0.01 stays with Laravel.
-            preg_match('/^min:(-?\d+)$/', $part, $bound) === 1 => [...$config, 'min' => max((int) $bound[1], $config['min'] ?? PHP_INT_MIN)],
-            preg_match('/^max:(-?\d+)$/', $part, $bound) === 1 => [...$config, 'max' => min((int) $bound[1], $config['max'] ?? PHP_INT_MAX)],
-            preg_match('/^between:(\d+),(\d+)$/', $part, $bounds) === 1 => [
+            // Plain decimal bounds only: Laravel compares the size with the bound as numbers.
+            preg_match('/^min:(-?\d+(?:\.\d+)?)$/', $part, $bound) === 1 => [...$config, 'min' => max((float) $bound[1], $config['min'] ?? PHP_INT_MIN)],
+            preg_match('/^max:(-?\d+(?:\.\d+)?)$/', $part, $bound) === 1 => [...$config, 'max' => min((float) $bound[1], $config['max'] ?? PHP_INT_MAX)],
+            preg_match('/^between:(\d+(?:\.\d+)?),(\d+(?:\.\d+)?)$/', $part, $bounds) === 1 => [
                 ...$config,
-                'min' => max((int) $bounds[1], $config['min'] ?? PHP_INT_MIN),
-                'max' => min((int) $bounds[2], $config['max'] ?? PHP_INT_MAX),
+                'min' => max((float) $bounds[1], $config['min'] ?? PHP_INT_MIN),
+                'max' => min((float) $bounds[2], $config['max'] ?? PHP_INT_MAX),
             ],
             str_starts_with($part, 'digits:') => [...$config, 'digits' => (int) substr($part, 7)],
             str_starts_with($part, 'digits_between:') => self::parseDigitsBetween($config, substr($part, 15)),
@@ -152,8 +152,8 @@ final class RuleConfigBuilder
         $isNumeric = (bool) $c['numeric'];
         $isInteger = (bool) $c['integer'];
         $isArray = (bool) $c['array'];
-        /** @var ?int $min */ $min = $c['min'];
-        /** @var ?int $max */ $max = $c['max'];
+        /** @var int|float|null $min */ $min = $c['min'];
+        /** @var int|float|null $max */ $max = $c['max'];
         /** @var ?list<string> $in */ $in = $c['in'];
         /** @var ?list<string> $notIn */ $notIn = $c['notIn'];
         /** @var ?string $regex */ $regex = $c['regex'];

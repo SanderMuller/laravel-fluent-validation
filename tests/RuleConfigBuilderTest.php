@@ -24,7 +24,7 @@ it('parseValuePart compiles a min:N rule', function (): void {
 
     expect($result)->toBeArray();
     /** @var array<string, mixed> $result */
-    expect($result['min'])->toBe(5);
+    expect($result['min'])->toBe(5.0);
 });
 
 it('parseValuePart returns null on sometimes (unsupported)', function (): void {
