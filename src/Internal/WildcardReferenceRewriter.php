@@ -19,6 +19,20 @@ use ReflectionProperty;
  */
 final class WildcardReferenceRewriter
 {
+    /**
+     * Rules that Laravel reads through `parseDependentRuleParameters()`: the
+     * first parameter is a field, the rest are values to compare against.
+     * Every other dependent rule takes only fields.
+     */
+    private const VALUE_CONDITIONALS = [
+        'AcceptedIf' => true, 'DeclinedIf' => true,
+        'ExcludeIf' => true, 'ExcludeUnless' => true,
+        'MissingIf' => true, 'MissingUnless' => true,
+        'PresentIf' => true, 'PresentUnless' => true,
+        'ProhibitedIf' => true, 'ProhibitedUnless' => true,
+        'RequiredIf' => true, 'RequiredUnless' => true,
+    ];
+
     /** @var array<string, int> studly rule names */
     private readonly array $dependentRules;
 
@@ -42,9 +56,9 @@ final class WildcardReferenceRewriter
         foreach ($rule as $part) {
             if (is_string($part)) {
                 $part = $this->rewriteString($part);
-            } elseif (is_array($part) && isset($part[0]) && is_string($part[0]) && $this->isDependent($part[0])) {
+            } elseif (is_array($part) && isset($part[0]) && is_string($part[0])) {
                 // ['exclude_unless', 'items.*.type', 'chapter'] → ['exclude_unless', 'type', 'chapter']
-                $part = array_map(fn (mixed $value): mixed => is_string($value) ? $this->stripPrefix($value) : $value, $part);
+                $part = [$part[0], ...$this->rewriteParameters($part[0], array_values(array_slice($part, 1)), quoted: false)];
             }
 
             $rewritten[] = $part;
@@ -69,8 +83,9 @@ final class WildcardReferenceRewriter
         foreach (explode('|', $rule) as $part) {
             $pieces = explode(':', $part, 2);
 
-            if (isset($pieces[1]) && $this->isDependent($pieces[0])) {
-                $part = $pieces[0] . ':' . implode(',', array_map($this->stripPrefix(...), explode(',', $pieces[1])));
+            if (isset($pieces[1])) {
+                // Laravel reads string parameters as CSV, so a field may be quoted.
+                $part = $pieces[0] . ':' . implode(',', $this->rewriteParameters($pieces[0], explode(',', $pieces[1]), quoted: true));
             }
 
             $parts[] = $part;
@@ -79,15 +94,38 @@ final class WildcardReferenceRewriter
         return implode('|', $parts);
     }
 
-    private function isDependent(string $name): bool
+    /**
+     * @template T
+     *
+     * @param  array<int, T>  $parameters
+     * @return array<int, T|string>
+     */
+    private function rewriteParameters(string $rule, array $parameters, bool $quoted): array
     {
-        return isset($this->dependentRules[Str::studly(trim($name))]);
+        $rule = Str::studly(trim($rule));
+
+        if (! isset($this->dependentRules[$rule])) {
+            return $parameters;
+        }
+
+        $fieldCount = isset(self::VALUE_CONDITIONALS[$rule]) ? 1 : count($parameters);
+
+        foreach (array_slice($parameters, 0, $fieldCount, preserve_keys: true) as $index => $parameter) {
+            if (is_string($parameter)) {
+                $parameters[$index] = $this->stripPrefix($parameter, $quoted);
+            }
+        }
+
+        return $parameters;
     }
 
-    private function stripPrefix(string $value): string
+    private function stripPrefix(string $value, bool $quoted): string
     {
-        return str_starts_with($value, $this->prefix)
-            ? substr($value, strlen($this->prefix))
+        $quote = $quoted && str_starts_with($value, '"') ? '"' : '';
+        $field = substr($value, strlen($quote));
+
+        return str_starts_with($field, $this->prefix)
+            ? $quote . substr($field, strlen($this->prefix))
             : $value;
     }
 

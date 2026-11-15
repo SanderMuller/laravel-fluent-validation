@@ -32,6 +32,7 @@ it('resolves wildcard field references in pipe-string rules like native', functi
     'different on equal values' => ['different:items.*.other', ['other' => 'x', 'b' => 'x']],
     'same on equal values' => ['same:items.*.other', ['other' => 'x', 'b' => 'x']],
     'after an earlier sibling date' => ['date|after:items.*.other', ['other' => '2025-06-01', 'b' => '2025-01-01']],
+    'quoted reference' => ['same:"items.*.other"', ['other' => 'x', 'b' => 'x']],
     'before a later sibling date' => ['date|before:items.*.other', ['other' => '2025-01-01', 'b' => '2025-06-01']],
 ]);
 
@@ -58,6 +59,15 @@ it('rewrites every field parameter of a dependent tuple like native', function (
     expect(RuleSet::from($rules)->check($data)->errors()->keys())
         ->toBe(validator($data, $rules)->errors()->keys())
         ->toBe(['items.0.b']);
+});
+
+it('keeps the comparison values of a value-conditional tuple like native', function (): void {
+    $data = ['items' => [['other' => 'foo']]];
+    $rules = ['items.*.b' => [['required_if', 'items.*.other', 'items.*.foo'], 'string']];
+
+    expect(RuleSet::from($rules)->check($data)->errors()->keys())
+        ->toBe(validator($data, $rules)->errors()->keys())
+        ->toBe([]);
 });
 
 it('rewrites references in custom dependent rules like native', function (): void {
