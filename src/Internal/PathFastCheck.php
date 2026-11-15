@@ -15,6 +15,31 @@ use Closure;
 final class PathFastCheck
 {
     /**
+     * Split off the fields a fast check cannot read. A check reads a plain or
+     * dotted field, the scalar each `*`, or one `parent.*.child` level. A
+     * field with any other wildcard (`tags.*`, `a.*.b.*`) names many values,
+     * so Laravel validates it.
+     *
+     * @param  array<string, mixed>  $rules
+     * @return array{0: array<string, mixed>, 1: array<string, mixed>} readable rules, then the rest
+     */
+    public static function splitUnreadable(array $rules): array
+    {
+        $unreadable = array_filter($rules, static fn (int|string $field): bool => ! self::canRead((string) $field), ARRAY_FILTER_USE_KEY);
+
+        return [array_diff_key($rules, $unreadable), $unreadable];
+    }
+
+    private static function canRead(string $field): bool
+    {
+        return match (substr_count($field, '*')) {
+            0 => true,
+            1 => $field === '*' || str_contains($field, '.*.'),
+            default => false,
+        };
+    }
+
+    /**
      * @param  list<string>  $path
      * @param  (Closure(mixed): bool)|null  $valueCheck
      * @param  (Closure(mixed, array<string, mixed>): bool)|null  $itemAwareCheck

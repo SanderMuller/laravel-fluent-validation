@@ -209,9 +209,9 @@ final class ItemRuleCompiler
     public function buildFastChecks(array $compiledRules): array
     {
         $checks = [];
-        $slowRules = [];
+        [$readableRules, $slowRules] = PathFastCheck::splitUnreadable($compiledRules);
 
-        foreach ($compiledRules as $field => $rule) {
+        foreach ($readableRules as $field => $rule) {
             if (! is_string($rule)) {
                 $slowRules[$field] = $rule;
 
@@ -298,7 +298,8 @@ final class ItemRuleCompiler
             }
         }
 
-        return [$checks, $slowRules];
+        // Slow rules keep the input order, so Laravel reports errors in rule order.
+        return [$checks, array_intersect_key($compiledRules, $slowRules)];
     }
 
     /**
