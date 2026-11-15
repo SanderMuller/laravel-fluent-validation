@@ -530,3 +530,20 @@ it('top-level required_without: delegated to Laravel (no pre-eval), behavior mat
     expect($ruleSet->check($passingShape)->passes())->toBeTrue()
         ->and($ruleSet->check($failingShape)->passes())->toBeFalse();
 });
+
+it('keeps a reduced boolean dependency visible to a sibling required_if', function (array $item): void {
+    $data = ['items' => [$item]];
+    $rules = [
+        'items.*.other' => 'nullable',
+        'items.*.flag' => ['boolean', 'required_with:items.*.other'],
+        'items.*.note' => ['required_if:items.*.flag,true', 'string'],
+    ];
+    // The custom message keeps note's required_if with Laravel, which reads flag's boolean rule.
+    $messages = ['items.*.note.required_if' => 'Note needed.'];
+
+    expect(RuleSet::from($rules)->check($data, $messages)->errors()->keys())
+        ->toBe(validator($data, $rules, $messages)->errors()->keys());
+})->with([
+    'flag sent as "1"' => [['flag' => '1', 'other' => 'x']],
+    'flag sent as "0"' => [['flag' => '0', 'other' => 'x']],
+]);

@@ -190,9 +190,11 @@ abstract class AbstractConditionalReducer
             return $rule;
         }
 
-        // A rewritten list of plain strings joins so it can fast-check.
+        // A rewritten list of plain strings joins so it can fast-check. A list
+        // with `boolean` stays a list, as in PlainRuleJoiner: a sibling's
+        // conditional can read that rule in Laravel's validator.
         foreach ($out as $part) {
-            if (! is_string($part) || str_contains($part, '|')) {
+            if (! is_string($part) || str_contains($part, '|') || $part === 'boolean') {
                 return $out;
             }
         }
