@@ -56,9 +56,10 @@ final class ItemRuleCompiler
      * @param  array<string, mixed>  $itemData
      * @param  array<string, list<array{action: string, field: string, values: list<string>}>>  $conditionalFields
      * @param  array<string, string>  $itemMessages
+     * @param  bool  $applySiblingReducers  false when no presence or value conditional is in the set: both reducers are then no-ops
      * @return array<string, mixed>
      */
-    public function reduceRulesForItem(array $itemRules, array $itemData, array $conditionalFields, array $itemMessages = []): array
+    public function reduceRulesForItem(array $itemRules, array $itemData, array $conditionalFields, array $itemMessages = [], bool $applySiblingReducers = true): array
     {
         foreach ($conditionalFields as $field => $conditions) {
             if ($this->fieldIsExcluded($conditions, $itemData, $itemRules)) {
@@ -68,6 +69,10 @@ final class ItemRuleCompiler
                 // rules remain. This enables fast-checking.
                 $itemRules[$field] = $this->stripConditionalTuples($itemRules[$field]);
             }
+        }
+
+        if (! $applySiblingReducers) {
+            return $itemRules;
         }
 
         foreach ($itemRules as $field => $rule) {

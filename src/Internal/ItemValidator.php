@@ -86,14 +86,14 @@ final readonly class ItemValidator
                 $dispatchValue = is_scalar($rawDispatch) ? (string) $rawDispatch : '';
 
                 if (! isset($rulesByDispatch[$dispatchValue])) {
-                    $rulesByDispatch[$dispatchValue] = $this->compiler->reduceRulesForItem($itemRules, $itemData, $conditionalFields, $itemMessages);
+                    $rulesByDispatch[$dispatchValue] = $this->compiler->reduceRulesForItem($itemRules, $itemData, $conditionalFields, $itemMessages, $hasSiblingDependentConditionals);
                     $fastChecksByDispatch[$dispatchValue] = $this->compiler->buildFastChecks($rulesByDispatch[$dispatchValue]);
                 }
 
                 $effectiveRules = $rulesByDispatch[$dispatchValue];
                 [$dispatchFastChecks, $dispatchSlowRules] = $fastChecksByDispatch[$dispatchValue];
             } elseif ($conditionalFields !== [] || $hasSiblingDependentConditionals) {
-                $effectiveRules = $this->compiler->reduceRulesForItem($itemRules, $itemData, $conditionalFields, $itemMessages);
+                $effectiveRules = $this->compiler->reduceRulesForItem($itemRules, $itemData, $conditionalFields, $itemMessages, $hasSiblingDependentConditionals);
                 $reducedKey = $this->compiler->ruleCacheKey($effectiveRules);
                 // Memoize compiled fast-checks per distinct reduced rule set —
                 // many items reduce identically, so reuse beats recompiling.

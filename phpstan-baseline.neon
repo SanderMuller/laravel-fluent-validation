@@ -70,7 +70,7 @@ parameters:
 		# for native-parity. Dropping the class under 80 is a whole-class refactor
 		# out of scope.
 		-
-			rawMessage: 'Class cognitive complexity is 111, keep it under 80'
+			rawMessage: 'Class cognitive complexity is 112, keep it under 80'
 			identifier: complexity.classLike
 			count: 1
 			path: src/Internal/ItemRuleCompiler.php
