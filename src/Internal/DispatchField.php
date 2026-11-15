@@ -21,17 +21,13 @@ final class DispatchField
      * @param  array<string, list<array{action: string, field: string, values: list<string>}>>  $conditionalFields
      * @param  array<string, mixed>  $itemRules
      */
-    public static function find(ItemRuleCompiler $compiler, array $conditionalFields, array $itemRules, bool $hasSiblingDependentConditionals): ?string
+    public static function find(ItemRuleCompiler $compiler, array $conditionalFields, array $itemRules): ?string
     {
         $field = $compiler->findCommonDispatchField($conditionalFields);
 
         // Only a flat field is read from the item directly.
         if ($field === null || str_contains($field, '.')) {
             return null;
-        }
-
-        if (! $hasSiblingDependentConditionals) {
-            return $field;
         }
 
         $dependencies = [...PresenceConditionalReducer::dependencies($itemRules), ...ValueConditionalReducer::dependencies($itemRules)];

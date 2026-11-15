@@ -712,3 +712,17 @@ it('compileWithItemContext compiles gt/gte/lt/lte with a type flag', function ()
     expect(FastCheckCompiler::compileWithItemContext('required|numeric|gt:a,b'))
         ->toBeNull();
 });
+
+it('fast-check reads quoted in and not_in values like Laravel', function (string $rule, string $value): void {
+    $closure = FastCheckCompiler::compile($rule);
+
+    expect($closure)->toBeInstanceOf(Closure::class);
+    assert($closure instanceof Closure);
+    expect($closure($value))->toBe(Validator::make(['f' => $value], ['f' => $rule])->passes());
+})->with([
+    'in, part of a quoted value' => ['in:"a,b"', 'a'],
+    'in, the whole quoted value' => ['in:"a,b"', 'a,b'],
+    'in, escaped quote' => ['in:"say ""hi"""', 'say "hi"'],
+    'not_in, part of a quoted value' => ['not_in:"a,b"', 'a'],
+    'not_in, the whole quoted value' => ['not_in:"a,b"', 'a,b'],
+]);

@@ -46,7 +46,7 @@ final readonly class ItemValidator
         $siblingFields = PresenceConditionalReducer::fields($itemRules) + ValueConditionalReducer::fields($itemRules);
         $hasSiblingDependentConditionals = $siblingFields !== [];
 
-        $dispatchField = DispatchField::find($this->compiler, $conditionalFields, $itemRules, $hasSiblingDependentConditionals);
+        $dispatchField = DispatchField::find($this->compiler, $conditionalFields, $itemRules);
         /** @var array<string, array<string, mixed>> $rulesByDispatch */
         $rulesByDispatch = [];
         /** @var array<string, array{0: array<string, Closure(array<string, mixed>): bool>, 1: array<string, mixed>}> $fastChecksByDispatch */
@@ -190,7 +190,11 @@ final readonly class ItemValidator
             $byDispatch[$dispatchValue] = $laravelRules;
         }
 
-        return array_intersect_key($laravelRules, $rules);
+        // Laravel reads a dependency's rules too: `boolean` makes required_if:flag,true match '1'.
+        $restored = array_intersect_key($laravelRules, $rules, $siblingFields);
+        $dependencies = array_fill_keys([...PresenceConditionalReducer::dependencies($restored), ...ValueConditionalReducer::dependencies($restored)], true);
+
+        return array_intersect_key($laravelRules, $rules + $dependencies);
     }
 
     /**

@@ -43,3 +43,18 @@ it('reports the prohibited_unless message for a failing item', function (): void
     expect(RuleSet::from($rules)->check($data)->errors()->toArray())
         ->toBe(['items.0.url' => ['The url field is prohibited unless type is in image.']]);
 });
+
+it('keeps a boolean dependency for the Laravel validator of a slow conditional field', function (array $item): void {
+    $slow = new class implements ValidationRule {
+        public function validate(string $attribute, mixed $value, Closure $fail): void {}
+    };
+
+    $data = ['items' => [$item]];
+    $rules = ['items.*.flag' => 'boolean', 'items.*.url' => ['required_if:items.*.flag,true', $slow]];
+
+    expect(RuleSet::from($rules)->check($data)->errors()->keys())
+        ->toBe(validator($data, $rules)->errors()->keys());
+})->with([
+    'flag sent as "1"' => [['flag' => '1']],
+    'flag sent as "0"' => [['flag' => '0']],
+]);

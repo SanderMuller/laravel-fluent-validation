@@ -265,9 +265,10 @@ final class RuleConfigBuilder
     /** @return list<string> */
     private static function parseInValues(string $values): array
     {
+        // Laravel's ValidationRuleParser reads parameters as CSV.
         return array_map(
-            static fn (string $v): string => trim($v, '"'),
-            explode(',', $values),
+            static fn (?string $v): string => $v ?? '',
+            str_getcsv($values, escape: '\\'),
         );
     }
 
