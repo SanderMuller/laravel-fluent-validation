@@ -793,3 +793,24 @@ it('fast-checks plain number rules like Laravel', function (string $rule, mixed 
     'required numeric, null' => ['required|numeric', null],
     'integer strict, int' => ['integer:strict|min:2', 3],
 ]);
+
+it('fast-checks plain string and array size rules like Laravel', function (string $rule, mixed $value): void {
+    $closure = FastCheckCompiler::compile($rule);
+
+    expect($closure)->toBeInstanceOf(Closure::class);
+    assert($closure instanceof Closure);
+    expect($closure($value))->toBe(Validator::make(['f' => $value], ['f' => $rule])->passes());
+})->with([
+    'string in bounds' => ['required|string|min:2|max:5', 'abc'],
+    'string too long' => ['required|string|max:2', 'abc'],
+    'multibyte string length' => ['string|max:2', 'éé'],
+    'empty string, required' => ['required|string|min:1', ''],
+    'empty string, not required' => ['string|min:1', ''],
+    'string rule, int value' => ['string|max:5', 5],
+    'array in bounds' => ['required|array|min:1', ['x']],
+    'empty array, required' => ['required|array|min:1', []],
+    'empty array, not required' => ['array|min:1', []],
+    'array too big' => ['array|max:1', ['x', 'y']],
+    'numeric and integer, int' => ['numeric|integer|min:1', 3],
+    'numeric and integer, whole float' => ['numeric|integer|min:1', 3.0],
+]);

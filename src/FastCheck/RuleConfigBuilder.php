@@ -171,7 +171,7 @@ final class RuleConfigBuilder
         $hasSize = $min !== null || $max !== null;
         $hasInRegex = $in !== null || $notIn !== null || $regex !== null || $notRegex !== null;
 
-        return NumberFastPath::wrap($c, static function (mixed $value) use (
+        return SizeFastPath::wrap($c, static function (mixed $value) use (
             $required, $nullable, $hasImplicit,
             $isString, $isNumeric, $isInteger, $isArray,
             $min, $max, $hasSize,
