@@ -771,3 +771,25 @@ it('fast-checks decimal size bounds like Laravel', function (string $rule, mixed
     'string min with a decimal bound' => ['string|min:2.5', 'ab'],
     'numeric max above a decimal bound' => ['numeric|max:1.5', 1.7],
 ]);
+
+it('fast-checks plain number rules like Laravel', function (string $rule, mixed $value): void {
+    $closure = FastCheckCompiler::compile($rule);
+
+    expect($closure)->toBeInstanceOf(Closure::class);
+    assert($closure instanceof Closure);
+    expect($closure($value))->toBe(Validator::make(['f' => $value], ['f' => $rule])->passes());
+})->with([
+    'integer in bounds' => ['required|integer|min:1|max:10', 5],
+    'integer below' => ['required|integer|min:1', 0],
+    'integer rule, float value' => ['required|integer|min:1', 5.5],
+    'integer rule, whole float' => ['required|integer|min:1', 5.0],
+    'numeric, float in bounds' => ['required|numeric|min:0.01', 0.5],
+    'numeric, float below' => ['required|numeric|min:0.01', 0.001],
+    'numeric, negative int' => ['numeric|min:-5', -6],
+    'numeric, numeric string' => ['required|numeric|max:10', '11'],
+    'numeric, infinite float' => ['numeric', INF],
+    'numeric, NaN' => ['numeric', NAN],
+    'nullable numeric, null' => ['nullable|numeric|min:1', null],
+    'required numeric, null' => ['required|numeric', null],
+    'integer strict, int' => ['integer:strict|min:2', 3],
+]);
