@@ -13,7 +13,8 @@ use stdClass;
  * for each rule whether to drop it (inactive), rewrite it to plain
  * `required` (active without a custom message override — unlocks
  * fast-check), or leave it intact (active with an override — the
- * original rule name must survive so translator lookups still fire).
+ * original rule name must survive so translator lookups still fire — or
+ * active with `$keepActive`, for the Laravel validator of a failing item).
  *
  * @internal Implementation detail of `RuleSet`. Not part of the public API.
  */
@@ -38,7 +39,6 @@ final class PresenceConditionalReducer extends AbstractConditionalReducer
      *
      * @param  array<string, mixed>   $itemData
      * @param  array<string, string>  $itemMessages
-     * @param  bool  $keepActive  true keeps an active rule as it is, so Laravel writes its own message
      */
     public static function apply(mixed $rule, string $field, array $itemData, array $itemMessages, bool $keepActive = false): mixed
     {
@@ -79,8 +79,8 @@ final class PresenceConditionalReducer extends AbstractConditionalReducer
 
     /**
      * Rewrite one rule string: drop when the conditional is inactive,
-     * collapse to plain `required` when active and no custom message
-     * overrides the original rule name, otherwise return unchanged.
+     * collapse to plain `required` when active, unless `$keepActive` or a
+     * custom message for the original rule name keeps it unchanged.
      *
      * Covers both single- and multi-param forms of all four rules.
      *

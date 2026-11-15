@@ -11,7 +11,7 @@ use SanderMuller\FluentValidation\RuleSet;
 
 /**
  * @param  array<string, mixed>  $rules
- * @param  array<mixed>  $items  items as the request sends them
+ * @param  array<mixed>  $items
  */
 function assertDispatchParity(array $rules, array $items): void
 {

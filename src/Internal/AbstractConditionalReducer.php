@@ -9,14 +9,14 @@ use Illuminate\Support\Arr;
 /**
  * Shared template for per-item conditional-rule reducers. Subclasses
  * (`PresenceConditionalReducer`, `ValueConditionalReducer`) implement the
- * rule-family-specific `parse()` and `apply()` entry points; this base
- * owns the dispatch shape (`fields()`, `applyTemplate()`) and the custom
- * message lookup that both subclasses agree on.
+ * rule-family-specific `parse()`, `dependencyFields()` and `apply()`; this
+ * base owns the rule walk (`fields()`, `dependencies()`, `applyTemplate()`)
+ * and the custom message lookup that both subclasses agree on.
  *
  * Static-by-design: subclasses' public entry points are static, so the
  * base uses late static binding (`static::parse()`) rather than instance
  * dispatch — avoids object allocation across the per-item hot path in
- * `ItemRuleCompiler::buildItemRules()`.
+ * `ItemRuleCompiler::reduceRulesForItem()`.
  *
  * @internal
  */
@@ -32,15 +32,11 @@ abstract class AbstractConditionalReducer
     abstract protected static function parse(string $rule): ?array;
 
     /**
-     * The fields a recognised rule's raw parameter names as dependencies.
-     *
      * @return list<string>
      */
     abstract protected static function dependencyFields(string $rawParam): array;
 
     /**
-     * Every field the recognised rules in the set depend on.
-     *
      * @param  array<string, mixed>  $itemRules
      * @return list<string>
      */
@@ -125,8 +121,9 @@ abstract class AbstractConditionalReducer
 
     /**
      * Walk a single rule value (string with optional pipe-joined parts, or
-     * a list of rules) and dispatch each string part to `$rewriteOne`.
-     * Returns the rewritten rule in its original shape.
+     * a list of rules) and dispatch each string part, or each tuple in its
+     * string form, to `$rewriteOne`. A string stays a string; a rewritten
+     * list of plain strings comes back as one pipe string.
      *
      * Subclasses' `apply()` methods bind their per-call context (field,
      * itemData, etc.) into a closure and hand it here.
@@ -179,8 +176,6 @@ abstract class AbstractConditionalReducer
 
             $rewritten = $rewriteOne($asString);
 
-            // Unchanged keeps the original element: a tuple whose custom
-            // message must keep the rule stays a tuple.
             if ($rewritten !== null) {
                 $out[] = $rewritten === $asString ? $sub : $rewritten;
             }
@@ -191,8 +186,8 @@ abstract class AbstractConditionalReducer
         }
 
         // A rewritten list of plain strings joins so it can fast-check. A list
-        // with `boolean` stays a list, as in PlainRuleJoiner: a sibling's
-        // conditional can read that rule in Laravel's validator.
+        // with `boolean` stays a list: a sibling's conditional can read that
+        // rule in Laravel's validator.
         foreach ($out as $part) {
             if (! is_string($part) || str_contains($part, '|') || $part === 'boolean') {
                 return $out;

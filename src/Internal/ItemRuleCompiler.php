@@ -50,14 +50,14 @@ final class ItemRuleCompiler
     }
 
     /**
-     * Reduce item rules by evaluating conditional exclusions against the item data.
+     * Reduce item rules against the item data: drop excluded fields, then run
+     * the presence and value reducers on the fields that carry a conditional.
      *
      * @param  array<string, mixed>  $itemRules
      * @param  array<string, mixed>  $itemData
      * @param  array<string, list<array{action: string, field: string, values: list<string>}>>  $conditionalFields
      * @param  array<string, string>  $itemMessages
      * @param  array<string, true>|null  $siblingFields  the fields with a presence or value conditional; null reduces every field
-     * @param  bool  $keepActiveConditionals  true keeps active presence and value conditionals as they are, for the Laravel validator
      * @return array<string, mixed>
      */
     public function reduceRulesForItem(array $itemRules, array $itemData, array $conditionalFields, array $itemMessages = [], ?array $siblingFields = null, bool $keepActiveConditionals = false): array
@@ -115,9 +115,8 @@ final class ItemRuleCompiler
      * string when possible.
      *
      * Only the exclude tuples are removed — required_if/required_unless tuples
-     * must survive so the field's presence conditional still validates (the
-     * value-conditional reducer rewrites string forms; native Laravel handles
-     * the surviving tuple form).
+     * must survive so the field's presence conditional still validates; the
+     * presence and value reducers handle them next.
      */
     private function stripConditionalTuples(mixed $rules): mixed
     {
@@ -288,7 +287,6 @@ final class ItemRuleCompiler
                     };
                 }
             } elseif ($field === '*' || str_contains($field, '.')) {
-                // Scalar each reads '_v'; a dotted field (style.top) reads the nested path.
                 $checks[] = PathFastCheck::build($field === '*' ? ['_v'] : explode('.', $field), $valueCheck, $itemAwareCheck);
             } elseif ($itemAwareCheck instanceof Closure) {
                 $checks[] = static function (array $data) use ($field, $itemAwareCheck): bool {

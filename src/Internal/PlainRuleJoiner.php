@@ -13,8 +13,8 @@ use Illuminate\Validation\Rules\NotIn;
  * Only plain strings and `Rule::in` / `Rule::notIn` are joined. Other
  * Stringable rules (`Rule::requiredIf`, `Rule::unique`, ...) evaluate state
  * or feed the batch verifier as objects, so a list that holds one stays a list.
- * A token with a literal `|` (for example `regex:/^(a|b)$/`) or a `boolean`
- * token also keeps the list.
+ * A token with a literal `|` (for example `regex:/^(a|b)$/`) also keeps the
+ * list, and so does `boolean` on a field that another rule depends on.
  *
  * @internal Implementation detail of `ItemValidator`.
  */

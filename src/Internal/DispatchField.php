@@ -25,7 +25,7 @@ final class DispatchField
     {
         $field = $compiler->findCommonDispatchField($conditionalFields);
 
-        // Only a flat field is read from the item directly.
+        // key() reads a top-level key only.
         if ($field === null || str_contains($field, '.')) {
             return null;
         }
@@ -38,7 +38,7 @@ final class DispatchField
     /**
      * Cache key for the item's dispatch value, or null when the item must be
      * reduced on its own. The type is part of the key: an absent field, null,
-     * '' and 0 all reduce differently under required_if / required_with.
+     * '' and 0 can reduce differently under required_if / required_with.
      *
      * @param  array<string, mixed>  $itemData
      */

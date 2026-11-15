@@ -5,9 +5,9 @@ use SanderMuller\FluentValidation\FluentRule;
 use SanderMuller\FluentValidation\RuleSet;
 
 // =========================================================================
-// RuleSet rewrites an active presence or value conditional to `required`
-// for the fast check. A failing item must still get Laravel's message for
-// the original rule. Attribute names stay item-relative (`url`, `type`).
+// Per-item reduction rewrites an active presence or value conditional to
+// `required` / `prohibited` for the fast check. A failing item must still get
+// Laravel's message for the original rule. Attribute names stay item-relative.
 // =========================================================================
 
 it('reports the conditional message for a failing item', function (mixed $urlRule): void {

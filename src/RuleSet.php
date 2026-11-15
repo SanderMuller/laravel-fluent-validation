@@ -636,9 +636,9 @@ final class RuleSet implements Arrayable, IteratorAggregate
 
     /**
      * Validate top-level rules with fast checks alone. Returns the validated
-     * data, or null when Laravel must run: a dotted key (children() needs
-     * nested lookup and validated-data shaping), a rule with no fast check,
-     * or a failed check (Laravel builds the error messages).
+     * data, or null when Laravel must run: no fast checks, a slow rule, a
+     * failed check (Laravel builds the error messages), or a dotted key
+     * (children() needs Laravel's nested lookup and validated-data shaping).
      *
      * @param  array<string, mixed>  $data
      * @param  array<string, mixed>  $compiled
