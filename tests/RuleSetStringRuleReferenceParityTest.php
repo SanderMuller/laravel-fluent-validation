@@ -33,6 +33,8 @@ it('resolves wildcard field references in pipe-string rules like native', functi
     'same on equal values' => ['same:items.*.other', ['other' => 'x', 'b' => 'x']],
     'after an earlier sibling date' => ['date|after:items.*.other', ['other' => '2025-06-01', 'b' => '2025-01-01']],
     'quoted reference' => ['same:"items.*.other"', ['other' => 'x', 'b' => 'x']],
+    'space before a quoted reference' => ['same: "items.*.other"', ['other' => 'x', 'b' => 'x']],
+    'space before a quoted conditional field' => ['required_if: "items.*.other",yes', ['other' => 'yes']],
     'before a later sibling date' => ['date|before:items.*.other', ['other' => '2025-01-01', 'b' => '2025-06-01']],
 ]);
 

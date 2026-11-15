@@ -121,11 +121,12 @@ final class WildcardReferenceRewriter
 
     private function stripPrefix(string $value, bool $quoted): string
     {
-        $quote = $quoted && str_starts_with($value, '"') ? '"' : '';
-        $field = substr($value, strlen($quote));
+        // CSV drops spaces and tabs before an opening quote.
+        $lead = $quoted && preg_match('/\A[ \t]*"/', $value, $match) === 1 ? $match[0] : '';
+        $field = substr($value, strlen($lead));
 
         return str_starts_with($field, $this->prefix)
-            ? $quote . substr($field, strlen($this->prefix))
+            ? $lead . substr($field, strlen($this->prefix))
             : $value;
     }
 
