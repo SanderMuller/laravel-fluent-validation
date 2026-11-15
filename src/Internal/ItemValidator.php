@@ -42,6 +42,7 @@ final readonly class ItemValidator
     public function validate(array $items, array $itemRules, array $itemMessages, array $itemAttributes, string $parent, bool $isScalar): array
     {
         $conditionalFields = $this->compiler->analyzeConditionals($itemRules);
+        $itemRules = PlainRuleJoiner::joinAll($itemRules, $conditionalFields);
         $hasPresenceConditionals = PresenceConditionalReducer::hasAny($itemRules);
         $hasValueConditionals = ValueConditionalReducer::hasAny($itemRules);
         $hasSiblingDependentConditionals = $hasPresenceConditionals || $hasValueConditionals;
