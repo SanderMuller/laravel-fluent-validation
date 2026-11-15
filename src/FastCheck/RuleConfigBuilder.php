@@ -91,8 +91,15 @@ final class RuleConfigBuilder
             // present-null requires presence info the closure doesn't have.
             $part === 'sometimes' => null,
             $part === 'bail' => $config,
-            str_starts_with($part, 'min:') => [...$config, 'min' => (int) substr($part, 4)],
-            str_starts_with($part, 'max:') => [...$config, 'max' => (int) substr($part, 4)],
+            // Size bounds intersect: Laravel applies every min/max/between rule.
+            str_starts_with($part, 'min:') => [...$config, 'min' => max((int) substr($part, 4), $config['min'] ?? PHP_INT_MIN)],
+            str_starts_with($part, 'max:') => [...$config, 'max' => min((int) substr($part, 4), $config['max'] ?? PHP_INT_MAX)],
+            // Non-negative integer bounds only; other forms stay on the slow path.
+            preg_match('/^between:(\d+),(\d+)$/', $part, $bounds) === 1 => [
+                ...$config,
+                'min' => max((int) $bounds[1], $config['min'] ?? PHP_INT_MIN),
+                'max' => min((int) $bounds[2], $config['max'] ?? PHP_INT_MAX),
+            ],
             str_starts_with($part, 'digits:') => [...$config, 'digits' => (int) substr($part, 7)],
             str_starts_with($part, 'digits_between:') => self::parseDigitsBetween($config, substr($part, 15)),
             str_starts_with($part, 'in:') => [...$config, 'in' => self::parseInValues(substr($part, 3))],

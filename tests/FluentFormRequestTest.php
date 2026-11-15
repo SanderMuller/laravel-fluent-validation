@@ -94,17 +94,36 @@ it('skips fast checks for date comparison rules with field references', function
     expect($checks)->not->toHaveKey('items.*.ends_at');
 });
 
-it('skips fast checks for size and between rules', function (): void {
+it('skips fast checks for size rules', function (): void {
     $sizeCheck = OptimizedValidator::buildFastChecks([
         'items.*.code' => 'required|string|size:6',
     ]);
     expect($sizeCheck)->not->toHaveKey('items.*.code');
-
-    $betweenCheck = OptimizedValidator::buildFastChecks([
-        'items.*.score' => 'required|numeric|between:1,10',
-    ]);
-    expect($betweenCheck)->not->toHaveKey('items.*.score');
 });
+
+it('fast-checks between with integer bounds and skips decimal bounds', function (): void {
+    $checks = OptimizedValidator::buildFastChecks([
+        'items.*.score' => 'required|numeric|between:1,10',
+        'items.*.ratio' => 'required|numeric|between:0.5,2',
+    ]);
+
+    expect($checks)->toHaveKey('items.*.score')
+        ->and($checks)->not->toHaveKey('items.*.ratio')
+        ->and($checks['items.*.score'](5))->toBeTrue()
+        ->and($checks['items.*.score'](11))->toBeFalse();
+});
+
+it('intersects between with min and max in either order', function (string $rule, int $value, bool $passes): void {
+    $checks = OptimizedValidator::buildFastChecks(['items.*.n' => $rule]);
+
+    expect($checks['items.*.n']($value))->toBe($passes)
+        ->and($passes)->toBe(validator(['n' => $value], ['n' => $rule])->passes());
+})->with([
+    'later min cannot widen' => ['numeric|between:5,10|min:0', 3, false],
+    'earlier min cannot widen' => ['numeric|min:0|between:5,10', 3, false],
+    'later max narrows' => ['numeric|between:0,10|max:3', 5, false],
+    'inside all bounds' => ['numeric|between:0,10|max:3', 2, true],
+]);
 
 it('fast-checks array rules', function (): void {
     $checks = OptimizedValidator::buildFastChecks([
