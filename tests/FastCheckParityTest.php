@@ -744,3 +744,18 @@ it('applies every repeated rule and Laravel size order like Laravel', function (
     'string and numeric, min, small number' => ['string|numeric|min:5', '12345'],
     'string and integer, between, in range' => ['string|integer|between:1,10', '5'],
 ]);
+
+it('fast-checks date and digits input like Laravel', function (string $rule, mixed $value): void {
+    $closure = FastCheckCompiler::compile($rule);
+
+    expect($closure)->toBeInstanceOf(Closure::class);
+    assert($closure instanceof Closure);
+    expect($closure($value))->toBe(Validator::make(['f' => $value], ['f' => $rule])->passes());
+})->with([
+    'date, a letter strtotime reads as a time zone' => ['date', 'b'],
+    'date, now' => ['date', 'now'],
+    'date, a calendar date' => ['date', '2025-06-01'],
+    'digits_between, true' => ['digits_between:1,3', true],
+    'digits, true' => ['digits:1', true],
+    'digits, a digit string' => ['digits:2', '12'],
+]);

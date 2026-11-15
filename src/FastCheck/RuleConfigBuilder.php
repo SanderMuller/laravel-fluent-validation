@@ -413,7 +413,7 @@ final class RuleConfigBuilder
                     return $d !== false && $d->format($dateFormat) === $v;
                 }
 
-                $ts = strtotime($v);
+                $ts = LaravelInput::timestamp($v, $isDate);
 
                 if ($ts === false) {
                     return ! $isDate && $after === null && $afterOrEqual === null
@@ -462,7 +462,7 @@ final class RuleConfigBuilder
 
         if ($digits !== null) {
             $checks[] = static function (mixed $v) use ($digits): bool {
-                if (! is_scalar($v)) {
+                if (! LaravelInput::isDigitsInput($v)) {
                     return false;
                 }
 
@@ -474,7 +474,7 @@ final class RuleConfigBuilder
 
         if ($digitsMin !== null || $digitsMax !== null) {
             $checks[] = static function (mixed $v) use ($digitsMin, $digitsMax): bool {
-                if (! is_scalar($v)) {
+                if (! LaravelInput::isDigitsInput($v)) {
                     return false;
                 }
 
