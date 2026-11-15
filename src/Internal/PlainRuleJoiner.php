@@ -14,7 +14,8 @@ use Illuminate\Validation\Rules\NotIn;
  * Stringable rules (`Rule::requiredIf`, `Rule::unique`, ...) evaluate state
  * or feed the batch verifier as objects, so a list that holds one stays a list.
  * A token with a literal `|` (for example `regex:/^(a|b)$/`) also keeps the
- * list, and so does `boolean` on a field that another rule depends on.
+ * list, and so does a rule in `isReadByDependents()` on a field that another
+ * rule depends on.
  *
  * @internal Implementation detail of `ItemValidator`.
  */
@@ -54,10 +55,7 @@ final class PlainRuleJoiner
                 $rule = (string) $rule;
             }
 
-            // A dependency's `boolean` stays in Laravel's per-item validator:
-            // Laravel's shouldConvertToBoolean reads it there when a sibling's
-            // required_if / exclude_if rule names this field.
-            if (! is_string($rule) || ($isDependency && $rule === 'boolean') || str_contains($rule, '|')) {
+            if (! is_string($rule) || ($isDependency && self::isReadByDependents($rule)) || str_contains($rule, '|')) {
                 return null;
             }
 
@@ -65,6 +63,17 @@ final class PlainRuleJoiner
         }
 
         return implode('|', $parts);
+    }
+
+    /**
+     * A rule Laravel reads from a field that another rule names: `boolean`
+     * (shouldConvertToBoolean, for required_if:flag,true) and `date_format`
+     * (after:start compares in start's format). Such a rule must stay in
+     * Laravel's per-item validator.
+     */
+    public static function isReadByDependents(string $rule): bool
+    {
+        return $rule === 'boolean' || str_starts_with($rule, 'date_format:');
     }
 
     /**

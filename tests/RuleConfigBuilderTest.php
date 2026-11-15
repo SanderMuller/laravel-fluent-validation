@@ -130,9 +130,7 @@ it('ItemContextCompiler bails on date_format + date_equals:field combo', functio
     expect(ItemContextCompiler::compile('required|date|date_format:Y-m-d|date_equals:other_date'))->toBeNull();
 });
 
-/**
- * Counter-checks: date_format with a date LITERAL (not field ref) is fine.
- */
-it('ItemContextCompiler accepts date_format with literal-only after', function (): void {
-    expect(ItemContextCompiler::compile('required|date|date_format:Y-m-d|after:2030-01-01'))->toBeInstanceOf(Closure::class);
+// The closure checks only the format, so a date literal comparison goes to Laravel too.
+it('ItemContextCompiler bails on date_format + a literal after', function (): void {
+    expect(ItemContextCompiler::compile('required|date|date_format:Y-m-d|after:2030-01-01'))->toBeNull();
 });

@@ -64,3 +64,27 @@ it('keeps a boolean dependency for other value conditionals on a slow field', fu
     'required_unless true, "0"' => [['required_unless:items.*.flag,true'], ['flag' => '0'], false],
     'required_if true, "1", dispatch cache' => [['required_if:items.*.flag,true'], ['flag' => '1'], true],
 ]);
+
+it('checks a dotted child under a nested wildcard like native', function (): void {
+    assertPerItemParity(
+        ['items.*.groups' => 'array', 'items.*.groups.*.profile.name' => ['nullable', 'string']],
+        ['items' => [['groups' => [['profile' => ['name' => 5]]]]]],
+    );
+});
+
+it('compares dates in the date_format of the rule like native', function (string $date): void {
+    assertPerItemParity(
+        ['items.*.date' => ['date_format:Y-m-d', 'after:2025-01-01']],
+        ['items' => [['date' => $date]]],
+    );
+})->with(['2020-01-01', '2026-01-01']);
+
+it('keeps a dependency date_format for a sibling after rule like native', function (array $item): void {
+    assertPerItemParity(
+        ['items.*.start' => ['date_format:d/m/Y'], 'items.*.end' => ['date_format:Y-m-d', 'after:items.*.start']],
+        ['items' => [$item]],
+    );
+})->with([
+    'end before start' => [['start' => '01/12/2025', 'end' => '2025-06-01']],
+    'end after start' => [['start' => '01/12/2025', 'end' => '2026-06-01']],
+]);

@@ -16,9 +16,9 @@ final class PathFastCheck
 {
     /**
      * Split off the fields a fast check cannot read. A check reads a plain or
-     * dotted field, the scalar each `*`, or one `parent.*.child` level. A
-     * field with any other wildcard (`tags.*`, `a.*.b.*`) names many values,
-     * so Laravel validates it.
+     * dotted field, the scalar each `*`, or `parent.*.child` with flat parent
+     * and child. Any other wildcard field (`tags.*`, `a.*.b.*`, `a.*.b.c`)
+     * goes to Laravel.
      *
      * @param  array<string, mixed>  $rules
      * @return array{0: array<string, mixed>, 1: array<string, mixed>} readable rules, then the rest
@@ -34,7 +34,7 @@ final class PathFastCheck
     {
         return match (substr_count($field, '*')) {
             0 => true,
-            1 => $field === '*' || str_contains($field, '.*.'),
+            1 => $field === '*' || preg_match('/\A[^.]+\.\*\.[^.]+\z/', $field) === 1,
             default => false,
         };
     }
