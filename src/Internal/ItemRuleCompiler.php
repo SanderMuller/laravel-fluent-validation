@@ -283,16 +283,9 @@ final class ItemRuleCompiler
                         return true;
                     };
                 }
-            } elseif ($field === '*') {
-                // Scalar each: value is in '_v' key
-                if ($itemAwareCheck instanceof Closure) {
-                    $checks[] = static function (array $data) use ($itemAwareCheck): bool {
-                        /** @var array<string, mixed> $data — caller guarantees string-keyed. */
-                        return $itemAwareCheck($data['_v'] ?? null, $data);
-                    };
-                } else {
-                    $checks[] = static fn (array $data): bool => $valueCheck($data['_v'] ?? null);
-                }
+            } elseif ($field === '*' || str_contains($field, '.')) {
+                // Scalar each reads '_v'; a dotted field (style.top) reads the nested path.
+                $checks[] = PathFastCheck::build($field === '*' ? ['_v'] : explode('.', $field), $valueCheck, $itemAwareCheck);
             } elseif ($itemAwareCheck instanceof Closure) {
                 $checks[] = static function (array $data) use ($field, $itemAwareCheck): bool {
                     /** @var array<string, mixed> $data — caller guarantees string-keyed. */
