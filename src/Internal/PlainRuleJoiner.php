@@ -27,12 +27,14 @@ final class PlainRuleJoiner
      */
     public static function joinAll(array $itemRules, array $conditionalFields): array
     {
+        $dependencies = self::dependencies($itemRules);
+
         foreach ($itemRules as $field => $rules) {
             if (! is_array($rules) || $rules === [] || isset($conditionalFields[$field])) {
                 continue;
             }
 
-            $joined = self::join($rules);
+            $joined = self::join($rules, isset($dependencies[$field]));
 
             if ($joined !== null) {
                 $itemRules[$field] = $joined;
@@ -43,7 +45,7 @@ final class PlainRuleJoiner
     }
 
     /** @param  array<int|string, mixed>  $rules */
-    private static function join(array $rules): ?string
+    private static function join(array $rules, bool $isDependency): ?string
     {
         $parts = [];
 
@@ -52,10 +54,10 @@ final class PlainRuleJoiner
                 $rule = (string) $rule;
             }
 
-            // `boolean` stays in Laravel's per-item validator: Laravel's
-            // shouldConvertToBoolean reads it there when a sibling's
-            // required_if / exclude_if tuple names this field.
-            if (! is_string($rule) || $rule === 'boolean' || str_contains($rule, '|')) {
+            // A dependency's `boolean` stays in Laravel's per-item validator:
+            // Laravel's shouldConvertToBoolean reads it there when a sibling's
+            // required_if / exclude_if rule names this field.
+            if (! is_string($rule) || ($isDependency && $rule === 'boolean') || str_contains($rule, '|')) {
                 return null;
             }
 
@@ -63,5 +65,30 @@ final class PlainRuleJoiner
         }
 
         return implode('|', $parts);
+    }
+
+    /**
+     * Every field that a rule in the group names as its first parameter
+     * (`required_if:flag,true`, `['exclude_if', 'flag', 'true']`, `gte:start`).
+     * Laravel's dependent rules take the dependency as the first parameter.
+     *
+     * @param  array<string, mixed>  $itemRules
+     * @return array<string, true>
+     */
+    private static function dependencies(array $itemRules): array
+    {
+        $dependencies = [];
+
+        foreach ($itemRules as $rules) {
+            foreach (is_string($rules) ? explode('|', $rules) : (is_array($rules) ? $rules : []) as $rule) {
+                if (is_array($rule) && isset($rule[1]) && is_string($rule[1])) {
+                    $dependencies[$rule[1]] = true;
+                } elseif (is_string($rule) && str_contains($rule, ':')) {
+                    $dependencies[explode(',', explode(':', $rule, 2)[1], 2)[0]] = true;
+                }
+            }
+        }
+
+        return $dependencies;
     }
 }
