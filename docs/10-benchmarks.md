@@ -11,7 +11,7 @@ Measured numbers for the optimizations described in [Performance](09-performance
 | [Article submission](#article-submission), 50 items, custom Rule objects    | Wildcard, fast-check (custom objects)  | ~5ms           | **~0.2ms**  | ~34x    |
 | [Login form](#login-form), 3 fields, no wildcards                           | Fast-check (flat)                      | ~0.1ms         | **~0.01ms** | ~11x    |
 
-All numbers are from `php benchmark.php` (macOS, PHP 8.5, OPcache); CI runs produce the same scenarios on Ubuntu.
+All numbers are from `php benchmark.php` (macOS, PHP 8.5, OPcache), which measures `RuleSet::validate()`; CI runs produce the same scenarios on Ubuntu. A form request with `HasFluentRules` gains less on the same scenarios: about 24x for the product import, 17x for the nested order lines, 6x for the conditional import and 3x for the article submission.
 
 <a id="on-wildcard-expansion"></a>
 

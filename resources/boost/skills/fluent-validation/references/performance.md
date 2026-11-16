@@ -11,12 +11,12 @@ The `HasFluentRules` trait (and `FluentFormRequest`) applies five optimizations 
 | Optimization | What it does | Speedup |
 |---|---|---|
 | **O(n) wildcard expansion** | `WildcardExpander` replaces Laravel's O(n²) approach | ~20% for large arrays |
-| **Per-attribute fast-checks** | Pure PHP closures skip Laravel for valid items (25 rules supported) | Up to 97x for simple rules |
-| **Partial fast-check** | Fast-checkable fields use PHP, non-eligible fields go through Laravel | 10x for mixed rule sets |
+| **Per-attribute fast-checks** | Pure PHP closures skip Laravel for valid items (rules listed below) | Up to 24x for simple rules |
+| **Partial fast-check** | Fast-checkable fields use PHP, non-eligible fields go through Laravel | 3x with custom Rule objects |
 | **Batched DB validation** | `exists`/`unique` rules batched into single `whereIn` query | N queries → 1 query |
 | **Rule-parse memoization** | Caches Laravel's rule-string parsing worker-wide; residual slow-path rules parse once instead of per probe and per item | ~2x on the slow-path residual |
 
-Fast-checked rules: `required`, `prohibited`, `filled`, `string`, `numeric`, `integer`, `boolean`, `date`, `email`, `url`, `ip`, `uuid`, `ulid`, `alpha`, `alpha_dash`, `alpha_num`, `accepted`, `declined`, `min`, `max`, `digits`, `digits_between`, `in`, `not_in`, `regex`, `not_regex`, `required_with`, `required_without`, `required_with_all`, `required_without_all`.
+Fast-checked rules: `required`, `prohibited`, `filled`, `string`, `numeric`, `integer`, `boolean`, `date`, `email`, `url`, `ip`, `uuid`, `ulid`, `alpha`, `alpha_dash`, `alpha_num`, `accepted`, `declined`, `min`, `max`, `between`, `digits`, `digits_between`, `in`, `not_in`, `regex`, `not_regex`, `date_format`, and `after`, `after_or_equal`, `before`, `before_or_equal`, `date_equals` with a literal date, `required_with`, `required_without`, `required_with_all`, `required_without_all`.
 
 The presence-conditional family (`required_with*` / `required_without*`) is fast-checkable in two ways: (1) the per-item closure handles simple dependent field names directly; (2) when a dependent field uses a dotted path (`required_without:profile.birthdate`), `RuleSet::reduceRulesForItem` pre-evaluates the conditional against the item data and rewrites the rule to plain `required` (or drops it when inactive) before the closure compiles. The rewrite is skipped when the user has supplied a custom message for the original rule name so `{field}.required_without` overrides continue to fire. ~7x speedup measured on 500-item wildcard forms with nested dependent paths (`tests/SlowPathBenchTest.php`).
 
