@@ -34,7 +34,7 @@ The two conditional families are pre-evaluated per item against the current row'
 
 What the closure does is simpler than what Laravel does. A `string|max:255` rule becomes `is_string($v) && strlen($v) <= 255`. No rule parsing, no method dispatch, no `BigNumber` size comparison. Values that pass never touch the validator. Values that fail fall through to Laravel so the error message stays identical, with no custom-formatting layer to maintain.
 
-Rules that can't be fast-checked (custom Rule objects, closures, `distinct`, `exists`/`unique` with closure callbacks) go through Laravel as normal.
+With `RuleSet`, a field that mixes fast-checkable strings with plain `ValidationRule` objects (`['required', 'string', new MinWords(100)]`) is fast-checked too: the closure calls each object's `validate()`. Rules that can't be fast-checked (closures, rule objects that read the validator or its data, implicit rule objects, `distinct`, `exists`/`unique` with closure callbacks) go through Laravel as normal.
 
 Fast-checks apply to both wildcard rules (`items.*.name`) and flat top-level rules. A simple `RuleSet::from(['name' => 'string|max:255'])->validate($data)` skips Laravel's validator entirely when the value passes.
 
@@ -94,7 +94,7 @@ The performance optimizations target wildcard array validation. These cases see 
 - **`gt`/`gte`/`lt`/`lte` without a type flag.** Laravel derives comparison type from an accompanying rule (`string`/`array`/`numeric`/`integer`). Without one, these fall through to Laravel. With a type flag, sibling-field comparisons like `numeric|gt:min_price` are fast-checked.
 - **`date_format` + date field-ref.** Laravel parses both sides with the declared format and has lenient missing-ref handling our strtotime-based closure can't match. Falls through to Laravel.
 - **Multi-param `different:a,b,c`.** Single-field `different:a` is fast-checked; comma-list forms fall through.
-- **Custom `ValidationRule` objects and closures.** Opaque to the fast-check compiler. Performance depends on what the rule does.
+- **Closures, and custom `ValidationRule` objects outside `RuleSet` or that read the validator or its data.** Opaque to the fast-check compiler. Performance depends on what the rule does.
 - **`distinct` rules.** Require comparing values across all items in the array, not per-item.
 - **Database rules with closure callbacks** (`exists`/`unique` with `->where(fn ...)`). Can't be batched; each item fires its own query.
 

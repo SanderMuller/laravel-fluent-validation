@@ -5,7 +5,7 @@ import { defineConfig } from 'vitepress'
 import { link, pages, sections } from './pages'
 
 const SITE_URL = 'https://sandermuller.github.io/laravel-fluent-validation'
-const DESCRIPTION = 'Fluent validation rule builders for Laravel with IDE autocompletion, co-located array rules, and up to 160x faster wildcard validation.'
+const DESCRIPTION = 'Fluent validation rule builders for Laravel with IDE autocompletion, co-located array rules, and up to 240x faster wildcard validation.'
 
 export default defineConfig({
     title: 'Laravel Fluent Validation',
@@ -50,7 +50,7 @@ export default defineConfig({
         ['meta', { name: 'theme-color', content: '#FF2D20' }],
         ['meta', { property: 'og:type', content: 'website' }],
         ['meta', { property: 'og:title', content: 'Laravel Fluent Validation' }],
-        ['meta', { property: 'og:description', content: 'Fluent validation rule builders for Laravel with IDE autocompletion, co-located array rules, and up to 160x faster wildcard validation.' }],
+        ['meta', { property: 'og:description', content: 'Fluent validation rule builders for Laravel with IDE autocompletion, co-located array rules, and up to 240x faster wildcard validation.' }],
         ['meta', { property: 'og:image', content: 'https://sandermuller.github.io/laravel-fluent-validation/header.png' }],
         ['meta', { name: 'twitter:card', content: 'summary_large_image' }],
         ['meta', { name: 'twitter:image', content: 'https://sandermuller.github.io/laravel-fluent-validation/header.png' }],

@@ -4,7 +4,7 @@ layout: home
 hero:
   name: Fluent Validation
   text: Laravel validation rules your IDE understands
-  tagline: Typed, chainable rule builders with co-located array rules, labels and messages attached to the rule itself, and wildcard validation up to 160x faster.
+  tagline: Typed, chainable rule builders with co-located array rules, labels and messages attached to the rule itself, and wildcard validation up to 240x faster.
   image:
     src: /logo.svg
     alt: Laravel Fluent Validation
@@ -26,7 +26,7 @@ features:
   - title: Co-located array rules
     details: each() and children() keep parent and child rules in one place instead of scattered across dot-notation keys. Nested arrays nest naturally.
     link: /array-validation
-  - title: Up to 160x faster
+  - title: Up to 240x faster
     details: O(n) wildcard expansion, fast-check closures, batched database checks, and rule-parse memoization on every optimized entry point.
     link: /performance
   - title: Labels and messages on the rule

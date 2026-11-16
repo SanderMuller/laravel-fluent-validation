@@ -4,14 +4,14 @@ Measured numbers for the optimizations described in [Performance](09-performance
 
 | Scenario                                                                    | Optimizations                          | Native Laravel | Optimized   | Speedup |
 |-----------------------------------------------------------------------------|----------------------------------------|----------------|-------------|---------|
-| [Product import](#product-import), 500 items, simple rules                  | Wildcard, fast-check                   | ~163ms         | **~3ms**    | ~62x    |
-| [Nested order lines](#nested-order-lines), 1000 orders × 5 line items       | Wildcard, fast-check (nested)          | ~2,491ms       | **~15ms**   | ~163x   |
-| [Conditional import](#conditional-import), 100 items, 47 conditional fields | Wildcard, pre-evaluation               | ~2,928ms       | **~47ms**   | ~62x    |
-| [Event scheduling](#event-scheduling), 100 items, field-ref dates           | Wildcard, fast-check (field-ref dates) | ~19ms          | **~0.7ms**  | ~28x    |
-| [Article submission](#article-submission), 50 items, custom Rule objects    | Wildcard only                          | ~8ms           | **~2ms**    | ~3x     |
-| [Login form](#login-form), 3 fields, no wildcards                           | Fast-check (flat)                      | ~0.1ms         | **~0.01ms** | ~12x    |
+| [Product import](#product-import), 500 items, simple rules                  | Wildcard, fast-check                   | ~93ms          | **~0.6ms**  | ~161x   |
+| [Nested order lines](#nested-order-lines), 1000 orders × 5 line items       | Wildcard, fast-check (nested)          | ~476ms         | **~2ms**    | ~244x   |
+| [Conditional import](#conditional-import), 100 items, 47 conditional fields | Wildcard, pre-evaluation               | ~143ms         | **~1.3ms**  | ~108x   |
+| [Event scheduling](#event-scheduling), 100 items, field-ref dates           | Wildcard, fast-check (field-ref dates) | ~14ms          | **~0.5ms**  | ~26x    |
+| [Article submission](#article-submission), 50 items, custom Rule objects    | Wildcard, fast-check (custom objects)  | ~5ms           | **~0.2ms**  | ~34x    |
+| [Login form](#login-form), 3 fields, no wildcards                           | Fast-check (flat)                      | ~0.1ms         | **~0.01ms** | ~11x    |
 
-All numbers are from `php benchmark.php` (macOS, PHP 8.4, OPcache); CI runs produce the same scenarios on Ubuntu.
+All numbers are from `php benchmark.php` (macOS, PHP 8.5, OPcache); CI runs produce the same scenarios on Ubuntu.
 
 <a id="on-wildcard-expansion"></a>
 
@@ -94,7 +94,7 @@ All numbers are from `php benchmark.php` (macOS, PHP 8.4, OPcache); CI runs prod
 
 ### Article submission
 
-50 articles where most rules are custom `ValidationRule` objects. Custom objects bypass fast-check compilation entirely, so only the wildcard expansion helps.
+50 articles where most rules are custom `ValidationRule` objects. The fast check runs plain strings and calls each object's `validate()` directly, so a passing item never reaches Laravel's validator.
 
 ```php
 'articles'                      => FluentRule::array()->required()->each([
@@ -106,7 +106,7 @@ All numbers are from `php benchmark.php` (macOS, PHP 8.4, OPcache); CI runs prod
 ]),
 ```
 
-**Optimizations**: O(n) wildcard expansion only. Custom Rule objects bypass fast-check compilation, so most fields go through Laravel's validator.
+**Optimizations**: O(n) wildcard expansion + fast-check closures that call the custom Rule objects. An object that reads the validator or its data (`DataAwareRule`, `ValidatorAwareRule`) or is implicit stays with Laravel.
 
 ### Login form
 
@@ -118,6 +118,6 @@ All numbers are from `php benchmark.php` (macOS, PHP 8.4, OPcache); CI runs prod
 'remember' => FluentRule::boolean()->nullable(),
 ```
 
-**Optimizations**: Fast-check closures for all three fields, with the compiled closures cached by rule string so repeat FormRequest validations skip recompilation. Absolute savings are small (~0.1ms → ~0.01ms), but the relative speedup is ~12x since a simple form doesn't give Laravel much wildcard work to amortize against.
+**Optimizations**: Fast-check closures for all three fields, with the compiled closures cached by rule string so repeat FormRequest validations skip recompilation. Absolute savings are small (~0.1ms → ~0.01ms), but the relative speedup is ~11x since a simple form doesn't give Laravel much wildcard work to amortize against.
 
 </details>

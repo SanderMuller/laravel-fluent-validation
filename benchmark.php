@@ -201,9 +201,9 @@ $scenarios['Event scheduling — 100 items, field-ref dates'] = [
     ],
 ];
 
-// --- 4. Article submission — custom Rule objects (wildcard expansion only) ---
+// --- 4. Article submission — custom Rule objects (fast-checked by calling validate()) ---
 $scenarios['Article submission — 50 items, custom Rule objects'] = [
-    'optimizations' => 'Wildcard only',
+    'optimizations' => 'Wildcard, fast-check (custom objects)',
     'native' => [
         ['articles' => 'required|array', 'articles.*.title' => 'required|string|min:3|max:255', 'articles.*.slug' => 'required|string|alpha_dash|max:255', 'articles.*.content' => ['required', 'string', $minWordCount], 'articles.*.category' => ['required', $validCategory], 'articles.*.priority' => ['required', $validPriority]],
         ['articles' => $articles50],
