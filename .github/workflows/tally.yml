@@ -1,0 +1,49 @@
+name: Tally
+
+permissions:
+  contents: read
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '**.php'
+      - 'composer.json'
+      - '.github/workflows/tally.yml'
+  pull_request:
+    paths:
+      - '**.php'
+      - 'composer.json'
+      - '.github/workflows/tally.yml'
+
+jobs:
+  tally:
+    # Pinned image and PHP version: the counts depend on both.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    # Not a blocking check yet: first see whether CI's counts stay stable.
+    continue-on-error: true
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: posix
+          coverage: none
+
+      - name: Install dependencies
+        uses: ramsey/composer-install@v4
+
+      - name: Run Tally
+        run: vendor/bin/tally run --output=tmp/tally-results
+
+      - name: Upload Tally results
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: tally-results
+          path: tmp/tally-results

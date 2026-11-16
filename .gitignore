@@ -53,3 +53,6 @@ benchmark-snapshot.json
 .config/boost/
 .github/prompts/
 # <<< boost (managed) <<<
+
+# Tally results, downloaded from CI for tally accept
+/tmp/

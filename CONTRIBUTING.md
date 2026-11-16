@@ -34,6 +34,20 @@ npm run build   # what CI runs
 `.github/workflows/docs.yml` builds and deploys to GitHub Pages on every
 push to `main` that touches `docs/`.
 
+## Benchmarks
+
+Two benchmark suites run in CI:
+
+- `benchmark.php` measures wall-clock time against native Laravel. Its results go into the PR comment and the release notes.
+- [Tally](https://github.com/phpstan/tally) counts instructions and memory for the classes in `benchmarks/`. Each scenario has a `benchGrowth` method, which fails when the cost grows faster than linear in the input size, and a `benchValidate` method with fixed expected numbers.
+
+Tally runs only on Linux, so take new expected numbers from the `tally-results` artifact of a CI run, not from a local run:
+
+```bash
+gh run download <run-id> -p 'tally-*' -D tmp/tally
+vendor/bin/tally accept tmp/tally
+```
+
 ## AI Tooling
 
 This package uses [boost-core](https://github.com/sandermuller/boost-core)

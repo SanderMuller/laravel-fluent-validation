@@ -19,6 +19,7 @@
 .mcp.json             export-ignore
 AGENTS.md             export-ignore
 benchmark.php         export-ignore
+benchmarks/           export-ignore
 CHANGELOG.md          export-ignore
 CLAUDE.md             export-ignore
 CONTRIBUTING.md       export-ignore
@@ -30,6 +31,7 @@ pint.json             export-ignore
 rector.php            export-ignore
 SECURITY.md           export-ignore
 structarmed.php       export-ignore
+tally.php             export-ignore
 UPGRADING.md          export-ignore
 tests/                export-ignore
 workbench/            export-ignore

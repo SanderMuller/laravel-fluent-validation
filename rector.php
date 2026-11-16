@@ -5,6 +5,7 @@ use Rector\Carbon\Rector\FuncCall\DateFuncCallToCarbonRector;
 use Rector\CodeQuality\Rector\BooleanOr\RepeatedOrEqualToInArrayRector;
 use Rector\CodeQuality\Rector\ClassMethod\InlineArrayReturnAssignRector;
 use Rector\Config\RectorConfig;
+use Rector\DeadCode\Rector\ClassMethod\RemoveUnusedPublicMethodParameterRector;
 use Rector\DeadCode\Rector\ClassMethod\RemoveUselessParamTagRector;
 use Rector\DeadCode\Rector\ClassMethod\RemoveUselessReturnTagRector;
 use Rector\Privatization\Rector\ClassMethod\PrivatizeFinalClassMethodRector;
@@ -21,6 +22,7 @@ return RectorConfig::configure()
     ->withPaths([
         __DIR__ . '/src',
         __DIR__ . '/tests',
+        __DIR__ . '/benchmarks',
     ])
     ->withSkipPath(__DIR__ . '/tests/Fixtures/MacroableFootgun')
     ->withPreparedSets(
@@ -66,5 +68,9 @@ return RectorConfig::configure()
         // when in_array() is used. Explicit === comparisons avoid that.
         RepeatedOrEqualToInArrayRector::class => [
             __DIR__ . '/src/FastCheckCompiler.php',
+        ],
+        // Tally reads a benchmark's size from its parameter, by name.
+        RemoveUnusedPublicMethodParameterRector::class => [
+            __DIR__ . '/benchmarks',
         ],
     ]);
