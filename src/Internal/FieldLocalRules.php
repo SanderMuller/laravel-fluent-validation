@@ -11,62 +11,101 @@ use Illuminate\Validation\Rules\NotIn;
 use Illuminate\Validation\Validator as BaseValidator;
 
 /**
- * Tells whether each field's Laravel verdict depends only on the item data
- * and the field's own rules. Then a failing item can send Laravel only the
- * fields whose fast check failed, plus the slow rules.
+ * Finds which fields' rules Laravel reads to validate a field. Laravel reads
+ * the field's own rules, and the rules of each field that a dependent rule
+ * names: `after:start` reads the `date_format` of start, `required_if:flag,true`
+ * reads the `boolean` of flag. So a failing item can send Laravel only the
+ * fields that failed, plus the fields they name.
  *
- * A dependent rule (`gt:other`, `required_if:...`, `after:start`) can read
- * the rules of the field it names, so it disqualifies the rule set. So does
- * a custom extension or a `ValidatorAwareRule`, which can read the validator.
+ * A custom extension or a `ValidatorAwareRule` can read any rule through the
+ * validator, so a rule set with one keeps all fields.
  *
  * @internal Implementation detail of `ItemValidator`.
  */
 final class FieldLocalRules
 {
+    /** @var array<string, int> studly names of the rules whose parameters name fields */
+    private readonly array $dependentRules;
+
+    public function __construct()
+    {
+        $this->dependentRules = array_flip([...WildcardReferenceRewriter::dependentRules(), 'DateEquals']);
+    }
+
     /**
      * @param  array<string, mixed>  $rules
      */
-    public static function all(array $rules): bool
+    public static function canReadAnyField(array $rules): bool
     {
-        $dependent = array_flip([...WildcardReferenceRewriter::dependentRules(), 'DateEquals']);
-
         foreach ($rules as $rule) {
-            foreach (self::names($rule) ?? ['Prohibits'] as $name) {
-                $studly = Str::studly(trim(explode(':', $name, 2)[0]));
+            $parts = self::parts($rule);
 
-                if ($studly !== '' && (isset($dependent[$studly]) || ! method_exists(BaseValidator::class, 'validate' . $studly))) {
-                    return false;
+            if ($parts === null) {
+                return true;
+            }
+
+            foreach ($parts as [$name]) {
+                if ($name !== '' && ! method_exists(BaseValidator::class, 'validate' . $name)) {
+                    return true;
                 }
             }
         }
 
-        return true;
+        return false;
     }
 
     /**
-     * The rule names in one field's rule, or null for an object that may read the validator.
+     * The fields that the dependent rules in one field's rule name.
      *
-     * @return list<string>|null
+     * @return list<string>
      */
-    private static function names(mixed $rule): ?array
+    public function references(mixed $rule): array
     {
-        if (is_string($rule)) {
-            return explode('|', $rule);
+        $fields = [];
+
+        foreach (self::parts($rule) ?? [] as [$name, $parameters]) {
+            if (isset($this->dependentRules[$name])) {
+                $count = isset(WildcardReferenceRewriter::VALUE_CONDITIONALS[$name]) ? 1 : count($parameters);
+                $fields = [...$fields, ...array_slice($parameters, 0, $count)];
+            }
         }
 
-        $names = [];
+        return $fields;
+    }
+
+    /**
+     * Each rule as a studly name and its parameters, or null for an object
+     * that may read the validator.
+     *
+     * @return list<array{0: string, 1: list<string>}>|null
+     */
+    private static function parts(mixed $rule): ?array
+    {
+        $parts = [];
 
         foreach (is_array($rule) ? $rule : [$rule] as $part) {
             if (is_string($part)) {
-                $names[] = $part;
+                foreach (is_string($rule) ? explode('|', $part) : [$part] as $token) {
+                    $pieces = explode(':', $token, 2);
+                    $parts[] = [Str::studly(trim($pieces[0])), isset($pieces[1]) ? self::strings(str_getcsv($pieces[1], escape: '\\')) : []];
+                }
             } elseif (is_array($part) && isset($part[0]) && is_string($part[0])) {
-                $names[] = $part[0];
+                $parts[] = [Str::studly(trim($part[0])), self::strings(array_slice($part, 1))];
             } elseif (! self::isLocalObject($part)) {
                 return null;
             }
         }
 
-        return $names;
+        return $parts;
+    }
+
+    /**
+     * @param  array<mixed>  $values
+     * @return list<string>
+     */
+    private static function strings(array $values): array
+    {
+        return array_values(array_filter($values, is_string(...)));
     }
 
     private static function isLocalObject(mixed $part): bool

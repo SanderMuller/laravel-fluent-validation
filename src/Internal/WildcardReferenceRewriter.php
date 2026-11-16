@@ -24,7 +24,7 @@ final class WildcardReferenceRewriter
      * first parameter is a field, the rest are values to compare against.
      * Every other dependent rule takes only fields.
      */
-    private const VALUE_CONDITIONALS = [
+    public const VALUE_CONDITIONALS = [
         'AcceptedIf' => true, 'DeclinedIf' => true,
         'ExcludeIf' => true, 'ExcludeUnless' => true,
         'MissingIf' => true, 'MissingUnless' => true,

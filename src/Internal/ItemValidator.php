@@ -200,40 +200,46 @@ final readonly class ItemValidator
     }
 
     /**
-     * Picks the rules Laravel runs for an item that failed a fast check. With
-     * field-local rules, a field whose fast check passed has no errors, so
-     * only the failed fields and the slow rules go to Laravel. Otherwise all
-     * rules go. Conditional rules are dependent rules, so they keep all
-     * fields too.
+     * Picks the rules Laravel runs for an item that failed a fast check. A
+     * field whose fast check passed has no errors, so Laravel gets the failed
+     * fields, the slow rules, and the fields whose rules those read. When a
+     * rule can read any field, all rules go.
      *
      * @param  array<string, mixed>  $itemRules
      * @return Closure(array<string, mixed>, array<string, Closure(array<string, mixed>): bool>, array<string, mixed>, array<string, mixed>): array<string, mixed>
      */
     private static function laravelFieldFilter(bool $isScalar, array $itemRules): Closure
     {
-        return $isScalar || ! FieldLocalRules::all($itemRules)
-            ? static fn (array $rules): array => $rules
-            : self::failedFieldRules(...);
-    }
-
-    /**
-     * The rules of the failed fields plus the slow rules, in rule order.
-     *
-     * @param  array<string, mixed>  $rules
-     * @param  array<string, Closure(array<string, mixed>): bool>  $fastChecks
-     * @param  array<string, mixed>  $slowRules
-     * @param  array<string, mixed>  $itemData
-     * @return array<string, mixed>
-     */
-    private static function failedFieldRules(array $rules, array $fastChecks, array $slowRules, array $itemData): array
-    {
-        foreach ($fastChecks as $field => $check) {
-            if (! $check($itemData)) {
-                $slowRules[$field] = true;
-            }
+        if ($isScalar || FieldLocalRules::canReadAnyField($itemRules)) {
+            return static fn (array $rules): array => $rules;
         }
 
-        return array_intersect_key($rules, $slowRules);
+        $fieldLocalRules = new FieldLocalRules();
+
+        return static function (array $rules, array $fastChecks, array $slowRules, array $itemData) use ($fieldLocalRules): array {
+            $pending = array_keys($slowRules);
+
+            foreach ($fastChecks as $field => $check) {
+                if (! $check($itemData)) {
+                    $pending[] = $field;
+                }
+            }
+
+            $keep = [];
+
+            while ($pending !== []) {
+                $field = array_pop($pending);
+
+                if (isset($keep[$field]) || ! array_key_exists($field, $rules)) {
+                    continue;
+                }
+
+                $keep[$field] = true;
+                $pending = [...$pending, ...$fieldLocalRules->references($rules[$field])];
+            }
+
+            return array_intersect_key($rules, $keep);
+        };
     }
 
     /**
