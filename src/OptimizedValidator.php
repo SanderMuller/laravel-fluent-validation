@@ -5,6 +5,8 @@ namespace SanderMuller\FluentValidation;
 use Closure;
 use Illuminate\Support\Arr;
 use Illuminate\Support\MessageBag;
+use Illuminate\Validation\Rules\In;
+use Illuminate\Validation\Rules\NotIn;
 use SanderMuller\FluentValidation\Internal\ConditionalEvaluationPhase;
 use SanderMuller\FluentValidation\Internal\ConditionalVerdict;
 use Stringable;
@@ -256,6 +258,37 @@ class OptimizedValidator extends MemoizingValidator
     }
 
     /**
+     * A rule as one pipe string for the fast check: a string, or an array of
+     * plain strings and `in` / `not_in` rule objects without a pipe inside.
+     * Null for anything else.
+     */
+    private static function plainRuleString(mixed $rule): ?string
+    {
+        if (! is_array($rule)) {
+            return is_string($rule) ? $rule : null;
+        }
+
+        $parts = [];
+
+        foreach ($rule as $part) {
+            if (! is_string($part) && ! $part instanceof In && ! $part instanceof NotIn) {
+                return null;
+            }
+
+            $part = (string) $part;
+
+            // An array part is one rule: a pipe inside it is no separator.
+            if (str_contains($part, '|')) {
+                return null;
+            }
+
+            $parts[] = $part;
+        }
+
+        return implode('|', $parts);
+    }
+
+    /**
      * Build fast-check closures from compiled rule strings.
      * Returns closures keyed by wildcard pattern that accept a single value.
      *
@@ -270,7 +303,9 @@ class OptimizedValidator extends MemoizingValidator
         $checks = [];
 
         foreach ($compiledRules as $pattern => $rule) {
-            if (! is_string($rule)) {
+            $rule = self::plainRuleString($rule);
+
+            if ($rule === null) {
                 continue;
             }
 

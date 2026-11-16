@@ -7,6 +7,7 @@ use Illuminate\Http\Request;
 use Illuminate\Routing\Redirector;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Fluent;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Unique;
 use Illuminate\Validation\ValidationException;
 use Illuminate\Validation\Validator;
@@ -1481,6 +1482,21 @@ it('fast-checks array values in a form request like native', function (): void {
         'orders.*.lines.*.qty' => 'required|integer',
     ];
     $data = ['orders' => [['lines' => [['qty' => 1], ['qty' => 2]]], ['lines' => [['qty' => 1]]], ['lines' => []]]];
+
+    $instance = createFluentFormRequest($rules, $data);
+    $factory = resolve(Factory::class);
+    $validator = (fn () => $this->createDefaultValidator($factory))->call($instance);
+
+    expect($validator->errors()->toArray())->toBe(validator($data, $rules)->errors()->toArray());
+});
+
+it('fast-checks array rules in a form request like native', function (): void {
+    $rules = [
+        'items.*.kind' => ['required', 'string', Rule::in(['a', 'b|c'])],
+        'items.*.code' => ['nullable', 'string', 'regex:/^(x|y)$/'],
+        'items.*.qty' => ['nullable', 'integer', 'min:1'],
+    ];
+    $data = ['items' => [['kind' => 'a', 'code' => 'x', 'qty' => 2], ['kind' => 'b|c', 'code' => 'z', 'qty' => 0], ['kind' => 'b', 'code' => 'y']]];
 
     $instance = createFluentFormRequest($rules, $data);
     $factory = resolve(Factory::class);
