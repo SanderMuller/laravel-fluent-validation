@@ -56,6 +56,13 @@ parameters:
             identifier: typeCoverage.returnTypeCoverage
             path: src/Contracts/FluentRuleContract.php
             reportUnmatched: false
+        # HasFluentRules::safe() overrides FormRequest::safe(), which has no
+        # return type. A native one would break a subclass that overrides
+        # safe() without a return type.
+        -
+            identifier: typeCoverage.returnTypeCoverage
+            path: src/HasFluentRules.php
+            reportUnmatched: false
 
         # Pest $this->fail() in closures — PHPStan can't resolve $this to TestCase
         -

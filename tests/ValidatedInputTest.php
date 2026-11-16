@@ -1,8 +1,12 @@
 <?php declare(strict_types=1);
 
+use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Routing\Redirector;
+use SanderMuller\FluentValidation\FluentFormRequest;
 use SanderMuller\FluentValidation\FluentRule;
 use SanderMuller\FluentValidation\RuleSet;
+use SanderMuller\FluentValidation\ValidatedInput;
 
 it('returns a validated file from safe()->file()', function (): void {
     $avatar = UploadedFile::fake()->create('avatar.png', 10);
@@ -45,4 +49,34 @@ it('leaves values that are not files out of safe()->files()', function (): void 
     ])->check(['items' => ['skip' => 'text', 'keep' => $file]])->safe();
 
     expect($safe->files('items'))->toBe([$file]);
+});
+
+it('returns validated files from a form request safe()', function (): void {
+    $avatar = UploadedFile::fake()->create('avatar.png', 10);
+    $first = UploadedFile::fake()->create('a.pdf', 10);
+    $second = UploadedFile::fake()->create('b.pdf', 10);
+
+    $formRequest = new class extends FluentFormRequest {
+        /** @return array<string, mixed> */
+        public function rules(): array
+        {
+            return [
+                'name' => FluentRule::string()->required(),
+                'avatar' => FluentRule::file()->required(),
+                'documents' => FluentRule::array()->required()->each(FluentRule::file()),
+            ];
+        }
+    };
+
+    $request = $formRequest::createFrom(Request::create('/test', 'POST', ['name' => 'John'], [], ['avatar' => $avatar, 'documents' => [$first, $second]]));
+    $request->setContainer(app());
+    $request->setRedirector(resolve(Redirector::class));
+    $request->validateResolved();
+
+    $safe = $request->safe();
+
+    expect($safe)->toBeInstanceOf(ValidatedInput::class)
+        ->and($safe->file('avatar'))->toBe($avatar)
+        ->and($safe->files('documents'))->toBe([$first, $second])
+        ->and($request->safe(['name']))->toBe(['name' => 'John']);
 });

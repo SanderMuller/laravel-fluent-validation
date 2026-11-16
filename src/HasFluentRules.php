@@ -172,6 +172,17 @@ trait HasFluentRules
         return (new ReflectionMethod($this, 'rules'))->getFileName() !== __FILE__;
     }
 
+    /**
+     * Get a validated input container, with the package's file() and files().
+     *
+     * @param  array<string>|null  $keys
+     * @return ($keys is null ? ValidatedInput : array<string, mixed>)
+     */
+    public function safe(?array $keys = null)
+    {
+        return is_array($keys) ? parent::safe($keys) : new ValidatedInput(parent::safe()->all());
+    }
+
     protected function createDefaultValidator(ValidationFactory $factory): Validator
     {
         // schema(FluentSchema $rules) — the builder shape — and rules() are both
