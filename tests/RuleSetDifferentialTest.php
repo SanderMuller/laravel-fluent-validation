@@ -1,14 +1,18 @@
 <?php declare(strict_types=1);
 
+use Illuminate\Contracts\Validation\Factory;
 use Illuminate\Contracts\Validation\ValidationRule;
+use Illuminate\Http\Request;
+use Illuminate\Routing\Redirector;
 use Illuminate\Validation\Rule;
 use Random\Engine\Mt19937;
 use Random\Randomizer;
+use SanderMuller\FluentValidation\FluentFormRequest;
 use SanderMuller\FluentValidation\RuleSet;
 
 // =========================================================================
 // Differential test: random wildcard rule sets and random items, validated
-// by RuleSet and by native Laravel. The error keys must match. Fixed seeds
+// by RuleSet, by a FluentFormRequest and by native Laravel. The error keys must match. Fixed seeds
 // keep every run the same; a failure prints the seed, rules and data.
 //
 // exclude_* rules are left out: RuleSet removes an excluded field before any
@@ -133,6 +137,46 @@ it('reports the same error keys as native for random rule sets', function (int $
         }
 
         $fluent = RuleSet::from($rules)->check($data)->errors()->keys();
+        sort($native);
+        sort($fluent);
+
+        expect($fluent)->toBe($native, sprintf(
+            "seed %d\nrules %s\ndata %s",
+            $seed,
+            json_encode($rules, JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR),
+            json_encode($data, JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR),
+        ));
+    }
+})->with(array_map(static fn (int $chunk): int => $chunk * 50, range(0, 19)));
+
+final class DifferentialFormRequest extends FluentFormRequest
+{
+    /** @var array<string, mixed> */
+    public static array $testRules = [];
+
+    /** @return array<string, mixed> */
+    public function rules(): array
+    {
+        return self::$testRules;
+    }
+}
+
+it('reports the same error keys as native for random rule sets in a form request', function (int $from): void {
+    for ($seed = $from; $seed < $from + 50; $seed++) {
+        [$rules, $data] = differentialCase($seed);
+
+        try {
+            $native = validator($data, $rules)->errors()->keys();
+        } catch (Throwable) {
+            continue;
+        }
+
+        DifferentialFormRequest::$testRules = $rules;
+        $instance = DifferentialFormRequest::createFrom(Request::create('/t', 'POST', $data));
+        $instance->setContainer(app());
+        $instance->setRedirector(resolve(Redirector::class));
+        $factory = resolve(Factory::class);
+        $fluent = (fn () => $this->createDefaultValidator($factory))->call($instance)->errors()->keys();
         sort($native);
         sort($fluent);
 
