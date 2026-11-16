@@ -29,6 +29,8 @@ FluentRule::array()->each([
 
 `each()` works standalone and through form requests with `HasFluentRules`. The trait and [`RuleSet`](11-ruleset.md) both [optimize wildcard expansion](09-performance.md).
 
+To compare with another field of the same item, use its full wildcard path: `->after('items.*.starts_at')`, `->requiredIf('items.*.type', 'digital')`. That form means the same in a form request and in a `RuleSet`. In a form request, a bare name such as `->after('starts_at')` means the top-level field, as in native Laravel.
+
 > [!TIP]
 > **Catch unbounded `each()` at analyse time.** The companion [PHPStan package](16-static-analysis.md) flags `each()` chains without a size cap (`->max()`, `->between()`, `->exactly()`, or a key whitelist). That's the shape that turns into an N+1 / DoS footgun with `->exists()` or closure rules on large payloads.
 

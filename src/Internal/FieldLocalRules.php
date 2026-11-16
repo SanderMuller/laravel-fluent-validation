@@ -20,7 +20,7 @@ use Illuminate\Validation\Validator as BaseValidator;
  * A custom extension or a `ValidatorAwareRule` can read any rule through the
  * validator, so a rule set with one keeps all fields.
  *
- * @internal Implementation detail of `ItemValidator` and `ReferencedAttributes`.
+ * @internal Implementation detail of `ItemValidator`, `ReferencedAttributes` and `OutsideItemReferences`.
  */
 final readonly class FieldLocalRules
 {
@@ -140,7 +140,7 @@ final readonly class FieldLocalRules
      *
      * @return list<array{0: string, 1: list<string>}>|null
      */
-    private static function parts(mixed $rule): ?array
+    public static function parts(mixed $rule): ?array
     {
         $parts = [];
 

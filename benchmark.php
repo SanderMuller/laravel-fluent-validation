@@ -196,7 +196,7 @@ $scenarios['Event scheduling — 100 items, field-ref dates'] = [
         ['events' => $events100],
     ],
     'fluent' => [
-        ['events' => FluentRule::array()->required()->each(['name' => FluentRule::string()->required()->min(3)->max(255), 'start_date' => FluentRule::date()->required()->after('2025-01-01'), 'end_date' => FluentRule::date()->required()->after('start_date'), 'registration_deadline' => FluentRule::date()->required()->before('start_date')])],
+        ['events' => FluentRule::array()->required()->each(['name' => FluentRule::string()->required()->min(3)->max(255), 'start_date' => FluentRule::date()->required()->after('2025-01-01'), 'end_date' => FluentRule::date()->required()->after('events.*.start_date'), 'registration_deadline' => FluentRule::date()->required()->before('events.*.start_date')])],
         ['events' => $events100],
     ],
 ];

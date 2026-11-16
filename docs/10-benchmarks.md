@@ -85,12 +85,12 @@ All numbers are from `php benchmark.php` (macOS, PHP 8.5, OPcache), which measur
 'events'                        => FluentRule::array()->required()->each([
     'name'                      => FluentRule::string()->required()->min(3)->max(255),
     'start_date'                => FluentRule::date()->required()->after('2025-01-01'),        // literal → fast-checked
-    'end_date'                  => FluentRule::date()->required()->after('start_date'),          // field ref → fast-checked
-    'registration_deadline'     => FluentRule::date()->required()->before('start_date'),         // field ref → fast-checked
+    'end_date'                  => FluentRule::date()->required()->after('events.*.start_date'),  // field ref → fast-checked
+    'registration_deadline'     => FluentRule::date()->required()->before('events.*.start_date'), // field ref → fast-checked
 ]),
 ```
 
-**Optimizations**: O(n) wildcard expansion + fast-check for every field. Sibling field references (`after:start_date`, `before:start_date`) resolve against the current wildcard item at call time via a second closure variant, so date comparisons don't fall through to Laravel.
+**Optimizations**: O(n) wildcard expansion + fast-check for every field. Sibling field references (`after:events.*.start_date`, `before:events.*.start_date`) resolve against the current wildcard item at call time via a second closure variant, so date comparisons don't fall through to Laravel.
 
 ### Article submission
 

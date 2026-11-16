@@ -26,7 +26,7 @@ The package compiles 30+ common rules into PHP closures that bypass Laravel's va
 
 - **Type checks:** `string`, `numeric`, `email`, `date`, `array`, `boolean`, `in`, `regex`
 - **Presence gates:** `required`, `prohibited`
-- **Date / size / equality comparisons:** literal dates plus wildcard-sibling references (`after:start_date`, `gte:min_price`, `same:password`, `confirmed`)
+- **Date / size / equality comparisons:** literal dates plus wildcard-sibling references (`after:items.*.start_date`, `gte:items.*.min_price`, `same:items.*.password`, `confirmed`)
 - **Presence-conditional:** `required_with`, `required_without`, `required_with_all`, `required_without_all`
 - **Value-conditional:** `required_if`, `required_unless`, `prohibited_if`, `prohibited_unless`
 

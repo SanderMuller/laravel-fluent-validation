@@ -22,6 +22,7 @@ use SanderMuller\FluentValidation\Internal\BatchLimitRemap;
 use SanderMuller\FluentValidation\Internal\ItemErrorCollector;
 use SanderMuller\FluentValidation\Internal\ItemRuleCompiler;
 use SanderMuller\FluentValidation\Internal\ItemValidator;
+use SanderMuller\FluentValidation\Internal\OutsideItemReferences;
 use SanderMuller\FluentValidation\Internal\WildcardReferenceRewriter;
 use SanderMuller\FluentValidation\Rules\ArrayRule;
 use SanderMuller\FluentValidation\Rules\FieldRule;
@@ -764,9 +765,10 @@ final class RuleSet implements Arrayable, IteratorAggregate
                 : $this->rewriteRulesForPerItem($groupRules, $parent);
             $itemRules = self::compile($rawItemRules);
 
-            // Per-item validators can't strip cross-item unknown keys; fall
-            // back to the single fully-expanded validator when dropping.
-            if ($this->dropUnknownFields || $this->requiresFullExpansion($itemRules)) {
+            // Per-item validators can't strip cross-item unknown keys or read
+            // fields outside the item; fall back to the single fully-expanded
+            // validator then.
+            if ($this->dropUnknownFields || $this->requiresFullExpansion($itemRules) || OutsideItemReferences::exist($groupRules, $parent, $data)) {
                 $fallbackResult = $this->validateStandard($data, $messages, $attributes);
 
                 return [];
