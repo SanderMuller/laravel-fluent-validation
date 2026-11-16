@@ -121,7 +121,8 @@ class OptimizedValidator extends MemoizingValidator
             $check = $this->fastChecks[$pattern];
 
             foreach ($attributes as $attribute) {
-                if (isset($this->rules[$attribute]) && $check($flatData[$attribute] ?? null)) {
+                // Arr::dot() has no key for a non-empty array, so read those values as Laravel does.
+                if (isset($this->rules[$attribute]) && $check(array_key_exists($attribute, $flatData) ? $flatData[$attribute] : $this->getValue($attribute))) {
                     $removedRules[$attribute] = $this->rules[$attribute];
                     unset($this->rules[$attribute]);
                 }

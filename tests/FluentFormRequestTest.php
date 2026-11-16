@@ -1473,3 +1473,18 @@ it('returns validated data in rule order after conditional fast checks', functio
 
     expect(json_encode($instance->validated()))->toBe(json_encode(validator($data, $rules)->validated()));
 });
+
+it('fast-checks array values in a form request like native', function (): void {
+    $rules = [
+        'orders' => 'required|array',
+        'orders.*.lines' => 'required|array|min:2',
+        'orders.*.lines.*.qty' => 'required|integer',
+    ];
+    $data = ['orders' => [['lines' => [['qty' => 1], ['qty' => 2]]], ['lines' => [['qty' => 1]]], ['lines' => []]]];
+
+    $instance = createFluentFormRequest($rules, $data);
+    $factory = resolve(Factory::class);
+    $validator = (fn () => $this->createDefaultValidator($factory))->call($instance);
+
+    expect($validator->errors()->toArray())->toBe(validator($data, $rules)->errors()->toArray());
+});
