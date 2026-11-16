@@ -19,7 +19,7 @@ foreach ($rows as $row) {
         continue;
     }
 
-    $safe = $result->safe();        // Illuminate\Support\ValidatedInput, gives you ->only(), ->except(), ->collect()
+    $safe = $result->safe();        // ValidatedInput, gives you ->only(), ->except(), ->collect(), ->file(), ->files()
     $array = $result->validated();  // plain array (throws if the result failed)
     insert_row($safe->all());
 }
@@ -34,6 +34,8 @@ foreach ($rows as $row) {
 | `->validated()`        | `array`             | Validated data; throws `ValidationException` if it failed                            |
 | `->safe()`             | `ValidatedInput`    | Same data as `validated()`, wrapped for `->only()`/`->except()`/`->collect()` access |
 | `->validator()`        | `ValidatorContract` | Escape hatch for deep Laravel integration (`->after()`, `->sometimes()`, extensions) |
+
+`safe()` returns the package's `ValidatedInput`, a subclass of Laravel's. It adds `->file($key)`, which returns the `UploadedFile`, or the default when that is a file, or `null`, and `->files($key)`, which returns a list of the `UploadedFile`s under the key. `->file()` comes with Laravel 13.3 too; the subclass gives it to older versions.
 
 `check()` runs the same engine as `validate()` (fast-check closures, wildcard expansion, batched DB queries) and wraps the outcome rather than re-parsing.
 

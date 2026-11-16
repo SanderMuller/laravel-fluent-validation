@@ -5,7 +5,6 @@ namespace SanderMuller\FluentValidation;
 use Closure;
 use Illuminate\Contracts\Validation\Validator as ValidatorContract;
 use Illuminate\Support\MessageBag;
-use Illuminate\Support\ValidatedInput;
 use Illuminate\Validation\ValidationException;
 
 /**
@@ -75,7 +74,7 @@ final class Validated
 
     /**
      * Return validated data as a ValidatedInput instance for fluent access
-     * (->only(), ->except(), ->collect(), etc.).
+     * (->only(), ->except(), ->collect(), ->file(), ->files(), etc.).
      *
      * @throws ValidationException if validation failed
      */
