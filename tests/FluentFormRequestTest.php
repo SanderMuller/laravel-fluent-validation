@@ -1413,7 +1413,7 @@ function createFluentFormRequest(array $rules, array $data): FormRequest
     return $instance;
 }
 
-it('keeps the rules of a field that a dependent rule reads in a form request', function (): void {
+it('matches native for dependent and conditional rules in a form request', function (): void {
     $cases = [
         'boolean read by required_if' => [
             ['items.*.flag' => 'boolean', 'items.*.x' => 'required_if:items.*.flag,true'],
@@ -1422,6 +1422,10 @@ it('keeps the rules of a field that a dependent rule reads in a form request', f
         'date_format read by after' => [
             ['items.*.start' => 'date_format:d/m/Y', 'items.*.end' => 'date_format:Y-m-d|after:items.*.start'],
             ['items' => [['start' => '01/12/2025', 'end' => '2025-06-01']]],
+        ],
+        'required_if tuple after an exclude tuple' => [
+            ['items.*.name' => 'string', 'items.*.type' => 'required|string', 'items.*.x' => [['exclude_unless', 'items.*.type', 'a', 'b'], ['required_if', 'items.*.type', 'a'], 'nullable', 'string']],
+            ['items' => [['name' => 'n', 'type' => 'a']]],
         ],
         'conditional field read by required_if' => [
             ['items.*.type' => 'required|string', 'items.*.flag' => ['exclude_unless:items.*.type,a', 'boolean'], 'items.*.x' => 'required_if:items.*.flag,true'],

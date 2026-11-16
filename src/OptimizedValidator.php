@@ -232,8 +232,9 @@ class OptimizedValidator extends MemoizingValidator
             if (is_string($rule)) {
                 $stringParts[] = $rule;
             } elseif (is_array($rule) && isset($rule[0]) && is_string($rule[0])) {
-                // Conditional tuple — skip it (already evaluated).
-                if (in_array($rule[0], ['exclude_unless', 'exclude_if', 'required_if', 'required_unless'], true)) {
+                // Exclude tuple — skip it (already evaluated). A required_if or
+                // required_unless tuple is not, so it falls through to Laravel.
+                if (in_array($rule[0], ['exclude_unless', 'exclude_if'], true)) {
                     continue;
                 }
 
