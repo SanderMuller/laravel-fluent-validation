@@ -40,13 +40,20 @@ trait PreparesOptimizedRules
      */
     private function preExcludeRules(array $rules, array $data): array
     {
+        // Expanded attributes of one pattern share a rule string; extract its conditions once.
+        $conditionsByRule = [];
+
         foreach ($rules as $attribute => $ruleSet) {
             // Recognise both the array-tuple and the string/pipe-joined forms of
             // exclude_unless/exclude_if — the fluent `->excludeUnless()` API and
             // plain string rules compile to the string form, which an
             // array-tuple-only check would silently skip (leaving the rule set
             // fully expanded and the validator quadratic).
-            foreach (ExcludeConditionExtractor::extract($ruleSet) as $condition) {
+            $conditions = is_string($ruleSet)
+                ? $conditionsByRule[$ruleSet] ??= ExcludeConditionExtractor::extract($ruleSet)
+                : ExcludeConditionExtractor::extract($ruleSet);
+
+            foreach ($conditions as $condition) {
                 $conditionField = ConditionalEvaluationPhase::resolveWildcard((string) $attribute, $condition['field']);
 
                 // Unresolved wildcard (the dep position has no matching segment) —
