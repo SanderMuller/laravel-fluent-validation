@@ -12,11 +12,14 @@ use Closure;
  * string length or the element count. Empty strings and arrays, and every
  * other value, go to the full check.
  *
+ * A string rule may also have `in`, and a plain `boolean` rule passes its
+ * six accepted values.
+ *
  * @internal
  */
 final class SizeFastPath
 {
-    private const ALLOWED_KEYS = ['required', 'nullable', 'numeric', 'integer', 'integer.strict', 'string', 'array', 'min', 'max'];
+    private const ALLOWED_KEYS = ['required', 'nullable', 'numeric', 'integer', 'integer.strict', 'string', 'array', 'boolean', 'min', 'max', 'in'];
 
     /**
      * @param  array<string, mixed>  $config
@@ -27,7 +30,7 @@ final class SizeFastPath
     {
         $type = self::type($config);
 
-        if ($type === null) {
+        if ($type === null || ($config['in'] !== null && $type !== 'string') || ($type === 'boolean' && ($config['min'] !== null || $config['max'] !== null))) {
             return $check;
         }
 
@@ -37,7 +40,8 @@ final class SizeFastPath
         return match ($type) {
             'integer' => static fn (mixed $value): bool => is_int($value) ? $value >= $min && $value <= $max : $check($value),
             'numeric' => self::numeric($min, $max, $check),
-            'string' => self::string($min, $max, $check),
+            'string' => self::string($min, $max, is_array($config['in']) ? array_flip(array_filter($config['in'], is_string(...))) : null, $check),
+            'boolean' => static fn (mixed $value): bool => $value === true || $value === false || $value === 1 || $value === 0 || $value === '1' || $value === '0' || $check($value),
             default => self::array($min, $max, $check),
         };
     }
@@ -54,14 +58,22 @@ final class SizeFastPath
     }
 
     /**
+     * Laravel compares `in` values as strings, strictly. A flipped list holds
+     * the same strings as keys, so `isset` gives the same answer.
+     *
+     * @param  array<int|string, int>|null  $in
      * @param  Closure(mixed): bool  $check
      * @return Closure(mixed): bool
      */
-    private static function string(int|float $min, int|float $max, Closure $check): Closure
+    private static function string(int|float $min, int|float $max, ?array $in, Closure $check): Closure
     {
-        return static function (mixed $value) use ($min, $max, $check): bool {
+        return static function (mixed $value) use ($min, $max, $in, $check): bool {
             if (! is_string($value) || $value === '') {
                 return $check($value);
+            }
+
+            if ($in !== null && ! isset($in[$value])) {
+                return false;
             }
 
             $length = mb_strlen($value);
@@ -107,6 +119,7 @@ final class SizeFastPath
             'numeric' => $config['numeric'] === true && $config['integer'] !== true,
             'string' => $config['string'] === true,
             'array' => $config['array'] === true,
+            'boolean' => $config['boolean'] === true,
         ]));
 
         return count($types) === 1 ? $types[0] : null;

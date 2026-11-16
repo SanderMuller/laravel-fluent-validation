@@ -814,3 +814,30 @@ it('fast-checks plain string and array size rules like Laravel', function (strin
     'numeric and integer, int' => ['numeric|integer|min:1', 3],
     'numeric and integer, whole float' => ['numeric|integer|min:1', 3.0],
 ]);
+
+it('fast-checks plain string in and boolean rules like Laravel', function (string $rule, mixed $value): void {
+    $closure = FastCheckCompiler::compile($rule);
+
+    expect($closure)->toBeInstanceOf(Closure::class);
+    assert($closure instanceof Closure);
+    expect($closure($value))->toBe(Validator::make(['f' => $value], ['f' => $rule])->passes());
+})->with([
+    'in, listed' => ['required|string|in:a,b', 'a'],
+    'in, not listed' => ['required|string|in:a,b', 'c'],
+    'in, numeric string listed' => ['string|in:1,2', '1'],
+    'in, padded numeric string' => ['string|in:1,2', '01'],
+    'in, int value' => ['string|in:1,2', 1],
+    'in, empty string' => ['string|in:a,', ''],
+    'in, empty string required' => ['required|string|in:a,', ''],
+    'in, length out of bounds' => ['string|max:1|in:a,bb', 'bb'],
+    'in, quoted value with comma' => ['string|in:"a,b",c', 'a,b'],
+    'in, null nullable' => ['nullable|string|in:a', null],
+    'boolean, true' => ['required|boolean', true],
+    'boolean, string 0' => ['required|boolean', '0'],
+    'boolean, string true' => ['required|boolean', 'true'],
+    'boolean, int 2' => ['boolean', 2],
+    'boolean, null nullable' => ['nullable|boolean', null],
+    'boolean, null required' => ['required|boolean', null],
+    'boolean, empty string' => ['boolean', ''],
+    'boolean, float 1.0' => ['boolean', 1.0],
+]);
