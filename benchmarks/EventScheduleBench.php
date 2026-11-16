@@ -5,6 +5,7 @@ namespace SanderMuller\FluentValidation\Benchmarks;
 use SanderMuller\FluentValidation\Benchmarks\Support\Scenarios;
 use Tally\Attribute\Before;
 use Tally\Attribute\DataProvider;
+use Tally\Attribute\ExpectedFor;
 use Tally\Attribute\Linear;
 
 /**
@@ -51,6 +52,7 @@ final class EventScheduleBench
     }
 
     #[DataProvider('size')]
+    #[ExpectedFor('events-100', instructions: '9.923M', cycles: '12.64M', memory: '53.80KiB')]
     public function benchValidate(int $count): void
     {
         Scenarios::validate($this->rules, $this->data);

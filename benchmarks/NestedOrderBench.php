@@ -5,6 +5,7 @@ namespace SanderMuller\FluentValidation\Benchmarks;
 use SanderMuller\FluentValidation\Benchmarks\Support\Scenarios;
 use Tally\Attribute\Before;
 use Tally\Attribute\DataProvider;
+use Tally\Attribute\ExpectedFor;
 use Tally\Attribute\Linear;
 
 /**
@@ -51,6 +52,7 @@ final class NestedOrderBench
     }
 
     #[DataProvider('size')]
+    #[ExpectedFor('orders-1000', instructions: '30.55M', cycles: '35.99M', memory: '44.45KiB')]
     public function benchValidate(int $count): void
     {
         Scenarios::validate($this->rules, $this->data);

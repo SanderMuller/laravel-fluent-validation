@@ -5,6 +5,7 @@ namespace SanderMuller\FluentValidation\Benchmarks;
 use SanderMuller\FluentValidation\Benchmarks\Support\Scenarios;
 use Tally\Attribute\Before;
 use Tally\Attribute\DataProvider;
+use Tally\Attribute\ExpectedFor;
 use Tally\Attribute\Linear;
 
 /**
@@ -51,6 +52,7 @@ final class ProductImportBench
     }
 
     #[DataProvider('size')]
+    #[ExpectedFor('items-500', instructions: '9.078M', cycles: '10.99M', memory: '45.25KiB')]
     public function benchValidate(int $count): void
     {
         Scenarios::validate($this->rules, $this->data);

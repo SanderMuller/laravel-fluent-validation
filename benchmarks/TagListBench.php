@@ -5,6 +5,7 @@ namespace SanderMuller\FluentValidation\Benchmarks;
 use SanderMuller\FluentValidation\Benchmarks\Support\Scenarios;
 use Tally\Attribute\Before;
 use Tally\Attribute\DataProvider;
+use Tally\Attribute\ExpectedFor;
 use Tally\Attribute\Linear;
 
 /**
@@ -51,6 +52,7 @@ final class TagListBench
     }
 
     #[DataProvider('size')]
+    #[ExpectedFor('tags-1000', instructions: '3.469M', cycles: '4.079M', memory: '37.40KiB')]
     public function benchValidate(int $count): void
     {
         Scenarios::validate($this->rules, $this->data);

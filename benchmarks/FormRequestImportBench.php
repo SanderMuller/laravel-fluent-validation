@@ -8,6 +8,7 @@ use SanderMuller\FluentValidation\Benchmarks\Support\ProductImportRequest;
 use SanderMuller\FluentValidation\Benchmarks\Support\Scenarios;
 use Tally\Attribute\Before;
 use Tally\Attribute\DataProvider;
+use Tally\Attribute\ExpectedFor;
 use Tally\Attribute\Linear;
 
 /**
@@ -49,6 +50,7 @@ final class FormRequestImportBench
     }
 
     #[DataProvider('size')]
+    #[ExpectedFor('items-500', instructions: '70.67M', cycles: '79.76M', memory: '1.815MiB')]
     public function benchValidate(int $count): void
     {
         $this->request->validateResolved();
