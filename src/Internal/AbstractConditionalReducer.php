@@ -188,12 +188,23 @@ abstract class AbstractConditionalReducer
         // A rewritten list of plain strings joins so it can fast-check, unless
         // it holds a rule another field's rule can read in Laravel's validator.
         foreach ($out as $part) {
-            if (! is_string($part) || str_contains($part, '|') || PlainRuleJoiner::isReadByDependents($part)) {
+            if (! is_string($part) || str_contains($part, '|') || self::isReadByDependents($part)) {
                 return $out;
             }
         }
 
         return implode('|', $out);
+    }
+
+    /**
+     * A rule Laravel reads from a field that another rule names: `boolean`
+     * (shouldConvertToBoolean, for required_if:flag,true) and `date_format`
+     * (after:start compares in start's format). Such a rule must stay in
+     * Laravel's per-item validator.
+     */
+    public static function isReadByDependents(string $rule): bool
+    {
+        return $rule === 'boolean' || str_starts_with($rule, 'date_format:');
     }
 
     /**

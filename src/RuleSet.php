@@ -615,6 +615,7 @@ final class RuleSet implements Arrayable, IteratorAggregate
 
         // validated() throws the ValidationException when a top rule fails.
         $topCompiled = self::compile($topRules);
+        /** @var array<string, mixed> */
         $topValidated = $this->fastValidatedTopRules($data, $topCompiled)
             ?? Validator::make($data, $topCompiled, $messages, $attributes)
                 ->stopOnFirstFailure($this->stopOnFirstFailure)
@@ -631,7 +632,6 @@ final class RuleSet implements Arrayable, IteratorAggregate
             $this->throwValidationErrors($allErrors);
         }
 
-        /** @var array<string, mixed> */
         return $topValidated;
     }
 

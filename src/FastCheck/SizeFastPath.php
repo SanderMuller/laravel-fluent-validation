@@ -41,7 +41,7 @@ final class SizeFastPath
             'integer' => static fn (mixed $value): bool => is_int($value) ? $value >= $min && $value <= $max : $check($value),
             'numeric' => self::numeric($min, $max, $check),
             'string' => self::string($min, $max, is_array($config['in']) ? array_flip(array_filter($config['in'], is_string(...))) : null, $check),
-            'boolean' => static fn (mixed $value): bool => $value === true || $value === false || $value === 1 || $value === 0 || $value === '1' || $value === '0' || $check($value),
+            'boolean' => static fn (mixed $value): bool => in_array($value, [true, false, 1, 0, '1', '0'], true) || $check($value),
             default => self::array($min, $max, $check),
         };
     }

@@ -69,7 +69,7 @@ it('keeps the comparison values of a value-conditional tuple like native', funct
 
     expect(RuleSet::from($rules)->check($data)->errors()->keys())
         ->toBe(validator($data, $rules)->errors()->keys())
-        ->toBe([]);
+        ->toBeEmpty();
 });
 
 it('rewrites references in custom dependent rules like native', function (): void {

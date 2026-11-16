@@ -746,19 +746,26 @@ it('applies every repeated rule and Laravel size order like Laravel', function (
     'string and integer, between, in range' => ['string|integer|between:1,10', '5'],
 ]);
 
-it('fast-checks date and digits input like Laravel', function (string $rule, mixed $value): void {
+it('fast-checks date and digits input like Laravel', function (string $rule, mixed $value, bool $fastPasses): void {
     $closure = FastCheckCompiler::compile($rule);
 
     expect($closure)->toBeInstanceOf(Closure::class);
     assert($closure instanceof Closure);
-    expect($closure($value))->toBe(Validator::make(['f' => $value], ['f' => $rule])->passes());
+
+    // A value that fails the fast check goes to Laravel, so only a pass must agree.
+    // Laravel 12 passes true for digits_between; Laravel 13 fails it.
+    expect($closure($value))->toBe($fastPasses);
+
+    if ($fastPasses) {
+        expect(Validator::make(['f' => $value], ['f' => $rule])->passes())->toBeTrue();
+    }
 })->with([
-    'date, a letter strtotime reads as a time zone' => ['date', 'b'],
-    'date, now' => ['date', 'now'],
-    'date, a calendar date' => ['date', '2025-06-01'],
-    'digits_between, true' => ['digits_between:1,3', true],
-    'digits, true' => ['digits:1', true],
-    'digits, a digit string' => ['digits:2', '12'],
+    'date, a letter strtotime reads as a time zone' => ['date', 'b', false],
+    'date, now' => ['date', 'now', false],
+    'date, a calendar date' => ['date', '2025-06-01', true],
+    'digits_between, true' => ['digits_between:1,3', true, false],
+    'digits, true' => ['digits:1', true, false],
+    'digits, a digit string' => ['digits:2', '12', true],
 ]);
 
 it('fast-checks decimal size bounds like Laravel', function (string $rule, mixed $value): void {

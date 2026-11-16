@@ -22,10 +22,10 @@ use Illuminate\Validation\Validator as BaseValidator;
  *
  * @internal Implementation detail of `ItemValidator` and `ReferencedAttributes`.
  */
-final class FieldLocalRules
+final readonly class FieldLocalRules
 {
     /** @var array<string, int> studly names of the rules whose parameters name fields */
-    private readonly array $dependentRules;
+    private array $dependentRules;
 
     public function __construct()
     {

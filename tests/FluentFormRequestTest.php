@@ -1465,7 +1465,10 @@ it('parses plain string rules in a form request like the factory', function (): 
     $validator = (fn () => $this->createDefaultValidator($factory))->call($instance);
     $native = validator($data, $rules);
 
-    expect($validator->getRules() === $native->getRules())->toBeTrue()
+    expect($validator)->toBeInstanceOf(OptimizedValidator::class);
+    assert($validator instanceof OptimizedValidator);
+    expect($validator->getRules())
+        ->toBe($native->getRules())
         ->and($validator->errors()->toArray())->toBe($native->errors()->toArray());
 });
 

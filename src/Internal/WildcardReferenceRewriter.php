@@ -17,7 +17,7 @@ use ReflectionProperty;
  *
  * @internal Implementation detail of `RuleSet`.
  */
-final class WildcardReferenceRewriter
+final readonly class WildcardReferenceRewriter
 {
     /**
      * Rules that Laravel reads through `parseDependentRuleParameters()`: the
@@ -34,9 +34,9 @@ final class WildcardReferenceRewriter
     ];
 
     /** @var array<string, int> studly rule names */
-    private readonly array $dependentRules;
+    private array $dependentRules;
 
-    public function __construct(private readonly string $prefix)
+    public function __construct(private string $prefix)
     {
         $this->dependentRules = array_flip(self::dependentRules());
     }

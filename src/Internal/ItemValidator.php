@@ -57,7 +57,7 @@ final readonly class ItemValidator
         $laravelRulesByDispatch = [];
 
         [$fastChecks, $originalSlowRules] = $this->compiler->buildFastChecks($itemRules);
-        $laravelFields = self::laravelFieldFilter($isScalar, $itemRules);
+        $laravelFields = $this->laravelFieldFilter($isScalar, $itemRules);
         /** @var array<string, BaseValidator> $validatorCache */
         $validatorCache = [];
         /** @var array<string, list<string>> $errors */
@@ -208,7 +208,7 @@ final readonly class ItemValidator
      * @param  array<string, mixed>  $itemRules
      * @return Closure(array<string, mixed>, array<string, Closure(array<string, mixed>): bool>, array<string, mixed>, array<string, mixed>): array<string, mixed>
      */
-    private static function laravelFieldFilter(bool $isScalar, array $itemRules): Closure
+    private function laravelFieldFilter(bool $isScalar, array $itemRules): Closure
     {
         if ($isScalar || FieldLocalRules::canReadAnyField($itemRules)) {
             return static fn (array $rules): array => $rules;
