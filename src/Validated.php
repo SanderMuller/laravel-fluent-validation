@@ -2,6 +2,7 @@
 
 namespace SanderMuller\FluentValidation;
 
+use Closure;
 use Illuminate\Contracts\Validation\Validator as ValidatorContract;
 use Illuminate\Support\MessageBag;
 use Illuminate\Support\ValidatedInput;
@@ -21,16 +22,17 @@ use Illuminate\Validation\ValidationException;
  *
  * @template-covariant TValidated of array<string, mixed> = array<string, mixed>
  */
-final readonly class Validated
+final class Validated
 {
     /**
      * @param  TValidated  $validated
+     * @param  ValidatorContract|(Closure(): ValidatorContract)  $validator  a closure builds the validator on first use
      */
     public function __construct(
-        private bool $passes,
-        private array $validated,
-        private MessageBag $errors,
-        private ValidatorContract $validator,
+        private readonly bool $passes,
+        private readonly array $validated,
+        private readonly MessageBag $errors,
+        private ValidatorContract|Closure $validator,
     ) {}
 
     public function passes(): bool
@@ -65,7 +67,7 @@ final readonly class Validated
     public function validated(): array
     {
         if ($this->fails()) {
-            throw new ValidationException($this->validator);
+            throw new ValidationException($this->validator());
         }
 
         return $this->validated;
@@ -80,7 +82,7 @@ final readonly class Validated
     public function safe(): ValidatedInput
     {
         if ($this->fails()) {
-            throw new ValidationException($this->validator);
+            throw new ValidationException($this->validator());
         }
 
         return new ValidatedInput($this->validated);
@@ -92,6 +94,10 @@ final readonly class Validated
      */
     public function validator(): ValidatorContract
     {
+        if ($this->validator instanceof Closure) {
+            $this->validator = ($this->validator)();
+        }
+
         return $this->validator;
     }
 }

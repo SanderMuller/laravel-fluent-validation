@@ -2506,6 +2506,19 @@ it('check() exposes underlying validator via escape hatch', function (): void {
     expect($result->validator()->errors()->has('name'))->toBeTrue();
 });
 
+it('check() exposes one validator over the input on success', function (): void {
+    $result = RuleSet::from([
+        'name' => FluentRule::string()->required(),
+    ])->check(['name' => 'John']);
+
+    $validator = $result->validator();
+
+    expect($validator)->toBeInstanceOf(Illuminate\Validation\Validator::class)
+        ->and($validator)->toBe($result->validator());
+    assert($validator instanceof Illuminate\Validation\Validator);
+    expect($validator->getData())->toBe(['name' => 'John']);
+});
+
 it('check() safe() returns ValidatedInput on success', function (): void {
     $result = RuleSet::from([
         'name' => FluentRule::string()->required(),

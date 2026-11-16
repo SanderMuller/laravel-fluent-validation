@@ -5,6 +5,7 @@ namespace SanderMuller\FluentValidation;
 use Closure;
 use Illuminate\Contracts\Support\Arrayable;
 use Illuminate\Contracts\Validation\ValidationRule;
+use Illuminate\Contracts\Validation\Validator as ValidatorContract;
 use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Validator;
@@ -462,7 +463,7 @@ final class RuleSet implements Arrayable, IteratorAggregate
                 passes: true,
                 validated: $validated,
                 errors: new MessageBag(),
-                validator: Validator::make($data, []),
+                validator: static fn (): ValidatorContract => Validator::make($data, []),
             );
         } catch (ValidationException $validationException) {
             // `validated()` and `safe()` throw when `passes` is false, so
