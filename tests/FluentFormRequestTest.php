@@ -1412,3 +1412,28 @@ function createFluentFormRequest(array $rules, array $data): FormRequest
 
     return $instance;
 }
+
+it('keeps the rules of a field that a dependent rule reads in a form request', function (): void {
+    $cases = [
+        'boolean read by required_if' => [
+            ['items.*.flag' => 'boolean', 'items.*.x' => 'required_if:items.*.flag,true'],
+            ['items' => [['flag' => '1']]],
+        ],
+        'date_format read by after' => [
+            ['items.*.start' => 'date_format:d/m/Y', 'items.*.end' => 'date_format:Y-m-d|after:items.*.start'],
+            ['items' => [['start' => '01/12/2025', 'end' => '2025-06-01']]],
+        ],
+        'conditional field read by required_if' => [
+            ['items.*.type' => 'required|string', 'items.*.flag' => ['exclude_unless:items.*.type,a', 'boolean'], 'items.*.x' => 'required_if:items.*.flag,true'],
+            ['items' => [['type' => 'a', 'flag' => '1']]],
+        ],
+    ];
+
+    foreach ($cases as $case => [$rules, $data]) {
+        $instance = createFluentFormRequest($rules, $data);
+        $factory = resolve(Factory::class);
+        $validator = (fn () => $this->createDefaultValidator($factory))->call($instance);
+
+        expect($validator->errors()->keys())->toBe(validator($data, $rules)->errors()->keys(), $case);
+    }
+});

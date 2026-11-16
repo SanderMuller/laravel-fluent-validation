@@ -30,13 +30,18 @@ class OptimizedValidator extends MemoizingValidator
     /** @var array<string, list<string>> Pattern → expanded attributes (pre-grouped) */
     private array $fastCheckGroups = [];
 
+    /** @var array<string, true> */
+    private array $referencedAttributes = [];
+
     /**
      * @param array<string, Closure(mixed): bool> $fastChecks
      * @param  array<string, string>  $attributePatternMap
+     * @param  array<string, true>  $referencedAttributes  attributes whose rules a dependent rule reads; never fast-checked away
      */
-    public function withFastChecks(array $fastChecks, array $attributePatternMap): static
+    public function withFastChecks(array $fastChecks, array $attributePatternMap, array $referencedAttributes = []): static
     {
         $this->fastChecks = $fastChecks;
+        $this->referencedAttributes = $referencedAttributes;
 
         // Pre-group attributes by pattern for the fast-check loop
         foreach ($attributePatternMap as $attribute => $pattern) {
@@ -157,7 +162,7 @@ class OptimizedValidator extends MemoizingValidator
      */
     private function tryFastCheckRemaining(string $attribute, array $rules): bool
     {
-        $remainingRule = $this->extractNonConditionalRule($rules);
+        $remainingRule = isset($this->referencedAttributes[$attribute]) ? null : $this->extractNonConditionalRule($rules);
 
         if ($remainingRule === null) {
             return false;

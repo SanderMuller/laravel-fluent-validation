@@ -80,21 +80,25 @@ trait PreparesOptimizedRules
     /**
      * Build fast-check closures and the attribute-to-pattern lookup map.
      *
+     * Attributes whose rules another attribute's dependent rule reads are not
+     * fast-checked: removing their rules would change Laravel's verdict.
+     *
      * @param  array<string, mixed>  $preparedRules  Rules after pre-exclusion
-     * @return array{0: array<string, Closure(mixed): bool>, 1: array<string, string>}
+     * @return array{0: array<string, Closure(mixed): bool>, 1: array<string, string>, 2: array<string, true>} checks, attribute patterns, attributes to keep
      */
     private function buildFastCheckMaps(PreparedRules $prepared, array $preparedRules): array
     {
+        $referenced = ReferencedAttributes::find($prepared->rules, $prepared->implicitAttributes);
         $wildcardRules = [];
         foreach ($prepared->implicitAttributes as $pattern => $expandedPaths) {
-            if (isset($preparedRules[$expandedPaths[0] ?? ''])) {
+            if (isset($preparedRules[$expandedPaths[0] ?? '']) && ! isset($referenced[$expandedPaths[0]])) {
                 $wildcardRules[$pattern] = $preparedRules[$expandedPaths[0]];
             }
         }
 
         $fastChecks = OptimizedValidator::buildFastChecks($wildcardRules);
 
-        return [$fastChecks, $this->buildAttributePatternMap($fastChecks, $prepared->implicitAttributes, $preparedRules)];
+        return [$fastChecks, $this->buildAttributePatternMap($fastChecks, $prepared->implicitAttributes, $preparedRules), $referenced];
     }
 
     /**
