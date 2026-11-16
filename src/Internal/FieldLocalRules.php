@@ -74,6 +74,29 @@ final class FieldLocalRules
     }
 
     /**
+     * Whether a field's rule has a rule that Laravel reads when another
+     * field names it: `date_format` for date comparisons, `boolean` for
+     * conditions, and the numeric rules for size comparisons. True for an
+     * object that may hold one.
+     */
+    public static function hasRuleReadByDependents(mixed $rule): bool
+    {
+        $parts = self::parts($rule);
+
+        if ($parts === null) {
+            return true;
+        }
+
+        foreach ($parts as [$name]) {
+            if (in_array($name, ['DateFormat', 'Boolean', 'Numeric', 'Integer', 'Decimal'], true)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
      * Each rule as a studly name and its parameters, or null for an object
      * that may read the validator.
      *

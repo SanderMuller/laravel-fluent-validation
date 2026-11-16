@@ -1424,6 +1424,14 @@ it('matches native for dependent and conditional rules in a form request', funct
             ['items.*.start' => 'date_format:d/m/Y', 'items.*.end' => 'date_format:Y-m-d|after:items.*.start'],
             ['items' => [['start' => '01/12/2025', 'end' => '2025-06-01']]],
         ],
+        'numeric read by gt' => [
+            ['items.*.n' => 'numeric', 'items.*.m' => 'string|gt:items.*.n'],
+            ['items' => [['n' => '10', 'm' => 'abc']]],
+        ],
+        'date field without a read rule' => [
+            ['items.*.start' => 'required|date', 'items.*.end' => 'required|date|after:items.*.start'],
+            ['items' => [['start' => '2025-01-01', 'end' => '2024-01-01'], ['start' => 'x', 'end' => '2026-01-01']]],
+        ],
         'required_if tuple after an exclude tuple' => [
             ['items.*.name' => 'string', 'items.*.type' => 'required|string', 'items.*.x' => [['exclude_unless', 'items.*.type', 'a', 'b'], ['required_if', 'items.*.type', 'a'], 'nullable', 'string']],
             ['items' => [['name' => 'n', 'type' => 'a']]],

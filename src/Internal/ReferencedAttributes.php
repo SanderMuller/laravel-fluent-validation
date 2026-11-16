@@ -4,9 +4,10 @@ namespace SanderMuller\FluentValidation\Internal;
 
 /**
  * Finds the expanded attributes whose rules Laravel reads to validate another
- * attribute: the fields that dependent rules name. `required_if:items.0.flag,true`
- * reads the `boolean` of items.0.flag, `after:items.0.start` reads its
- * `date_format`. A fast check must not remove those rules from the validator.
+ * attribute: the fields that dependent rules name, when they have a rule that
+ * Laravel reads. `required_if:items.0.flag,true` reads the `boolean` of
+ * items.0.flag, `after:items.0.start` reads its `date_format`. A fast check
+ * must not remove those rules from the validator.
  *
  * Every expanded attribute of a pattern has the same rules, so the first one
  * stands for the pattern.
@@ -50,7 +51,10 @@ final class ReferencedAttributes
             foreach ($fieldLocalRules->references($rules[$source]) as $field) {
                 // A wildcard reference names a pattern; Laravel resolves it per attribute.
                 $attributes = $implicitAttributes[$field] ?? (isset($patternOf[$field]) ? $implicitAttributes[$patternOf[$field]] : [$field]);
-                $referenced += array_fill_keys($attributes, true);
+
+                if (FieldLocalRules::hasRuleReadByDependents($rules[$attributes[0]] ?? null)) {
+                    $referenced += array_fill_keys($attributes, true);
+                }
             }
         }
 
