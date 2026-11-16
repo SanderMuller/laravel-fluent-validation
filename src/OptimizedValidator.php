@@ -82,6 +82,7 @@ class OptimizedValidator extends MemoizingValidator
      */
     public function passes(): bool
     {
+        $originalRules = $this->rules;
         $removedRules = $this->runFastCheckPhase();
         $this->runConditionalPhase($removedRules);
 
@@ -91,11 +92,11 @@ class OptimizedValidator extends MemoizingValidator
 
         $result = parent::passes();
 
-        // Restore fast-checked rules so validated() returns their data.
-        // (Excluded rules are intentionally NOT restored.)
-        foreach ($removedRules as $attribute => $rules) {
-            $this->rules[$attribute] = $rules;
-        }
+        // Restore fast-checked rules in their original order, so validated()
+        // returns their data in rule order. (Excluded rules are intentionally
+        // NOT restored.)
+        $kept = $this->rules + $removedRules;
+        $this->rules = array_replace(array_intersect_key($originalRules, $kept), $kept);
 
         return $result;
     }
@@ -168,7 +169,7 @@ class OptimizedValidator extends MemoizingValidator
 
             // Not excluded — try fast-checking the remaining non-conditional
             // rules (e.g., the "string" part of ["exclude_unless:...", "string"]).
-            if ($this->fastChecks !== [] && $this->tryFastCheckRemaining($attribute, $rules)) {
+            if ($this->tryFastCheckRemaining($attribute, $rules)) {
                 $removedRules[$attribute] = $rules;
                 unset($this->rules[$attribute]);
             }

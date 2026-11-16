@@ -1459,3 +1459,17 @@ it('parses plain string rules in a form request like the factory', function (): 
     expect($validator->getRules() === $native->getRules())->toBeTrue()
         ->and($validator->errors()->toArray())->toBe($native->errors()->toArray());
 });
+
+it('returns validated data in rule order after conditional fast checks', function (): void {
+    $rules = [
+        'items.*.type' => ['required', 'string'],
+        'items.*.size' => [['exclude_unless', 'items.*.type', 'a'], 'integer'],
+        'items.*.title' => ['nullable', 'string'],
+    ];
+    $data = ['items' => [['type' => 'a', 'size' => 2, 'title' => 't'], ['type' => 'b', 'size' => 3, 'title' => 'u']]];
+
+    $instance = createFluentFormRequest($rules, $data);
+    $instance->validateResolved();
+
+    expect(json_encode($instance->validated()))->toBe(json_encode(validator($data, $rules)->validated()));
+});
