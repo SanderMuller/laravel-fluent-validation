@@ -1437,3 +1437,21 @@ it('keeps the rules of a field that a dependent rule reads in a form request', f
         expect($validator->errors()->keys())->toBe(validator($data, $rules)->errors()->keys(), $case);
     }
 });
+
+it('parses plain string rules in a form request like the factory', function (): void {
+    $rules = [
+        'items' => 'required|array',
+        'items.*.name' => 'required|string|max:5',
+        'items.*.qty' => 'required|integer|min:1',
+        'items.*.code' => 'required|string',
+    ];
+    $data = ['items' => [['name' => 'a', 'qty' => 1, 'code' => 'x'], ['name' => 'toolong', 'qty' => 0, 'code' => 'y']]];
+
+    $instance = createFluentFormRequest($rules, $data);
+    $factory = resolve(Factory::class);
+    $validator = (fn () => $this->createDefaultValidator($factory))->call($instance);
+    $native = validator($data, $rules);
+
+    expect($validator->getRules() === $native->getRules())->toBeTrue()
+        ->and($validator->errors()->toArray())->toBe($native->errors()->toArray());
+});

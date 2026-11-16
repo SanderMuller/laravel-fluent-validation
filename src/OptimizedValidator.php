@@ -54,6 +54,28 @@ class OptimizedValidator extends MemoizingValidator
     }
 
     /**
+     * Set plain string rules on concrete attributes, as setRules() would,
+     * exploding each distinct rule string once. Expanded wildcard attributes
+     * repeat the same few rule strings.
+     *
+     * @internal
+     *
+     * @param  array<string, string>  $rules  keys without `*` or escaped dots
+     */
+    public function setPlainRules(array $rules): static
+    {
+        $this->initialRules = $rules;
+        $this->rules = [];
+        $exploded = [];
+
+        foreach ($rules as $attribute => $rule) {
+            $this->rules[$attribute] = $exploded[$rule] ??= explode('|', $rule);
+        }
+
+        return $this;
+    }
+
+    /**
      * Pre-validate fast-checkable attributes and pre-evaluate conditional
      * rules (exclude_unless/exclude_if) before the main validation loop,
      * removing passing/excluded attributes so Laravel never iterates them.

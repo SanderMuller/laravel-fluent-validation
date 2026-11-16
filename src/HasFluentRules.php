@@ -8,6 +8,7 @@ use Illuminate\Validation\Validator;
 use ReflectionMethod;
 use ReflectionNamedType;
 use ReflectionProperty;
+use SanderMuller\FluentValidation\Internal\PlainRules;
 use SanderMuller\FluentValidation\Internal\PreparesOptimizedRules;
 use SanderMuller\FluentValidation\Internal\ValidatorStateCopier;
 
@@ -262,10 +263,16 @@ trait HasFluentRules
         array $messages,
         array $attributes,
     ): OptimizedValidator {
+        $plainRules = PlainRules::of($rules);
+
         // Create a standard Validator through the factory to get full setup,
-        // then transfer its configuration to an OptimizedValidator.
+        // then transfer its configuration to an OptimizedValidator. Plain
+        // string rules skip the factory's parse: it then only supplies
+        // configuration, and gets no data or rules.
         /** @var Validator $base */
-        $base = $factory->make($data, $rules, $messages, $attributes);
+        $base = $plainRules === null
+            ? $factory->make($data, $rules, $messages, $attributes)
+            : $factory->make([], [], $messages, $attributes);
 
         // Create with EMPTY rules to skip re-parsing the 3500+ expanded rules.
         // The parsed rules AND factory-applied configuration are copied from
@@ -280,6 +287,6 @@ trait HasFluentRules
 
         ValidatorStateCopier::copy($base, $optimized);
 
-        return $optimized;
+        return $plainRules === null ? $optimized : $optimized->setPlainRules($plainRules);
     }
 }
