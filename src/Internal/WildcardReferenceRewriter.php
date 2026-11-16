@@ -137,7 +137,7 @@ final class WildcardReferenceRewriter
      *
      * @return list<string>
      */
-    private static function dependentRules(): array
+    public static function dependentRules(): array
     {
         $validator = Validator::make([], []);
 

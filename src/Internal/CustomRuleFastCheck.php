@@ -31,7 +31,7 @@ final class CustomRuleFastCheck
 {
     /**
      * @param  array<string, mixed>  $rules
-     * @return array{0: list<Closure(array<string, mixed>): bool>, 1: array<string, mixed>} checks, then the other rules
+     * @return array{0: array<string, Closure(array<string, mixed>): bool>, 1: array<string, mixed>} checks keyed by field, then the other rules
      */
     public static function split(array $rules): array
     {
@@ -41,7 +41,7 @@ final class CustomRuleFastCheck
             $check = is_array($rule) ? self::build((string) $field, $rule) : null;
 
             if ($check instanceof Closure) {
-                $checks[] = $check;
+                $checks[$field] = $check;
                 unset($rules[$field]);
             }
         }

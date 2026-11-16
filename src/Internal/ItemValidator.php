@@ -51,12 +51,13 @@ final readonly class ItemValidator
         $rulesByDispatch = [];
         /** @var array<string, array{0: array<string, Closure(array<string, mixed>): bool>, 1: array<string, mixed>}> $fastChecksByDispatch */
         $fastChecksByDispatch = [];
-        /** @var array<string, array{0: list<Closure(array<string, mixed>): bool>, 1: array<string, mixed>}> $fastChecksByReduced */
+        /** @var array<string, array{0: array<string, Closure(array<string, mixed>): bool>, 1: array<string, mixed>}> $fastChecksByReduced */
         $fastChecksByReduced = [];
         /** @var array<string, array<string, mixed>> $laravelRulesByDispatch */
         $laravelRulesByDispatch = [];
 
         [$fastChecks, $originalSlowRules] = $this->compiler->buildFastChecks($itemRules);
+        $laravelFields = self::laravelFieldFilter($isScalar, $itemRules);
         /** @var array<string, BaseValidator> $validatorCache */
         $validatorCache = [];
         /** @var array<string, list<string>> $errors */
@@ -137,6 +138,7 @@ final readonly class ItemValidator
                 }
             }
 
+            $effectiveRules = $laravelFields($effectiveRules, $dispatchFastChecks, $dispatchSlowRules, $itemData);
             $effectiveRules = $this->rulesForLaravel($effectiveRules, $itemRules, $itemData, $conditionalFields, $itemMessages, $siblingFields, $dispatchValue, $laravelRulesByDispatch);
             $cacheKey = $this->compiler->ruleCacheKey($effectiveRules);
 
@@ -195,6 +197,43 @@ final readonly class ItemValidator
         $dependencies = array_fill_keys([...PresenceConditionalReducer::dependencies($restored), ...ValueConditionalReducer::dependencies($restored)], true);
 
         return array_intersect_key($laravelRules, $rules + $dependencies);
+    }
+
+    /**
+     * Picks the rules Laravel runs for an item that failed a fast check. With
+     * field-local rules, a field whose fast check passed has no errors, so
+     * only the failed fields and the slow rules go to Laravel. Otherwise all
+     * rules go. Conditional rules are dependent rules, so they keep all
+     * fields too.
+     *
+     * @param  array<string, mixed>  $itemRules
+     * @return Closure(array<string, mixed>, array<string, Closure(array<string, mixed>): bool>, array<string, mixed>, array<string, mixed>): array<string, mixed>
+     */
+    private static function laravelFieldFilter(bool $isScalar, array $itemRules): Closure
+    {
+        return $isScalar || ! FieldLocalRules::all($itemRules)
+            ? static fn (array $rules): array => $rules
+            : self::failedFieldRules(...);
+    }
+
+    /**
+     * The rules of the failed fields plus the slow rules, in rule order.
+     *
+     * @param  array<string, mixed>  $rules
+     * @param  array<string, Closure(array<string, mixed>): bool>  $fastChecks
+     * @param  array<string, mixed>  $slowRules
+     * @param  array<string, mixed>  $itemData
+     * @return array<string, mixed>
+     */
+    private static function failedFieldRules(array $rules, array $fastChecks, array $slowRules, array $itemData): array
+    {
+        foreach ($fastChecks as $field => $check) {
+            if (! $check($itemData)) {
+                $slowRules[$field] = true;
+            }
+        }
+
+        return array_intersect_key($rules, $slowRules);
     }
 
     /**

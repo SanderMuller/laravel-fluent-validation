@@ -204,7 +204,7 @@ final class ItemRuleCompiler
      * Returns fast checks for compilable fields and the remaining slow rules.
      *
      * @param  array<string, mixed>  $compiledRules
-     * @return array{0: list<Closure(array<string, mixed>): bool>, 1: array<string, mixed>}
+     * @return array{0: array<string, Closure(array<string, mixed>): bool>, 1: array<string, mixed>} checks keyed by field, then the slow rules
      */
     public function buildFastChecks(array $compiledRules): array
     {
@@ -247,7 +247,7 @@ final class ItemRuleCompiler
                 $childField = $parts[1];
 
                 if ($itemAwareCheck instanceof Closure) {
-                    $checks[] = static function (array $data) use ($parentField, $childField, $itemAwareCheck): bool {
+                    $checks[$field] = static function (array $data) use ($parentField, $childField, $itemAwareCheck): bool {
                         $items = $data[$parentField] ?? null;
                         if (! is_array($items)) {
                             return true;
@@ -267,7 +267,7 @@ final class ItemRuleCompiler
                         return true;
                     };
                 } else {
-                    $checks[] = static function (array $data) use ($parentField, $childField, $valueCheck): bool {
+                    $checks[$field] = static function (array $data) use ($parentField, $childField, $valueCheck): bool {
                         $items = $data[$parentField] ?? null;
                         if (! is_array($items)) {
                             return true;
@@ -287,14 +287,14 @@ final class ItemRuleCompiler
                     };
                 }
             } elseif ($field === '*' || str_contains($field, '.')) {
-                $checks[] = PathFastCheck::build($field === '*' ? ['_v'] : explode('.', $field), $valueCheck, $itemAwareCheck);
+                $checks[$field] = PathFastCheck::build($field === '*' ? ['_v'] : explode('.', $field), $valueCheck, $itemAwareCheck);
             } elseif ($itemAwareCheck instanceof Closure) {
-                $checks[] = static function (array $data) use ($field, $itemAwareCheck): bool {
+                $checks[$field] = static function (array $data) use ($field, $itemAwareCheck): bool {
                     /** @var array<string, mixed> $data — caller guarantees string-keyed. */
                     return $itemAwareCheck($data[$field] ?? null, $data);
                 };
             } else {
-                $checks[] = static fn (array $data): bool => $valueCheck($data[$field] ?? null);
+                $checks[$field] = static fn (array $data): bool => $valueCheck($data[$field] ?? null);
             }
         }
 
