@@ -67,6 +67,15 @@ it('keeps the rules of a field that a dependent rule reads', function (): void {
     ], [['name' => ['x'], 'start' => '01/12/2025', 'end' => '2025-06-01']]);
 });
 
+it('gives Laravel the rules that a slow rule reads when the item passes its fast checks', function (): void {
+    // The fast check passes start, and end's date_format comparison is slow.
+    // Laravel must still parse start with start's date_format.
+    assertFailedFieldParity([
+        'items.*.start' => 'date_format:d/m/Y',
+        'items.*.end' => 'date_format:Y-m-d|after:items.*.start',
+    ], [['start' => '01/12/2025', 'end' => '2025-06-01']]);
+});
+
 it('keeps every field when a rule can read the validator', function (): void {
     assertFailedFieldParity([
         'items.*.name' => 'required|string',

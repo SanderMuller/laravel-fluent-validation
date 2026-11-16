@@ -299,7 +299,7 @@ final class ItemRuleCompiler
         }
 
         // Slow rules keep the input order, so Laravel reports errors in rule order.
-        return [$checks, array_intersect_key($compiledRules, $slowRules)];
+        return [$checks, array_intersect_key($compiledRules, FieldLocalRules::withReadReferences($slowRules, $compiledRules))];
     }
 
     /**

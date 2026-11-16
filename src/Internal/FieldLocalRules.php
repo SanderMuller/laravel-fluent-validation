@@ -74,6 +74,44 @@ final readonly class FieldLocalRules
     }
 
     /**
+     * The slow rules, plus the rules of each field they name that holds a
+     * rule Laravel reads from it. Those fields may pass their fast checks,
+     * but Laravel's validator for the slow rules still needs their rules.
+     *
+     * @param  array<string, mixed>  $slowRules
+     * @param  array<string, mixed>  $rules  all rules of the item
+     * @return array<string, mixed>
+     */
+    public static function withReadReferences(array $slowRules, array $rules): array
+    {
+        if ($slowRules === []) {
+            return $slowRules;
+        }
+
+        $readable = array_filter(array_diff_key($rules, $slowRules), self::hasRuleReadByDependents(...));
+
+        if ($readable === []) {
+            return $slowRules;
+        }
+
+        $fieldLocalRules = new self();
+        $pending = array_keys($slowRules);
+
+        while ($pending !== []) {
+            $field = array_pop($pending);
+
+            foreach ($fieldLocalRules->references($rules[$field] ?? null) as $reference) {
+                if (isset($readable[$reference]) && ! isset($slowRules[$reference])) {
+                    $slowRules[$reference] = $readable[$reference];
+                    $pending[] = $reference;
+                }
+            }
+        }
+
+        return $slowRules;
+    }
+
+    /**
      * Whether a field's rule has a rule that Laravel reads when another
      * field names it: `date_format` for date comparisons, `boolean` for
      * conditions, and the numeric rules for size comparisons. True for an
