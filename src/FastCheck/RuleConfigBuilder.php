@@ -231,7 +231,7 @@ final class RuleConfigBuilder
                     return false;
                 }
 
-                if ($notIn !== null && $isScalar && in_array((string) $value, $notIn, true)) {
+                if ($notIn !== null && LaravelInput::failsNotIn($value, $notIn, $isArray)) {
                     return false;
                 }
 

@@ -49,7 +49,7 @@ final class ItemContextCompiler
 
         $config = self::parseWithItemContext($ruleString);
 
-        return $config !== null ? self::buildItemAwareClosure($config) : null;
+        return $config !== null ? DateReference::guard($config, self::buildItemAwareClosure($config)) : null;
     }
 
     /**

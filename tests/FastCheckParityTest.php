@@ -2,6 +2,7 @@
 
 use Illuminate\Support\Facades\Validator;
 use SanderMuller\FluentValidation\FastCheckCompiler;
+use SanderMuller\FluentValidation\RuleSet;
 
 /**
  * Parity suite: for every fast-checkable rule, the compiled closure's
@@ -841,3 +842,34 @@ it('fast-checks plain string in and boolean rules like Laravel', function (strin
     'boolean, empty string' => ['boolean', ''],
     'boolean, float 1.0' => ['boolean', 1.0],
 ]);
+
+it('fast-checks not_in on an array value like Laravel', function (string $rule, mixed $value): void {
+    $closure = FastCheckCompiler::compile($rule);
+
+    expect($closure)->toBeInstanceOf(Closure::class);
+    assert($closure instanceof Closure);
+    expect($closure($value))->toBe(Validator::make(['f' => $value], ['f' => $rule])->passes());
+})->with([
+    'array rule, empty array' => ['array|not_in:a', []],
+    'array rule, listed value' => ['array|not_in:a', ['a']],
+    'array rule, other value' => ['array|not_in:a', ['x']],
+    'array rule, mixed values' => ['array|not_in:a', ['a', 'x']],
+    'no array rule, empty array' => ['not_in:a', []],
+    'no array rule, listed value' => ['not_in:a', ['a']],
+    'array rule, nested array' => ['array|not_in:a', ['a', ['b']]],
+    'array rule, null element' => ['array|not_in:,a', [null]],
+]);
+
+it('compares a date with a referenced field like Laravel', function (string $rule, mixed $other): void {
+    $rules = ['items.*.date' => $rule];
+    $data = ['items' => [['date' => '2020-01-01', 'other' => $other]]];
+
+    expect(RuleSet::from($rules)->check($data)->errors()->keys())
+        ->toBe(Validator::make($data, $rules)->errors()->keys());
+})->with(function (): iterable {
+    foreach (['after', 'after_or_equal', 'before', 'before_or_equal', 'date_equals'] as $operator) {
+        foreach (['empty string' => '', 'null' => null, 'date' => '2021-01-01', 'unparseable' => 'x', 'true' => true] as $label => $other) {
+            yield "{$operator}, {$label}" => ["{$operator}:items.*.other", $other];
+        }
+    }
+});
