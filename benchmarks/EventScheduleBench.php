@@ -3,10 +3,12 @@
 namespace SanderMuller\FluentValidation\Benchmarks;
 
 use SanderMuller\FluentValidation\Benchmarks\Support\Scenarios;
+use SanderMuller\FluentValidation\RuleSet;
 use Tally\Attribute\Before;
 use Tally\Attribute\DataProvider;
 use Tally\Attribute\ExpectedFor;
 use Tally\Attribute\Linear;
+use Tally\Attribute\RelativeTolerance;
 
 /**
  * Date comparisons against sibling fields, partly fast-checked.
@@ -18,6 +20,9 @@ final class EventScheduleBench
 
     /** @var array<string, mixed> */
     private array $data = [];
+
+    /** @var array<string, mixed> */
+    private array $nativeRules = [];
 
     /** @return iterable<string, array{int}> */
     public static function sizes(): iterable
@@ -42,6 +47,9 @@ final class EventScheduleBench
 
         $this->rules = Scenarios::eventRules();
         $this->data = Scenarios::eventData($count);
+
+        $this->nativeRules = RuleSet::compile(RuleSet::from(Scenarios::eventRules())->flattenRules());
+        Scenarios::validateNative($this->nativeRules, Scenarios::eventData(2));
     }
 
     #[DataProvider('sizes')]
@@ -56,5 +64,16 @@ final class EventScheduleBench
     public function benchValidate(int $count): void
     {
         Scenarios::validate($this->rules, $this->data);
+    }
+
+    /**
+     * The same rules through Laravel's own validator. The count follows the Laravel version
+     * that CI installs, so it may change by up to 100 % before the case fails.
+     */
+    #[DataProvider('size')]
+    #[RelativeTolerance(1.0)]
+    public function benchNative(int $count): void
+    {
+        Scenarios::validateNative($this->nativeRules, $this->data);
     }
 }

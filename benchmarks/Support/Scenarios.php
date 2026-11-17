@@ -2,6 +2,7 @@
 
 namespace SanderMuller\FluentValidation\Benchmarks\Support;
 
+use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Orchestra\Testbench\Foundation\Application;
@@ -34,6 +35,20 @@ final class Scenarios
     {
         try {
             RuleSet::from($rules)->validate($data);
+        } catch (ValidationException) {
+        }
+    }
+
+    /**
+     * Validates with Laravel's own validator, and ignores a failure.
+     *
+     * @param  array<string, mixed>  $rules
+     * @param  array<string, mixed>  $data
+     */
+    public static function validateNative(array $rules, array $data): void
+    {
+        try {
+            Validator::make($data, $rules)->validate();
         } catch (ValidationException) {
         }
     }

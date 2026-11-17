@@ -3,10 +3,12 @@
 namespace SanderMuller\FluentValidation\Benchmarks;
 
 use SanderMuller\FluentValidation\Benchmarks\Support\Scenarios;
+use SanderMuller\FluentValidation\RuleSet;
 use Tally\Attribute\Before;
 use Tally\Attribute\DataProvider;
 use Tally\Attribute\ExpectedFor;
 use Tally\Attribute\Linear;
+use Tally\Attribute\RelativeTolerance;
 
 /**
  * Many exclude_unless conditions on a wildcard group.
@@ -18,6 +20,9 @@ final class ConditionalImportBench
 
     /** @var array<string, mixed> */
     private array $data = [];
+
+    /** @var array<string, mixed> */
+    private array $nativeRules = [];
 
     /** @return iterable<string, array{int}> */
     public static function sizes(): iterable
@@ -42,6 +47,9 @@ final class ConditionalImportBench
 
         $this->rules = Scenarios::conditionalRules();
         $this->data = Scenarios::conditionalData($count);
+
+        $this->nativeRules = RuleSet::compile(RuleSet::from(Scenarios::conditionalRules())->flattenRules());
+        Scenarios::validateNative($this->nativeRules, Scenarios::conditionalData(9));
     }
 
     #[DataProvider('sizes')]
@@ -56,5 +64,16 @@ final class ConditionalImportBench
     public function benchValidate(int $count): void
     {
         Scenarios::validate($this->rules, $this->data);
+    }
+
+    /**
+     * The same rules through Laravel's own validator. The count follows the Laravel version
+     * that CI installs, so it may change by up to 100 % before the case fails.
+     */
+    #[DataProvider('size')]
+    #[RelativeTolerance(1.0)]
+    public function benchNative(int $count): void
+    {
+        Scenarios::validateNative($this->nativeRules, $this->data);
     }
 }
