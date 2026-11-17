@@ -13,8 +13,8 @@ use Throwable;
  * top-level data has that field, Laravel reads the top-level field instead.
  * A path into another wildcard (`same:other.*.x`), and a sibling path whose
  * stripped name Laravel parses as a date (`after:items.*.now` becomes
- * `after:now`), also change meaning per item. RuleSet validates such a group
- * with full expansion.
+ * `after:now`), also change meaning per item. `in_array` always reads its
+ * path from the full data. RuleSet validates such a group with full expansion.
  *
  * @internal Implementation detail of `RuleSet`.
  */
@@ -31,18 +31,13 @@ final class OutsideItemReferences
     {
         $candidates = [];
 
-        foreach ($groupRules as $rule) {
-            if (is_object($rule) && method_exists($rule, 'compiledRules')) {
-                $rule = $rule->compiledRules();
+        foreach (self::ruleParts($groupRules) as [$name, $parameters]) {
+            if ($name === 'InArray') {
+                return true;
             }
 
-            // One part at a time, so an object in a rule list hides only itself.
-            foreach (is_array($rule) ? array_map(static fn (mixed $part): array => [$part], $rule) : [$rule] as $part) {
-                foreach (FieldLocalRules::parts($part) ?? [] as [$name, $parameters]) {
-                    if (self::namesOutside($name, $parameters, $parent . '.*.', $data)) {
-                        $candidates[$name] = true;
-                    }
-                }
+            if (self::namesOutside($name, $parameters, $parent . '.*.', $data)) {
+                $candidates[$name] = true;
             }
         }
 
@@ -55,6 +50,24 @@ final class OutsideItemReferences
         $fieldRules = array_diff_key(array_flip([...WildcardReferenceRewriter::dependentRules(), 'DateEquals']), ['Unique' => true]);
 
         return array_intersect_key($candidates, $fieldRules) !== [];
+    }
+
+    /**
+     * @param  array<string, mixed>  $groupRules
+     * @return iterable<array{0: string, 1: list<string>}>
+     */
+    private static function ruleParts(array $groupRules): iterable
+    {
+        foreach ($groupRules as $rule) {
+            if (is_object($rule) && method_exists($rule, 'compiledRules')) {
+                $rule = $rule->compiledRules();
+            }
+
+            // One part at a time, so an object in a rule list hides only itself.
+            foreach (is_array($rule) ? array_map(static fn (mixed $part): array => [$part], $rule) : [$rule] as $part) {
+                yield from FieldLocalRules::parts($part) ?? [];
+            }
+        }
     }
 
     /**

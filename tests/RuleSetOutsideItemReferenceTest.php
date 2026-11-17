@@ -76,6 +76,16 @@ it('reports the same errors as native for references inside each()', function (a
         ['items' => 'required|array', 'items.*.start' => 'required|date', 'items.*.end' => 'required|date|after:items.*.start'],
         ['items' => [['start' => '2025-01-01', 'end' => '2025-06-01'], ['start' => '2025-06-01', 'end' => '2025-01-01']]],
     ],
+    'in_array of a top-level list' => [
+        ['allowed' => 'array', 'items' => FluentRule::array()->required()->each(['x' => FluentRule::string()->required()->inArray('allowed.*')])],
+        ['allowed' => 'array', 'items' => 'required|array', 'items.*.x' => 'required|string|in_array:allowed.*'],
+        ['allowed' => ['a', 'b'], 'items' => [['x' => 'a'], ['x' => 'z']]],
+    ],
+    'in_array of the other items' => [
+        ['items' => FluentRule::array()->required()->each(['id' => FluentRule::string()->required(), 'parent' => FluentRule::string()->nullable()->rule('in_array:items.*.id')])],
+        ['items' => 'required|array', 'items.*.id' => 'required|string', 'items.*.parent' => 'nullable|string|in_array:items.*.id'],
+        ['items' => [['id' => 'a', 'parent' => null], ['id' => 'b', 'parent' => 'a'], ['id' => 'c', 'parent' => 'zz']]],
+    ],
 ]);
 
 it('keeps the per-item path for references inside the item and literal values', function (array $groupRules): void {
@@ -99,6 +109,7 @@ it('sends a group with a field outside the item to full expansion', function (ar
     'top-level conditional in a tuple' => [['x' => [['required_if', 'mode', 'strict']]]],
     'reference into another group' => [['x' => 'same:other.*.x']],
     'sibling path whose name parses as a date' => [['d' => 'date|after:items.*.now']],
+    'in_array' => [['x' => 'in_array:items.*.id']],
     'fluent object' => [['d' => FluentRule::date()->after('order_date')]],
     'rule list with a validator-aware object' => [['d' => ['date', 'after:order_date', new class implements ValidationRule, ValidatorAwareRule {
         public function setValidator(Validator $validator): static
