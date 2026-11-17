@@ -21,8 +21,6 @@ jobs:
     # Pinned image and PHP version: the counts depend on both.
     runs-on: ubuntu-24.04
     timeout-minutes: 30
-    # Not a blocking check yet: first see whether CI's counts stay stable.
-    continue-on-error: true
 
     steps:
       - name: Checkout
