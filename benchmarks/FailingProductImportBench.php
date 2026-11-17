@@ -72,6 +72,7 @@ final class FailingProductImportBench
      */
     #[DataProvider('size')]
     #[RelativeTolerance(1.0)]
+    #[ExpectedFor('items-500', instructions: '1.533B', cycles: '1.901B', memory: '2.232MiB')]
     public function benchNative(int $count): void
     {
         Scenarios::validateNative($this->nativeRules, $this->data);

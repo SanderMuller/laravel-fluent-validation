@@ -72,6 +72,7 @@ final class TagListBench
      */
     #[DataProvider('size')]
     #[RelativeTolerance(1.0)]
+    #[ExpectedFor('tags-1000', instructions: '319.4M', cycles: '413.0M', memory: '530.4KiB')]
     public function benchNative(int $count): void
     {
         Scenarios::validateNative($this->nativeRules, $this->data);

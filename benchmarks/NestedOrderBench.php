@@ -72,6 +72,7 @@ final class NestedOrderBench
      */
     #[DataProvider('size')]
     #[RelativeTolerance(1.0)]
+    #[ExpectedFor('orders-1000', instructions: '8.773B', cycles: '10.87B', memory: '17.65MiB')]
     public function benchNative(int $count): void
     {
         Scenarios::validateNative($this->nativeRules, $this->data);

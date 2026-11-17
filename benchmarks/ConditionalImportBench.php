@@ -72,6 +72,7 @@ final class ConditionalImportBench
      */
     #[DataProvider('size')]
     #[RelativeTolerance(1.0)]
+    #[ExpectedFor('items-100', instructions: '953.1M', cycles: '1.086B', memory: '1.556MiB')]
     public function benchNative(int $count): void
     {
         Scenarios::validateNative($this->nativeRules, $this->data);

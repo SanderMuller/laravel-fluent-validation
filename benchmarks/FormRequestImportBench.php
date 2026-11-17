@@ -50,7 +50,7 @@ final class FormRequestImportBench
     }
 
     #[DataProvider('size')]
-    #[ExpectedFor('items-500', instructions: '70.67M', cycles: '79.76M', memory: '1.815MiB')]
+    #[ExpectedFor('items-500', instructions: '70.00M', cycles: '78.67M', memory: '1.624MiB')]
     public function benchValidate(int $count): void
     {
         $this->request->validateResolved();

@@ -72,6 +72,7 @@ final class EventScheduleBench
      */
     #[DataProvider('size')]
     #[RelativeTolerance(1.0)]
+    #[ExpectedFor('events-100', instructions: '238.7M', cycles: '306.1M', memory: '377.6KiB')]
     public function benchNative(int $count): void
     {
         Scenarios::validateNative($this->nativeRules, $this->data);
