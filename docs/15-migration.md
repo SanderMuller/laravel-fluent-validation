@@ -45,13 +45,9 @@ The companion package [`sandermuller/laravel-fluent-validation-rector`](https://
 composer require --dev sandermuller/laravel-fluent-validation-rector
 ```
 
-The Rector package covers the full migration surface: pipe-delimited strings, array-based rules, `Rule::` objects, `Password::min()` chains, conditional tuples, closures, custom rule objects, Livewire `#[Rule]` / `#[Validate]` attributes, wildcard grouping, trait insertion, and post-migration chain cleanup.
+It converts string, array and `Rule::` rules, `Password::min()` chains, conditional tuples, Livewire `#[Rule]` / `#[Validate]` attributes, and more. Its [README](https://github.com/sandermuller/laravel-fluent-validation-rector) covers the `rector.php` setup and the rule sets. For files Rector leaves alone, see [Common migration patterns](https://github.com/SanderMuller/laravel-fluent-validation/blob/main/resources/boost/skills/fluent-validation/references/migration-patterns.md).
 
-See the [Rector package README](https://github.com/sandermuller/laravel-fluent-validation-rector) for `rector.php` setup, the set catalog (`ALL`, `CONVERT`, `GROUP`, `TRAITS`, `SIMPLIFY`, `POLISH`), per-rector configuration constants, the `#[FluentRules]` per-method opt-in, the post-migration verification workflow, and skip-log diagnostics.
-
-See [Common migration patterns](https://github.com/SanderMuller/laravel-fluent-validation/blob/main/resources/boost/skills/fluent-validation/references/migration-patterns.md) for a detailed reference covering rule-type selection, `Rule::` method conversion, BackedEnum handling, and advanced patterns when Rector leaves a file alone.
-
-The Rector rules aren't just for migration. Run `ALL` (or `SIMPLIFY` on its own) in CI as an ongoing code-quality gate. New validation code (new FormRequests, new Livewire components, new Filament pages) goes through the same converters, grouping, and trait insertion as the initial migration did, so patterns stay consistent as the codebase grows.
+You can also run the `ALL` or `SIMPLIFY` set in CI, so new validation code gets the same conversions.
 
 > [!TIP]
 > **Prefer explicit parent rules for new code.** Pair `'items' => FluentRule::array()->required()` with `'items.*.name' => FluentRule::string()->required()` so nullability/required/size live on the parent. Rector's `GroupWildcardRulesToEachRector` synthesizes `FluentRule::array()->nullable()` when the parent is missing (preserving flat-rule null-parity), so existing codebases migrate fine either way.

@@ -14,9 +14,9 @@ A fluent chain reads as a sentence: the field is a date, it is required, it must
 
 ## One builder per type
 
-`FluentRule::string()`, `integer()`, `date()`, `email()`, `file()`, and friends each return a builder that exposes only the methods valid for that type. `FluentRule::date()` has no `mimes()`; `FluentRule::string()` has no `digits()`. That closes off a whole class of copy-paste mistakes: the wrong method is not there to call.
+Each starter, such as `FluentRule::string()` or `FluentRule::date()`, returns a builder with only the methods valid for that type. `FluentRule::date()` has no `mimes()`, and `FluentRule::string()` has no `digits()`.
 
-Type-scoping also removes the ambiguity baked into string rules. `min:5` means five characters on a string, a minimum value of five on a number, five elements on an array, and five kilobytes on a file, depending on whichever type rule sits next to it. With a typed builder the type comes first, so `->min(5)` has exactly one meaning.
+In a rule string, `min:5` means five characters, five as a value, five items or five kilobytes, depending on the type rule next to it. With a typed builder, `->min(5)` has one meaning.
 
 ## Your IDE does the remembering
 
@@ -36,9 +36,7 @@ Labels and per-rule messages attach to the rule itself, so there's no separate `
 
 ## Performance
 
-Where you'll actually feel this is on endpoints that validate **a lot of fields** or **a lot of items at once**: CSV/JSON imports, bulk-edit forms, settings pages, anything with wildcard arrays like `items.*.id` or `orders.*.line_items.*.product_id`. On a 3-field login form FluentRule is still faster than the native pipeline, but you won't notice; the saving is in microseconds.
-
-Laravel's wildcard validation is O(n²) on large arrays; the optimized entry points rewrite the expansion as a single tree walk. `RuleSet::validate()` is [up to 240x faster](10-benchmarks.md) for nested wildcards and about 100x faster for conditional-heavy payloads. A form request with `HasFluentRules` is up to about 24x faster. Database `exists`/`unique` checks against wildcard arrays batch into a single `whereIn` query instead of one per item. Common rules compile to PHP closures that bypass Laravel's validator entirely on the happy path.
+You notice the difference on requests with many fields or large wildcard arrays, such as imports and bulk edits. `RuleSet::validate()` is [up to 240x faster](10-benchmarks.md) for nested wildcards, and a form request with `HasFluentRules` up to about 24x. `exists`/`unique` checks on a wildcard array run as one query instead of one per item. [Performance](09-performance.md) explains how.
 
 <details>
 <summary><a name="compared-to-rule"></a>Compared to Laravel's <code>Rule</code> class</summary>

@@ -1,8 +1,6 @@
 # Validating with a RuleSet
 
-`validate()` and `check()` are the terminal calls on a [RuleSet](11-ruleset.md). This page covers both, and the per-call options that chain before them.
-
-`validate()` throws `ValidationException` on failure; `check()` returns the outcome as data. Both take an `array` or an `Illuminate\Http\Request`, and passing the request keeps the `$request->all()` read inside the library, which satisfies static-analysis rules that flag unsafe input access. `failOnUnknownFields`, `dropUnknownFields`, `stopOnFirstFailure` and `withBag` chain before either terminal call.
+`validate()` throws `ValidationException` on failure. `check()` returns the outcome as data. Both take an `array` or an `Illuminate\Http\Request`; passing the request satisfies static-analysis rules that flag unsafe input access. The options below chain before either call.
 
 ## Errors-as-data with `check()`
 
@@ -63,7 +61,7 @@ Wildcard arrays are checked too. `items.0.hack` fails if only `items.*.name` is 
 
 ## Silently dropping unknown fields
 
-`dropUnknownFields()` is the lenient counterpart to `failOnUnknownFields()`: instead of rejecting unknown keys, it strips them from the `validated()` output. Top-level keys outside the rule set are already excluded; this flag extends the same behavior to nested array shapes declared via `children()`, `each()`, or dotted rule keys:
+`dropUnknownFields()` removes unknown keys from the `validated()` output instead of rejecting them. Laravel already leaves out unknown top-level keys; this also covers arrays declared with `children()`, `each()` or dotted keys:
 
 ```php
 $validated = RuleSet::from([
@@ -76,7 +74,7 @@ $validated = RuleSet::from([
 // Output: ['name' => 'John', 'meta' => ['type' => 'admin']]
 ```
 
-If both `dropUnknownFields()` and `failOnUnknownFields()` are set, `failOnUnknownFields()` wins: unknown keys trigger a validation error before the drop ever applies.
+When both are set, `failOnUnknownFields()` wins.
 
 ## Stopping on first failure
 
@@ -95,7 +93,7 @@ The same applies inside wildcard arrays. If the first item fails, the rest are s
 
 ## Named error bags (`withBag`)
 
-Multiple forms on one page (Fortify's update-password + reset-password, a Livewire multi-card screen, etc.) need separate error bags so their validation errors don't collide. Chain `->withBag($name)` on the rule set; the thrown `ValidationException`'s `errorBag` is set to that name:
+`->withBag($name)` sets the error bag of the thrown `ValidationException`, for pages with more than one form:
 
 ```php
 RuleSet::from([
@@ -106,4 +104,4 @@ RuleSet::from([
     ->validate($input);
 ```
 
-Mirrors Laravel's `Validator::validateWithBag()` without forcing you back to the `Validator::make(...)` incantation. Only affects the thrown exception's bag; `check()` never throws and is unaffected.
+It works like Laravel's `validateWithBag()`. `check()` does not throw, so the bag does not apply to it.

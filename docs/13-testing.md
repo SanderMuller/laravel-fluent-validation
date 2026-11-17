@@ -1,6 +1,6 @@
 # Testing
 
-`SanderMuller\FluentValidation\Testing\FluentRulesTester` lets you write direct unit tests against fluent rules, RuleSets, `FluentFormRequest` subclasses, and `FluentValidator` subclasses without standing up the HTTP kernel or Livewire harness. It's the package's stable test surface; everything else under `Testing\` is `@internal`.
+`SanderMuller\FluentValidation\Testing\FluentRulesTester` tests fluent rules, RuleSets, form requests, `FluentValidator` subclasses and Livewire components without an HTTP request. Everything else under `Testing\` is `@internal`.
 
 On this page: [Targets](#targets) · [Assertions](#assertions) · [FormRequest binding](#formrequest-binding) · [Livewire components](#livewire-components) · [Pest expectations](#pest-expectations-optional)
 
@@ -73,7 +73,7 @@ Two shapes. Pick the one matching what you're asserting:
 | **Rules-only**     | Assert `rules()` has the right shape against a payload. Component lifecycle irrelevant                                   | `for($component->rules())` or `for($ruleSet)`     |
 | **Component-flow** | Drive `wire:model` state, dispatch an action, assert validation fires (or `addError` branches, guards, multi-step flows) | `for(ComponentClass::class)->set(...)->call(...)` |
 
-The class-string target auto-detects Livewire `Component` subclasses and routes through `Livewire::test()`, so the full `submit()` flow runs: guard clauses, `addError()` branches, computed state, rate-limit gates. Both `$this->validate()` failures and manual `addError()` calls surface via `failsWith()`.
+A component class runs through `Livewire::test()`, so the whole action runs. Both `$this->validate()` failures and `addError()` calls show up in `failsWith()`.
 
 ```php
 FluentRulesTester::for(EditAppealPage::class)
@@ -94,7 +94,7 @@ FluentRulesTester::for(ImportInteractionsModal::class)
     ->failsWith('selectedInteractionIds', 'required');
 ```
 
-`livewire/livewire` is a soft dev dep; the Livewire branch `class_exists`-guards on `\Livewire\Component`. PHPUnit-only suites see the standard "unsupported target" `LogicException` rather than a hard fatal.
+Without `livewire/livewire` installed, a component target throws the "unsupported target" `LogicException`.
 
 <details>
 <summary>Edge cases and advanced patterns</summary>
