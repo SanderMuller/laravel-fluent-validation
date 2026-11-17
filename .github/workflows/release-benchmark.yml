@@ -9,8 +9,9 @@ concurrency:
 
 jobs:
   benchmark:
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
+    # Pinned image and PHP version: the Tally counts depend on both.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
 
     permissions:
       contents: write
@@ -25,6 +26,7 @@ jobs:
         uses: shivammathur/setup-php@v2
         with:
           php-version: '8.4'
+          extensions: posix
           coverage: none
 
       - name: Install dependencies
@@ -32,6 +34,19 @@ jobs:
 
       - name: Run benchmark suite
         run: php benchmark.php --ci > benchmark-result.md
+
+      # A count outside its expected range fails `tally run`, but the
+      # release still gets the measured numbers.
+      - name: Run Tally
+        continue-on-error: true
+        run: vendor/bin/tally run --output=tmp/tally-results
+
+      - name: Add Tally table
+        run: |
+          if compgen -G 'tmp/tally-results/*.json' > /dev/null; then
+            printf '\n' >> benchmark-result.md
+            jq -s -r -f .github/scripts/tally-table.jq tmp/tally-results/*.json >> benchmark-result.md
+          fi
 
       - name: Append benchmark to release description
         env:
