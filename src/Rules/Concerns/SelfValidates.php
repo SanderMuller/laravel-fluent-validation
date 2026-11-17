@@ -56,11 +56,40 @@ trait SelfValidates
             $this->buildAttributes($attribute),
         );
 
+        $this->shareWildcardKey($innerValidator, $attribute);
+
         if ($innerValidator->passes()) {
             return;
         }
 
         $this->forwardErrors($innerValidator, $attribute, $nestedRules !== [], $fail);
+    }
+
+    /**
+     * Give the inner validator the wildcard key that the outer validator expanded
+     * into this attribute. Laravel needs it to replace the `*` in a parameter such
+     * as `after:events.*.start_date` with the indexes of this attribute.
+     */
+    private function shareWildcardKey(\Illuminate\Validation\Validator $innerValidator, string $attribute): void
+    {
+        if (! isset($this->validator)) {
+            return;
+        }
+
+        /** @var array<string, list<string>> $outerKeys */
+        $outerKeys = (new ReflectionProperty($this->validator, 'implicitAttributes'))->getValue($this->validator);
+
+        foreach ($outerKeys as $wildcardKey => $attributes) {
+            if (in_array($attribute, $attributes, true)) {
+                $property = new ReflectionProperty($innerValidator, 'implicitAttributes');
+
+                /** @var array<string, list<string>> $innerKeys */
+                $innerKeys = $property->getValue($innerValidator);
+                $property->setValue($innerValidator, $innerKeys + [$wildcardKey => [$attribute]]);
+
+                return;
+            }
+        }
     }
 
     /** @return array<string, string> */
