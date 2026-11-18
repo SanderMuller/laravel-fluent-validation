@@ -78,5 +78,61 @@ it('returns validated files from a form request safe()', function (): void {
     expect($safe)->toBeInstanceOf(ValidatedInput::class)
         ->and($safe->file('avatar'))->toBe($avatar)
         ->and($safe->files('documents'))->toBe([$first, $second])
+        ->and($safe->nullableString('name'))->toBe('John')
         ->and($request->safe(['name']))->toBe(['name' => 'John']);
+});
+
+it('returns a validated string from safe()->nullableString()', function (): void {
+    $safe = RuleSet::from([
+        'name' => FluentRule::string()->required(),
+        'nickname' => FluentRule::string()->nullable(),
+        'bio' => FluentRule::string(),
+    ])->check(['name' => 'John', 'nickname' => null, 'bio' => ''])->safe();
+
+    expect($safe->nullableString('name'))->toBe('John')
+        ->and($safe->nullableString('nickname'))->toBeNull()
+        ->and($safe->nullableString('bio'))->toBeNull()
+        ->and($safe->nullableString('missing'))->toBeNull()
+        ->and($safe->nullableString('missing', 'fallback'))->toBe('fallback');
+});
+
+it('treats the values that filled() rejects as no value in safe()->nullableString()', function (mixed $value): void {
+    $safe = new ValidatedInput(['value' => $value]);
+
+    expect($safe->nullableString('value'))->toBeNull()
+        ->and($safe->nullableString('value', 'fallback'))->toBe('fallback');
+})->with([
+    'null' => [null],
+    'empty string' => [''],
+    'whitespace' => ['  '],
+]);
+
+it('returns strings unchanged and numbers as strings from safe()->nullableString()', function (mixed $value, string $expected): void {
+    expect((new ValidatedInput(['value' => $value]))->nullableString('value'))->toBe($expected);
+})->with([
+    'string with padding' => [' John ', ' John '],
+    'zero string' => ['0', '0'],
+    'int' => [42, '42'],
+    'zero' => [0, '0'],
+    'float' => [1.5, '1.5'],
+]);
+
+it('returns the default for values that are not strings in safe()->nullableString()', function (mixed $value): void {
+    $safe = new ValidatedInput(['value' => $value]);
+
+    expect($safe->nullableString('value'))->toBeNull()
+        ->and($safe->nullableString('value', 'fallback'))->toBe('fallback');
+})->with([
+    'true' => [true],
+    'false' => [false],
+    'array' => [['John']],
+    'Stringable' => [str('John')],
+    'file' => [fn (): UploadedFile => UploadedFile::fake()->create('a.pdf', 10)],
+]);
+
+it('reads a nested key with dot notation in safe()->nullableString()', function (): void {
+    $safe = new ValidatedInput(['user' => ['name' => 'John', 'tags' => ['a', 'b']]]);
+
+    expect($safe->nullableString('user.name'))->toBe('John')
+        ->and($safe->nullableString('user.tags'))->toBeNull();
 });
