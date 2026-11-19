@@ -27,8 +27,19 @@ it('compiles EmailRule with modes', function (): void {
 });
 
 it('compiles EmailRule with field modifiers', function (): void {
-    expect(FluentRule::email()->required()->max(255)->compiledRules())->toBe('required|string|max:255|email');
+    expect(FluentRule::email()->required()->max(255)->compiledRules())->toBe('required|string|email|max:255');
 });
+
+it('checks the email format before the length, like native Laravel', function (bool $defaults): void {
+    $data = ['email' => str_repeat('a', 250) . '@example.com'];
+
+    expect(validator($data, ['email' => FluentRule::email(defaults: $defaults)->required()->max(255)])->errors()->get('email'))
+        ->toBe(validator($data, ['email' => 'required|string|email|max:255'])->errors()->get('email'))
+        ->toHaveCount(2);
+})->with([
+    'with defaults' => [true],
+    'without defaults' => [false],
+]);
 
 it('validates EmailRule rejects non-string', function (): void {
     $validator = makeValidator(['email' => 123], ['email' => FluentRule::email()->required()]);
@@ -50,12 +61,12 @@ it('EmailRule compiles exists', function (): void {
 });
 
 it('EmailRule compiles confirmed', function (): void {
-    expect(FluentRule::email()->confirmed()->compiledRules())->toBe('string|confirmed|email');
+    expect(FluentRule::email()->confirmed()->compiledRules())->toBe('string|email|confirmed');
 });
 
 it('EmailRule compiles same and different', function (): void {
-    expect(FluentRule::email()->same('backup_email')->compiledRules())->toBe('string|same:backup_email|email')
-        ->and(FluentRule::email()->different('old_email')->compiledRules())->toBe('string|different:old_email|email');
+    expect(FluentRule::email()->same('backup_email')->compiledRules())->toBe('string|email|same:backup_email')
+        ->and(FluentRule::email()->different('old_email')->compiledRules())->toBe('string|email|different:old_email');
 });
 
 it('EmailRule compiledRules returns array for non-Stringable rule', function (): void {

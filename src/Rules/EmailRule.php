@@ -115,16 +115,34 @@ class EmailRule implements DataAwareRule, FluentRuleContract, ValidatorAwareRule
     /** @return list<string|object> */
     protected function buildValidationRules(): array
     {
+        $constraints = $this->reorderConstraints($this->constraints);
+
+        // The format check goes right after `string` and before `max` and the
+        // other constraints, as in `required|string|email|max:255`, so the
+        // errors come in the same order as Laravel's own rules.
+        $position = array_search('string', $constraints, true);
+        $position = $position === false ? 0 : $position + 1;
+
+        return [
+            ...array_slice($constraints, 0, $position),
+            $this->emailRule(),
+            ...array_slice($constraints, $position),
+            ...$this->rules,
+        ];
+    }
+
+    private function emailRule(): string|Email
+    {
         // Explicit modes always take precedence.
         if ($this->modes !== []) {
-            return [...$this->reorderConstraints($this->constraints), 'email:' . implode(',', $this->modes), ...$this->rules];
+            return 'email:' . implode(',', $this->modes);
         }
 
         // Use Email::default() when defaults are enabled and the app has configured them.
         if ($this->useDefaults && Email::$defaultCallback !== null) {
-            return [...$this->reorderConstraints($this->constraints), Email::default(), ...$this->rules];
+            return Email::default();
         }
 
-        return [...$this->reorderConstraints($this->constraints), 'email', ...$this->rules];
+        return 'email';
     }
 }

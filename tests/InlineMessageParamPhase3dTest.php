@@ -140,7 +140,7 @@ it('PasswordRule::mixedCase is a mode modifier; does not accept message:', funct
 
 it('EmailRule::max(message: ...) surfaces in validation', function (): void {
     $v = makeValidator(
-        ['email' => 'a@' . str_repeat('b', 300) . '.com'],
+        ['email' => 'a@' . str_repeat('b', 60) . '.com'],
         ['email' => FluentRule::email()->max(50, message: 'Too long!')]
     );
 
