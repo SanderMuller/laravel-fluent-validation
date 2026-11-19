@@ -5,6 +5,7 @@ namespace SanderMuller\FluentValidation\Rules\Concerns;
 use Closure;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rules\ExcludeIf;
 use Illuminate\Validation\Rules\ExcludeUnless;
 use Illuminate\Validation\Rules\In;
@@ -56,7 +57,7 @@ trait SelfValidates
             $this->buildAttributes($attribute),
         );
 
-        $this->shareWildcardKey($innerValidator, $attribute);
+        $this->shareWildcardKeys($innerValidator, $attribute, array_keys($nestedRules));
 
         if ($innerValidator->passes()) {
             return;
@@ -66,30 +67,108 @@ trait SelfValidates
     }
 
     /**
-     * Give the inner validator the wildcard key that the outer validator expanded
-     * into this attribute. Laravel needs it to replace the `*` in a parameter such
-     * as `after:events.*.start_date` with the indexes of this attribute.
+     * Give the inner validator the wildcard keys of the outer validator, each
+     * with the attribute it has for this item. Laravel uses them to replace the
+     * `*` in a parameter such as `after:events.*.start_date`, and it shows the
+     * raw name (`0.sort_order`, not `0.sort order`) only for these attributes.
+     * A fixed child key from `children()` gets its wildcard key too, because the
+     * outer validator never expanded it. The outer formatter for these names is
+     * shared too.
+     *
+     * Only this item's attribute is shared, not the full list of the outer
+     * validator, so a lookup in the inner validator does not grow with the
+     * number of items.
+     *
+     * @param  list<string>  $nestedKeys
      */
-    private function shareWildcardKey(\Illuminate\Validation\Validator $innerValidator, string $attribute): void
+    private function shareWildcardKeys(\Illuminate\Validation\Validator $innerValidator, string $attribute, array $nestedKeys): void
     {
         if (! isset($this->validator)) {
             return;
         }
 
-        /** @var array<string, list<string>> $outerKeys */
+        $formatter = (new ReflectionProperty($this->validator, 'implicitAttributesFormatter'))->getValue($this->validator);
+
+        if ($formatter !== null) {
+            /** @var callable(string): string $formatter */
+            $innerValidator->setImplicitAttributesFormatter($formatter);
+        }
+
+        /** @var array<string, list<int|string>> $outerKeys */
         $outerKeys = (new ReflectionProperty($this->validator, 'implicitAttributes'))->getValue($this->validator);
+        $match = $this->wildcardKeyOf($attribute, $outerKeys);
+
+        if ($match === null) {
+            return;
+        }
+
+        [$wildcardKey, $outerAttribute] = $match;
+        $shared = [$wildcardKey => [$outerAttribute]];
+
+        foreach ($nestedKeys as $nestedKey) {
+            if (! str_contains($nestedKey, '*') && str_starts_with($nestedKey, $attribute . '.')) {
+                $shared[$wildcardKey . substr($nestedKey, strlen($attribute))] = [$nestedKey];
+            }
+        }
+
+        $indexes = $this->wildcardIndexes($wildcardKey, $attribute);
+
+        foreach (array_keys($outerKeys) as $key) {
+            $count = substr_count($key, '*');
+
+            if ($count <= count($indexes)) {
+                $shared[$key] ??= [Str::replaceArray('*', array_slice($indexes, 0, $count), $key)];
+            }
+        }
+
+        $property = new ReflectionProperty($innerValidator, 'implicitAttributes');
+
+        /** @var array<string, list<int|string>> $innerKeys */
+        $innerKeys = $property->getValue($innerValidator);
+        $property->setValue($innerValidator, $innerKeys + $shared);
+    }
+
+    /**
+     * The wildcard key that the outer validator expanded into this attribute,
+     * and the attribute as that validator stores it.
+     *
+     * @param  array<string, list<int|string>>  $outerKeys
+     * @return array{string, int|string}|null
+     */
+    private function wildcardKeyOf(string $attribute, array $outerKeys): ?array
+    {
+        // A top-level `*` expands to integer keys. PHP makes a key an integer only
+        // when it is the canonical form of one (`1`, `-1`, not `01`).
+        $index = (string) (int) $attribute === $attribute ? (int) $attribute : null;
 
         foreach ($outerKeys as $wildcardKey => $attributes) {
             if (in_array($attribute, $attributes, true)) {
-                $property = new ReflectionProperty($innerValidator, 'implicitAttributes');
+                return [$wildcardKey, $attribute];
+            }
 
-                /** @var array<string, list<string>> $innerKeys */
-                $innerKeys = $property->getValue($innerValidator);
-                $property->setValue($innerValidator, $innerKeys + [$wildcardKey => [$attribute]]);
-
-                return;
+            if ($index !== null && in_array($index, $attributes, true)) {
+                return [$wildcardKey, $index];
             }
         }
+
+        return null;
+    }
+
+    /**
+     * The values that the `*` segments of the wildcard key have in this
+     * attribute, as Laravel's Validator::getExplicitKeys() finds them.
+     *
+     * @return list<string>
+     */
+    private function wildcardIndexes(string $wildcardKey, string $attribute): array
+    {
+        $pattern = str_replace('\\*', '([^\\.]*)', preg_quote($wildcardKey, '/'));
+
+        if (preg_match('/^' . $pattern . '/', $attribute, $matches) !== 1) {
+            return [];
+        }
+
+        return array_values(array_slice($matches, 1));
     }
 
     /** @return array<string, string> */

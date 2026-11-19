@@ -68,3 +68,77 @@ it('passes valid data through Validator::make() with the toArray() output of a r
     expect(validator($data, $rules)->errors()->toArray())
         ->toBeEmpty();
 });
+
+dataset('children under a wildcard', [
+    'top-level wildcard' => [
+        '*',
+        static fn () => FluentRule::array()->children(['sort_order' => FluentRule::integer()->required()->min(0)]),
+        ['*.sort_order' => 'required|integer|min:0'],
+        [['title' => 'x'], ['sort_order' => -1]],
+    ],
+    'wildcard with a prefix' => [
+        'items.*',
+        static fn () => FluentRule::array()->children(['sort_order' => FluentRule::integer()->required()]),
+        ['items.*.sort_order' => 'required|integer'],
+        ['items' => [['title' => 'x'], ['sort_order' => 1.5]]],
+    ],
+    'nested children' => [
+        'items.*',
+        static fn () => FluentRule::array()->children([
+            'meta' => FluentRule::array()->required()->children(['sort_order' => FluentRule::integer()->required()]),
+        ]),
+        ['items.*.meta' => 'required|array', 'items.*.meta.sort_order' => 'required|integer'],
+        ['items' => [['meta' => ['x' => 1]], ['meta' => ['sort_order' => 1.5]]]],
+    ],
+    'fixed parent, not a wildcard' => [
+        'address',
+        static fn () => FluentRule::array()->required()->children(['zip_code' => FluentRule::string()->required()]),
+        ['address' => 'required|array', 'address.zip_code' => 'required|string'],
+        ['address' => ['street' => 'x']],
+    ],
+]);
+
+it('names a children() field under a wildcard like native Laravel', function (string $key, Closure $fluent, array $native, array $data): void {
+    expect(validator($data, [$key => $fluent()])->errors()->toArray())
+        ->toBe(validator($data, $native)->errors()->toArray())
+        ->not->toBeEmpty();
+})->with('children under a wildcard');
+
+it('resolves a sibling reference in children() under a top-level wildcard like native Laravel', function (): void {
+    $data = [
+        ['start_date' => '2025-06-01', 'end_date' => '2025-07-01'],
+        ['start_date' => '2025-06-01', 'end_date' => '2025-05-01'],
+    ];
+
+    $fluent = ['*' => FluentRule::array()->children([
+        'start_date' => FluentRule::date()->required(),
+        'end_date' => FluentRule::date()->required()->after('*.start_date'),
+    ])];
+
+    expect(validator($data, $fluent)->errors()->toArray())
+        ->toBe(validator($data, ['*.start_date' => 'required|date', '*.end_date' => 'required|date|after:*.start_date'])->errors()->toArray())
+        ->toHaveKeys(['1.end_date']);
+});
+
+it('checks a rule under a top-level wildcard against the other items like native Laravel', function (): void {
+    $data = ['a', 'a'];
+
+    expect(validator($data, ['*' => FluentRule::string()->distinct()])->errors()->toArray())
+        ->toBe(validator($data, ['*' => 'string|distinct'])->errors()->toArray())
+        ->toHaveKeys(['0', '1']);
+});
+
+it('formats a children() field under a wildcard with the implicit attributes formatter', function (): void {
+    $data = ['items' => [['title' => 'x']]];
+    $formatter = static fn (string $attribute): string => 'X' . $attribute;
+
+    $fluent = validator($data, ['items.*' => FluentRule::array()->children(['sort_order' => FluentRule::integer()->required()])]);
+    $fluent->setImplicitAttributesFormatter($formatter);
+
+    $native = validator($data, ['items.*.sort_order' => 'required|integer']);
+    $native->setImplicitAttributesFormatter($formatter);
+
+    expect($fluent->errors()->toArray())
+        ->toBe($native->errors()->toArray())
+        ->toBe(['items.0.sort_order' => ['The Xitems.0.sort_order field is required.']]);
+});
