@@ -1,11 +1,10 @@
 <?php declare(strict_types=1);
 
-namespace SanderMuller\FluentValidation\Internal;
+namespace SanderMuller\FluentValidation\Rules\Concerns;
 
 use ArrayObject;
 use Illuminate\Validation\Validator;
 use ReflectionProperty;
-use SanderMuller\FluentValidation\Rules\Concerns\SelfValidates;
 use WeakMap;
 
 /**
