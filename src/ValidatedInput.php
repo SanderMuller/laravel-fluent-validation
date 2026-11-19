@@ -6,7 +6,7 @@ use Illuminate\Http\UploadedFile;
 use Illuminate\Support\ValidatedInput as BaseValidatedInput;
 
 /**
- * Laravel's ValidatedInput, plus file access and a nullable string accessor.
+ * Laravel's ValidatedInput, plus file access and nullable string and integer accessors.
  * Returned by Validated::safe().
  */
 final class ValidatedInput extends BaseValidatedInput
@@ -48,6 +48,18 @@ final class ValidatedInput extends BaseValidatedInput
         $value = (string) $value;
 
         return trim($value) === '' ? $default : $value;
+    }
+
+    /**
+     * Retrieve a value as an integer, or the default when the value is blank.
+     * A blank value is one that filled() rejects: null, '' or only whitespace.
+     * Otherwise the result is what integer() returns.
+     *
+     * @return ($default is int ? int : int|null)
+     */
+    public function nullableInteger(string $key, ?int $default = null): ?int
+    {
+        return $this->filled($key) ? $this->integer($key) : $default;
     }
 
     /**

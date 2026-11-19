@@ -136,3 +136,39 @@ it('reads a nested key with dot notation in safe()->nullableString()', function 
     expect($safe->nullableString('user.name'))->toBe('John')
         ->and($safe->nullableString('user.tags'))->toBeNull();
 });
+
+it('returns a validated integer from safe()->nullableInteger()', function (): void {
+    $safe = RuleSet::from([
+        'age' => FluentRule::integer()->required(),
+        'rank' => FluentRule::integer()->nullable(),
+    ])->check(['age' => '42', 'rank' => null])->safe();
+
+    expect($safe->nullableInteger('age'))->toBe(42)
+        ->and($safe->nullableInteger('rank'))->toBeNull()
+        ->and($safe->nullableInteger('missing'))->toBeNull()
+        ->and($safe->nullableInteger('missing', 7))->toBe(7);
+});
+
+it('gives the same result as a filled() check around integer() in safe()->nullableInteger()', function (mixed $value): void {
+    $safe = new ValidatedInput(['value' => $value]);
+
+    foreach ([null, 7] as $default) {
+        expect($safe->nullableInteger('value', $default))
+            ->toBe($safe->filled('value') ? $safe->integer('value') : $default);
+    }
+})->with([
+    'null' => [null],
+    'empty string' => [''],
+    'whitespace' => ['  '],
+    'numeric string' => ['42'],
+    'zero string' => ['0'],
+    'negative' => ['-3'],
+    'int' => [42],
+    'zero' => [0],
+    'float' => [1.9],
+    'text' => ['abc'],
+    'number with text' => ['12abc'],
+    'true' => [true],
+    'false' => [false],
+    'array' => [['1']],
+]);
