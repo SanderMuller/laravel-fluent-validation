@@ -34,6 +34,8 @@ final class ValidatedInput extends BaseValidatedInput
      * missing, blank, or not a string or number. Numbers are cast. A
      * blank value is one that filled() rejects: null, '' or only
      * whitespace.
+     *
+     * @return ($default is string ? string : string|null)
      */
     public function nullableString(string $key, ?string $default = null): ?string
     {
