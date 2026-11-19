@@ -841,6 +841,29 @@ trait SelfValidates
         return [...$this->rules, ...$this->constraints];
     }
 
+    /**
+     * The added rules split into the presence rule objects, which run first
+     * as in buildCompiledRules(), and the rest. For a rule class that builds
+     * its compiled rules without buildCompiledRules().
+     *
+     * @return array{list<string|object>, list<string|object>}
+     */
+    protected function splitPresenceRules(): array
+    {
+        $presenceRules = [];
+        $otherRules = [];
+
+        foreach ($this->rules as $rule) {
+            if (is_object($rule) && $this->isPresenceModifier($rule)) {
+                $presenceRules[] = $rule;
+            } else {
+                $otherRules[] = $rule;
+            }
+        }
+
+        return [$presenceRules, $otherRules];
+    }
+
     /** @return array<string, mixed> */
     public function buildNestedRules(string $attribute): array
     {

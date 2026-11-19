@@ -2,7 +2,10 @@
 
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Validation\Rules\Email;
+use Illuminate\Validation\Rules\ExcludeIf;
 use SanderMuller\FluentValidation\FluentRule;
+use SanderMuller\FluentValidation\Rules\EmailRule;
+use SanderMuller\FluentValidation\Rules\StringRule;
 
 // =========================================================================
 // EmailRule
@@ -145,4 +148,42 @@ it('defaults: false with label works', function (): void {
     } finally {
         Email::$defaultCallback = null;
     }
+});
+
+// =========================================================================
+// Presence rule objects run before the email check
+// =========================================================================
+
+it('runs a closure presence rule before the email check without app defaults', function (): void {
+    $fluent = FluentRule::email()->excludeIf(fn (): bool => true);
+    $string = FluentRule::string()->excludeIf(fn (): bool => true)->email();
+
+    expect($fluent->compiledRules())->toBe('exclude|string|email')
+        ->and(validator(['email' => 'nope'], ['email' => $fluent])->errors()->toArray())
+        ->toBe(validator(['email' => 'nope'], ['email' => $string])->errors()->toArray())
+        ->toBeEmpty();
+});
+
+it('runs a closure presence rule before the email check with app defaults', function (): void {
+    Email::defaults(fn () => (new Email())->rfcCompliant());
+
+    try {
+        $compiled = FluentRule::email()->excludeIf(fn (): bool => true)->compiledRules();
+
+        expect($compiled)->toBeArray()
+            ->and($compiled[0])->toBeInstanceOf(ExcludeIf::class)
+            ->and(validator(['email' => 'nope'], ['email' => FluentRule::email()->excludeIf(fn (): bool => true)])->errors()->toArray())
+            ->toBe(validator(['email' => 'nope'], ['email' => FluentRule::string()->excludeIf(fn (): bool => true)->rule(Email::default())])->errors()->toArray());
+    } finally {
+        Email::$defaultCallback = null;
+    }
+});
+
+it('compiles requiredIf and prohibitedIf objects before the email check', function (): void {
+    $errors = fn (string $value, EmailRule|StringRule $rule): array => validator(['email' => $value], ['email' => $rule->compiledRules()])->errors()->toArray();
+
+    expect($errors('', FluentRule::email()->requiredIf(true)))
+        ->toBe($errors('', FluentRule::string()->requiredIf(true)->email()))
+        ->and($errors('nope', FluentRule::email()->prohibitedIf(true)))
+        ->toBe($errors('nope', FluentRule::string()->prohibitedIf(true)->email()));
 });

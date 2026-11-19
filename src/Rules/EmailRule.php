@@ -123,11 +123,14 @@ class EmailRule implements DataAwareRule, FluentRuleContract, ValidatorAwareRule
         $position = array_search('string', $constraints, true);
         $position = $position === false ? 0 : $position + 1;
 
+        [$presenceRules, $otherRules] = $this->splitPresenceRules();
+
         return [
+            ...$presenceRules,
             ...array_slice($constraints, 0, $position),
             $this->emailRule(),
             ...array_slice($constraints, $position),
-            ...$this->rules,
+            ...$otherRules,
         ];
     }
 
