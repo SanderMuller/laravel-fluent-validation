@@ -25,6 +25,7 @@ use SanderMuller\FluentValidation\Internal\ItemRuleCompiler;
 use SanderMuller\FluentValidation\Internal\ItemValidator;
 use SanderMuller\FluentValidation\Internal\OutsideItemReferences;
 use SanderMuller\FluentValidation\Internal\WildcardReferenceRewriter;
+use SanderMuller\FluentValidation\Internal\WildcardValidatedData;
 use SanderMuller\FluentValidation\Rules\ArrayRule;
 use SanderMuller\FluentValidation\Rules\FieldRule;
 use Traversable;
@@ -623,8 +624,10 @@ final class RuleSet implements Arrayable, IteratorAggregate
                 ->stopOnFirstFailure($this->stopOnFirstFailure)
                 ->validated();
 
+        $uncoveredGroups = WildcardValidatedData::uncovered(array_map(strval(...), array_keys($topRules)), $wildcardGroups);
+
         $fallbackResult = null;
-        $allErrors = $this->validateWildcardGroups($wildcardGroups, $data, $messages, $attributes, $fallbackResult, $this->stopOnFirstFailure);
+        $allErrors = $this->validateWildcardGroups($wildcardGroups, $data, $messages, $attributes, $fallbackResult, $this->stopOnFirstFailure, $uncoveredGroups);
 
         if ($fallbackResult !== null) {
             return $fallbackResult;
@@ -634,7 +637,7 @@ final class RuleSet implements Arrayable, IteratorAggregate
             $this->throwValidationErrors($allErrors);
         }
 
-        return $topValidated;
+        return WildcardValidatedData::add($topValidated, $uncoveredGroups, $data);
     }
 
     /**
@@ -723,6 +726,7 @@ final class RuleSet implements Arrayable, IteratorAggregate
      * @param  array<string, string>  $messages
      * @param  array<string, string>  $attributes
      * @param  array<string, mixed>|null  $fallbackResult  Set when full expansion fallback is used
+     * @param  array<string, array<string, mixed>>  $uncoveredGroups  {@see WildcardValidatedData::uncovered()}
      * @return array<string, list<string>>
      *
      * @throws ValidationException
@@ -734,6 +738,7 @@ final class RuleSet implements Arrayable, IteratorAggregate
         array  $attributes,
         ?array &$fallbackResult = null,
         bool   $stopOnFirstFailure = false,
+        array  $uncoveredGroups = [],
     ): array {
         /** @var array<string, list<string>> $allErrors */
         $allErrors = [];
@@ -766,10 +771,10 @@ final class RuleSet implements Arrayable, IteratorAggregate
                 : $this->rewriteRulesForPerItem($groupRules, $parent);
             $itemRules = self::compile($rawItemRules);
 
-            // Per-item validators can't strip cross-item unknown keys or read
-            // fields outside the item; fall back to the single fully-expanded
-            // validator then.
-            if ($this->dropUnknownFields || $this->requiresFullExpansion($itemRules) || OutsideItemReferences::exist($groupRules, $parent, $data)) {
+            // Per-item validators can't strip cross-item unknown keys, read
+            // fields outside the item, or report the fields an exclude rule
+            // removed; fall back to the single fully-expanded validator then.
+            if ($this->dropUnknownFields || $this->requiresFullExpansion($itemRules) || OutsideItemReferences::exist($groupRules, $parent, $data) || WildcardValidatedData::excludesFields($uncoveredGroups, $parent)) {
                 $fallbackResult = $this->validateStandard($data, $messages, $attributes);
 
                 return [];
