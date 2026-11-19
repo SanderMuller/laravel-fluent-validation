@@ -5,10 +5,12 @@ on:
     paths:
       - '**.php'
       - 'pint.json'
+      - '.github/workflows/fix-php-code-style-issues.yml'
   pull_request:
     paths:
       - '**.php'
       - 'pint.json'
+      - '.github/workflows/fix-php-code-style-issues.yml'
 
 permissions:
   contents: read
@@ -22,9 +24,18 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v7
 
-      - name: Check PHP code style
-        uses: aglipanci/laravel-pint-action@2.6
+      # The repo's own Pint on setup-php. The Docker image of
+      # aglipanci/laravel-pint-action lost mbstring.
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
         with:
-          configPath: pint.json
-          testMode: true
-          verboseMode: true
+          php-version: '8.4'
+          coverage: none
+
+      - name: Install composer dependencies
+        uses: ramsey/composer-install@v4
+
+      - name: Check PHP code style
+        run: |
+          mkdir -p .cache/pint
+          vendor/bin/pint --config pint.json --test -v

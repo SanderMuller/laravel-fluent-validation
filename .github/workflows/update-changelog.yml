@@ -4,6 +4,11 @@ on:
   release:
     types: [released]
 
+env:
+  # The PHAR of stefanzweifel/changelog-updater-action, pinned to the v1 commit.
+  # The action's Docker image lost mbstring, so the PHAR runs on setup-php.
+  CHANGELOG_UPDATER_URL: https://raw.githubusercontent.com/stefanzweifel/changelog-updater-action/1171d74932456fd2049c486b8757956a6adcc11b/changelog-updater
+
 jobs:
   update:
     runs-on: ubuntu-latest
@@ -17,11 +22,27 @@ jobs:
         with:
           ref: ${{ github.event.release.target_commitish }}
 
-      - name: Update Changelog
-        uses: stefanzweifel/changelog-updater-action@v1
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
         with:
-          latest-version: ${{ github.event.release.tag_name }}
-          release-notes: ${{ github.event.release.body }}
+          php-version: '8.4'
+          extensions: mbstring
+          coverage: none
+
+      - name: Update Changelog
+        env:
+          RELEASE_NOTES: ${{ github.event.release.body }}
+          LATEST_VERSION: ${{ github.event.release.tag_name }}
+        run: |
+          curl -fsSL -o "$RUNNER_TEMP/changelog-updater" "$CHANGELOG_UPDATER_URL"
+          php "$RUNNER_TEMP/changelog-updater" update \
+            --release-notes="$RELEASE_NOTES" \
+            --latest-version="$LATEST_VERSION" \
+            --path-to-changelog=CHANGELOG.md \
+            --compare-url-target-revision=HEAD \
+            --github-actions-output \
+            --write \
+            --no-interaction
 
       - name: Commit updated CHANGELOG
         uses: stefanzweifel/git-auto-commit-action@v7
