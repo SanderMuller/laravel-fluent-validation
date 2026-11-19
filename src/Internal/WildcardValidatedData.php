@@ -52,23 +52,34 @@ final class WildcardValidatedData
      * ancestors, with each group's rules compiled. Such a rule puts the
      * parent in the validated data, or excludes it.
      *
-     * @param  list<string>  $topRuleKeys
+     * A top-level rule below the parent, such as `items.0.secret`, joins the
+     * group when it may exclude a field, so the group gets full expansion.
+     *
+     * @param  array<string, mixed>  $topRules  compiled
      * @param  array<string, array<string, mixed>>  $wildcardGroups
      * @return array<string, array<string, mixed>>
      */
-    public static function uncovered(array $topRuleKeys, array $wildcardGroups): array
+    public static function uncovered(array $topRules, array $wildcardGroups): array
     {
         $uncovered = [];
 
         foreach ($wildcardGroups as $parent => $rules) {
-            $covered = array_filter($topRuleKeys, static fn (string $key): bool => $key === $parent || str_starts_with($parent, $key . '.'));
+            $rules = array_map(
+                static fn (mixed $rule): mixed => is_object($rule) && method_exists($rule, 'compiledRules') ? $rule->compiledRules() : $rule,
+                $rules,
+            );
 
-            if ($covered === []) {
-                $uncovered[$parent] = array_map(
-                    static fn (mixed $rule): mixed => is_object($rule) && method_exists($rule, 'compiledRules') ? $rule->compiledRules() : $rule,
-                    $rules,
-                );
+            foreach ($topRules as $key => $rule) {
+                if ($key === $parent || str_starts_with($parent, $key . '.')) {
+                    continue 2;
+                }
+
+                if (str_starts_with($key, $parent . '.') && self::excludes([$rule])) {
+                    $rules[substr($key, strlen($parent) + 1)] = $rule;
+                }
             }
+
+            $uncovered[$parent] = $rules;
         }
 
         return $uncovered;
@@ -83,7 +94,13 @@ final class WildcardValidatedData
      */
     public static function excludesFields(array $uncoveredGroups, string $parent): bool
     {
-        foreach ($uncoveredGroups[$parent] ?? [] as $rule) {
+        return self::excludes($uncoveredGroups[$parent] ?? []);
+    }
+
+    /** @param  array<array-key, mixed>  $rules */
+    private static function excludes(array $rules): bool
+    {
+        foreach ($rules as $rule) {
             foreach (self::ruleParts($rule) as $part) {
                 if (self::mayExclude($part)) {
                     return true;

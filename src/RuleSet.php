@@ -19,6 +19,7 @@ use LogicException;
 use ReflectionProperty;
 use SanderMuller\FluentValidation\Exceptions\BatchLimitExceededException;
 use SanderMuller\FluentValidation\Internal\BatchLimitRemap;
+use SanderMuller\FluentValidation\Internal\ExpandedRuleMerger;
 use SanderMuller\FluentValidation\Internal\ItemAttributeNames;
 use SanderMuller\FluentValidation\Internal\ItemErrorCollector;
 use SanderMuller\FluentValidation\Internal\ItemRuleCompiler;
@@ -624,7 +625,7 @@ final class RuleSet implements Arrayable, IteratorAggregate
                 ->stopOnFirstFailure($this->stopOnFirstFailure)
                 ->validated();
 
-        $uncoveredGroups = WildcardValidatedData::uncovered(array_map(strval(...), array_keys($topRules)), $wildcardGroups);
+        $uncoveredGroups = WildcardValidatedData::uncovered($topCompiled, $wildcardGroups);
 
         $fallbackResult = null;
         $allErrors = $this->validateWildcardGroups($wildcardGroups, $data, $messages, $attributes, $fallbackResult, $this->stopOnFirstFailure, $uncoveredGroups);
@@ -990,7 +991,7 @@ final class RuleSet implements Arrayable, IteratorAggregate
             }
 
             foreach ($paths as $path) {
-                $rules[$path] = $rule;
+                $rules[$path] = ExpandedRuleMerger::merge($rules[$path] ?? null, $rule);
             }
         }
 
