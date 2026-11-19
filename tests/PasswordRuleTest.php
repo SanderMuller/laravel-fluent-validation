@@ -2,6 +2,8 @@
 
 use Illuminate\Validation\Rules\Password;
 use SanderMuller\FluentValidation\FluentRule;
+use SanderMuller\FluentValidation\Rules\PasswordRule;
+use SanderMuller\FluentValidation\Rules\StringRule;
 
 // =========================================================================
 // PasswordRule
@@ -256,3 +258,38 @@ function stringifyRule(object|string $rule): string
 {
     return is_object($rule) ? $rule::class . ($rule instanceof Stringable ? ':' . $rule : '') : $rule;
 }
+
+it('runs a closure presence rule before the Password rule, like the string chain', function (PasswordRule $fluent, StringRule $string, array $data): void {
+    expect(array_map(stringifyRule(...), $fluent->toArray()))->toBe(array_map(stringifyRule(...), $string->toArray()))
+        ->and(validator($data, ['password' => $fluent])->errors()->toArray())
+        ->toBe(validator($data, ['password' => $string])->errors()->toArray());
+})->with([
+    'excludeIf closure' => [
+        fn (): PasswordRule => FluentRule::password()->excludeIf(fn (): bool => true),
+        fn (): StringRule => FluentRule::string()->excludeIf(fn (): bool => true)->rule(Password::default()),
+        ['password' => 'x'],
+    ],
+    'excludeIf bool' => [
+        fn (): PasswordRule => FluentRule::password()->excludeIf(true),
+        fn (): StringRule => FluentRule::string()->excludeIf(true)->rule(Password::default()),
+        ['password' => 'x'],
+    ],
+    'requiredIf closure' => [
+        fn (): PasswordRule => FluentRule::password()->requiredIf(fn (): bool => true),
+        fn (): StringRule => FluentRule::string()->requiredIf(fn (): bool => true)->rule(Password::default()),
+        ['password' => ''],
+    ],
+    'prohibitedIf bool' => [
+        fn (): PasswordRule => FluentRule::password()->prohibitedIf(true),
+        fn (): StringRule => FluentRule::string()->prohibitedIf(true)->rule(Password::default()),
+        ['password' => 'x'],
+    ],
+]);
+
+it('excludes the field before the Password rule runs', function (): void {
+    $v = validator(['password' => 'x'], ['password' => FluentRule::password()->excludeIf(fn (): bool => true)]);
+
+    expect($v->passes())->toBeTrue()
+        ->and($v->validated())
+        ->toBeEmpty();
+});

@@ -134,6 +134,16 @@ class PasswordRule implements DataAwareRule, FluentRuleContract, ValidatorAwareR
     /** @return list<string|object> */
     protected function buildValidationRules(): array
     {
-        return [...$this->reorderConstraints($this->constraints), ...$this->beforePassword, $this->password, ...$this->rules];
+        // A presence rule object (from a closure or bool) runs first, as
+        // buildCompiledRules() orders it for the other rules.
+        $presenceRules = array_filter($this->rules, fn (string|object $rule): bool => is_object($rule) && $this->isPresenceModifier($rule));
+
+        return [
+            ...array_values($presenceRules),
+            ...$this->reorderConstraints($this->constraints),
+            ...$this->beforePassword,
+            $this->password,
+            ...array_values(array_diff_key($this->rules, $presenceRules)),
+        ];
     }
 }
