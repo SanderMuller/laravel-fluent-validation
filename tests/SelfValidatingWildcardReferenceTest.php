@@ -1,5 +1,7 @@
 <?php declare(strict_types=1);
 
+use Illuminate\Contracts\Translation\Translator;
+use Illuminate\Translation\PotentiallyTranslatedString;
 use SanderMuller\FluentValidation\FluentRule;
 use SanderMuller\FluentValidation\RuleSet;
 
@@ -173,4 +175,35 @@ it('names a reference to an index that the data does not have like native Larave
     expect(validator($data, ['items.*.end_date' => FluentRule::date()->before('other.*.start_date'), 'other.*.start_date' => 'date'])->errors()->toArray())
         ->toBe(validator($data, ['items.*.end_date' => 'date|before:other.*.start_date', 'other.*.start_date' => 'date'])->errors()->toArray())
         ->toHaveKeys(['items.0.end_date']);
+});
+
+it('formats a rule object under a wildcard inside a segment like native Laravel', function (): void {
+    $data = ['items' => ['first_name' => '']];
+    $formatter = static fn (string $attribute): string => 'X' . $attribute;
+
+    $fluent = validator($data, ['items.*_name' => FluentRule::string()->required()]);
+    $fluent->setImplicitAttributesFormatter($formatter);
+
+    $native = validator($data, ['items.*_name' => 'required|string']);
+    $native->setImplicitAttributesFormatter($formatter);
+
+    expect($fluent->errors()->toArray())
+        ->toBe($native->errors()->toArray())
+        ->toBe(['items.first_name' => ['The Xitems.first_name field is required.']]);
+});
+
+it('escapes raw data that user code passes to setData() like native Laravel', function (): void {
+    $data = ['a.b' => 'x', 'email' => null];
+    $messages = [];
+
+    FluentRule::string()->requiredWith('a.b')
+        ->setValidator(validator([], []))
+        ->setData($data)
+        ->validate('email', null, static function (string $message) use (&$messages): PotentiallyTranslatedString {
+            $messages[] = $message;
+
+            return new PotentiallyTranslatedString($message, resolve(Translator::class));
+        });
+
+    expect($messages)->toBe(validator($data, ['email' => 'string|required_with:a.b'])->errors()->get('email'));
 });

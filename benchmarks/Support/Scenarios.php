@@ -129,6 +129,23 @@ final class Scenarios
         ];
     }
 
+    /**
+     * The event rules as rule objects under flat wildcard keys, the shape that
+     * RuleSet::toArray() gives a plain Validator::make().
+     *
+     * @return array<string, mixed>
+     */
+    public static function eventRuleObjects(): array
+    {
+        return [
+            'events' => FluentRule::array()->required(),
+            'events.*.name' => FluentRule::string()->required()->min(3)->max(255),
+            'events.*.start_date' => FluentRule::date()->required()->after('2025-01-01'),
+            'events.*.end_date' => FluentRule::date()->required()->after('events.*.start_date'),
+            'events.*.registration_deadline' => FluentRule::date()->required()->before('events.*.start_date'),
+        ];
+    }
+
     /** @return array<string, mixed> */
     public static function eventData(int $count): array
     {

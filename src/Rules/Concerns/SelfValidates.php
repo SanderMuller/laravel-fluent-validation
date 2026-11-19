@@ -49,12 +49,7 @@ trait SelfValidates
 
         $rules = [$attribute => $this->buildValidationRules()] + $nestedRules;
 
-        $innerValidator = Validator::make(
-            $this->data,
-            $rules,
-            $this->buildMessages($attribute),
-            $this->buildAttributes($attribute),
-        );
+        $innerValidator = $this->makeInnerValidator($rules, $attribute);
 
         $this->shareWildcardKeys($innerValidator, $attribute, array_keys($nestedRules));
 
@@ -63,6 +58,32 @@ trait SelfValidates
         }
 
         $this->forwardErrors($innerValidator, $attribute, $nestedRules !== [], $fail);
+    }
+
+    /**
+     * Build the inner validator on the data the outer validator already parsed.
+     * Validator::make() would parse it again, which walks the whole data for
+     * every item and makes a wildcard array cost O(n²). Data from anywhere else,
+     * such as a direct setData() call, still gets parsed. The check is free in
+     * the common case: `===` returns at once when both hold the same array.
+     *
+     * @param  array<string, mixed>  $rules
+     */
+    private function makeInnerValidator(array $rules, string $attribute): \Illuminate\Validation\Validator
+    {
+        $messages = $this->buildMessages($attribute);
+        $attributes = $this->buildAttributes($attribute);
+
+        if (! isset($this->validator) || $this->data !== $this->validator->getData()) {
+            return Validator::make($this->data, $rules, $messages, $attributes);
+        }
+
+        /** @var \Illuminate\Validation\Validator $validator */
+        $validator = Validator::make([], [], $messages, $attributes);
+
+        (new ReflectionProperty($validator, 'data'))->setValue($validator, $this->data);
+
+        return $validator->setRules($rules);
     }
 
     /**
@@ -181,26 +202,54 @@ trait SelfValidates
      * The wildcard key that the outer validator expanded into this attribute,
      * and the attribute as that validator stores it.
      *
+     * The attribute is matched against each key's pattern, not searched in the
+     * key's list of attributes, so the cost does not grow with the number of
+     * items. A key that fits counts only when the data has the attribute, as
+     * Laravel expands a wildcard only over the keys in the data. A key with a
+     * `*` inside a segment is the exception, see hasWildcardInsideSegment().
+     * A top-level `*` stores integer keys, and PHP makes a key an integer only
+     * when it is the canonical form of one (`1`, `-1`, not `01`).
+     *
      * @param  array<string, list<int|string>>  $outerKeys
      * @return array{string, int|string}|null
      */
     private function wildcardKeyOf(string $attribute, array $outerKeys): ?array
     {
-        // A top-level `*` expands to integer keys. PHP makes a key an integer only
-        // when it is the canonical form of one (`1`, `-1`, not `01`).
-        $index = (string) (int) $attribute === $attribute ? (int) $attribute : null;
+        $stored = (string) (int) $attribute === $attribute ? (int) $attribute : $attribute;
 
         foreach ($outerKeys as $wildcardKey => $attributes) {
-            if (in_array($attribute, $attributes, true)) {
-                return [$wildcardKey, $attribute];
+            $pattern = str_replace('\\*', '([^\\.]*)', preg_quote($wildcardKey, '/'));
+
+            if (preg_match('/^' . $pattern . '$/', $attribute, $matches) !== 1) {
+                continue;
             }
 
-            if ($index !== null && in_array($index, $attributes, true)) {
-                return [$wildcardKey, $index];
+            $expanded = $this->hasWildcardInsideSegment($wildcardKey)
+                ? in_array($stored, $attributes, true)
+                : $this->expandForThisItem($wildcardKey, array_values(array_slice($matches, 1))) === $attribute;
+
+            if ($expanded) {
+                return [$wildcardKey, $stored];
             }
         }
 
         return null;
+    }
+
+    /**
+     * A key such as `items.*_name` has a `*` inside a segment. The data check in
+     * expandForThisItem() works on whole segments only, so such a key falls
+     * back to a search in the outer list.
+     */
+    private function hasWildcardInsideSegment(string $wildcardKey): bool
+    {
+        foreach (explode('.', $wildcardKey) as $segment) {
+            if ($segment !== '*' && str_contains($segment, '*')) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
