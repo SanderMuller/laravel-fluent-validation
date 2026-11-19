@@ -54,7 +54,9 @@ trait SelfValidates
             return;
         }
 
-        $rules = [$key => $this->buildValidationRules()] + $nestedRules;
+        // Presence rule objects run first, as in the compiled rules.
+        [$presenceRules, $otherRules] = $this->splitPresenceRules($this->buildValidationRules());
+        $rules = [$key => [...$presenceRules, ...$otherRules]] + $nestedRules;
 
         $innerValidator = $this->makeInnerValidator($rules, $attribute);
 
@@ -842,18 +844,18 @@ trait SelfValidates
     }
 
     /**
-     * The added rules split into the presence rule objects, which run first
-     * as in buildCompiledRules(), and the rest. For a rule class that builds
-     * its compiled rules without buildCompiledRules().
+     * The rules split into the presence rule objects, which run first as in
+     * buildCompiledRules(), and the rest, each in their own order.
      *
+     * @param  list<string|object>  $rules
      * @return array{list<string|object>, list<string|object>}
      */
-    protected function splitPresenceRules(): array
+    protected function splitPresenceRules(array $rules): array
     {
         $presenceRules = [];
         $otherRules = [];
 
-        foreach ($this->rules as $rule) {
+        foreach ($rules as $rule) {
             if (is_object($rule) && $this->isPresenceModifier($rule)) {
                 $presenceRules[] = $rule;
             } else {

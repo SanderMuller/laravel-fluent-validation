@@ -134,7 +134,7 @@ class PasswordRule implements DataAwareRule, FluentRuleContract, ValidatorAwareR
     /** @return list<string|object> */
     protected function buildValidationRules(): array
     {
-        [$presenceRules, $otherRules] = $this->splitPresenceRules();
+        [$presenceRules, $otherRules] = $this->splitPresenceRules($this->rules);
 
         return [
             ...$presenceRules,
