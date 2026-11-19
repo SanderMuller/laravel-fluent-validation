@@ -2,6 +2,19 @@
 
 All notable changes to `laravel-fluent-validation` will be documented in this file.
 
+## 1.45.2 - 2026-11-19
+
+<!-- verified-sha: 5cdf687faf1ed3178a7442d58b8ed5a97b217ffa -->
+### Fixed
+
+- `RuleSet::expandWildcards()` and `prepare()` now merge the rules of a path that an explicit key and a wildcard both match, as Laravel does.
+- `RuleSet::validate()` now leaves out an item field that an explicit rule such as `items.0.secret => 'exclude'` excludes.
+- A form request with `HasFluentRules` no longer throws a `TypeError` for a top-level `'*'` rule with `children()` on a list body.
+
+**Full Changelog**: https://github.com/SanderMuller/laravel-fluent-validation/compare/1.45.1...1.45.2
+
+<!-- benchmark-start -->
+<!-- benchmark-end -->
 ## 1.45.1 - 2026-11-19
 
 <!-- verified-sha: 9dd7d31548369caff1e2791d2b9d755c8373ba82 -->
@@ -61,6 +74,7 @@ $safe->nullableInteger('rank', 0);  // 0 when the field is blank
 
 
 
+
 ```
 ### Fixed
 
@@ -114,6 +128,7 @@ $safe = $request->safe();
 
 $safe->nullableString('nickname');          // 'Johnny', or null
 $safe->nullableString('nickname', 'guest'); // 'guest' when the field is empty
+
 
 
 
@@ -635,6 +650,7 @@ Malformed wildcard rule key [items*]: a wildcard segment must be written as '.*'
 
 
 
+
 ```
 This matches the package's existing fail-fast on malformed array-rule keys.
 
@@ -729,6 +745,7 @@ illuminate/*: ^11.0||^12.0||^13.0  ->  ^12.0||^13.0
 
 
 
+
 ```
 The CI matrix drops its Laravel 11 legs (and the `orchestra/testbench ^9.0` requirement that only existed to test them); Laravel 12 and 13 remain, across PHP 8.2 / 8.3 / 8.4 on Ubuntu and Windows.
 
@@ -767,6 +784,7 @@ The file was plain markdown — zero Blade directives, zero render-time tokens �
 
 ```
 ⚠ guideline `core.blade.php` skipped — no renderer registered for its extension.
+
 
 
 
@@ -847,6 +865,7 @@ FluentRule::email()->requiredIf($enabled)->nullable()
 
 
 
+
 ```
 This diverged from both native Laravel (`['nullable', Rule::requiredIf(true)]`) and the compiled `HasFluentRules` path, which were already correct — so the gap only surfaced when a `FluentRule` validated in isolation.
 
@@ -891,6 +910,7 @@ The remap built a synthetic `Validator::make([], [])`, pushed the error message 
 $caught->validator->errors()->keys();   // ['actions']                      ✅
 $caught->validator->errors()->first();  // human-readable message          ✅
 $caught->validator->failed();           // []                              ❌
+
 
 
 
@@ -990,6 +1010,7 @@ $validated = RuleSet::from([
 
 
 
+
 ```
 Top-level keys outside the rule set are already excluded from `validated()`; this flag extends the same behavior to nested array shapes declared via `children()`, `each()`, or dotted rule keys. Maps to Laravel's `Validator::$excludeUnvalidatedArrayKeys`, but gives per-`RuleSet` control instead of relying on whatever the host factory's flag happens to be set to — useful when an application has called `Factory::includeUnvalidatedArrayKeys()` globally and a specific call site needs the strict default back.
 
@@ -1007,6 +1028,7 @@ $validated = RuleSet::from([...])->validate($request->all());
 
 // 1.27
 $validated = RuleSet::from([...])->validate($request);
+
 
 
 
