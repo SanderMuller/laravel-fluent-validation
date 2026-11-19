@@ -73,6 +73,8 @@ final readonly class ItemValidator
             $batchVerifier = $this->compiler->buildBatchVerifier($originalSlowRules, $items, $isScalar);
         }
 
+        $names = new ItemAttributeNames($isScalar, array_map(strval(...), array_keys($itemRules)), $parent, $itemMessages, $itemAttributes);
+
         foreach ($items as $index => $item) {
             /** @var array<string, mixed> $itemData */
             $itemData = $isScalar ? ['_v' => $item] : (is_array($item) ? $item : []);
@@ -126,6 +128,8 @@ final readonly class ItemValidator
                         $validatorCache[$cacheKey]->setData($itemData);
                     }
 
+                    $names->forItem($validatorCache[$cacheKey], $index, $itemData);
+
                     if (! $validatorCache[$cacheKey]->passes()) {
                         $this->errors->collectErrors($validatorCache[$cacheKey], $parent, $index, $isScalar, $errors);
 
@@ -151,6 +155,8 @@ final readonly class ItemValidator
             } else {
                 $validatorCache[$cacheKey]->setData($itemData);
             }
+
+            $names->forItem($validatorCache[$cacheKey], $index, $itemData);
 
             if (! $validatorCache[$cacheKey]->passes()) {
                 $this->errors->collectErrors($validatorCache[$cacheKey], $parent, $index, $isScalar, $errors);

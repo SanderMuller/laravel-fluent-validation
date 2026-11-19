@@ -1,8 +1,5 @@
 # Troubleshooting
 
-**`validated()` is missing nested keys (children, each)**
-Add `use HasFluentRules` to your form request. Without the trait, FluentRule objects self-validate in isolation and nested keys don't appear in `validated()` output.
-
 **Labels not working ("The name field" instead of "The Full Name field")**
 Add `use HasFluentRules`. The trait extracts labels from rule objects and passes them to the validator. Without it, labels are only used inside the rule's self-validation.
 

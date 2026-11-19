@@ -86,7 +86,7 @@ it('reports the custom rule message like the per-item validator', function (): v
     $data = ['items' => [['v' => 'a'], ['v' => 'b']]];
 
     expect(RuleSet::from(['items.*.v' => ['required', 'string', new RejectsBRule()]])->check($data)->errors()->toArray())
-        ->toBe(['items.1.v' => ['The v must not be b.']]);
+        ->toBe(['items.1.v' => ['The items.1.v must not be b.']]);
 });
 
 it('runs a custom rule once per passing item', function (): void {

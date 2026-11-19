@@ -14,6 +14,7 @@ use Illuminate\Validation\Rules\ProhibitedUnless;
 use Illuminate\Validation\Rules\RequiredIf;
 use Illuminate\Validation\Rules\RequiredUnless;
 use ReflectionProperty;
+use SanderMuller\FluentValidation\Internal\NestedRuleKeys;
 use Stringable;
 
 trait SelfValidates
@@ -25,9 +26,16 @@ trait SelfValidates
     /** @var array<array-key, mixed> */
     protected array $data = [];
 
+    private ?\Illuminate\Validation\Validator $ownRuleKeysFor = null;
+
+    /** @var list<string> */
+    private array $ownRuleKeys = [];
+
     public function validate(string $attribute, mixed $value, Closure $fail): void
     {
-        if (! $this->hasPresenceModifier() && ! Arr::has($this->data, $attribute)) {
+        $key = $this->keyInData($attribute);
+
+        if (! $this->hasPresenceModifier() && ! Arr::has($this->data, $key)) {
             return;
         }
 
@@ -35,7 +43,7 @@ trait SelfValidates
             return;
         }
 
-        $nestedRules = $this->buildNestedRules($attribute);
+        $nestedRules = $this->buildNestedRules($key);
 
         // A null value with `nullable` skips validation — but only when there
         // are no nested (`each()` / `children()`) rules. With nested rules,
@@ -47,17 +55,200 @@ trait SelfValidates
             return;
         }
 
-        $rules = [$attribute => $this->buildValidationRules()] + $nestedRules;
+        $rules = [$key => $this->buildValidationRules()] + $nestedRules;
 
         $innerValidator = $this->makeInnerValidator($rules, $attribute);
 
-        $this->shareWildcardKeys($innerValidator, $attribute, array_keys($nestedRules));
+        $this->shareWildcardKeys($innerValidator, $key, array_keys($nestedRules));
 
-        if ($innerValidator->passes()) {
+        $passes = $innerValidator->passes();
+
+        if ($nestedRules !== []) {
+            $this->shareNestedRuleKeys($innerValidator);
+        }
+
+        if ($passes) {
             return;
         }
 
         $this->forwardErrors($innerValidator, $attribute, $nestedRules !== [], $fail);
+    }
+
+    private function shareNestedRuleKeys(\Illuminate\Validation\Validator $innerValidator): void
+    {
+        if (isset($this->validator) && $this->validator->excludeUnvalidatedArrayKeys) {
+            /** @var array<string, list<mixed>> $innerRules */
+            $innerRules = $innerValidator->getRules();
+
+            NestedRuleKeys::add($this->validator, $innerRules);
+        }
+    }
+
+    /**
+     * The attribute as a key in the parsed data. Laravel's parseData() replaces
+     * a `.` or `*` inside a data key with a placeholder, and gives a rule object
+     * the attribute without them, so `items.a.b.name` can be the key
+     * `items.a__dot__<hash>b.name`. The rule key decides which dots belong to a
+     * data key: a `*` stands for one data key, and a fixed key is a nested path.
+     */
+    private function keyInData(string $attribute): string
+    {
+        static $placeholderHash = null;
+        $placeholderHash ??= new ReflectionProperty(\Illuminate\Validation\Validator::class, 'placeholderHash');
+
+        $hash = $placeholderHash->getValue();
+
+        if (! is_string($hash)) {
+            return $attribute;
+        }
+
+        foreach ($this->ownRuleKeys() as $ruleKey) {
+            $key = $this->keyForRuleKey($ruleKey, $attribute, $hash);
+
+            if ($key !== null) {
+                return $key;
+            }
+        }
+
+        return $this->encodePath($this->data, explode('.', $attribute), $hash)[0];
+    }
+
+    /**
+     * The keys of the outer validator's rules that hold this rule object.
+     *
+     * @return list<string>
+     */
+    private function ownRuleKeys(): array
+    {
+        if (! isset($this->validator)) {
+            return [];
+        }
+
+        if ($this->ownRuleKeysFor === $this->validator) {
+            return $this->ownRuleKeys;
+        }
+
+        /** @var array<array-key, mixed> $initialRules */
+        $initialRules = (new ReflectionProperty(\Illuminate\Validation\Validator::class, 'initialRules'))->getValue($this->validator);
+        $keys = [];
+
+        foreach ($initialRules as $key => $rules) {
+            if ($rules === $this || (is_array($rules) && in_array($this, $rules, true))) {
+                $keys[] = (string) $key;
+            }
+        }
+
+        $this->ownRuleKeysFor = $this->validator;
+
+        return $this->ownRuleKeys = $keys;
+    }
+
+    /**
+     * The data key that the rule key expanded into this attribute, if it fits.
+     * A data key can hold a dot, so each `*` can match more than one segment.
+     * The first split whose path up to the last `*` is in the data wins.
+     */
+    private function keyForRuleKey(string $ruleKey, string $attribute, string $hash): ?string
+    {
+        $dot = '__dot__' . $hash;
+        $parts = explode('*', $ruleKey);
+        $decoded = array_map(static fn (string $part): string => str_replace(['\\.', $dot, '__asterisk__' . $hash], ['.', '.', '*'], $part), $parts);
+        $encoded = array_map(static fn (string $part): string => str_replace('\\.', $dot, $part), $parts);
+
+        if (count($parts) === 1) {
+            return $decoded[0] === $attribute ? $encoded[0] : null;
+        }
+
+        if (! str_starts_with($attribute, $decoded[0])) {
+            return null;
+        }
+
+        $first = null;
+
+        foreach ($this->splits(substr($attribute, strlen($decoded[0])), array_slice($decoded, 1)) as $captures) {
+            $key = $encoded[0];
+            $throughLastWildcard = '';
+
+            foreach ($captures as $position => $capture) {
+                $key .= $this->encodeKey($capture, $hash);
+                $throughLastWildcard = $key;
+                $key .= $encoded[$position + 1];
+            }
+
+            if (Arr::has($this->data, $throughLastWildcard)) {
+                return $key;
+            }
+
+            $first ??= $key;
+        }
+
+        return $first;
+    }
+
+    /**
+     * Each way to split the text into one capture for each `*`, where every
+     * capture is followed by the fixed part after that `*`.
+     *
+     * @param  list<string>  $fixedParts  the parts after each `*`
+     * @return iterable<list<string>>
+     */
+    private function splits(string $text, array $fixedParts): iterable
+    {
+        $fixed = $fixedParts[0];
+
+        if (count($fixedParts) === 1) {
+            if ($fixed === '' || str_ends_with($text, $fixed)) {
+                yield [substr($text, 0, strlen($text) - strlen($fixed))];
+            }
+
+            return;
+        }
+
+        for ($at = strpos($text, $fixed); $at !== false; $at = strpos($text, $fixed, $at + 1)) {
+            foreach ($this->splits(substr($text, $at + strlen($fixed)), array_slice($fixedParts, 1)) as $rest) {
+                yield [substr($text, 0, $at), ...$rest];
+            }
+        }
+    }
+
+    /**
+     * The encoded path of the segments, and whether the data has it. When the
+     * data does not have it, the path follows the data as far as it can.
+     *
+     * @param  list<string>  $segments
+     * @return array{string, bool}
+     */
+    private function encodePath(mixed $data, array $segments, string $hash): array
+    {
+        if ($segments === []) {
+            return ['', true];
+        }
+
+        $partial = null;
+
+        for ($take = 1; is_array($data) && $take <= count($segments); $take++) {
+            $key = $this->encodeKey(implode('.', array_slice($segments, 0, $take)), $hash);
+
+            if (! array_key_exists($key, $data)) {
+                continue;
+            }
+
+            [$tail, $found] = $this->encodePath($data[$key], array_slice($segments, $take), $hash);
+            $path = $tail === '' ? $key : $key . '.' . $tail;
+
+            if ($found) {
+                return [$path, true];
+            }
+
+            $partial ??= $path;
+        }
+
+        return [$partial ?? implode('.', array_map(fn (string $segment): string => $this->encodeKey($segment, $hash), $segments)), false];
+    }
+
+    private function encodeKey(string $key, string $hash): string
+    {
+        return str_replace(['.', '*'], ['__dot__' . $hash, '__asterisk__' . $hash], $key);
     }
 
     /**

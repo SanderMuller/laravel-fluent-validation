@@ -108,5 +108,5 @@ it('writes the messages for the failed fields only', function (): void {
         'items.*.qty' => 'required|integer',
     ])->check(['items' => [['name' => ['x'], 'qty' => 2]]]);
 
-    expect($result->errors()->toArray())->toBe(['items.0.name' => ['The name field must be a string.']]);
+    expect($result->errors()->toArray())->toBe(['items.0.name' => ['The items.0.name field must be a string.']]);
 });

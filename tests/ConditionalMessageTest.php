@@ -7,7 +7,7 @@ use SanderMuller\FluentValidation\RuleSet;
 // =========================================================================
 // Per-item reduction rewrites an active presence or value conditional to
 // `required` / `prohibited` for the fast check. A failing item must still get
-// Laravel's message for the original rule. Attribute names stay item-relative.
+// Laravel's message for the original rule, with the full attribute path.
 // =========================================================================
 
 it('reports the conditional message for a failing item', function (mixed $urlRule): void {
@@ -15,7 +15,8 @@ it('reports the conditional message for a failing item', function (mixed $urlRul
     $rules = ['items.*.type' => 'nullable', 'items.*.kind' => 'nullable', 'items.*.url' => $urlRule];
 
     expect(RuleSet::from($rules)->check($data)->errors()->toArray())
-        ->toBe(['items.0.url' => ['The url field is required when type is image.']]);
+        ->toBe(validator($data, RuleSet::from($rules)->toArray())->errors()->toArray())
+        ->toBe(['items.0.url' => ['The items.0.url field is required when items.0.type is image.']]);
 })->with([
     'tuple' => [[['required_if', 'items.*.type', 'image'], 'string']],
     'string' => ['required_if:items.*.type,image|string'],
@@ -33,7 +34,7 @@ it('reports the conditional message when the item also has a slow rule', functio
     $rules = ['items.*.type' => 'nullable', 'items.*.url' => ['required_if:items.*.type,image', $slow]];
 
     expect(RuleSet::from($rules)->check($data)->errors()->toArray())
-        ->toBe(['items.0.url' => ['The url field is required when type is image.']]);
+        ->toBe(['items.0.url' => ['The items.0.url field is required when items.0.type is image.']]);
 });
 
 it('reports the prohibited_unless message for a failing item', function (): void {
@@ -41,7 +42,7 @@ it('reports the prohibited_unless message for a failing item', function (): void
     $rules = ['items.*.type' => 'nullable', 'items.*.url' => 'prohibited_unless:items.*.type,image|nullable|string'];
 
     expect(RuleSet::from($rules)->check($data)->errors()->toArray())
-        ->toBe(['items.0.url' => ['The url field is prohibited unless type is in image.']]);
+        ->toBe(['items.0.url' => ['The items.0.url field is prohibited unless items.0.type is in image.']]);
 });
 
 it('keeps a boolean dependency for the Laravel validator of a slow conditional field', function (array $item): void {

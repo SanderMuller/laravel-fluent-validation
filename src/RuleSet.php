@@ -19,6 +19,7 @@ use LogicException;
 use ReflectionProperty;
 use SanderMuller\FluentValidation\Exceptions\BatchLimitExceededException;
 use SanderMuller\FluentValidation\Internal\BatchLimitRemap;
+use SanderMuller\FluentValidation\Internal\ItemAttributeNames;
 use SanderMuller\FluentValidation\Internal\ItemErrorCollector;
 use SanderMuller\FluentValidation\Internal\ItemRuleCompiler;
 use SanderMuller\FluentValidation\Internal\ItemValidator;
@@ -757,8 +758,8 @@ final class RuleSet implements Arrayable, IteratorAggregate
             // extracted metadata stays correctly keyed.
             $metadataRules = $isScalar ? ['_v' => $groupRules['*']] : $groupRules;
             [$itemMessages, $itemAttributes] = self::extractMetadata($metadataRules);
-            $itemMessages = $messages + $itemMessages;
-            $itemAttributes = $attributes + $itemAttributes;
+            $itemMessages = ItemAttributeNames::relativeToItem($messages, $parent, $isScalar) + $messages + $itemMessages;
+            $itemAttributes = ItemAttributeNames::relativeToItem($attributes, $parent, $isScalar) + $attributes + $itemAttributes;
 
             $rawItemRules = $isScalar
                 ? $metadataRules

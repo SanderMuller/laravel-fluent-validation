@@ -109,18 +109,10 @@ it('required_without inactive → rule dropped (no error bag entry even with max
 
 // ---------- Message-key preservation ($messages map) ------------------------
 
-it('wildcard-path message key prevents rewrite (rule preserved so Laravel retains match opportunity)', function (): void {
-    // We can't guarantee the per-item Validator delivers the user's message
-    // text here — that requires wildcard-key rewriting which is a separate
-    // per-item-validator concern. What we MUST guarantee: the rule is not
-    // rewritten to plain `required`, so the original rule semantics survive
-    // and the native `required_without` message shape is used (not the
-    // generic `required` one).
+it('wildcard-path message key keeps the rule and delivers the message', function (): void {
     $errors = runPresenceItems([[]], ['addresses.*.postcode.required_without' => 'Vul postcode in']);
-    expect($errors)->toHaveKey('addresses.0.postcode');
-    $msg = $errors['addresses.0.postcode'][0];
-    // Native Laravel `required_without` message mentions the sibling field.
-    expect($msg)->toContain('birthdate');
+
+    expect($errors)->toBe(['addresses.0.postcode' => ['Vul postcode in']]);
 });
 
 it('custom message on bare-field key is used when rule stays active', function (): void {
@@ -132,7 +124,7 @@ it('custom message on bare-field key is used when rule stays active', function (
 it('without a custom message, a failing item gets the required_without message', function (): void {
     $errors = runPresenceItems([[]]);
 
-    expect($errors['addresses.0.postcode'] ?? null)->toBe(['The postcode field is required when birthdate is not present.']);
+    expect($errors['addresses.0.postcode'] ?? null)->toBe(['The addresses.0.postcode field is required when birthdate is not present.']);
 });
 
 // ---------- Translator override detection -----------------------------------
