@@ -2,6 +2,24 @@
 
 All notable changes to `laravel-fluent-validation` will be documented in this file.
 
+## 1.44.0 - 2026-11-19
+
+<!-- verified-sha: c70b6cd342e4ad59b011132a60ae71f37bf08571 -->
+
+### Changed
+
+- `RuleSet::check()` and `RuleSet::validate()` now name each item field by its full path in error messages, as Laravel and form requests with `HasFluentRules` do: "The items.0.name field is required." instead of "The name field is required.". A field that a rule refers to gets the full path too, such as "after items.0.start". A label such as `FluentRule::string('Name')` still replaces the name. Tests that assert the old message text need an update.
+
+### Fixed
+
+- Messages and attribute names passed to `RuleSet::check()` or `RuleSet::validate()` with a wildcard key, such as `items.*.name.required`, now apply to each item. A key for one item, such as `items.0.name`, also works.
+- `validated()` in a plain `Validator::make()` or `$request->validate()` now leaves out the keys under `each()` and `children()` that no rule validates, as Laravel does by default. Before, it returned the whole array, unvalidated keys included.
+- Rule objects under a wildcard now validate data keys that contain a dot or an asterisk, such as `['items' => ['a.b' => [...]]]`. Before, they could report a false `required` error or skip the item.
+
+**Full Changelog**: https://github.com/SanderMuller/laravel-fluent-validation/compare/1.43.0...1.44.0
+
+<!-- benchmark-start -->
+<!-- benchmark-end -->
 ## 1.43.0 - 2026-11-19
 
 <!-- verified-sha: 7c9eab9798ac0a8687b0c2f6da5d78ef3ced7b2e -->
