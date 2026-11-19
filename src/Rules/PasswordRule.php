@@ -2,10 +2,13 @@
 
 namespace SanderMuller\FluentValidation\Rules;
 
+use BackedEnum;
+use Illuminate\Contracts\Support\Arrayable;
 use Illuminate\Contracts\Validation\DataAwareRule;
 use Illuminate\Contracts\Validation\ValidatorAwareRule;
 use Illuminate\Support\Traits\Conditionable;
 use Illuminate\Support\Traits\Macroable;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Password;
 use ReflectionProperty;
 use SanderMuller\FluentValidation\Contracts\FluentRuleContract;
@@ -23,6 +26,9 @@ class PasswordRule implements DataAwareRule, FluentRuleContract, ValidatorAwareR
     protected array $constraints = ['string'];
 
     protected Password $password;
+
+    /** @var list<object> rules that run before the Password rule, as in `string()->notIn(...)->rule(Password::default())` */
+    protected array $beforePassword = [];
 
     public function __construct(?int $min = null, bool $defaults = true)
     {
@@ -92,6 +98,28 @@ class PasswordRule implements DataAwareRule, FluentRuleContract, ValidatorAwareR
         return $this->addRule('confirmed', $message);
     }
 
+    public function different(string $field, ?string $message = null): static
+    {
+        return $this->addRule('different:' . $field, $message);
+    }
+
+    /** @param Arrayable<array-key, mixed>|array<int, mixed>|class-string<BackedEnum>|string|int $values */
+    public function notIn(Arrayable|array|string|int $values, ?string $message = null): static
+    {
+        if (is_string($values) && enum_exists($values)) {
+            $values = $values::cases();
+        } elseif (is_string($values) || is_int($values)) {
+            $values = [$values];
+        }
+
+        $rule = Rule::notIn($values instanceof Arrayable ? $values->toArray() : $values);
+        $this->addRule($rule, $message);
+        array_pop($this->rules);
+        $this->beforePassword[] = $rule;
+
+        return $this;
+    }
+
     public function canCompile(): bool
     {
         return false;
@@ -106,6 +134,6 @@ class PasswordRule implements DataAwareRule, FluentRuleContract, ValidatorAwareR
     /** @return list<string|object> */
     protected function buildValidationRules(): array
     {
-        return [...$this->reorderConstraints($this->constraints), $this->password, ...$this->rules];
+        return [...$this->reorderConstraints($this->constraints), ...$this->beforePassword, $this->password, ...$this->rules];
     }
 }

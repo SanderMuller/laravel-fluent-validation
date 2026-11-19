@@ -92,6 +92,10 @@ This also applies to `requiredIf`, `excludeIf`, `prohibitedIf`, `missingIf`, `pr
 // FluentRule::password() uses Password::default() automatically:
 FluentRule::password()->required()->confirmed()
 
+// string()->...->rule(Password::default()) becomes password(), with the same rules:
+FluentRule::string()->required()->notIn($banned)->rule(Password::default())->confirmed()
+FluentRule::password()->required()->notIn($banned)->confirmed()
+
 // Override the default min:
 FluentRule::password(min: 12)->required()->confirmed()
 ```

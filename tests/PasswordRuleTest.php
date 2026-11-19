@@ -227,3 +227,32 @@ it('confirmed() works on password rule', function (): void {
     );
     expect($v->passes())->toBeFalse();
 });
+
+it('compiles different() and notIn() like the string chain with Password::default()', function (): void {
+    $fluent = FluentRule::password()->required()->notIn(['secret', 'hunter2'])->different('email')->confirmed();
+    $string = FluentRule::string()->required()->notIn(['secret', 'hunter2'])->different('email')->rule(Password::default())->confirmed();
+    $data = ['password' => 'secret', 'password_confirmation' => 'secret', 'email' => 'secret'];
+
+    expect(array_map(stringifyRule(...), $fluent->toArray()))->toBe(array_map(stringifyRule(...), $string->toArray()))
+        ->and(validator($data, ['password' => $fluent])->errors()->get('password'))
+        ->toBe(validator($data, ['password' => $string])->errors()->get('password'))
+        ->toContain('The selected password is invalid.', 'The password field and email must be different.');
+});
+
+it('reports notIn() before the Password rule', function (): void {
+    $errors = validator(['password' => 'abc'], ['password' => FluentRule::password()->notIn('abc')])->errors()->get('password');
+
+    expect($errors[0])->toBe('The selected password is invalid.');
+});
+
+it('uses the message of different() and notIn()', function (): void {
+    $rule = FluentRule::password()->notIn(['abc'], 'Too common.')->different('email', 'Not your email.');
+    $data = ['password' => 'abc', 'email' => 'abc'];
+
+    expect(validator($data, ['password' => $rule])->errors()->get('password'))->toContain('Too common.', 'Not your email.');
+});
+
+function stringifyRule(object|string $rule): string
+{
+    return is_object($rule) ? $rule::class . ($rule instanceof Stringable ? ':' . $rule : '') : $rule;
+}

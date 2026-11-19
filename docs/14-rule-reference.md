@@ -72,6 +72,8 @@ FluentRule::password()->min(10)->max(64)                     // length bounds
 FluentRule::password()->uncompromised(threshold: 3)          // allow up to N HIBP hits
 FluentRule::password()->confirmed()                          // requires `password_confirmation` field
 FluentRule::password()->confirmed('Passwords do not match.') // custom mismatch message
+FluentRule::password()->different('email')                   // must not equal another field
+FluentRule::password()->notIn($commonPasswords)              // must not be one of these values
 ```
 
 `FluentRule::password()` uses your app's `Password::default()` configuration (set via `Password::defaults()` in AppServiceProvider). Pass `defaults: false` for a plain `Password::min(8)`: `FluentRule::password(defaults: false)`.
