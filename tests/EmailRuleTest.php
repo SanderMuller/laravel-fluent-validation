@@ -31,7 +31,7 @@ it('compiles EmailRule with field modifiers', function (): void {
 });
 
 it('checks the email format before the length, like native Laravel', function (bool $defaults): void {
-    $data = ['email' => str_repeat('a', 250) . '@example.com'];
+    $data = ['email' => 'not-an-address-' . str_repeat('a', 250)];
 
     expect(validator($data, ['email' => FluentRule::email(defaults: $defaults)->required()->max(255)])->errors()->get('email'))
         ->toBe(validator($data, ['email' => 'required|string|email|max:255'])->errors()->get('email'))
