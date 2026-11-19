@@ -1068,7 +1068,7 @@ final class RuleSet implements Arrayable, IteratorAggregate
     /**
      * Extract labels and per-rule messages from rule objects before compilation.
      *
-     * @param  array<string, mixed>  $rules
+     * @param  array<array-key, mixed>  $rules  PHP stores a numeric path such as `0` as an int key
      * @return array{0: array<string, string>, 1: array<string, string>}
      */
     public static function extractMetadata(array $rules): array
@@ -1082,7 +1082,7 @@ final class RuleSet implements Arrayable, IteratorAggregate
             $objects = is_object($rule) ? [$rule] : (is_array($rule) ? array_filter($rule, is_object(...)) : []);
 
             foreach ($objects as $object) {
-                self::extractObjectMetadata($object, $field, $messages, $attributes);
+                self::extractObjectMetadata($object, (string) $field, $messages, $attributes);
             }
         }
 
