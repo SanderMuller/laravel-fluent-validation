@@ -5,6 +5,7 @@ namespace SanderMuller\FluentValidation\Benchmarks;
 use SanderMuller\FluentValidation\Benchmarks\Support\Scenarios;
 use Tally\Attribute\Before;
 use Tally\Attribute\DataProvider;
+use Tally\Attribute\ExpectedFor;
 use Tally\Attribute\Linear;
 
 /**
@@ -52,6 +53,7 @@ final class RuleObjectBench
     }
 
     #[DataProvider('size')]
+    #[ExpectedFor('events-100', instructions: '332.3M', cycles: '425.8M', memory: '319.3KiB')]
     public function benchValidate(int $count): void
     {
         Scenarios::validateNative($this->rules, $this->data);

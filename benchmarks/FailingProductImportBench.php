@@ -60,7 +60,7 @@ final class FailingProductImportBench
     }
 
     #[DataProvider('size')]
-    #[ExpectedFor('items-500', instructions: '30.62M', cycles: '40.99M', memory: '278.3KiB')]
+    #[ExpectedFor('items-500', instructions: '30.59M', cycles: '41.21M', memory: '214.3KiB')]
     public function benchValidate(int $count): void
     {
         Scenarios::validate($this->rules, $this->data);
