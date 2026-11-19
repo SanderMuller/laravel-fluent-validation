@@ -142,3 +142,35 @@ it('formats a children() field under a wildcard with the implicit attributes for
         ->toBe($native->errors()->toArray())
         ->toBe(['items.0.sort_order' => ['The Xitems.0.sort_order field is required.']]);
 });
+
+it('resolves a sibling reference in each() inside children() under a wildcard like native Laravel', function (array $rows): void {
+    $data = ['groups' => [['rows' => $rows]]];
+
+    $fluent = ['groups.*' => FluentRule::array()->children([
+        'rows' => FluentRule::array()->each([
+            'start' => FluentRule::date()->required(),
+            'end' => FluentRule::date()->required()->after('groups.*.rows.*.start'),
+        ]),
+    ])];
+
+    expect(validator($data, $fluent)->errors()->toArray())
+        ->toBe(validator($data, [
+            'groups.*.rows' => 'array',
+            'groups.*.rows.*.start' => 'required|date',
+            'groups.*.rows.*.end' => 'required|date|after:groups.*.rows.*.start',
+        ])->errors()->toArray());
+})->with([
+    'valid' => [[['start' => '2025-06-01', 'end' => '2025-07-01']]],
+    'invalid' => [[['start' => '2025-06-01', 'end' => '2025-07-01'], ['start' => '2025-06-01', 'end' => '2025-05-01']]],
+]);
+
+it('names a reference to an index that the data does not have like native Laravel', function (): void {
+    $data = [
+        'items' => [['end_date' => '2025-07-01']],
+        'other' => [1 => ['start_date' => '2025-06-01']],
+    ];
+
+    expect(validator($data, ['items.*.end_date' => FluentRule::date()->before('other.*.start_date'), 'other.*.start_date' => 'date'])->errors()->toArray())
+        ->toBe(validator($data, ['items.*.end_date' => 'date|before:other.*.start_date', 'other.*.start_date' => 'date'])->errors()->toArray())
+        ->toHaveKeys(['items.0.end_date']);
+});

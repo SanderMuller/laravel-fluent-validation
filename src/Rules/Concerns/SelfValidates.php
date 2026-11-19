@@ -5,7 +5,6 @@ namespace SanderMuller\FluentValidation\Rules\Concerns;
 use Closure;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Validator;
-use Illuminate\Support\Str;
 use Illuminate\Validation\Rules\ExcludeIf;
 use Illuminate\Validation\Rules\ExcludeUnless;
 use Illuminate\Validation\Rules\In;
@@ -114,10 +113,10 @@ trait SelfValidates
         $indexes = $this->wildcardIndexes($wildcardKey, $attribute);
 
         foreach (array_keys($outerKeys) as $key) {
-            $count = substr_count($key, '*');
+            $expanded = $this->expandForThisItem($key, $indexes);
 
-            if ($count <= count($indexes)) {
-                $shared[$key] ??= [Str::replaceArray('*', array_slice($indexes, 0, $count), $key)];
+            if ($expanded !== null) {
+                $shared[$key] ??= [$expanded];
             }
         }
 
@@ -125,7 +124,57 @@ trait SelfValidates
 
         /** @var array<string, list<int|string>> $innerKeys */
         $innerKeys = $property->getValue($innerValidator);
-        $property->setValue($innerValidator, $innerKeys + $shared);
+        $property->setValue($innerValidator, $this->underWildcardKey($innerKeys, $attribute, $wildcardKey) + $shared);
+    }
+
+    /**
+     * The inner validator expanded `each()` under the concrete attribute
+     * (`groups.0.rows.*`). A reference such as `groups.*.rows.*.start` needs the
+     * full wildcard key (`groups.*.rows.*`) to find both indexes.
+     *
+     * @param  array<string, list<int|string>>  $innerKeys
+     * @return array<string, list<int|string>>
+     */
+    private function underWildcardKey(array $innerKeys, string $attribute, string $wildcardKey): array
+    {
+        $keys = [];
+
+        foreach ($innerKeys as $key => $attributes) {
+            $keys[str_starts_with($key, $attribute . '.') ? $wildcardKey . substr($key, strlen($attribute)) : $key] = $attributes;
+        }
+
+        return $keys;
+    }
+
+    /**
+     * The attribute that a wildcard key has for this item's indexes, when the
+     * data has it. Laravel expands a wildcard only over the keys in the data, so
+     * `other.*.start_date` has no `other.0.start_date` when `other` has no `0`.
+     *
+     * @param  list<string>  $indexes
+     */
+    private function expandForThisItem(string $key, array $indexes): ?string
+    {
+        $segments = explode('.', $key);
+        $used = 0;
+        $last = null;
+
+        foreach ($segments as $position => $segment) {
+            if ($segment === '*') {
+                if (! isset($indexes[$used])) {
+                    return null;
+                }
+
+                $segments[$position] = $indexes[$used++];
+                $last = $position;
+            }
+        }
+
+        if ($last === null || ! Arr::has($this->data, implode('.', array_slice($segments, 0, $last + 1)))) {
+            return null;
+        }
+
+        return implode('.', $segments);
     }
 
     /**
