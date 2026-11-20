@@ -121,7 +121,7 @@ $validator = RuleSet::from($rules)
     ->validator();
 ```
 
-That validator has already run, so a hook you add to it does not change the result of `check()`. For hooks such as `after()` or `sometimes()`, build your own validator: `prepare()` returns the compiled rules, messages and attributes for `Validator::make(...)`.
+That validator has already run, so a hook you add to it does not change the result of `check()`. For hooks such as `after()` or `sometimes()`, build your own validator: `prepare()` returns the compiled rules, messages and attributes for `Validator::make(...)`. A `distinct` rule on a wildcard field does not work in a validator built that way, because Laravel finds the other items through the wildcard pattern, which `Validator::make()` does not receive. Extend [`FluentValidator`](#using-with-custom-validators) for those rules.
 
 ## Using with custom Validators
 

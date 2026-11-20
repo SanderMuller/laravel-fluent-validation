@@ -19,6 +19,7 @@ use LogicException;
 use ReflectionProperty;
 use SanderMuller\FluentValidation\Exceptions\BatchLimitExceededException;
 use SanderMuller\FluentValidation\Internal\BatchLimitRemap;
+use SanderMuller\FluentValidation\Internal\DependentParameterKeys;
 use SanderMuller\FluentValidation\Internal\ExpandedRuleMerger;
 use SanderMuller\FluentValidation\Internal\ItemAttributeNames;
 use SanderMuller\FluentValidation\Internal\ItemErrorCollector;
@@ -423,6 +424,28 @@ final class RuleSet implements Arrayable, IteratorAggregate
      * @param  array<string, mixed>|null  $flatRules  Pre-computed flatten() result
      */
     public function prepare(array $data, ?array $flatRules = null): PreparedRules
+    {
+        $prepared = $this->prepareForImplicitAttributes($data, $flatRules);
+
+        return new PreparedRules(
+            rules: DependentParameterKeys::resolve($prepared->rules, $prepared->implicitAttributes),
+            messages: $prepared->messages,
+            attributes: $prepared->attributes,
+            implicitAttributes: $prepared->implicitAttributes,
+        );
+    }
+
+    /**
+     * {@see prepare()} without replacing the wildcards in the parameters of
+     * dependent rules, for a validator that receives `implicitAttributes`:
+     * Laravel then replaces them itself, and equal rules keep equal strings.
+     *
+     * @internal Used by {@see FluentValidator} and {@see HasFluentRules}.
+     *
+     * @param  array<string, mixed>  $data
+     * @param  array<string, mixed>|null  $flatRules  Pre-computed flatten() result
+     */
+    public function prepareForImplicitAttributes(array $data, ?array $flatRules = null): PreparedRules
     {
         [$expanded, $implicitAttributes] = $this->expand($data, $flatRules);
         [$messages, $attributes] = self::extractMetadata($expanded);

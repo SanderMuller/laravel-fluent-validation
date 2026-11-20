@@ -1,5 +1,6 @@
 <?php declare(strict_types=1);
 
+use Illuminate\Support\Facades\Validator;
 use SanderMuller\FluentValidation\FluentRule;
 use SanderMuller\FluentValidation\HasFluentValidation;
 use SanderMuller\FluentValidation\RuleSet;
@@ -184,6 +185,19 @@ it('compiles FluentRule objects to native string rules', function (): void {
         ->and($compiled['name'])->toContain('required')
         ->and($compiled['name'])->toContain('string')
         ->and($compiled['name'])->toContain('max:255');
+});
+
+it('resolves wildcard fields in dependent rule parameters for Livewire', function (): void {
+    $data = ['items' => [['type' => 'a', 'size' => 'bad'], ['type' => 'b', 'size' => 'bad']]];
+    $component = new TestableComponent(
+        data: $data,
+        fluentRules: ['items' => FluentRule::array()->each(['type' => FluentRule::string(), 'size' => FluentRule::integer()->excludeIf('items.*.type', 'a')])],
+    );
+
+    [$compiled] = $component->compile();
+
+    assert(is_array($compiled));
+    expect(Validator::make($data, $compiled)->errors()->keys())->toBe(['items.1.size']);
 });
 
 it('extracts labels into the attributes array', function (): void {

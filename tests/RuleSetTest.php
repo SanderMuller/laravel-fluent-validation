@@ -1465,6 +1465,47 @@ it('prepare implicitAttributes enables correct validation when applied', functio
         ->and($validator->errors()->keys())->toContain('items.1.id');
 });
 
+/**
+ * Dependent rules whose parameters reference a wildcard field. Native Laravel
+ * resolves the wildcard from the attribute's own keys.
+ *
+ * @return array<string, array{0: array<string, mixed>, 1: array<string, mixed>}>
+ */
+function prepareDependentWildcardCases(): array
+{
+    $items = ['items' => [['name' => 'x', 'type' => 'a', 'size' => 'bad', 'copy' => 'other'], ['type' => 'b', 'size' => 'bad', 'copy' => 'bad']]];
+
+    return [
+        'exclude_with' => [['items.*.size' => 'exclude_with:items.*.name|integer'], $items],
+        'exclude_if' => [['items.*.size' => 'exclude_if:items.*.type,a|integer'], $items],
+        'exclude_if as a tuple' => [['items.*.size' => [['exclude_if', 'items.*.type', 'a'], 'integer']], $items],
+        'same' => [['items.*.size' => 'same:items.*.copy'], $items],
+        'required_if' => [['items.*.name' => 'required_if:items.*.type,b'], $items],
+        'two wildcards' => [
+            ['q.*.answers.*.target' => 'required_with:q.*.answers.*.type'],
+            ['q' => [['answers' => [['target' => 1], ['type' => 'jump']]], ['answers' => [['type' => 'jump', 'target' => 2]]]]],
+        ],
+    ];
+}
+
+it('prepare resolves wildcard fields in dependent rule parameters for Validator::make', function (string $case): void {
+    [$rules, $data] = prepareDependentWildcardCases()[$case];
+
+    $prepared = RuleSet::from($rules)->prepare($data);
+    $validator = Validator::make($data, $prepared->rules, $prepared->messages, $prepared->attributes);
+
+    expect($validator->errors()->toArray())->toBe(Validator::make($data, $rules)->errors()->toArray());
+})->with(array_keys(prepareDependentWildcardCases()));
+
+it('prepare resolves wildcard fields in a fluent dependent rule', function (): void {
+    $data = ['items' => [['type' => 'a', 'size' => 'bad'], ['type' => 'b', 'size' => 'bad']]];
+    $prepared = RuleSet::from([
+        'items' => FluentRule::array()->each(['type' => FluentRule::string(), 'size' => FluentRule::integer()->excludeIf('items.*.type', 'a')]),
+    ])->prepare($data);
+
+    expect(Validator::make($data, $prepared->rules)->errors()->keys())->toBe(['items.1.size']);
+});
+
 it('prepare returns empty implicitAttributes for non-wildcard rules', function (): void {
     $prepared = RuleSet::from([
         'name' => FluentRule::string()->required(),

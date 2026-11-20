@@ -44,7 +44,7 @@ abstract class FluentValidator extends OptimizedValidator
         array $messages = [],
         array $attributes = [],
     ) {
-        $prepared = RuleSet::from($rules)->prepare($data);
+        $prepared = RuleSet::from($rules)->prepareForImplicitAttributes($data);
 
         // Remaining conditionals (required_if/_unless) are pre-evaluated later
         // by OptimizedValidator::passes(); this only drops the exclude_* ones.

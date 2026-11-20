@@ -217,7 +217,7 @@ trait HasFluentRules
         // (the latter pattern lets callers chain ->only/->except/->merge
         // before returning, eliminating a terminal ->toArray() call).
         $ruleSet = $rules instanceof RuleSet ? $rules : RuleSet::from($rules);
-        $prepared = $ruleSet->prepare($data);
+        $prepared = $ruleSet->prepareForImplicitAttributes($data);
 
         // Pre-exclude rules whose exclude_unless/exclude_if conditions
         // don't match the actual data. This happens BEFORE the validator
