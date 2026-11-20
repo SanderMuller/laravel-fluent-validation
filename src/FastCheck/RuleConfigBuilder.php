@@ -4,7 +4,6 @@ namespace SanderMuller\FluentValidation\FastCheck;
 
 use Closure;
 use DateTime;
-use SanderMuller\FluentValidation\FastCheck\Shared\LaravelEmptiness;
 
 /**
  * Single source of truth for fast-check rule parsing and value-closure
@@ -179,7 +178,9 @@ final class RuleConfigBuilder
             $in, $notIn, $regex, $notRegex, $hasInRegex,
             $checks
         ): bool {
-            if ($required && LaravelEmptiness::isEmpty($value)) {
+            // Inline for the hot path: a static call here costs more than the
+            // whole gate. Laravel's `required` trims a string.
+            if ($required && (is_string($value) ? trim($value) === '' : in_array($value, [null, []], true))) {
                 return false;
             }
 
@@ -233,16 +234,8 @@ final class RuleConfigBuilder
                     return false;
                 }
 
-                if ($regex !== null || $notRegex !== null) {
-                    $stringOrNumeric = is_string($value) || is_numeric($value);
-
-                    if ($regex !== null && (! $stringOrNumeric || preg_match($regex, (string) $value) === 0)) {
-                        return false;
-                    }
-
-                    if ($notRegex !== null && (! $stringOrNumeric || preg_match($notRegex, (string) $value) === 1)) {
-                        return false;
-                    }
+                if (($regex !== null || $notRegex !== null) && LaravelInput::failsRegex($value, $regex, $notRegex)) {
+                    return false;
                 }
             }
 

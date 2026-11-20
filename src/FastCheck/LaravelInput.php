@@ -70,4 +70,20 @@ final class LaravelInput
 
         return array_diff($value, $notIn) === [];
     }
+
+    /**
+     * Laravel's regex and not_regex accept only a string or a number.
+     */
+    public static function failsRegex(mixed $value, ?string $regex, ?string $notRegex): bool
+    {
+        if (! is_string($value) && ! is_numeric($value)) {
+            return true;
+        }
+
+        if ($regex !== null && preg_match($regex, (string) $value) === 0) {
+            return true;
+        }
+
+        return $notRegex !== null && preg_match($notRegex, (string) $value) === 1;
+    }
 }
