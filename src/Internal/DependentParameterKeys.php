@@ -34,7 +34,8 @@ final class DependentParameterKeys
         $resolved = [];
 
         foreach ($implicitAttributes as $pattern => $attributes) {
-            $regex = '/^' . str_replace('\*', '([^\.]*)', preg_quote($pattern, '/')) . '/';
+            // A key may hold an escaped dot (`\.`), as WildcardExpander writes it.
+            $regex = '/^' . str_replace('\*', '((?:[^.\\\\]|\\\\.)*)', preg_quote($pattern, '/')) . '/';
 
             foreach ($attributes as $attribute) {
                 if (isset($resolved[$attribute]) || ! isset($rules[$attribute])) {
@@ -63,9 +64,14 @@ final class DependentParameterKeys
     private static function resolveRule(mixed $rule, array $keys, array $dependentRules): mixed
     {
         if (is_string($rule)) {
-            return str_contains($rule, '*')
-                ? implode('|', array_map(static fn (string $part): string => self::resolveString($part, $keys, $dependentRules), explode('|', $rule)))
-                : $rule;
+            if (! str_contains($rule, '*')) {
+                return $rule;
+            }
+
+            $parts = array_map(static fn (string $part): string => self::resolveString($part, $keys, $dependentRules), explode('|', $rule));
+
+            // Laravel splits a rule string on `|` again, so a key with a pipe needs the list form.
+            return str_contains(implode('', $keys), '|') ? $parts : implode('|', $parts);
         }
 
         if (! is_array($rule)) {
@@ -98,9 +104,18 @@ final class DependentParameterKeys
             return $rule;
         }
 
-        $parameters = array_map(static fn (string $parameter): string => self::replaceAsterisks($parameter, $keys), explode(',', $pieces[1]));
+        $parameters = array_map(static fn (?string $parameter): string => self::quote(self::replaceAsterisks($parameter ?? '', $keys)), str_getcsv($pieces[1], escape: '\\'));
 
         return $pieces[0] . ':' . implode(',', $parameters);
+    }
+
+    /**
+     * Laravel reads the parameters with str_getcsv(), so a key with a comma or
+     * a quote needs quotes to stay one parameter.
+     */
+    private static function quote(string $parameter): string
+    {
+        return strpbrk($parameter, ',"') === false ? $parameter : '"' . str_replace('"', '""', $parameter) . '"';
     }
 
     /**

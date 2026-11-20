@@ -50,7 +50,8 @@ class WildcardExpander
             $paths = [];
 
             foreach (array_keys($current) as $key) {
-                array_push($paths, ...self::resolve($remaining, $current[$key], [...$path, (string) $key], true));
+                // Escaped as in a rule key, so a key such as `2.5` stays one key.
+                array_push($paths, ...self::resolve($remaining, $current[$key], [...$path, str_replace('.', '\\.', (string) $key)], true));
             }
 
             return $paths;

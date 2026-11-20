@@ -21,6 +21,11 @@ final class ConditionalEvaluationPhase
     private array $valueCache = [];
 
     /**
+     * @param  string|null  $dotPlaceholder  what the validator writes for an escaped dot (`\.`) in an attribute
+     */
+    public function __construct(private readonly ?string $dotPlaceholder = null) {}
+
+    /**
      * Build a flat map of attributes that carry exclude_unless / exclude_if
      * tuples, paired with the parsed tuple data. Pure — depends only on the
      * rule shape. Accepts the Validator's untyped `$rules` array directly;
@@ -75,7 +80,7 @@ final class ConditionalEvaluationPhase
             $field = $tuple['field'];
 
             if (str_contains($field, '*')) {
-                $field = self::resolveWildcard($attribute, $field);
+                $field = self::resolveWildcard($this->withEscapedDots($attribute), $field);
 
                 // Unresolved wildcard (the dep position has no matching segment)
                 // — can't pin down the dependent path, so defer to Laravel.
@@ -131,7 +136,9 @@ final class ConditionalEvaluationPhase
      */
     public static function resolveWildcard(string $attribute, string $conditionField): string
     {
-        if (! str_contains($conditionField, '*')) {
+        // An escaped dot (`\.`) is part of a key, so the dot positions no longer
+        // line up; leave the wildcard for the validator to resolve.
+        if (! str_contains($conditionField, '*') || str_contains($attribute, '\\.')) {
             return $conditionField;
         }
 
@@ -145,5 +152,10 @@ final class ConditionalEvaluationPhase
         }
 
         return implode('.', $fieldSegments);
+    }
+
+    private function withEscapedDots(string $attribute): string
+    {
+        return $this->dotPlaceholder === null ? $attribute : str_replace($this->dotPlaceholder, '\\.', $attribute);
     }
 }

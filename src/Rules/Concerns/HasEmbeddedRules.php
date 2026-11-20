@@ -31,7 +31,7 @@ trait HasEmbeddedRules
         return $this->addRule($rule, $message);
     }
 
-    /** @param  class-string  $type */
+    /** @param  class-string<BackedEnum>  $type */
     public function enum(string $type, ?Closure $callback = null, ?string $message = null): static
     {
         $enum = Rule::enum($type);

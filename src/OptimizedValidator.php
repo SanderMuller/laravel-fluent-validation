@@ -9,6 +9,7 @@ use Illuminate\Validation\Rules\In;
 use Illuminate\Validation\Rules\NotIn;
 use SanderMuller\FluentValidation\Internal\ConditionalEvaluationPhase;
 use SanderMuller\FluentValidation\Internal\ConditionalVerdict;
+use SanderMuller\FluentValidation\Internal\ImplicitAttributes;
 use Stringable;
 
 /**
@@ -144,7 +145,7 @@ class OptimizedValidator extends MemoizingValidator
      */
     private function runConditionalPhase(array &$removedRules): void
     {
-        $phase = new ConditionalEvaluationPhase();
+        $phase = new ConditionalEvaluationPhase(ImplicitAttributes::dotPlaceholder($this));
         // Closure (not [$this, 'getValue']) because parent::getValue() is
         // protected — only invokable from inside this class scope.
         $getValue = fn (string $field): mixed => $this->getValue($field);

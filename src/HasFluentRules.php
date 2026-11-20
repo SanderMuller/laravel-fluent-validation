@@ -7,7 +7,7 @@ use Illuminate\Contracts\Validation\Factory as ValidationFactory;
 use Illuminate\Validation\Validator;
 use ReflectionMethod;
 use ReflectionNamedType;
-use ReflectionProperty;
+use SanderMuller\FluentValidation\Internal\ImplicitAttributes;
 use SanderMuller\FluentValidation\Internal\PlainRules;
 use SanderMuller\FluentValidation\Internal\PreparesOptimizedRules;
 use SanderMuller\FluentValidation\Internal\ValidatorStateCopier;
@@ -240,8 +240,7 @@ trait HasFluentRules
         }
 
         if ($prepared->implicitAttributes !== []) {
-            (new ReflectionProperty(Validator::class, 'implicitAttributes'))
-                ->setValue($validator, $prepared->implicitAttributes);
+            ImplicitAttributes::set($validator, $prepared->implicitAttributes);
         }
 
         $validator->stopOnFirstFailure($this->stopOnFirstFailure);

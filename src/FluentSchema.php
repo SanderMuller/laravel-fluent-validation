@@ -177,7 +177,7 @@ final class FluentSchema
         return FluentRule::list($label, $message);
     }
 
-    /** @param  class-string  $type */
+    /** @param  class-string<BackedEnum>  $type */
     public function enum(string $type, ?Closure $callback = null, ?string $label = null, ?string $message = null): FieldRule
     {
         return FluentRule::enum($type, $callback, $label, $message);

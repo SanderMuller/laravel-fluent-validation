@@ -4,7 +4,7 @@ namespace SanderMuller\FluentValidation;
 
 use Illuminate\Contracts\Translation\Translator;
 use Illuminate\Validation\DatabasePresenceVerifier;
-use ReflectionProperty;
+use SanderMuller\FluentValidation\Internal\ImplicitAttributes;
 use SanderMuller\FluentValidation\Internal\PreparesOptimizedRules;
 
 /**
@@ -63,8 +63,7 @@ abstract class FluentValidator extends OptimizedValidator
         $this->withFastChecks($fastChecks, $attributePatternMap, $referencedAttributes);
 
         if ($prepared->implicitAttributes !== []) {
-            (new ReflectionProperty($this, 'implicitAttributes'))
-                ->setValue($this, $prepared->implicitAttributes);
+            ImplicitAttributes::set($this, $prepared->implicitAttributes);
         }
 
         if (app()->bound('validation.presence')) {

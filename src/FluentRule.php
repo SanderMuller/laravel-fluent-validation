@@ -264,7 +264,7 @@ class FluentRule
         return self::array(label: $label)->list($message);
     }
 
-    /** @param  class-string  $type */
+    /** @param  class-string<BackedEnum>  $type */
     public static function enum(string $type, ?Closure $callback = null, ?string $label = null, ?string $message = null): FieldRule
     {
         return self::field($label)->enum($type, $callback, $message);
