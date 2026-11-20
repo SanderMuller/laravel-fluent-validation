@@ -24,7 +24,9 @@ final class ImplicitAttributes
         $placeholder = (string) array_key_first($validator->parseData(['.' => null]));
 
         foreach ($implicitAttributes as $pattern => $attributes) {
-            $implicitAttributes[$pattern] = str_replace('\\.', $placeholder, $attributes);
+            if (str_contains(implode("\n", $attributes), '\\.')) {
+                $implicitAttributes[$pattern] = str_replace('\\.', $placeholder, $attributes);
+            }
         }
 
         (new ReflectionProperty(Validator::class, 'implicitAttributes'))->setValue($validator, $implicitAttributes);

@@ -20,6 +20,7 @@ use SanderMuller\FluentValidation\Exceptions\BatchLimitExceededException;
 use SanderMuller\FluentValidation\Internal\BatchLimitRemap;
 use SanderMuller\FluentValidation\Internal\DependentParameterKeys;
 use SanderMuller\FluentValidation\Internal\DottedItemKeys;
+use SanderMuller\FluentValidation\Internal\EscapedFieldNames;
 use SanderMuller\FluentValidation\Internal\ExpandedRuleMerger;
 use SanderMuller\FluentValidation\Internal\ImplicitAttributes;
 use SanderMuller\FluentValidation\Internal\ItemAttributeNames;
@@ -27,7 +28,6 @@ use SanderMuller\FluentValidation\Internal\ItemErrorCollector;
 use SanderMuller\FluentValidation\Internal\ItemGroupValidator;
 use SanderMuller\FluentValidation\Internal\ItemRuleCompiler;
 use SanderMuller\FluentValidation\Internal\OutsideItemReferences;
-use SanderMuller\FluentValidation\Internal\ShadowedEscapedFields;
 use SanderMuller\FluentValidation\Internal\WildcardReferenceRewriter;
 use SanderMuller\FluentValidation\Internal\WildcardValidatedData;
 use SanderMuller\FluentValidation\Rules\ArrayRule;
@@ -1107,15 +1107,13 @@ final class RuleSet implements Arrayable, IteratorAggregate
         $messages = [];
         $attributes = [];
 
-        foreach (ShadowedEscapedFields::remove($rules) as $field => $rule) {
+        foreach (EscapedFieldNames::decode($rules) as $field => $rule) {
             // For mixed arrays like ['exclude', FluentRule::string('ID')],
             // look inside for rule objects with metadata.
             $objects = is_object($rule) ? [$rule] : (is_array($rule) ? array_filter($rule, is_object(...)) : []);
 
             foreach ($objects as $object) {
-                // Laravel looks up messages and attribute names by the field with
-                // its escaped dots (`\.`) decoded.
-                self::extractObjectMetadata($object, str_replace('\\.', '.', (string) $field), $messages, $attributes);
+                self::extractObjectMetadata($object, (string) $field, $messages, $attributes);
             }
         }
 
