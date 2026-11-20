@@ -880,3 +880,29 @@ it('compares a date with a referenced field like Laravel', function (string $rul
         }
     }
 });
+
+it('fast-checks blank strings and explicit null like Laravel', function (string $rule, mixed $value): void {
+    $closure = FastCheckCompiler::compile($rule);
+
+    expect($closure)->toBeInstanceOf(Closure::class);
+    assert($closure instanceof Closure);
+    expect($closure($value))->toBe(Validator::make(['f' => $value], ['f' => $rule])->passes());
+})->with([
+    'required, blank string' => ['required|string', '   '],
+    'required, tab and newline' => ['required|string', "\t\n"],
+    'required, padded value' => ['required|string', ' a '],
+    'not_in empty string, null' => ['not_in:""', null],
+    'not_in empty string, empty string' => ['string|not_in:,a', ''],
+    'not_in empty string, value' => ['not_in:"",a', 'b'],
+]);
+
+it('reports blank required values and not_in null per item like Laravel', function (string $rule, mixed $value): void {
+    $rules = ['items' => 'array', 'items.*.f' => $rule];
+    $data = ['items' => [['f' => $value]]];
+
+    expect(RuleSet::from($rules)->check($data)->errors()->toArray())
+        ->toBe(Validator::make($data, $rules)->errors()->toArray());
+})->with([
+    'required, blank string' => ['required|string', '   '],
+    'not_in empty string, null' => ['not_in:""', null],
+]);

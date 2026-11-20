@@ -10,7 +10,7 @@ use Closure;
  * presence, one type and size bounds, a value of that type passes every
  * type check and only its size is left to compare: the number itself, the
  * string length or the element count. Empty strings and arrays, and every
- * other value, go to the full check.
+ * other value, go to the full check. So does a whitespace-only string.
  *
  * A string rule may also have `in`, and a plain `boolean` rule passes its
  * six accepted values.
@@ -68,7 +68,7 @@ final class SizeFastPath
     private static function string(int|float $min, int|float $max, ?array $in, Closure $check): Closure
     {
         return static function (mixed $value) use ($min, $max, $in, $check): bool {
-            if (! is_string($value) || $value === '') {
+            if (! is_string($value) || trim($value) === '') {
                 return $check($value);
             }
 

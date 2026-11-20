@@ -40,7 +40,8 @@ final class LaravelInput
     }
 
     /**
-     * Laravel's not_in negates its `in`. A scalar fails when it is listed. Under
+     * Laravel's not_in negates its `in`. A scalar fails when it is listed, and
+     * null reads as `''`, as Laravel casts it. Under
      * `array`, an array fails when every value is listed, so an empty array
      * fails too; one with a nested array passes. An element that cannot be cast
      * to a string fails here, so Laravel decides.
@@ -49,7 +50,7 @@ final class LaravelInput
      */
     public static function failsNotIn(mixed $value, array $notIn, bool $isArray): bool
     {
-        if (is_scalar($value)) {
+        if (is_scalar($value) || $value === null) {
             return in_array((string) $value, $notIn, true);
         }
 

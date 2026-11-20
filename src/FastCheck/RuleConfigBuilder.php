@@ -4,6 +4,7 @@ namespace SanderMuller\FluentValidation\FastCheck;
 
 use Closure;
 use DateTime;
+use SanderMuller\FluentValidation\FastCheck\Shared\LaravelEmptiness;
 
 /**
  * Single source of truth for fast-check rule parsing and value-closure
@@ -178,10 +179,7 @@ final class RuleConfigBuilder
             $in, $notIn, $regex, $notRegex, $hasInRegex,
             $checks
         ): bool {
-            // Presence gates (inlined for hot-path perf).
-            // Explicit === comparisons beat in_array() here — avoids allocating
-            // the [null, '', []] literal array on every closure call.
-            if ($required && (in_array($value, [null, '', []], true))) {
+            if ($required && LaravelEmptiness::isEmpty($value)) {
                 return false;
             }
 
