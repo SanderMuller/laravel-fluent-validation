@@ -15,6 +15,8 @@ use ReflectionProperty;
  * rule covers the group's parent. Laravel's `validated()` shapes that data.
  *
  * @internal Implementation detail of `RuleSet`.
+ *
+ * @phpstan-type ExcludedFields array{0: list<array-key>, 1: list<non-empty-list<string>>}
  */
 final class WildcardValidatedData
 {
@@ -102,7 +104,7 @@ final class WildcardValidatedData
      * data, which holds a covered group's parent as the input gave it.
      *
      * @param  array<string, mixed>  $validated
-     * @param  array<string, array<int|string, list<array-key>>>  $excludedFields  per parent, per item index
+     * @param  array<string, array<int|string, ExcludedFields>>  $excludedFields  per parent, per item index
      * @return array<string, mixed>
      */
     public static function withoutExcluded(array $validated, array $excludedFields): array
@@ -122,7 +124,7 @@ final class WildcardValidatedData
 
     /**
      * @param  array<mixed, mixed>  $items
-     * @param  array<int|string, list<array-key>>  $byIndex
+     * @param  array<int|string, ExcludedFields>  $byIndex
      * @return array<mixed, mixed>|null  null when no item held an excluded field
      */
     private static function withoutItemFields(array $items, array $byIndex): ?array
@@ -131,26 +133,80 @@ final class WildcardValidatedData
 
         foreach ($byIndex as $index => $fields) {
             $item = $items[$index] ?? null;
+            $item = is_array($item) ? self::withoutFields($item, $fields) : null;
 
-            if (! is_array($item)) {
-                continue;
-            }
-
-            foreach ($fields as $field) {
-                // The reducer decides a field below a nested wildcard for the
-                // whole item, not for each nested item, so it removes nothing.
-                if (! str_contains((string) $field, '*') && ! str_contains((string) $field, '\\')) {
-                    $item = self::forgetAt($item, explode('.', (string) $field));
-                }
-            }
-
-            if ($item !== $items[$index]) {
+            if ($item !== null) {
                 $items[$index] = $item;
                 $changed = true;
             }
         }
 
         return $changed ? $items : null;
+    }
+
+    /**
+     * Split the fields an item excluded, keyed by field, into the top-level
+     * keys and the paths of dotted fields. The dispatch cache reuses a split.
+     *
+     * @param  array<array-key, mixed>  $excluded
+     * @return ExcludedFields|false  false when no field was excluded
+     */
+    public static function splitExcluded(array $excluded): array|false
+    {
+        if ($excluded === []) {
+            return false;
+        }
+
+        $keys = [];
+        $paths = [];
+
+        foreach (array_keys($excluded) as $field) {
+            $name = (string) $field;
+
+            // The reducer decides a field below a nested wildcard for the
+            // whole item, not for each nested item, so it removes nothing.
+            // A field with an escaped dot has no plain path to remove.
+            if (str_contains($name, '*') || str_contains($name, '\\')) {
+                continue;
+            }
+
+            if (str_contains($name, '.')) {
+                $paths[] = explode('.', $name);
+            } else {
+                $keys[] = $field;
+            }
+        }
+
+        return [$keys, $paths];
+    }
+
+    /**
+     * @param  array<mixed, mixed>  $item
+     * @param  ExcludedFields  $fields
+     * @return array<mixed, mixed>|null  null when the item held none of the fields
+     */
+    private static function withoutFields(array $item, array $fields): ?array
+    {
+        [$keys, $paths] = $fields;
+        $changed = false;
+
+        foreach ($keys as $key) {
+            if (array_key_exists($key, $item)) {
+                unset($item[$key]);
+                $changed = true;
+            }
+        }
+
+        foreach ($paths as $path) {
+            $next = self::forgetAt($item, $path);
+
+            if ($next !== null) {
+                $item = $next;
+                $changed = true;
+            }
+        }
+
+        return $changed ? $item : null;
     }
 
     /**
@@ -178,21 +234,29 @@ final class WildcardValidatedData
      *
      * @param  array<mixed, mixed>  $data
      * @param  list<string>  $path
-     * @return array<mixed, mixed>
+     * @return array<mixed, mixed>|null  null when the path does not exist
      */
-    private static function forgetAt(array $data, array $path): array
+    private static function forgetAt(array $data, array $path): ?array
     {
         $key = array_shift($path);
 
         if ($key === null || ! array_key_exists($key, $data)) {
-            return $data;
+            return null;
         }
 
         if ($path === []) {
             unset($data[$key]);
-        } elseif (is_array($data[$key])) {
-            $data[$key] = self::forgetAt($data[$key], $path);
+
+            return $data;
         }
+
+        $child = is_array($data[$key]) ? self::forgetAt($data[$key], $path) : null;
+
+        if ($child === null) {
+            return null;
+        }
+
+        $data[$key] = $child;
 
         return $data;
     }

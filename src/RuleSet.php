@@ -40,6 +40,8 @@ use Traversable;
  *
  * @implements Arrayable<string, mixed>
  * @implements IteratorAggregate<string, mixed>
+ *
+ * @phpstan-import-type ExcludedFields from WildcardValidatedData
  */
 final class RuleSet implements Arrayable, IteratorAggregate
 {
@@ -729,7 +731,7 @@ final class RuleSet implements Arrayable, IteratorAggregate
      * @param  array<string, string>  $attributes
      * @param  array<string, mixed>|null  $fallbackResult  Set when full expansion fallback is used
      * @param  array<string, array<string, mixed>>  $uncoveredGroups  {@see WildcardValidatedData::uncovered()}
-     * @param  array<string, array<int|string, list<array-key>>>  $excludedFields  {@see WildcardValidatedData::withoutExcluded()}
+     * @param  array<string, array<int|string, ExcludedFields>>  $excludedFields  {@see WildcardValidatedData::withoutExcluded()}
      * @return array<string, list<string>>
      *
      * @throws ValidationException
@@ -803,7 +805,7 @@ final class RuleSet implements Arrayable, IteratorAggregate
      * @param  array<string, mixed>  $itemRules
      * @param  array<string, string>  $itemMessages
      * @param  array<string, string>  $itemAttributes
-     * @param  array<int|string, list<array-key>>  $excludedFields  {@see ItemValidator::validate()}
+     * @param  array<int|string, ExcludedFields>  $excludedFields  {@see ItemValidator::validate()}
      * @return array<string, list<string>>
      */
     private function validateItems(array $items, array $itemRules, array $itemMessages, array $itemAttributes, string $parent, bool $isScalar, bool $stopOnFirstFailure = false, array &$excludedFields = []): array
