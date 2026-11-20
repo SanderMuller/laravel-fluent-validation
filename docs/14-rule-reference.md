@@ -287,7 +287,7 @@ Shared by all rule types:
 ```
 
 > [!IMPORTANT]
-> To exclude a field from `validated()` output, place `exclude` alongside the fluent rule: `'field' => ['exclude', FluentRule::string()]`. Using `->exclude()` on the FluentRule itself only works within the rule's self-validation scope.
+> In a form request with `HasFluentRules` and in `RuleSet::validate()`, `->exclude()`, `->excludeIf('type', 'b')` and `->excludeUnless('type', 'a')` remove a top-level field from `validated()`. In a plain `Validator::make()` or `$request->validate()`, the forms that reference another field do not. There, put the string rule next to the fluent rule: `'note' => ['exclude_if:type,b', FluentRule::string()]`.
 
 </details>
 
@@ -315,6 +315,17 @@ FluentRule::string()->whenInput(
 ```
 
 The closure receives the full input as a `Fluent` object and runs during validation, not at build time. You can also pass string rules: `->whenInput($condition, 'required|min:12')`.
+
+When the condition is the value of another field, use the field-based methods:
+
+```php
+'team_id'  => FluentRule::integer()->requiredIf('role', 'admin'),
+'discount' => FluentRule::numeric()->prohibitedUnless('role', 'admin'),
+'weight'   => FluentRule::numeric()->excludeUnless('type', 'physical')->required(),
+'password' => FluentRule::string()->requiredIf(fn () => $this->isMethod('POST')),
+```
+
+Inside `each()`, refer to a field of the same item by its wildcard path, such as `->requiredIf('items.*.type', 'digital')`. See [Array validation](06-array-validation.md).
 
 **Escape hatch.** Add any Laravel validation rule with `rule()`:
 

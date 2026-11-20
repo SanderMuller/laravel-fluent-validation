@@ -12,7 +12,7 @@ Fluent validation rule builders for Laravel. For a quick overview and installati
 
 ## Digging deeper
 
-- [Extending parent rules](07-extending-rules.md): child form requests, `modifyEach`, `modifyChildren`, returning a `RuleSet`
+- [Extending parent rules](07-extending-rules.md): add, replace, remove or extend parent rules with `put`, `except`, `modify`, `modifyEach` and `modifyChildren`
 - [Livewire](08-livewire.md): `HasFluentValidation` trait, Filament workaround
 - [Performance](09-performance.md): O(n) wildcards, pre-evaluation, fast-check closures, batched DB, benchmarks
 - [RuleSet](11-ruleset.md): build, compose, inspect, validate, escape hatches, method reference

@@ -75,6 +75,20 @@ All numbers are from `php benchmark.php` (macOS, PHP 8.5, OPcache), which measur
 // ... 40+ more conditional fields across 9 interaction types
 ```
 
+An excerpt of the same rules in fluent form:
+
+```php
+'interactions' => FluentRule::array()->required()->min(1)->each([
+    'type'                   => FluentRule::string()->required()->in(['button', 'hotspot', 'scroll_area', 'image', 'chapter', 'menu', 'frame', 'text', 'iframe']),
+    'title'                  => FluentRule::string()->nullable(),
+    'start_time'             => FluentRule::numeric()->required()->min(0),
+    'end_time'               => FluentRule::numeric()->required()->greaterThanOrEqualTo('interactions.*.start_time'),
+    'should_start_collapsed' => FluentRule::boolean()->excludeUnless('interactions.*.type', 'chapter'),
+    'position'               => FluentRule::string()->bail()->excludeUnless('interactions.*.type', 'chapter', 'menu'),
+    // ...
+]),
+```
+
 **Optimizations**: O(n) wildcard expansion + pre-evaluation removes ~95% of rules before validation starts.
 
 ### Event scheduling

@@ -59,7 +59,7 @@ return UserRules::base()
     ->put('email_confirmation', FluentRule::email()->required()->same('email'));
 ```
 
-**Read-modify-write**: `modify`, `modifyEach`, `modifyChildren`. Each one clones the rule first, so the parent rule set does not change. `modifyEach()` and `modifyChildren()` merge into an `each([...])` or `children([...])` map. [Extending parent rules](07-extending-rules.md) shows `modify` and `modifyEach`; `modifyChildren` works the same way:
+**Read-modify-write**: `modify`, `modifyEach`, `modifyChildren`. Each one works on a shallow clone of the rule, so the stored rule object does not change. Nested `each()` and `children()` rules are not cloned, and the `RuleSet` itself changes in place. `modifyEach()` and `modifyChildren()` merge into an `each([...])` or `children([...])` map. [Extending parent rules](07-extending-rules.md) shows `modify` and `modifyEach`; `modifyChildren` works the same way:
 
 ```php
 // Parent
@@ -121,7 +121,7 @@ $validator = RuleSet::from($rules)
     ->validator();
 ```
 
-That validator has already run. For hooks such as `->after()` or `->sometimes()`, use rule objects, `Rule::when()` or `modify()` instead. To build your own `Validator::make(...)`, `prepare()` returns the compiled rules, messages and attributes.
+That validator has already run, so a hook you add to it does not change the result of `check()`. For hooks such as `after()` or `sometimes()`, build your own validator: `prepare()` returns the compiled rules, messages and attributes for `Validator::make(...)`.
 
 ## Using with custom Validators
 

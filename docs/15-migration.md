@@ -18,11 +18,15 @@ $rules = [
 
 | Before                                              | After                                                                     |
 |-----------------------------------------------------|---------------------------------------------------------------------------|
+| `'tags' => 'array'` and `'tags.*' => 'string'`      | `FluentRule::array()->each(FluentRule::string())`                         |
 | `'items.*.name' => 'required\|string'`              | `FluentRule::array()->each(['name' => FluentRule::string()->required()])` |
 | `'search' => 'array'` and `'search.value' => '...'` | `FluentRule::array()->children(['value' => ...])`                         |
 | `Rule::in([...])`                                   | `->in([...])` or `->in(MyEnum::class)`                                    |
 | `Rule::unique('users')`                             | `->unique('users')`                                                       |
 | `Rule::forEach(fn () => ...)`                       | `FluentRule::array()->each(...)`                                          |
+| `'exclude_unless:type,physical'`                    | `->excludeUnless('type', 'physical')`                                     |
+| `Rule::requiredIf(fn () => ...)`                    | `->requiredIf(fn () => ...)`                                              |
+| `Rule::when($bool, [...])`                          | `->when($bool, fn ($r) => ...)`                                           |
 
 All conditional methods (`requiredIf`, `excludeUnless`, etc.) accept `Closure|bool` in addition to field references. `each()` and `children()` nest naturally. Flat dot-notation keys like `columns.*.data.sort` become nested `each([...children([...])])` trees that mirror the data shape.
 

@@ -7,7 +7,7 @@ Add `use HasFluentRules`. The trait extracts labels from rule objects and passes
 These require `HasFluentRules` or `FluentValidator` to resolve wildcard paths. Standalone FluentRule objects self-validate in isolation.
 
 **Child form request loses or corrupts parent rules**
-`array_merge_recursive` flattens FluentRule objects into arrays. See [Extending parent rules](07-extending-rules.md) for the supported merge patterns (spread, clone, `modifyEach`, `modifyChildren`).
+`array_merge_recursive` flattens FluentRule objects into arrays. See [Extending parent rules](07-extending-rules.md) for the supported merge patterns (`put()`, `except()`, `modify()`, `modifyEach()`, `modifyChildren()`, spread and clone).
 
 **Method not found on a rule type**
 Use `->rule('method_name')` as an escape hatch for any Laravel rule not yet available as a fluent method. Accepts strings, objects, and `['rule', ...$params]` tuples.

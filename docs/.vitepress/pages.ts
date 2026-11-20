@@ -59,7 +59,7 @@ export const sections: DocSection[] = [
             {
                 file: '07-extending-rules',
                 text: 'Extending parent rules',
-                blurb: 'Reshape inherited rules in child form requests with modifyEach and modifyChildren.',
+                blurb: 'Add, replace, remove or extend inherited rules in child form requests with put, except, modify and modifyEach.',
             },
             {
                 file: '08-livewire',

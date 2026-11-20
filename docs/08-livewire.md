@@ -45,6 +45,50 @@ The trait provides full Livewire support. Labels, messages, `each()`, `children(
 ]),
 ```
 
+For a Form object, add the trait to the `Form` class:
+
+```php
+use Livewire\Form;
+use SanderMuller\FluentValidation\FluentRule;
+use SanderMuller\FluentValidation\HasFluentValidation;
+
+class PostForm extends Form
+{
+    use HasFluentValidation;
+
+    public string $title = '';
+
+    public function rules(): array
+    {
+        return ['title' => FluentRule::string('Title')->required()->min(5)];
+    }
+}
+
+// In the component
+public PostForm $form;
+
+public function save(): void
+{
+    $this->form->validate(); // errors are keyed as form.title
+}
+```
+
+On a component without a `rules()` method, a `$rules` property works the same way. A property default cannot hold an object, so set it in `boot()`. For real-time validation, call `validateOnly()` from `updated()`:
+
+```php
+protected $rules = [];
+
+public function boot(): void
+{
+    $this->rules = ['name' => FluentRule::string('Name')->required()->min(3)];
+}
+
+public function updated(string $property): void
+{
+    $this->validateOnly($property);
+}
+```
+
 **Filament components:** `HasFluentValidation` conflicts with Filament's `InteractsWithForms` (v3/v4) / `InteractsWithSchemas` (v5) because both define `validate()`, `validateOnly()`, `getRules()`, and `getValidationAttributes()`. Use `HasFluentValidationForFilament` instead. The [Rector companion](https://github.com/sandermuller/laravel-fluent-validation-rector) picks it plus the required `insteadof` block whenever `InteractsWithForms` / `InteractsWithSchemas` is used on a class, every run. FluentRule compilation, label/message extraction, `each()`/`children()` expansion, Filament's `form-validation-error` event dispatch, and form-schema rule aggregation all keep working.
 
 <details>

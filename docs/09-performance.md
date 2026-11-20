@@ -20,6 +20,8 @@ Laravel's `explodeWildcardRules()` flattens data with `Arr::dot()` and matches r
 
 Rules like `exclude_unless` and `exclude_if` are evaluated before the validator starts. Excluded attributes are removed from the rule set entirely, so the validator only sees the rules that actually apply. For a payload with 100 items and 47 conditional fields, this reduces the rule set from ~4,700 to ~200.
 
+For fields inside `each()`, `RuleSet::validate()` gives the fluent `->excludeIf()` and `->excludeUnless()` with a field reference the same pre-evaluation, for example `FluentRule::boolean()->excludeUnless('interactions.*.type', 'chapter')`.
+
 ## Fast-check closures
 
 The package compiles 30+ common rules into PHP closures that bypass Laravel's validator when values pass. Coverage:

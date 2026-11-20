@@ -77,16 +77,16 @@ You notice the difference on requests with many fields or large wildcard arrays,
 
 **Conditional callables**
 
-| Laravel's `Rule`                            | FluentRule equivalent                       |
-|---------------------------------------------|---------------------------------------------|
-| `Rule::when($cond, $rules, $default)`       | `->when($cond, fn ($r) => …, fn ($r) => …)` |
-| `Rule::unless($cond, $rules, $default)`     | `->when(! $cond, …)`                        |
-| `Rule::requiredIf(fn () => …)`              | `->requiredIf(fn () => …)`                  |
-| `Rule::requiredUnless(fn () => …)`          | `->requiredUnless(fn () => …)`              |
-| `Rule::excludeIf(fn () => …)`               | `->excludeIf(fn () => …)`                   |
-| `Rule::excludeUnless(fn () => …)`           | `->excludeUnless(fn () => …)`               |
-| `Rule::prohibitedIf(fn () => …)`            | `->prohibitedIf(fn () => …)`                |
-| `Rule::prohibitedUnless(fn () => …)`        | `->prohibitedUnless(fn () => …)`            |
+| Laravel's `Rule`                        | FluentRule equivalent                         |
+|-----------------------------------------|-----------------------------------------------|
+| `Rule::when($bool, $rules, $default)`   | `->when($bool, fn ($r) => …, fn ($r) => …)`   |
+| `Rule::unless($bool, $rules, $default)` | `->unless($bool, fn ($r) => …, fn ($r) => …)` |
+| `Rule::requiredIf(fn () => …)`          | `->requiredIf(fn () => …)`                    |
+| `Rule::requiredUnless(fn () => …)`      | `->requiredUnless(fn () => …)`                |
+| `Rule::excludeIf(fn () => …)`           | `->excludeIf(fn () => …)`                     |
+| `Rule::excludeUnless(fn () => …)`       | `->excludeUnless(fn () => …)`                 |
+| `Rule::prohibitedIf(fn () => …)`        | `->prohibitedIf(fn () => …)`                  |
+| `Rule::prohibitedUnless(fn () => …)`    | `->prohibitedUnless(fn () => …)`              |
 
 **Iteration**
 

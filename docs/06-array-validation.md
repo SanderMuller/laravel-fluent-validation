@@ -31,6 +31,18 @@ FluentRule::array()->each([
 
 To compare with another field of the same item, use its full wildcard path: `->after('items.*.starts_at')`, `->requiredIf('items.*.type', 'digital')`. That form means the same in a form request and in a `RuleSet`. In a form request, a bare name such as `->after('starts_at')` means the top-level field, as in native Laravel.
 
+```php
+'items' => FluentRule::array()->required()->each([
+    'type'      => FluentRule::string()->required()->in(['digital', 'physical']),
+    'starts_at' => FluentRule::date()->required(),
+    'ends_at'   => FluentRule::date()->required()->after('items.*.starts_at'),
+    'url'       => FluentRule::string()->url()->requiredIf('items.*.type', 'digital'),
+    'weight'    => FluentRule::numeric()->excludeUnless('items.*.type', 'physical')->required()->min(0),
+]),
+```
+
+Each item is checked against its own fields: a digital item needs a `url`, and only a physical item gets its `weight` validated.
+
 > [!TIP]
 > **Catch unbounded `each()` at analyse time.** The companion [PHPStan package](16-static-analysis.md) flags `each()` chains without a size cap (`->max()`, `->between()`, `->exactly()`, or a key whitelist). That's the shape that turns into an N+1 / DoS footgun with `->exists()` or closure rules on large payloads.
 
