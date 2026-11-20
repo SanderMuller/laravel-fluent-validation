@@ -16,6 +16,22 @@
     --vp-c-brand-soft: rgba(255, 45, 32, 0.18);
 }
 
+/**
+ * VitePress colours TIP blocks with the brand colour, which is red here and
+ * makes them look like warnings. Use green, as GitHub does. A link keeps the
+ * darker green and full opacity on hover for contrast on the green background.
+ */
+:root {
+    --vp-c-tip-1: var(--vp-c-green-1);
+    --vp-c-tip-2: var(--vp-c-green-1);
+    --vp-c-tip-3: var(--vp-c-green-3);
+    --vp-c-tip-soft: var(--vp-c-green-soft);
+}
+
+.custom-block.tip a:hover {
+    opacity: 1;
+}
+
 /* Home hero: gradient wordmark and a soft glow behind the logo. */
 :root {
     --vp-home-hero-name-color: transparent;
