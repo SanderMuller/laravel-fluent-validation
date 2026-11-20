@@ -104,9 +104,19 @@ final class DependentParameterKeys
             return $rule;
         }
 
-        $parameters = array_map(static fn (?string $parameter): string => self::quote(self::replaceAsterisks($parameter ?? '', $keys)), str_getcsv($pieces[1], escape: '\\'));
+        $parameters = array_map(static fn (?string $parameter): string => self::quote(self::replaceAsterisks($parameter ?? '', $keys)), self::parameters($pieces[1]));
 
         return $pieces[0] . ':' . implode(',', $parameters);
+    }
+
+    /**
+     * The same as Laravel's str_getcsv(); explode() is faster when nothing is quoted.
+     *
+     * @return list<string|null>
+     */
+    private static function parameters(string $parameters): array
+    {
+        return str_contains($parameters, '"') ? str_getcsv($parameters, escape: '\\') : explode(',', $parameters);
     }
 
     /**

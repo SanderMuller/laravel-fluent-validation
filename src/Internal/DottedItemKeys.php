@@ -14,8 +14,12 @@ final class DottedItemKeys
     /** @param  array<int|string, mixed>  $items */
     public static function exist(array $items): bool
     {
+        if (array_is_list($items)) {
+            return false;
+        }
+
         foreach (array_keys($items) as $key) {
-            if (str_contains((string) $key, '.')) {
+            if (is_string($key) && str_contains($key, '.')) {
                 return true;
             }
         }

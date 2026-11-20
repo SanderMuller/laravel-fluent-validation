@@ -3,6 +3,7 @@
 namespace SanderMuller\FluentValidation\Internal;
 
 use Closure;
+use Illuminate\Validation\Validator;
 
 /**
  * Pre-evaluates `exclude_unless` / `exclude_if` rule tuples against a
@@ -24,6 +25,14 @@ final class ConditionalEvaluationPhase
      * @param  string|null  $dotPlaceholder  what the validator writes for an escaped dot (`\.`) in an attribute
      */
     public function __construct(private readonly ?string $dotPlaceholder = null) {}
+
+    public static function for(Validator $validator): self
+    {
+        // The validator writes the same placeholder for a dot in a data key.
+        $placeholder = array_key_first($validator->parseData(['.' => null]));
+
+        return new self(is_string($placeholder) ? $placeholder : null);
+    }
 
     /**
      * Build a flat map of attributes that carry exclude_unless / exclude_if

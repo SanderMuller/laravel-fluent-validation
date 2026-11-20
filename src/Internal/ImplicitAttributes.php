@@ -2,10 +2,7 @@
 
 namespace SanderMuller\FluentValidation\Internal;
 
-use Closure;
 use Illuminate\Validation\Validator;
-use ReflectionClass;
-use ReflectionMethod;
 use ReflectionProperty;
 
 /**
@@ -23,43 +20,13 @@ final class ImplicitAttributes
      */
     public static function set(Validator $validator, array $implicitAttributes): void
     {
-        $encode = self::encoder($validator);
+        // The validator writes the same placeholder for a dot in a data key.
+        $placeholder = (string) array_key_first($validator->parseData(['.' => null]));
 
         foreach ($implicitAttributes as $pattern => $attributes) {
-            $implicitAttributes[$pattern] = array_map(static fn (string $attribute): string => str_contains($attribute, '\\.') ? $encode($attribute) : $attribute, $attributes);
+            $implicitAttributes[$pattern] = str_replace('\\.', $placeholder, $attributes);
         }
 
         (new ReflectionProperty(Validator::class, 'implicitAttributes'))->setValue($validator, $implicitAttributes);
-    }
-
-    /**
-     * What the validator writes in an attribute for an escaped dot (`\.`).
-     */
-    public static function dotPlaceholder(Validator $validator): string
-    {
-        return self::encoder($validator)('\\.');
-    }
-
-    /**
-     * Laravel 12.0 keeps the dot placeholder per validator; later versions
-     * encode it with a static method.
-     *
-     * @return Closure(string): string
-     */
-    private static function encoder(Validator $validator): Closure
-    {
-        if ((new ReflectionClass(Validator::class))->hasMethod('encodeAttributeWithPlaceholder')) {
-            $method = new ReflectionMethod(Validator::class, 'encodeAttributeWithPlaceholder');
-
-            return static function (string $attribute) use ($method): string {
-                $encoded = $method->invoke(null, $attribute);
-
-                return is_string($encoded) ? $encoded : $attribute;
-            };
-        }
-
-        $placeholder = (new ReflectionProperty(Validator::class, 'dotPlaceholder'))->getValue($validator);
-
-        return static fn (string $attribute): string => is_string($placeholder) ? str_replace('\\.', $placeholder, $attribute) : $attribute;
     }
 }
