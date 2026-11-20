@@ -6,6 +6,7 @@ Fluent validation rule builders for Laravel. For a quick overview and installati
 
 - [Why this package?](01-why-this-package.md): DX, type safety, structure, performance, and how it compares to Laravel's `Rule` class
 - [Installation](02-installation.md)
+- [Getting started](03-getting-started.md): one form request, three fluent rules, and a validated payload
 - [Basic usage](04-basic-usage.md): form requests, typing `rules()`, the `schema()` builder, other contexts
 - [Error messages](05-error-messages.md): labels, per-rule messages
 - [Array validation](06-array-validation.md): `each()`, `children()`, nesting
@@ -15,7 +16,9 @@ Fluent validation rule builders for Laravel. For a quick overview and installati
 - [Extending parent rules](07-extending-rules.md): add, replace, remove or extend parent rules with `put`, `except`, `modify`, `modifyEach` and `modifyChildren`
 - [Livewire](08-livewire.md): `HasFluentValidation` trait, Filament workaround
 - [Performance](09-performance.md): O(n) wildcards, pre-evaluation, fast-check closures, batched DB, benchmarks
+- [Benchmarks](10-benchmarks.md): the measured numbers, and the six rule sets behind them
 - [RuleSet](11-ruleset.md): build, compose, inspect, validate, escape hatches, method reference
+- [Validating with a RuleSet](12-validating.md): `validate()` and `check()`, unknown-field handling, and named error bags
 - [Testing](13-testing.md): `FluentRulesTester`, Pest expectations
 - [Rule reference](14-rule-reference.md): all types, modifiers, conditionals, macros
 

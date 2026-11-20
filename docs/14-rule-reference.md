@@ -234,7 +234,7 @@ FluentRule::anyOf([
 <details>
 <summary><a name="embedded-rules"></a><strong>Embedded rules</strong>: in, unique, exists, enum</summary>
 
-String, numeric, and date rules support `in`, `unique`, `exists`, and `enum`. `in()` and `notIn()` accept arrays or a `BackedEnum` class:
+String, numeric, and date rules support `in`, `unique`, `exists`, and `enum`. `in()` and `notIn()` accept arrays or a `BackedEnum` class, and `enum()` takes a `BackedEnum` class:
 
 ```php
 FluentRule::string()->in(['draft', 'published'])
