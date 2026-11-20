@@ -6,6 +6,7 @@ use SanderMuller\FluentValidation\Benchmarks\Support\Scenarios;
 use SanderMuller\FluentValidation\RuleSet;
 use Tally\Attribute\Before;
 use Tally\Attribute\DataProvider;
+use Tally\Attribute\ExpectedFor;
 use Tally\Attribute\Linear;
 use Tally\Attribute\RelativeTolerance;
 
@@ -59,6 +60,7 @@ final class ActivityLogBench
     }
 
     #[DataProvider('size')]
+    #[ExpectedFor('entries-250', instructions: '170.4M', cycles: '212.4M', memory: '197.1KiB')]
     public function benchValidate(int $count): void
     {
         Scenarios::validate($this->rules, $this->data);
@@ -70,6 +72,7 @@ final class ActivityLogBench
      */
     #[DataProvider('size')]
     #[RelativeTolerance(1.0)]
+    #[ExpectedFor('entries-250', instructions: '1.853B', cycles: '2.175B', memory: '2.535MiB')]
     public function benchNative(int $count): void
     {
         Scenarios::validateNative($this->nativeRules, $this->data);

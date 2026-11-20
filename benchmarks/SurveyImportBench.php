@@ -6,6 +6,7 @@ use SanderMuller\FluentValidation\Benchmarks\Support\Scenarios;
 use SanderMuller\FluentValidation\RuleSet;
 use Tally\Attribute\Before;
 use Tally\Attribute\DataProvider;
+use Tally\Attribute\ExpectedFor;
 use Tally\Attribute\Linear;
 use Tally\Attribute\RelativeTolerance;
 
@@ -59,6 +60,7 @@ final class SurveyImportBench
     }
 
     #[DataProvider('size')]
+    #[ExpectedFor('questions-100', instructions: '243.6M', cycles: '293.8M', memory: '511.2KiB')]
     public function benchValidate(int $count): void
     {
         Scenarios::validate($this->rules, $this->data);
@@ -70,6 +72,7 @@ final class SurveyImportBench
      */
     #[DataProvider('size')]
     #[RelativeTolerance(1.0)]
+    #[ExpectedFor('questions-100', instructions: '1.420B', cycles: '1.638B', memory: '2.113MiB')]
     public function benchNative(int $count): void
     {
         Scenarios::validateNative($this->nativeRules, $this->data);
