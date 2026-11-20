@@ -22,8 +22,8 @@ use SanderMuller\FluentValidation\Internal\BatchLimitRemap;
 use SanderMuller\FluentValidation\Internal\ExpandedRuleMerger;
 use SanderMuller\FluentValidation\Internal\ItemAttributeNames;
 use SanderMuller\FluentValidation\Internal\ItemErrorCollector;
+use SanderMuller\FluentValidation\Internal\ItemGroupValidator;
 use SanderMuller\FluentValidation\Internal\ItemRuleCompiler;
-use SanderMuller\FluentValidation\Internal\ItemValidator;
 use SanderMuller\FluentValidation\Internal\OutsideItemReferences;
 use SanderMuller\FluentValidation\Internal\WildcardReferenceRewriter;
 use SanderMuller\FluentValidation\Internal\WildcardValidatedData;
@@ -805,12 +805,12 @@ final class RuleSet implements Arrayable, IteratorAggregate
      * @param  array<string, mixed>  $itemRules
      * @param  array<string, string>  $itemMessages
      * @param  array<string, string>  $itemAttributes
-     * @param  array<int|string, ExcludedFields>  $excludedFields  {@see ItemValidator::validate()}
+     * @param  array<int|string, ExcludedFields>  $excludedFields  {@see ItemGroupValidator::validate()}
      * @return array<string, list<string>>
      */
     private function validateItems(array $items, array $itemRules, array $itemMessages, array $itemAttributes, string $parent, bool $isScalar, bool $stopOnFirstFailure = false, array &$excludedFields = []): array
     {
-        return (new ItemValidator($stopOnFirstFailure, $this->ruleCompiler, $this->errorCollector))
+        return (new ItemGroupValidator($stopOnFirstFailure, $this->ruleCompiler, $this->errorCollector))
             ->validate($items, $itemRules, $itemMessages, $itemAttributes, $parent, $isScalar, $excludedFields);
     }
 

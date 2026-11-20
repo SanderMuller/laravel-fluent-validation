@@ -3,12 +3,12 @@
 namespace SanderMuller\FluentValidation\Tests\Internal;
 
 use SanderMuller\FluentValidation\Internal\ItemErrorCollector;
+use SanderMuller\FluentValidation\Internal\ItemGroupValidator;
 use SanderMuller\FluentValidation\Internal\ItemRuleCompiler;
-use SanderMuller\FluentValidation\Internal\ItemValidator;
 
-function makeItemValidator(bool $stopOnFirstFailure = false): ItemValidator
+function makeItemValidator(bool $stopOnFirstFailure = false): ItemGroupValidator
 {
-    return new ItemValidator(
+    return new ItemGroupValidator(
         $stopOnFirstFailure,
         new ItemRuleCompiler(),
         new ItemErrorCollector(),

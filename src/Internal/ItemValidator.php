@@ -39,12 +39,12 @@ final readonly class ItemValidator
      * @param  array<string, mixed>  $itemRules
      * @param  array<string, string>  $itemMessages
      * @param  array<string, string>  $itemAttributes
+     * @param  array<string, list<array{action: string, field: string, values: list<string>}>>  $conditionalFields  {@see ItemRuleCompiler::analyzeConditionals()}
      * @param  array<int|string, ExcludedFields>  $excludedFields  receives, per item index, the fields an exclude rule removed
      * @return array<string, list<string>>
      */
-    public function validate(array $items, array $itemRules, array $itemMessages, array $itemAttributes, string $parent, bool $isScalar, array &$excludedFields = []): array
+    public function validate(array $items, array $itemRules, array $itemMessages, array $itemAttributes, string $parent, bool $isScalar, array $conditionalFields, array &$excludedFields = []): array
     {
-        $conditionalFields = $this->compiler->analyzeConditionals($itemRules);
         $itemRules = PlainRuleJoiner::joinAll($itemRules, $conditionalFields);
         $siblingFields = PresenceConditionalReducer::fields($itemRules) + ValueConditionalReducer::fields($itemRules);
         $hasSiblingDependentConditionals = $siblingFields !== [];
@@ -128,7 +128,7 @@ final readonly class ItemValidator
                     $cacheKey = $this->compiler->ruleCacheKey($reducedSlowRules);
 
                     if (! isset($validatorCache[$cacheKey])) {
-                        $validatorCache[$cacheKey] = $this->makeItemValidator($itemData, $reducedSlowRules, $itemMessages, $itemAttributes);
+                        $validatorCache[$cacheKey] = self::makeItemValidator($itemData, $reducedSlowRules, $itemMessages, $itemAttributes);
 
                         if ($batchVerifier instanceof PrecomputedPresenceVerifier) {
                             $validatorCache[$cacheKey]->setPresenceVerifier($batchVerifier);
@@ -156,7 +156,7 @@ final readonly class ItemValidator
             $cacheKey = $this->compiler->ruleCacheKey($effectiveRules);
 
             if (! isset($validatorCache[$cacheKey])) {
-                $validatorCache[$cacheKey] = $this->makeItemValidator($itemData, $effectiveRules, $itemMessages, $itemAttributes);
+                $validatorCache[$cacheKey] = self::makeItemValidator($itemData, $effectiveRules, $itemMessages, $itemAttributes);
 
                 if ($batchVerifier instanceof PrecomputedPresenceVerifier) {
                     $validatorCache[$cacheKey]->setPresenceVerifier($batchVerifier);
@@ -292,7 +292,7 @@ final readonly class ItemValidator
      * @param  array<string, string>  $messages
      * @param  array<string, string>  $attributes
      */
-    private function makeItemValidator(array $itemData, array $rules, array $messages, array $attributes): BaseValidator
+    public static function makeItemValidator(array $itemData, array $rules, array $messages, array $attributes): BaseValidator
     {
         $base = Validator::make($itemData, $rules, $messages, $attributes);
 
