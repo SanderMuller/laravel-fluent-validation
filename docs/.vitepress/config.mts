@@ -3,6 +3,7 @@ import { readFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
 import { defineConfig } from 'vitepress'
 import { link, pages, sections } from './pages'
+import { withTallyTable } from './tally'
 
 const SITE_URL = 'https://sandermuller.github.io/laravel-fluent-validation'
 const DESCRIPTION = 'Fluent validation rule builders for Laravel with IDE autocompletion, co-located array rules, and up to 240x faster wildcard validation.'
@@ -40,7 +41,7 @@ export default defineConfig({
         writeFileSync(resolve(siteConfig.outDir, 'llms.txt'), index.join('\n'))
 
         const sources = await Promise.all(
-            pages.map(page => readFile(resolve(siteConfig.srcDir, `${page.file}.md`), 'utf8')),
+            pages.map(async page => withTallyTable(await readFile(resolve(siteConfig.srcDir, `${page.file}.md`), 'utf8'))),
         )
         writeFileSync(resolve(siteConfig.outDir, 'llms-full.txt'), sources.join('\n\n---\n\n'))
     },
@@ -77,6 +78,11 @@ export default defineConfig({
                 }
                 return defaultRender(tokens, idx, options, env, self)
             }
+
+            // The benchmarks page shows the Tally numbers accepted in benchmarks/*.php.
+            md.core.ruler.before('normalize', 'tally-table', (state) => {
+                state.src = withTallyTable(state.src)
+            })
         },
     },
 
