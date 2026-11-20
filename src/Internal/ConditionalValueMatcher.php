@@ -69,8 +69,9 @@ final class ConditionalValueMatcher
      *   truthiness — `'0'`/`''` ⟺ false, other non-empty strings / non-zero
      *   numbers ⟺ true — matching PHP's `'0' == false` / `'1' == true`. This is
      *   the boolean-input case (`flag` declared `boolean`, request sends `'0'`).
-     * - any other scalar compares by string coercion, covering numeric-string ↔
-     *   numeric (`'1'` ↔ `1`).
+     * - two numeric values compare as numbers (`'01'` ↔ `'1'`, `1.0` ↔ `'1'`),
+     *   as PHP 8 compares numeric strings.
+     * - any other scalar compares by string coercion.
      *
      * @param  list<mixed>  $values
      */
@@ -79,9 +80,11 @@ final class ConditionalValueMatcher
         $otherStr = (string) $other;
 
         foreach ($values as $v) {
-            $matched = is_bool($v)
-                ? (bool) $other === $v
-                : is_scalar($v) && (string) $v === $otherStr;
+            $matched = match (true) {
+                is_bool($v) => (bool) $other === $v,
+                is_numeric($v) && is_numeric($other) => (float) $v === (float) $other,
+                default => is_scalar($v) && (string) $v === $otherStr,
+            };
 
             if ($matched) {
                 return true;

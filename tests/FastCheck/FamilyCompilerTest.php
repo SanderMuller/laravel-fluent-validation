@@ -17,11 +17,15 @@ it('CoreValueCompiler returns null for rule strings it does not handle', functio
         ->and(CoreValueCompiler::compile('string|required'))->toBeInstanceOf(Closure::class);
 });
 
-it('ProhibitedCompiler returns null when rule is not bare prohibited (+nullable/sometimes/bail only)', function (): void {
+it('ProhibitedCompiler returns null without prohibited or with a rule that needs a value', function (): void {
     expect(ProhibitedCompiler::compile('string|max:10'))->toBeNull()
         ->and(ProhibitedCompiler::compile('required'))->toBeNull()
-        ->and(ProhibitedCompiler::compile('prohibited|string'))->toBeNull()
         ->and(ProhibitedCompiler::compile('prohibited|required'))->toBeNull()
+        ->and(ProhibitedCompiler::compile('prohibited|required_if:a,b'))->toBeNull()
+        ->and(ProhibitedCompiler::compile('prohibited|accepted'))->toBeNull()
+        ->and(ProhibitedCompiler::compile('prohibited|same:other'))->toBeNull()
+        ->and(ProhibitedCompiler::compile('prohibited|string'))->toBeInstanceOf(Closure::class)
+        ->and(ProhibitedCompiler::compile('nullable|prohibited|array|max:20'))->toBeInstanceOf(Closure::class)
         ->and(ProhibitedCompiler::compile('nullable|sometimes'))->toBeNull() // no prohibited
         ->and(ProhibitedCompiler::compile('prohibited'))->toBeInstanceOf(Closure::class)
         ->and(ProhibitedCompiler::compile('prohibited|nullable'))->toBeInstanceOf(Closure::class)

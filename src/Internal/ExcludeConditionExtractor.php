@@ -136,7 +136,8 @@ final class ExcludeConditionExtractor
             // Mirror Laravel's `ValidationRuleParser::parseParameters` CSV semantics.
             $params = str_getcsv(substr($segment, strlen($prefix)), ',', '"', '\\');
 
-            if (! is_string($params[0]) || $params[0] === '') {
+            // Laravel throws for a rule without a value; leave it to Laravel.
+            if (! is_string($params[0]) || $params[0] === '' || count($params) < 2) {
                 return null;
             }
 

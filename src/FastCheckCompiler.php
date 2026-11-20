@@ -39,7 +39,7 @@ final class FastCheckCompiler
      *
      * Dispatch order (core-first): {@see CoreValueCompiler} covers the hot
      * path (type/format/size/in/regex/date-literal). {@see ProhibitedCompiler}
-     * handles bare `prohibited` + nullable/sometimes/bail siblings.
+     * handles `prohibited`, alone or with value rules that core compiles.
      *
      * @return Closure(mixed): bool|null
      */

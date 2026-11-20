@@ -9,7 +9,6 @@ use SanderMuller\FluentValidation\FastCheckCompiler;
 use SanderMuller\FluentValidation\PrecomputedPresenceVerifier;
 use SanderMuller\FluentValidation\PresenceConditionalReducer;
 use SanderMuller\FluentValidation\ValueConditionalReducer;
-use Stringable;
 
 /**
  * Collaborator for {@see ItemValidator}. Extracts the rule-shape concerns
@@ -68,7 +67,7 @@ final class ItemRuleCompiler
             } else {
                 // Kept — strip the exclude tuple so only the actual validation
                 // rules remain. This enables fast-checking.
-                $itemRules[$field] = $this->stripConditionalTuples($itemRules[$field]);
+                $itemRules[$field] = ExcludeRuleStripper::strip($itemRules[$field]);
             }
         }
 
@@ -107,57 +106,6 @@ final class ItemRuleCompiler
         }
 
         return false;
-    }
-
-    /**
-     * Strip exclude_unless/exclude_if tuples from a rule array, leaving the
-     * actual validation rules. Joins remaining strings into a pipe-delimited
-     * string when possible.
-     *
-     * Only the exclude tuples are removed — required_if/required_unless tuples
-     * must survive so the field's presence conditional still validates; the
-     * presence and value reducers handle them next.
-     */
-    private function stripConditionalTuples(mixed $rules): mixed
-    {
-        if (! is_array($rules)) {
-            return $rules;
-        }
-
-        $stripped = [];
-
-        foreach ($rules as $rule) {
-            if (is_array($rule) && isset($rule[0]) && is_string($rule[0])
-                && in_array($rule[0], ['exclude_unless', 'exclude_if'], true)) {
-                continue;
-            }
-
-            // Stringify Stringable objects (Rule::in, Rule::notIn) so the
-            // result can be fast-checked as a pipe-joined string.
-            $stripped[] = $rule instanceof Stringable ? (string) $rule : $rule;
-        }
-
-        // If all remaining rules are strings, join them for faster parsing —
-        // unless a token contains a literal `|` (e.g. `regex:/^(a|b)$/`), which
-        // Laravel's parser would split. Keep the array form in that case.
-        $allStrings = true;
-        $anyContainsPipe = false;
-        foreach ($stripped as $rule) {
-            if (! is_string($rule)) {
-                $allStrings = false;
-                break;
-            }
-
-            if (str_contains($rule, '|')) {
-                $anyContainsPipe = true;
-            }
-        }
-
-        if ($allStrings && ! $anyContainsPipe && $stripped !== []) {
-            return implode('|', array_map(static fn (mixed $v): string => is_scalar($v) ? (string) $v : '', $stripped));
-        }
-
-        return $stripped;
     }
 
     /**
@@ -219,73 +167,26 @@ final class ItemRuleCompiler
             }
 
             $valueCheck = FastCheckCompiler::compile($rule);
-            $itemAwareCheck = null;
+            $itemAwareCheck = $valueCheck instanceof Closure ? null : $this->compileItemAwareCheck((string) $field, $rule);
 
-            if (! $valueCheck instanceof Closure) {
-                // Pass the within-item attribute name so `confirmed` can
-                // rewrite to `same:${attr}_confirmation`. For `items.*.password`
-                // the attribute is `password`; for flat `password` it's the
-                // key itself.
-                $attributeName = str_contains($field, '*.')
-                    ? explode('.*.', $field, 2)[1]
-                    : $field;
+            if (! $valueCheck instanceof Closure && ! $itemAwareCheck instanceof Closure) {
+                $slowRules[$field] = $rule;
 
-                $itemAwareCheck = FastCheckCompiler::compileWithItemContext($rule, $attributeName)
-                    ?? FastCheckCompiler::compileWithPresenceConditionals($rule);
-
-                if (! $itemAwareCheck instanceof Closure) {
-                    $slowRules[$field] = $rule;
-
-                    continue;
-                }
+                continue;
             }
 
             // Nested wildcard field (e.g., options.*.label): expand and check each item
             if (str_contains($field, '*.')) {
-                $parts = explode('.*.', $field, 2);
-                $parentField = $parts[0];
-                $childField = $parts[1];
+                [$parentField, $childField] = explode('.*.', $field, 2);
+                $check = PathFastCheck::eachItem($parentField, $childField, $valueCheck, $itemAwareCheck);
 
-                if ($itemAwareCheck instanceof Closure) {
-                    $checks[$field] = static function (array $data) use ($parentField, $childField, $itemAwareCheck): bool {
-                        $items = $data[$parentField] ?? null;
-                        if (! is_array($items)) {
-                            return true;
-                        }
+                if (! $check instanceof Closure) {
+                    $slowRules[$field] = $rule;
 
-                        foreach ($items as $item) {
-                            if (! is_array($item)) {
-                                return false;
-                            }
-
-                            /** @var array<string, mixed> $item */
-                            if (! $itemAwareCheck($item[$childField] ?? null, $item)) {
-                                return false;
-                            }
-                        }
-
-                        return true;
-                    };
-                } else {
-                    $checks[$field] = static function (array $data) use ($parentField, $childField, $valueCheck): bool {
-                        $items = $data[$parentField] ?? null;
-                        if (! is_array($items)) {
-                            return true;
-                        }
-
-                        foreach ($items as $item) {
-                            if (! is_array($item)) {
-                                return false;
-                            }
-
-                            if (! $valueCheck($item[$childField] ?? null)) {
-                                return false;
-                            }
-                        }
-
-                        return true;
-                    };
+                    continue;
                 }
+
+                $checks[$field] = $check;
             } elseif ($field === '*' || str_contains($field, '.')) {
                 $checks[$field] = PathFastCheck::build($field === '*' ? ['_v'] : explode('.', $field), $valueCheck, $itemAwareCheck);
             } elseif ($itemAwareCheck instanceof Closure) {
@@ -300,6 +201,21 @@ final class ItemRuleCompiler
 
         // Slow rules keep the input order, so Laravel reports errors in rule order.
         return [$checks, array_intersect_key($compiledRules, FieldLocalRules::withReadReferences($slowRules, $compiledRules))];
+    }
+
+    /** @return (Closure(mixed, array<string, mixed>): bool)|null */
+    private function compileItemAwareCheck(string $field, string $rule): ?Closure
+    {
+        // Pass the within-item attribute name so `confirmed` can
+        // rewrite to `same:${attr}_confirmation`. For `items.*.password`
+        // the attribute is `password`; for flat `password` it's the
+        // key itself.
+        $attributeName = str_contains($field, '*.')
+            ? explode('.*.', $field, 2)[1]
+            : $field;
+
+        return FastCheckCompiler::compileWithItemContext($rule, $attributeName)
+            ?? FastCheckCompiler::compileWithPresenceConditionals($rule);
     }
 
     /**

@@ -16,9 +16,9 @@ final class PathFastCheck
 {
     /**
      * Split off the fields a fast check cannot read. A check reads a plain or
-     * dotted field, the scalar each `*`, or `parent.*.child` with flat parent
-     * and child. Any other wildcard field (`tags.*`, `a.*.b.*`, `a.*.b.c`)
-     * goes to Laravel.
+     * dotted field, the scalar each `*`, or `parent.*.child` with a flat
+     * parent and a plain or dotted child. Any other wildcard field (`tags.*`,
+     * `a.*.b.*`, a child with an escaped dot) goes to Laravel.
      *
      * @param  array<string, mixed>  $rules
      * @return array{0: array<string, mixed>, 1: array<string, mixed>} readable rules, then the rest
@@ -34,7 +34,7 @@ final class PathFastCheck
     {
         return match (substr_count($field, '*')) {
             0 => true,
-            1 => $field === '*' || preg_match('/\A[^.]+\.\*\.[^.]+\z/', $field) === 1,
+            1 => $field === '*' || preg_match('/\A[^.]+\.\*\.[^.\\\\]+(\.[^.\\\\]+)*\z/', $field) === 1,
             default => false,
         };
     }
@@ -59,7 +59,97 @@ final class PathFastCheck
     }
 
     /**
-     * @param  array<string, mixed>  $data
+     * Check `$child` in each element of `$parent`, as for `options.*.label` or
+     * `answers.*.action.type`. A parent that is not an array has no elements.
+     * An item-aware check gets the element as its item. A dotted child with a
+     * sibling reference has no clear item context, so it returns null and
+     * Laravel checks it.
+     *
+     * @param  (Closure(mixed): bool)|null  $valueCheck
+     * @param  (Closure(mixed, array<string, mixed>): bool)|null  $itemAwareCheck
+     * @return (Closure(array<string, mixed>): bool)|null
+     */
+    public static function eachItem(string $parent, string $child, ?Closure $valueCheck, ?Closure $itemAwareCheck): ?Closure
+    {
+        if ($itemAwareCheck instanceof Closure) {
+            return str_contains($child, '.') ? null : self::eachItemAware($parent, $child, $itemAwareCheck);
+        }
+
+        if (! $valueCheck instanceof Closure) {
+            return null;
+        }
+
+        if (str_contains($child, '.')) {
+            return self::eachItemPath($parent, explode('.', $child), $valueCheck);
+        }
+
+        return static function (array $data) use ($parent, $child, $valueCheck): bool {
+            $items = $data[$parent] ?? null;
+
+            if (! is_array($items)) {
+                return true;
+            }
+
+            foreach ($items as $item) {
+                if (! is_array($item) || ! $valueCheck($item[$child] ?? null)) {
+                    return false;
+                }
+            }
+
+            return true;
+        };
+    }
+
+    /**
+     * @param  Closure(mixed, array<string, mixed>): bool  $itemAwareCheck
+     * @return Closure(array<string, mixed>): bool
+     */
+    private static function eachItemAware(string $parent, string $child, Closure $itemAwareCheck): Closure
+    {
+        return static function (array $data) use ($parent, $child, $itemAwareCheck): bool {
+            $items = $data[$parent] ?? null;
+
+            if (! is_array($items)) {
+                return true;
+            }
+
+            foreach ($items as $item) {
+                /** @var array<string, mixed> $item */
+                if (! is_array($item) || ! $itemAwareCheck($item[$child] ?? null, $item)) {
+                    return false;
+                }
+            }
+
+            return true;
+        };
+    }
+
+    /**
+     * @param  list<string>  $path
+     * @param  Closure(mixed): bool  $valueCheck
+     * @return Closure(array<string, mixed>): bool
+     */
+    private static function eachItemPath(string $parent, array $path, Closure $valueCheck): Closure
+    {
+        return static function (array $data) use ($parent, $path, $valueCheck): bool {
+            $items = $data[$parent] ?? null;
+
+            if (! is_array($items)) {
+                return true;
+            }
+
+            foreach ($items as $item) {
+                if (! is_array($item) || ! $valueCheck(self::read($item, $path))) {
+                    return false;
+                }
+            }
+
+            return true;
+        };
+    }
+
+    /**
+     * @param  array<array-key, mixed>  $data
      * @param  list<string>  $path
      */
     private static function read(array $data, array $path): mixed
