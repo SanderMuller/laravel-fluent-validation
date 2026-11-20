@@ -37,9 +37,10 @@ final readonly class ItemValidator
      * @param  array<string, mixed>  $itemRules
      * @param  array<string, string>  $itemMessages
      * @param  array<string, string>  $itemAttributes
+     * @param  array<int|string, list<array-key>>  $excludedFields  receives, per item index, the fields an exclude rule removed
      * @return array<string, list<string>>
      */
-    public function validate(array $items, array $itemRules, array $itemMessages, array $itemAttributes, string $parent, bool $isScalar): array
+    public function validate(array $items, array $itemRules, array $itemMessages, array $itemAttributes, string $parent, bool $isScalar, array &$excludedFields = []): array
     {
         $conditionalFields = $this->compiler->analyzeConditionals($itemRules);
         $itemRules = PlainRuleJoiner::joinAll($itemRules, $conditionalFields);
@@ -55,6 +56,8 @@ final readonly class ItemValidator
         $fastChecksByReduced = [];
         /** @var array<string, array<string, mixed>> $laravelRulesByDispatch */
         $laravelRulesByDispatch = [];
+        /** @var array<string, list<array-key>> $excludedByDispatch */
+        $excludedByDispatch = [];
 
         [$fastChecks, $originalSlowRules] = $this->compiler->buildFastChecks($itemRules);
         $laravelFields = $this->laravelFieldFilter($isScalar, $itemRules);
@@ -89,6 +92,7 @@ final readonly class ItemValidator
 
                 $effectiveRules = $rulesByDispatch[$dispatchValue];
                 [$dispatchFastChecks, $dispatchSlowRules] = $fastChecksByDispatch[$dispatchValue];
+                self::recordExcludedFields($excludedFields, $index, $excludedByDispatch[$dispatchValue] ??= array_keys(array_diff_key($conditionalFields, $effectiveRules)));
             } elseif ($conditionalFields !== [] || $hasSiblingDependentConditionals) {
                 $effectiveRules = $this->compiler->reduceRulesForItem($itemRules, $itemData, $conditionalFields, $itemMessages, $siblingFields);
                 $reducedKey = $this->compiler->ruleCacheKey($effectiveRules);
@@ -96,6 +100,7 @@ final readonly class ItemValidator
                 // many items reduce identically, so reuse beats recompiling.
                 [$dispatchFastChecks, $dispatchSlowRules] = $fastChecksByReduced[$reducedKey]
                     ??= $this->compiler->buildFastChecks($effectiveRules);
+                self::recordExcludedFields($excludedFields, $index, array_keys(array_diff_key($conditionalFields, $effectiveRules)));
             } else {
                 $effectiveRules = $itemRules;
                 $dispatchFastChecks = $fastChecks;
@@ -168,6 +173,20 @@ final readonly class ItemValidator
         }
 
         return $errors;
+    }
+
+    /**
+     * Record the conditional fields that the item's reduced rules no longer
+     * hold: an exclude rule removed them.
+     *
+     * @param  array<int|string, list<array-key>>  $excludedFields
+     * @param  list<array-key>  $excluded
+     */
+    private static function recordExcludedFields(array &$excludedFields, int|string $index, array $excluded): void
+    {
+        if ($excluded !== []) {
+            $excludedFields[$index] = $excluded;
+        }
     }
 
     /**

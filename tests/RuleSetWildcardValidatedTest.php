@@ -163,3 +163,78 @@ it('leaves out wildcard fields that an exclude rule in another spelling removes'
         ['items' => [['type' => 'bag', 'name' => 'a', 'size' => 1]]],
     );
 });
+
+/**
+ * A rule for the parent puts the parent in the validated data as the input
+ * gave it, so the per-item validator must report the fields it excluded.
+ *
+ * @return array<string, array{0: array<string, mixed>, 1: array<string, mixed>, 2: array<string, mixed>}>
+ */
+function excludedUnderParentRuleCases(): array
+{
+    $data = ['items' => [['type' => 'bag', 'size' => 'x', 'name' => 'a'], ['type' => 'box', 'size' => 2, 'name' => 'b']]];
+    $sizeExcluded = ['items' => [['type' => 'bag', 'name' => 'a'], ['type' => 'box', 'size' => 2, 'name' => 'b']]];
+
+    return [
+        'string form' => [['items' => 'required|array', 'items.*.name' => 'string', 'items.*.type' => 'required|string', 'items.*.size' => 'exclude_unless:items.*.type,box|integer'], $data, $sizeExcluded],
+        'tuple form' => [['items' => ['required', 'array'], 'items.*.name' => 'string', 'items.*.type' => 'string', 'items.*.size' => [['exclude_unless', 'items.*.type', 'box'], 'integer']], $data, $sizeExcluded],
+        'exclude_if' => [['items' => 'array', 'items.*.name' => 'string', 'items.*.type' => 'string', 'items.*.size' => 'exclude_if:items.*.type,bag|integer'], $data, $sizeExcluded],
+        'fluent each()' => [['items' => FluentRule::array()->required()->each([
+            'name' => FluentRule::string(),
+            'type' => FluentRule::string()->required(),
+            'size' => FluentRule::integer()->excludeUnless('items.*.type', 'box'),
+        ])], $data, $sizeExcluded],
+        'kept field' => [['items' => 'array', 'items.*.name' => 'string', 'items.*.type' => 'string', 'items.*.size' => 'exclude_unless:items.*.type,bag,box'], $data, $data],
+        'two dependencies' => [
+            ['items' => 'array', 'items.*.type' => 'string', 'items.*.kind' => 'string', 'items.*.size' => 'exclude_unless:items.*.type,box|integer', 'items.*.weight' => 'exclude_if:items.*.kind,light|integer'],
+            ['items' => [['type' => 'bag', 'kind' => 'light', 'size' => 'x', 'weight' => 'y'], ['type' => 'box', 'kind' => 'heavy', 'size' => 2, 'weight' => 3]]],
+            ['items' => [['type' => 'bag', 'kind' => 'light'], ['type' => 'box', 'kind' => 'heavy', 'size' => 2, 'weight' => 3]]],
+        ],
+        'slow kept rule, excluded at the last index' => [
+            ['items' => 'array', 'items.*.type' => 'string', 'items.*.size' => ['exclude_unless:items.*.type,box', 'integer', static function (string $attribute, mixed $value, Closure $fail): void {}]],
+            ['items' => [['type' => 'box', 'size' => 2], ['type' => 'bag', 'size' => 'x']]],
+            ['items' => [['type' => 'box', 'size' => 2], ['type' => 'bag']]],
+        ],
+        'dotted parent' => [
+            ['order.items' => 'array', 'order.items.*.type' => 'string', 'order.items.*.size' => 'exclude_unless:order.items.*.type,box|integer'],
+            ['order' => ['items' => [['type' => 'bag', 'size' => 'x'], ['type' => 'box', 'size' => 2]]]],
+            ['order' => ['items' => [['type' => 'bag'], ['type' => 'box', 'size' => 2]]]],
+        ],
+        'item without the field' => [
+            ['items' => 'array', 'items.*.type' => 'string', 'items.*.size' => 'exclude_unless:items.*.type,box|integer'],
+            ['items' => [['type' => 'bag'], ['type' => 'box', 'size' => 2]]],
+            ['items' => [['type' => 'bag'], ['type' => 'box', 'size' => 2]]],
+        ],
+        'literal key with a dot' => [
+            ['items' => 'array', 'items.*.type' => 'string', 'items.*.meta.size' => 'exclude_unless:items.*.type,box|integer'],
+            ['items' => [['type' => 'bag', 'meta.size' => 'literal', 'meta' => ['size' => 'x']]]],
+            // The literal key has no rule, so it stays as an unknown key (see dropUnknownFields()).
+            ['items' => [['type' => 'bag', 'meta.size' => 'literal', 'meta' => []]]],
+        ],
+        'scalar items' => [
+            ['tags' => 'array', 'tags.*' => 'exclude_if:tags.*,b|string'],
+            ['tags' => ['a', 'b', 'c']],
+            ['tags' => [0 => 'a', 2 => 'c']],
+        ],
+        'field below the item' => [
+            ['items' => 'array', 'items.*.type' => 'string', 'items.*.meta' => 'array', 'items.*.meta.size' => 'exclude_unless:items.*.type,box|integer'],
+            ['items' => [['type' => 'bag', 'meta' => ['size' => 'x']], ['type' => 'box', 'meta' => ['size' => 2]]]],
+            ['items' => [['type' => 'bag', 'meta' => []], ['type' => 'box', 'meta' => ['size' => 2]]]],
+        ],
+    ];
+}
+
+it('leaves out wildcard fields that an exclude rule removes under a parent rule', function (string $case): void {
+    [$rules, $data, $expected] = excludedUnderParentRuleCases()[$case];
+
+    expect(RuleSet::from($rules)->validate($data))->toEqual($expected);
+})->with(array_keys(excludedUnderParentRuleCases()));
+
+it('leaves an object in the input unchanged when it removes an excluded field', function (): void {
+    $meta = (object) ['size' => 'x'];
+
+    RuleSet::from(['items' => 'array', 'items.*.type' => 'string', 'items.*.meta.size' => 'exclude_unless:items.*.type,box|integer'])
+        ->validate(['items' => [['type' => 'bag', 'meta' => $meta]]]);
+
+    expect($meta)->toEqual((object) ['size' => 'x']);
+});

@@ -87,14 +87,135 @@ final class WildcardValidatedData
 
     /**
      * Laravel removes an excluded field from the validated data, and only the
-     * per-item validator knows which fields it excluded. The group then needs
-     * full expansion.
+     * per-item validator knows which fields it excluded. A group without a
+     * parent rule then needs full expansion.
      *
      * @param  array<string, array<string, mixed>>  $uncoveredGroups
      */
     public static function excludesFields(array $uncoveredGroups, string $parent): bool
     {
         return self::excludes($uncoveredGroups[$parent] ?? []);
+    }
+
+    /**
+     * Remove the fields the per-item validator excluded from the validated
+     * data, which holds a covered group's parent as the input gave it.
+     *
+     * @param  array<string, mixed>  $validated
+     * @param  array<string, array<int|string, list<array-key>>>  $excludedFields  per parent, per item index
+     * @return array<string, mixed>
+     */
+    public static function withoutExcluded(array $validated, array $excludedFields): array
+    {
+        foreach ($excludedFields as $parent => $byIndex) {
+            $path = explode('.', $parent);
+            $items = $byIndex === [] ? null : self::valueAt($validated, $path);
+            $items = is_array($items) ? self::withoutItemFields($items, $byIndex) : null;
+
+            if ($items !== null) {
+                $validated = self::replaceAt($validated, $path, $items);
+            }
+        }
+
+        return $validated;
+    }
+
+    /**
+     * @param  array<mixed, mixed>  $items
+     * @param  array<int|string, list<array-key>>  $byIndex
+     * @return array<mixed, mixed>|null  null when no item held an excluded field
+     */
+    private static function withoutItemFields(array $items, array $byIndex): ?array
+    {
+        $changed = false;
+
+        foreach ($byIndex as $index => $fields) {
+            $item = $items[$index] ?? null;
+
+            if (! is_array($item)) {
+                continue;
+            }
+
+            foreach ($fields as $field) {
+                // The reducer decides a field below a nested wildcard for the
+                // whole item, not for each nested item, so it removes nothing.
+                if (! str_contains((string) $field, '*') && ! str_contains((string) $field, '\\')) {
+                    $item = self::forgetAt($item, explode('.', (string) $field));
+                }
+            }
+
+            if ($item !== $items[$index]) {
+                $items[$index] = $item;
+                $changed = true;
+            }
+        }
+
+        return $changed ? $items : null;
+    }
+
+    /**
+     * Read a value by path segments, the same way {@see replaceAt()} writes it.
+     *
+     * @param  array<mixed, mixed>  $data
+     * @param  list<string>  $path
+     */
+    private static function valueAt(array $data, array $path): mixed
+    {
+        foreach ($path as $segment) {
+            if (! is_array($data) || ! array_key_exists($segment, $data)) {
+                return null;
+            }
+
+            $data = $data[$segment];
+        }
+
+        return $data;
+    }
+
+    /**
+     * Remove a value by path segments. Only arrays are entered, so an object
+     * from the input never changes.
+     *
+     * @param  array<mixed, mixed>  $data
+     * @param  list<string>  $path
+     * @return array<mixed, mixed>
+     */
+    private static function forgetAt(array $data, array $path): array
+    {
+        $key = array_shift($path);
+
+        if ($key === null || ! array_key_exists($key, $data)) {
+            return $data;
+        }
+
+        if ($path === []) {
+            unset($data[$key]);
+        } elseif (is_array($data[$key])) {
+            $data[$key] = self::forgetAt($data[$key], $path);
+        }
+
+        return $data;
+    }
+
+    /**
+     * @template TKey of array-key
+     *
+     * @param  array<TKey, mixed>  $data
+     * @param  list<string>  $path
+     * @param  array<mixed, mixed>  $value
+     * @return array<TKey, mixed>
+     */
+    private static function replaceAt(array $data, array $path, array $value): array
+    {
+        $key = array_shift($path);
+
+        if ($key === null || ! array_key_exists($key, $data)) {
+            return $data;
+        }
+
+        $data[$key] = $path === [] ? $value : self::replaceAt(is_array($data[$key]) ? $data[$key] : [], $path, $value);
+
+        return $data;
     }
 
     /** @param  array<array-key, mixed>  $rules */

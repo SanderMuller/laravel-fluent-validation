@@ -102,8 +102,6 @@ it('matches native for a field with only a string-form exclude rule', function (
     assertFastPathParity(
         ['items' => 'array', 'items.*.type' => 'required|string', 'items.*.note' => 'exclude_unless:items.*.type,a'],
         ['items' => [$item]],
-        // The per-item path keeps an excluded field under a plain `items` rule (see dropUnknownFields).
-        compareValidated: false,
     );
 })->with([
     'kept' => [['type' => 'a', 'note' => 'x']],
@@ -127,7 +125,8 @@ function activityLogParityRules(): array
 }
 
 it('matches native for fluent requiredIf and excludeUnless on a dispatch field', function (array $entries): void {
-    assertFastPathParity(activityLogParityRules(), ['entries' => $entries]);
+    // Laravel does not expand each(), so its validated() keeps the excluded fields.
+    assertFastPathParity(activityLogParityRules(), ['entries' => $entries], compareValidated: false);
 })->with([
     'valid' => [[
         ['action' => 'scroll', 'scroll_from' => 5, 'email' => 'x'],
@@ -142,6 +141,20 @@ it('matches native for fluent requiredIf and excludeUnless on a dispatch field',
         ['action' => 'comment', 'comment_id' => 'not a uuid'],
     ]],
 ]);
+
+it('leaves out the fields a fluent excludeUnless removes on a dispatch field', function (): void {
+    $validated = RuleSet::from(activityLogParityRules())->validate(['entries' => [
+        ['action' => 'scroll', 'scroll_from' => 5, 'email' => 'x'],
+        ['action' => 'share', 'email' => 'a@example.com'],
+        ['action' => 'open', 'scroll_from' => 'not a number'],
+    ]]);
+
+    expect($validated)->toEqual(['entries' => [
+        ['action' => 'scroll', 'scroll_from' => 5],
+        ['action' => 'share', 'email' => 'a@example.com'],
+        ['action' => 'open'],
+    ]]);
+});
 
 // -- dotted path after the wildcard --------------------------------------
 

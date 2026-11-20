@@ -628,7 +628,8 @@ final class RuleSet implements Arrayable, IteratorAggregate
         $uncoveredGroups = WildcardValidatedData::uncovered($topCompiled, $wildcardGroups);
 
         $fallbackResult = null;
-        $allErrors = $this->validateWildcardGroups($wildcardGroups, $data, $messages, $attributes, $fallbackResult, $this->stopOnFirstFailure, $uncoveredGroups);
+        $excludedFields = [];
+        $allErrors = $this->validateWildcardGroups($wildcardGroups, $data, $messages, $attributes, $fallbackResult, $this->stopOnFirstFailure, $uncoveredGroups, $excludedFields);
 
         if ($fallbackResult !== null) {
             return $fallbackResult;
@@ -638,7 +639,7 @@ final class RuleSet implements Arrayable, IteratorAggregate
             $this->throwValidationErrors($allErrors);
         }
 
-        return WildcardValidatedData::add($topValidated, $uncoveredGroups, $data);
+        return WildcardValidatedData::add(WildcardValidatedData::withoutExcluded($topValidated, $excludedFields), $uncoveredGroups, $data);
     }
 
     /**
@@ -728,6 +729,7 @@ final class RuleSet implements Arrayable, IteratorAggregate
      * @param  array<string, string>  $attributes
      * @param  array<string, mixed>|null  $fallbackResult  Set when full expansion fallback is used
      * @param  array<string, array<string, mixed>>  $uncoveredGroups  {@see WildcardValidatedData::uncovered()}
+     * @param  array<string, array<int|string, list<array-key>>>  $excludedFields  {@see WildcardValidatedData::withoutExcluded()}
      * @return array<string, list<string>>
      *
      * @throws ValidationException
@@ -740,6 +742,7 @@ final class RuleSet implements Arrayable, IteratorAggregate
         ?array &$fallbackResult = null,
         bool   $stopOnFirstFailure = false,
         array  $uncoveredGroups = [],
+        array  &$excludedFields = [],
     ): array {
         /** @var array<string, list<string>> $allErrors */
         $allErrors = [];
@@ -781,7 +784,8 @@ final class RuleSet implements Arrayable, IteratorAggregate
                 return [];
             }
 
-            $groupErrors = $this->validateItems($items, $itemRules, $itemMessages, $itemAttributes, $parent, $isScalar, $stopOnFirstFailure);
+            $excludedFields[$parent] = [];
+            $groupErrors = $this->validateItems($items, $itemRules, $itemMessages, $itemAttributes, $parent, $isScalar, $stopOnFirstFailure, $excludedFields[$parent]);
             $allErrors += $groupErrors;
 
             if ($stopOnFirstFailure && $allErrors !== []) {
@@ -799,12 +803,13 @@ final class RuleSet implements Arrayable, IteratorAggregate
      * @param  array<string, mixed>  $itemRules
      * @param  array<string, string>  $itemMessages
      * @param  array<string, string>  $itemAttributes
+     * @param  array<int|string, list<array-key>>  $excludedFields  {@see ItemValidator::validate()}
      * @return array<string, list<string>>
      */
-    private function validateItems(array $items, array $itemRules, array $itemMessages, array $itemAttributes, string $parent, bool $isScalar, bool $stopOnFirstFailure = false): array
+    private function validateItems(array $items, array $itemRules, array $itemMessages, array $itemAttributes, string $parent, bool $isScalar, bool $stopOnFirstFailure = false, array &$excludedFields = []): array
     {
         return (new ItemValidator($stopOnFirstFailure, $this->ruleCompiler, $this->errorCollector))
-            ->validate($items, $itemRules, $itemMessages, $itemAttributes, $parent, $isScalar);
+            ->validate($items, $itemRules, $itemMessages, $itemAttributes, $parent, $isScalar, $excludedFields);
     }
 
     /**
