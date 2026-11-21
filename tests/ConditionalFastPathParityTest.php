@@ -269,6 +269,14 @@ function nestedExcludeInteractionCases(): array
             ['q.*.limit' => 'exclude_if:q.*.mode,off|integer', 'q.*.answers.*.target' => $target],
             [['mode' => 'off', 'limit' => 'x', 'answers' => [['type' => 'link', 'target' => 'abc'], ['type' => 'jump', 'target' => 5]]], ['mode' => 'on', 'limit' => 2, 'answers' => [['type' => 'link', 'target' => 'abc']]]],
         ],
+        'an outer and a nested exclude below one parent' => [
+            ['q.*.answers.meta' => 'exclude_if:q.*.mode,off|string', 'q.*.answers.*.target' => $target],
+            [['mode' => 'off', 'answers' => ['meta' => 'm', 0 => ['type' => 'link', 'target' => 'abc'], 1 => ['type' => 'jump', 'target' => 5]]]],
+        ],
+        'an outer exclude at a fixed index and a nested exclude' => [
+            ['q.*.answers.0.note' => 'exclude_if:q.*.mode,off|string', 'q.*.answers.*.target' => $target],
+            [['mode' => 'off', 'answers' => [['type' => 'link', 'target' => 'abc', 'note' => 'n'], ['type' => 'jump', 'target' => 5]]]],
+        ],
         'an outer and a nested exclude in one item, invalid' => [
             ['q.*.limit' => 'exclude_if:q.*.mode,off|integer', 'q.*.answers.*.target' => $target],
             [['mode' => 'on', 'limit' => 'x', 'answers' => [['type' => 'link', 'target' => 'abc'], ['type' => 'jump', 'target' => 'bad']]]],
@@ -284,6 +292,33 @@ it('matches native for a nested-item exclude rule next to cross-field rules', fu
         ['q' => $items],
     );
 })->with(array_keys(nestedExcludeInteractionCases()));
+
+/**
+ * @return array<string, array{0: array<string, string>, 1: list<mixed>}>
+ */
+function excludedBelowDeepOrScalarCases(): array
+{
+    return [
+        'a scalar item' => [
+            ['q.*' => 'nullable', 'q.*.a' => 'exclude_unless:q.*.mode,on|string'],
+            ['x', ['mode' => 'on', 'a' => 'z']],
+        ],
+        'a field four levels below the item' => [
+            ['q.*.a.b.c.d' => 'exclude_if:q.*.mode,off|string', 'q.*.a.b.c.e' => 'string'],
+            [['mode' => 'off', 'a' => ['b' => ['c' => ['d' => 'x', 'e' => 'y']]]], ['mode' => 'on', 'a' => ['b' => ['c' => ['d' => 'x', 'e' => 'y']]]]],
+        ],
+        'a scalar where a nested field is excluded' => [
+            ['q.*.a.b' => 'nullable', 'q.*.a.b.c' => 'exclude_if:q.*.mode,off|string'],
+            [['mode' => 'off', 'a' => ['b' => 'scalar']]],
+        ],
+    ];
+}
+
+it('matches native for an excluded field below a deep or a scalar value', function (string $case): void {
+    [$rules, $items] = excludedBelowDeepOrScalarCases()[$case];
+
+    assertFastPathParity(['q' => 'array', 'q.*.mode' => 'nullable|string', ...$rules], ['q' => $items]);
+})->with(array_keys(excludedBelowDeepOrScalarCases()));
 
 it('matches native for a missing and a null value of a kept nested-item field', function (): void {
     assertFastPathParity(

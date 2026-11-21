@@ -139,7 +139,7 @@ final readonly class ItemGroupValidator
      */
     private function recordExcluded(array $attributes, int|string $index, array &$excludedFields): void
     {
-        $excluded = WildcardValidatedData::splitExcluded(array_flip($attributes));
+        $excluded = WildcardValidatedData::excludedTree(array_flip($attributes));
 
         if ($excluded === false) {
             return;
@@ -282,7 +282,7 @@ final readonly class ItemGroupValidator
         $names->forItem($validator, $index, $itemData);
 
         $passes = $validator->passes();
-        $excluded = WildcardValidatedData::splitExcluded(array_flip($this->excludedAttributes($validator)));
+        $excluded = WildcardValidatedData::excludedTree(array_flip($this->excludedAttributes($validator)));
 
         if ($excluded !== false) {
             $excludedFields[$index] = $excluded;

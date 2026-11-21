@@ -96,7 +96,7 @@ final readonly class ItemValidator
 
                 $effectiveRules = $rulesByDispatch[$dispatchValue];
                 [$dispatchFastChecks, $dispatchSlowRules] = $fastChecksByDispatch[$dispatchValue];
-                $excludedFields[$index] = $excludedByDispatch[$dispatchValue] ??= WildcardValidatedData::splitExcluded(array_diff_key($conditionalFields, $effectiveRules));
+                $excludedFields[$index] = $excludedByDispatch[$dispatchValue] ??= WildcardValidatedData::excludedTree(array_diff_key($conditionalFields, $effectiveRules));
             } elseif ($conditionalFields !== [] || $hasSiblingDependentConditionals) {
                 $effectiveRules = $this->compiler->reduceRulesForItem($itemRules, $itemData, $conditionalFields, $itemMessages, $siblingFields);
                 $reducedKey = $this->compiler->ruleCacheKey($effectiveRules);
@@ -104,7 +104,7 @@ final readonly class ItemValidator
                 // many items reduce identically, so reuse beats recompiling.
                 [$dispatchFastChecks, $dispatchSlowRules] = $fastChecksByReduced[$reducedKey]
                     ??= $this->compiler->buildFastChecks($effectiveRules);
-                $excludedFields[$index] = $excludedByReduced[$reducedKey] ??= WildcardValidatedData::splitExcluded(array_diff_key($conditionalFields, $effectiveRules));
+                $excludedFields[$index] = $excludedByReduced[$reducedKey] ??= WildcardValidatedData::excludedTree(array_diff_key($conditionalFields, $effectiveRules));
             } else {
                 $effectiveRules = $itemRules;
                 $dispatchFastChecks = $fastChecks;

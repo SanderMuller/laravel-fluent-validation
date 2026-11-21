@@ -5,9 +5,8 @@ namespace SanderMuller\FluentValidation\Internal;
 /**
  * The fields an exclude rule removed from one item, as a tree: the keys to
  * remove at this level, and a tree for each key whose children lose fields.
- * One tree serves every item with the same dispatch value or reduced rules.
  *
- * @internal Implementation detail of `WildcardValidatedData`.
+ * @internal
  */
 final readonly class ExcludedFieldTree
 {

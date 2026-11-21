@@ -22,8 +22,8 @@ use SanderMuller\FluentValidation\FastCheckCompiler;
 final class WildcardValidatedData
 {
     /**
-     * Soft cap on the tree cache, as in {@see FastCheckCompiler}:
-     * rules built from runtime values could grow it without bound on a
+     * Soft cap on the tree cache, as in {@see FastCheckCompiler}: the names
+     * can come from request data, so the cache could grow without bound on a
      * long-lived worker.
      */
     private const TREE_CACHE_MAX = 1024;
@@ -31,8 +31,7 @@ final class WildcardValidatedData
     private const TREE_CACHE_KEY_MAX = 2048;
 
     /**
-     * Trees per set of excluded field names. A tree is immutable, so every
-     * validation with the same set shares one.
+     * Trees per set of excluded field names.
      *
      * @var array<string, ExcludedFields>
      */
@@ -165,13 +164,18 @@ final class WildcardValidatedData
     }
 
     /**
-     * The tree of the fields an item excluded, keyed by field.
+     * The tree of the fields an item excluded, keyed by field; false when
+     * no field can be removed.
      *
      * @param  array<array-key, mixed>  $excluded
      * @return ExcludedFields
      */
-    public static function splitExcluded(array $excluded): ExcludedFieldTree|false
+    public static function excludedTree(array $excluded): ExcludedFieldTree|false
     {
+        if ($excluded === []) {
+            return false;
+        }
+
         $key = implode("\0", array_keys($excluded));
 
         // A name with a NUL byte could give two sets one key. Names can come
