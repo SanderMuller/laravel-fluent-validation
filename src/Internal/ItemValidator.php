@@ -58,9 +58,9 @@ final readonly class ItemValidator
         $fastChecksByReduced = [];
         /** @var array<string, array<string, mixed>> $laravelRulesByDispatch */
         $laravelRulesByDispatch = [];
-        /** @var array<string, ExcludedFields|false> $excludedByDispatch */
+        /** @var array<string, ExcludedFields> $excludedByDispatch */
         $excludedByDispatch = [];
-        /** @var array<string, ExcludedFields|false> $excludedByReduced */
+        /** @var array<string, ExcludedFields> $excludedByReduced */
         $excludedByReduced = [];
 
         [$fastChecks, $originalSlowRules] = $this->compiler->buildFastChecks($itemRules);
@@ -96,7 +96,7 @@ final readonly class ItemValidator
 
                 $effectiveRules = $rulesByDispatch[$dispatchValue];
                 [$dispatchFastChecks, $dispatchSlowRules] = $fastChecksByDispatch[$dispatchValue];
-                $this->recordExcludedFields($excludedFields, $index, $excludedByDispatch[$dispatchValue] ??= WildcardValidatedData::splitExcluded(array_diff_key($conditionalFields, $effectiveRules)));
+                $excludedFields[$index] = $excludedByDispatch[$dispatchValue] ??= WildcardValidatedData::splitExcluded(array_diff_key($conditionalFields, $effectiveRules));
             } elseif ($conditionalFields !== [] || $hasSiblingDependentConditionals) {
                 $effectiveRules = $this->compiler->reduceRulesForItem($itemRules, $itemData, $conditionalFields, $itemMessages, $siblingFields);
                 $reducedKey = $this->compiler->ruleCacheKey($effectiveRules);
@@ -104,7 +104,7 @@ final readonly class ItemValidator
                 // many items reduce identically, so reuse beats recompiling.
                 [$dispatchFastChecks, $dispatchSlowRules] = $fastChecksByReduced[$reducedKey]
                     ??= $this->compiler->buildFastChecks($effectiveRules);
-                $this->recordExcludedFields($excludedFields, $index, $excludedByReduced[$reducedKey] ??= WildcardValidatedData::splitExcluded(array_diff_key($conditionalFields, $effectiveRules)));
+                $excludedFields[$index] = $excludedByReduced[$reducedKey] ??= WildcardValidatedData::splitExcluded(array_diff_key($conditionalFields, $effectiveRules));
             } else {
                 $effectiveRules = $itemRules;
                 $dispatchFastChecks = $fastChecks;
@@ -177,20 +177,6 @@ final readonly class ItemValidator
         }
 
         return $errors;
-    }
-
-    /**
-     * Record the conditional fields that the item's reduced rules no longer
-     * hold: an exclude rule removed them.
-     *
-     * @param  array<int|string, ExcludedFields>  $excludedFields
-     * @param  ExcludedFields|false  $excluded
-     */
-    private function recordExcludedFields(array &$excludedFields, int|string $index, array|false $excluded): void
-    {
-        if ($excluded !== false) {
-            $excludedFields[$index] = $excluded;
-        }
     }
 
     /**

@@ -9,6 +9,7 @@ use Illuminate\Validation\ConditionalRules;
 use Illuminate\Validation\NestedRules;
 use Illuminate\Validation\Rules\ExcludeIf;
 use ReflectionProperty;
+use SanderMuller\FluentValidation\FastCheckCompiler;
 
 /**
  * Adds the data of a wildcard group to the validated data when no top-level
@@ -16,10 +17,27 @@ use ReflectionProperty;
  *
  * @internal Implementation detail of `RuleSet`.
  *
- * @phpstan-type ExcludedFields array{0: list<array-key>, 1: list<non-empty-list<string>>}
+ * @phpstan-type ExcludedFields ExcludedFieldTree|false
  */
 final class WildcardValidatedData
 {
+    /**
+     * Soft cap on the tree cache, as in {@see FastCheckCompiler}:
+     * rules built from runtime values could grow it without bound on a
+     * long-lived worker.
+     */
+    private const TREE_CACHE_MAX = 1024;
+
+    private const TREE_CACHE_KEY_MAX = 2048;
+
+    /**
+     * Trees per set of excluded field names. A tree is immutable, so every
+     * validation with the same set shares one.
+     *
+     * @var array<string, ExcludedFields>
+     */
+    private static array $trees = [];
+
     /**
      * @param  array<string, mixed>  $validated  the validated top-level data
      * @param  array<string, array<string, mixed>>  $groups  {@see uncovered()}
@@ -112,10 +130,8 @@ final class WildcardValidatedData
         foreach ($excludedFields as $parent => $byIndex) {
             $path = explode('.', $parent);
             $items = $byIndex === [] ? null : self::valueAt($validated, $path);
-            $items = is_array($items) ? self::withoutItemFields($items, $byIndex) : null;
-
-            if ($items !== null) {
-                $validated = self::replaceAt($validated, $path, $items);
+            if (is_array($items)) {
+                $validated = self::replaceAt($validated, $path, self::withoutItemFields($items, $byIndex));
             }
         }
 
@@ -125,39 +141,62 @@ final class WildcardValidatedData
     /**
      * @param  array<mixed, mixed>  $items
      * @param  array<int|string, ExcludedFields>  $byIndex
-     * @return array<mixed, mixed>|null  null when no item held an excluded field
+     * @return array<mixed, mixed>
      */
-    private static function withoutItemFields(array $items, array $byIndex): ?array
+    private static function withoutItemFields(array $items, array $byIndex): array
     {
-        $changed = false;
-
         foreach ($byIndex as $index => $fields) {
-            $item = $items[$index] ?? null;
-            $item = is_array($item) ? self::withoutFields($item, $fields) : null;
-
-            if ($item !== null) {
-                $items[$index] = $item;
-                $changed = true;
+            if ($fields === false || ! isset($items[$index]) || ! is_array($items[$index])) {
+                continue;
             }
+
+            $item = array_diff_key($items[$index], $fields->keys);
+
+            foreach ($fields->children as $key => $child) {
+                if (isset($item[$key]) && is_array($item[$key])) {
+                    $item[$key] = $child->children === [] ? array_diff_key($item[$key], $child->keys) : $child->removeFrom($item[$key]);
+                }
+            }
+
+            $items[$index] = $item;
         }
 
-        return $changed ? $items : null;
+        return $items;
     }
 
     /**
-     * Split the fields an item excluded, keyed by field, into the top-level
-     * keys and the paths of dotted fields. The dispatch cache reuses a split.
+     * The tree of the fields an item excluded, keyed by field.
      *
      * @param  array<array-key, mixed>  $excluded
-     * @return ExcludedFields|false  false when no field was excluded
+     * @return ExcludedFields
      */
-    public static function splitExcluded(array $excluded): array|false
+    public static function splitExcluded(array $excluded): ExcludedFieldTree|false
     {
-        if ($excluded === []) {
-            return false;
+        $key = implode("\0", array_keys($excluded));
+
+        // A name with a NUL byte could give two sets one key. Names can come
+        // from request data, so a long key stays out of the cache.
+        if (strlen($key) > self::TREE_CACHE_KEY_MAX || substr_count($key, "\0") !== count($excluded) - 1) {
+            return self::buildTree($excluded);
         }
 
-        $keys = [];
+        if (isset(self::$trees[$key])) {
+            return self::$trees[$key];
+        }
+
+        if (count(self::$trees) >= self::TREE_CACHE_MAX) {
+            self::$trees = [];
+        }
+
+        return self::$trees[$key] = self::buildTree($excluded);
+    }
+
+    /**
+     * @param  array<array-key, mixed>  $excluded
+     * @return ExcludedFields
+     */
+    private static function buildTree(array $excluded): ExcludedFieldTree|false
+    {
         $paths = [];
 
         foreach (array_keys($excluded) as $field) {
@@ -166,47 +205,12 @@ final class WildcardValidatedData
             // The reducer decides a field below a nested wildcard for the
             // whole item, not for each nested item, so it removes nothing.
             // A field with an escaped dot has no plain path to remove.
-            if (str_contains($name, '*') || str_contains($name, '\\')) {
-                continue;
-            }
-
-            if (str_contains($name, '.')) {
+            if (! str_contains($name, '*') && ! str_contains($name, '\\')) {
                 $paths[] = explode('.', $name);
-            } else {
-                $keys[] = $field;
             }
         }
 
-        return [$keys, $paths];
-    }
-
-    /**
-     * @param  array<mixed, mixed>  $item
-     * @param  ExcludedFields  $fields
-     * @return array<mixed, mixed>|null  null when the item held none of the fields
-     */
-    private static function withoutFields(array $item, array $fields): ?array
-    {
-        [$keys, $paths] = $fields;
-        $changed = false;
-
-        foreach ($keys as $key) {
-            if (array_key_exists($key, $item)) {
-                unset($item[$key]);
-                $changed = true;
-            }
-        }
-
-        foreach ($paths as $path) {
-            $next = self::forgetAt($item, $path);
-
-            if ($next !== null) {
-                $item = $next;
-                $changed = true;
-            }
-        }
-
-        return $changed ? $item : null;
+        return ExcludedFieldTree::fromPaths($paths) ?? false;
     }
 
     /**
@@ -224,39 +228,6 @@ final class WildcardValidatedData
 
             $data = $data[$segment];
         }
-
-        return $data;
-    }
-
-    /**
-     * Remove a value by path segments. Only arrays are entered, so an object
-     * from the input never changes.
-     *
-     * @param  array<mixed, mixed>  $data
-     * @param  list<string>  $path
-     * @return array<mixed, mixed>|null  null when the path does not exist
-     */
-    private static function forgetAt(array $data, array $path): ?array
-    {
-        $key = array_shift($path);
-
-        if ($key === null || ! array_key_exists($key, $data)) {
-            return null;
-        }
-
-        if ($path === []) {
-            unset($data[$key]);
-
-            return $data;
-        }
-
-        $child = is_array($data[$key]) ? self::forgetAt($data[$key], $path) : null;
-
-        if ($child === null) {
-            return null;
-        }
-
-        $data[$key] = $child;
 
         return $data;
     }

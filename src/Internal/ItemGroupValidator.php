@@ -145,8 +145,8 @@ final readonly class ItemGroupValidator
             return;
         }
 
-        [$keys, $paths] = $excludedFields[$index] ?? [[], []];
-        $excludedFields[$index] = [[...$keys, ...$excluded[0]], [...$paths, ...$excluded[1]]];
+        $current = $excludedFields[$index] ?? false;
+        $excludedFields[$index] = $current === false ? $excluded : $current->with($excluded);
     }
 
     /**
