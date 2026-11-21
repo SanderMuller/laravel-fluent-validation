@@ -62,7 +62,7 @@ final class ItemRuleCompiler
     public function reduceRulesForItem(array $itemRules, array $itemData, array $conditionalFields, array $itemMessages = [], ?array $siblingFields = null, bool $keepActiveConditionals = false): array
     {
         foreach ($conditionalFields as $field => $conditions) {
-            if ($this->fieldIsExcluded($conditions, $itemData, $itemRules)) {
+            if (self::fieldIsExcluded($conditions, $itemData, $itemRules)) {
                 unset($itemRules[$field]);
             } else {
                 // Kept — strip the exclude tuple so only the actual validation
@@ -89,7 +89,7 @@ final class ItemRuleCompiler
      * @param  array<string, mixed>  $itemData
      * @param  array<string, mixed>  $itemRules
      */
-    private function fieldIsExcluded(array $conditions, array $itemData, array $itemRules): bool
+    public static function fieldIsExcluded(array $conditions, array $itemData, array $itemRules): bool
     {
         foreach ($conditions as $condition) {
             // exclude_if is inactive when the dependent field is absent (mirrors

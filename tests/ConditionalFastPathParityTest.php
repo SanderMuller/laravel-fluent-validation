@@ -202,6 +202,114 @@ it('matches native for a nested-item exclude rule next to other exclude rules', 
     );
 })->with(array_keys(nestedExcludeNeighbourCases()));
 
+it('matches native for items without nested items next to items with them', function (mixed $answers, string $invalid): void {
+    $rules = [
+        'q' => 'array',
+        'q.*.mode' => 'string',
+        'q.*.flag' => 'integer',
+        'q.*.answers' => 'nullable|array',
+        'q.*.answers.*.type' => 'string',
+        'q.*.answers.*.target' => 'exclude_unless:q.*.answers.*.type,jump|integer',
+        'q.*.limit' => 'exclude_if:q.*.mode,off|integer',
+    ];
+    $item = ['mode' => 'off', 'flag' => 1, 'limit' => $invalid];
+
+    assertFastPathParity($rules, ['q' => [
+        [...$item, 'answers' => [['type' => 'jump', 'target' => 2]]],
+        [...$item, 'answers' => $answers],
+        ['mode' => 'on', 'flag' => 1, 'limit' => 4, 'answers' => $answers],
+        [...$item, 'flag' => $invalid === '5' ? 1 : 'bad', 'answers' => [['type' => 'link', 'target' => $invalid]]],
+    ]]);
+})->with([
+    'null' => [null],
+    'empty' => [[]],
+    'not an array' => ['text'],
+])->with([
+    'valid' => ['5'],
+    'invalid' => ['bad'],
+]);
+
+/**
+ * Nested-item exclude rules next to rules that Laravel reads across fields,
+ * and next to exclude rules on an ancestor field.
+ *
+ * @return array<string, array{0: array<string, string>, 1: list<array<string, mixed>>}>
+ */
+function nestedExcludeInteractionCases(): array
+{
+    $target = 'exclude_unless:q.*.answers.*.type,jump|integer';
+
+    return [
+        'a comparison with a numeric sibling' => [
+            ['q.*.answers.*.min' => 'numeric', 'q.*.answers.*.target' => 'exclude_unless:q.*.answers.*.type,jump|numeric|gte:q.*.answers.*.min'],
+            [['answers' => [['type' => 'jump', 'target' => 3, 'min' => '5'], ['type' => 'link', 'target' => 1, 'min' => '5'], ['type' => 'jump', 'target' => 7, 'min' => '5']]]],
+        ],
+        'a condition on a boolean field' => [
+            ['q.*.answers.*.flag' => 'boolean', 'q.*.answers.*.target' => 'exclude_unless:q.*.answers.*.flag,true|integer'],
+            [['answers' => [['type' => 'jump', 'flag' => '1', 'target' => 'bad'], ['type' => 'jump', 'flag' => '0', 'target' => 'bad']]]],
+        ],
+        'an ancestor with exclude_without' => [
+            ['q.*.answers' => 'exclude_without:q.*.mode|array', 'q.*.answers.*.target' => $target],
+            [['answers' => [['type' => 'jump', 'target' => 'bad']]], ['mode' => 'on', 'answers' => [['type' => 'jump', 'target' => 'bad']]]],
+        ],
+        'an ancestor with exclude' => [
+            ['q.*.answers' => 'exclude|array', 'q.*.answers.*.target' => $target],
+            // Invalid on purpose: validated() keeps a field that a bare exclude removes (also before this change).
+            [['mode' => 5, 'answers' => [['type' => 'jump', 'target' => 'bad']]]],
+        ],
+        'an ancestor with exclude_if' => [
+            ['q.*.answers' => 'exclude_if:q.*.mode,off|array', 'q.*.answers.*.target' => $target],
+            [['mode' => 'off', 'answers' => [['type' => 'jump', 'target' => 'bad']]], ['mode' => 'on', 'answers' => [['type' => 'jump', 'target' => 'bad']]]],
+        ],
+        'a nested-item exclude rule on an ancestor' => [
+            ['q.*.answers.*.action' => 'exclude_unless:q.*.answers.*.type,jump|array', 'q.*.answers.*.action.size' => 'integer'],
+            [['answers' => [['type' => 'link', 'action' => ['size' => 'bad']], ['type' => 'jump', 'action' => ['size' => 'bad']]]]],
+        ],
+        'an outer and a nested exclude in one item, valid' => [
+            ['q.*.limit' => 'exclude_if:q.*.mode,off|integer', 'q.*.answers.*.target' => $target],
+            [['mode' => 'off', 'limit' => 'x', 'answers' => [['type' => 'link', 'target' => 'abc'], ['type' => 'jump', 'target' => 5]]], ['mode' => 'on', 'limit' => 2, 'answers' => [['type' => 'link', 'target' => 'abc']]]],
+        ],
+        'an outer and a nested exclude in one item, invalid' => [
+            ['q.*.limit' => 'exclude_if:q.*.mode,off|integer', 'q.*.answers.*.target' => $target],
+            [['mode' => 'on', 'limit' => 'x', 'answers' => [['type' => 'link', 'target' => 'abc'], ['type' => 'jump', 'target' => 'bad']]]],
+        ],
+    ];
+}
+
+it('matches native for a nested-item exclude rule next to cross-field rules', function (string $case): void {
+    [$rules, $items] = nestedExcludeInteractionCases()[$case];
+
+    assertFastPathParity(
+        ['q' => 'array', 'q.*.mode' => 'string', 'q.*.answers' => 'array', 'q.*.answers.*.type' => 'string', ...$rules],
+        ['q' => $items],
+    );
+})->with(array_keys(nestedExcludeInteractionCases()));
+
+it('matches native for a missing and a null value of a kept nested-item field', function (): void {
+    assertFastPathParity(
+        ['q' => 'array', 'q.*.answers' => 'array', 'q.*.answers.*.type' => 'string', 'q.*.answers.*.target' => 'exclude_unless:q.*.answers.*.type,jump|integer'],
+        ['q' => [['answers' => [['type' => 'jump'], ['type' => 'jump', 'target' => null]]], ['answers' => [['type' => 'jump'], ['type' => 'link']]]]],
+    );
+});
+
+it('keeps the error of a rule before a nested-item exclude rule as native does', function (): void {
+    // Native reports the error, then removes the field; a second passes() no longer sees it.
+    assertFastPathParity(
+        ['q' => 'array', 'q.*.answers' => 'array', 'q.*.answers.*.type' => 'string', 'q.*.answers.*.target' => 'integer|exclude_unless:q.*.answers.*.type,jump'],
+        ['q' => [['answers' => [['type' => 'link', 'target' => 'bad'], ['type' => 'jump', 'target' => 5]]]]],
+        compareValidated: false,
+    );
+});
+
+it('stops at the first failure for items with and without nested items as native does', function (): void {
+    $rules = ['q' => 'array', 'q.*.flag' => 'integer', 'q.*.answers' => 'nullable|array', 'q.*.answers.*.type' => 'string', 'q.*.answers.*.target' => 'exclude_unless:q.*.answers.*.type,jump|integer'];
+    $data = ['q' => [['flag' => 1, 'answers' => [['type' => 'jump', 'target' => 1]]], ['flag' => 'bad', 'answers' => null], ['flag' => 'bad', 'answers' => [['type' => 'jump', 'target' => 'bad']]]]];
+
+    $native = validator($data, $rules)->stopOnFirstFailure();
+
+    expect(RuleSet::from($rules)->stopOnFirstFailure()->check($data)->errors()->keys())->toBe($native->errors()->keys());
+});
+
 it('stops at the first failure for a nested-item exclude rule as native does', function (): void {
     $rules = ['q' => 'array', 'q.*.flag' => 'integer', 'q.*.answers' => 'array', 'q.*.answers.*.type' => 'string', 'q.*.answers.*.target' => 'exclude_unless:q.*.answers.*.type,jump|integer'];
     $data = ['q' => [['flag' => 1, 'answers' => [['type' => 'link', 'target' => 'bad']]], ['flag' => 'bad', 'answers' => [['type' => 'jump', 'target' => 'bad']]]]];
