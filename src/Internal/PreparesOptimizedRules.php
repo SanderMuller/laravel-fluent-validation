@@ -145,7 +145,8 @@ trait PreparesOptimizedRules
      */
     private function applyBatchPresenceVerifier(Validator $validator, PreparedRules $prepared, array $preparedRules, array $data): void
     {
-        if ($prepared->implicitAttributes === [] || ! BatchDatabaseChecker::isAvailable()) {
+        // Exists and Unique objects only sit in an array of rules.
+        if ($prepared->implicitAttributes === [] || ! BatchDatabaseChecker::isAvailable() || array_filter($preparedRules, is_array(...)) === []) {
             return;
         }
 

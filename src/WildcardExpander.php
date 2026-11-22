@@ -20,7 +20,47 @@ class WildcardExpander
             return [$pattern];
         }
 
-        return self::resolve(explode('.', $pattern), $data, []);
+        $segments = explode('.', $pattern);
+        $wildcard = array_search('*', $segments, true);
+
+        if ($wildcard === false || count($segments) > 50 || in_array('*', array_slice($segments, $wildcard + 1), true)) {
+            return self::resolve($segments, $data, []);
+        }
+
+        return self::expandOneWildcard($segments, $wildcard, $data);
+    }
+
+    /**
+     * A pattern with one `*` gives one path for each key at the `*`, whatever
+     * the item holds below it.
+     *
+     * @param  list<string>  $segments
+     * @return list<string>
+     */
+    private static function expandOneWildcard(array $segments, int $wildcard, mixed $current): array
+    {
+        for ($position = 0; $position < $wildcard; $position++) {
+            if (! is_array($current) || ! array_key_exists($segments[$position], $current)) {
+                return [];
+            }
+
+            $current = $current[$segments[$position]];
+        }
+
+        if (! is_array($current)) {
+            return [];
+        }
+
+        $prefix = $wildcard === 0 ? '' : implode('.', array_slice($segments, 0, $wildcard)) . '.';
+        $suffix = $wildcard === count($segments) - 1 ? '' : '.' . implode('.', array_slice($segments, $wildcard + 1));
+        $paths = [];
+
+        foreach (array_keys($current) as $key) {
+            // Escaped as in a rule key, so a key such as `2.5` stays one key.
+            $paths[] = $prefix . (is_int($key) ? $key : str_replace('.', '\\.', $key)) . $suffix;
+        }
+
+        return $paths;
     }
 
     /**

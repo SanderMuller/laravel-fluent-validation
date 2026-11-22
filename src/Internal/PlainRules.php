@@ -18,17 +18,12 @@ final class PlainRules
      */
     public static function of(array $rules): ?array
     {
-        $plain = [];
-
-        foreach ($rules as $attribute => $rule) {
-            // Interpolated: an integer-like key arrives as an int.
-            if (! is_string($rule) || strpbrk("{$attribute}", '*\\') !== false) {
-                return null;
-            }
-
-            $plain[$attribute] = $rule;
+        if (strpbrk(implode("\n", array_keys($rules)), '*\\') !== false) {
+            return null;
         }
 
-        return $plain;
+        $plain = array_filter($rules, is_string(...));
+
+        return count($plain) === count($rules) ? $plain : null;
     }
 }

@@ -31,6 +31,8 @@ function dottedDataKeyCases(): array
         'exclude rule under an outer key, condition not met' => [['rows' => 'array', 'rows.*.flag' => 'string', 'rows.*.id' => 'exclude_unless:rows.*.flag,yes|integer'], ['rows' => ['x.y' => ['flag' => 'no', 'id' => 'bad'], 'z' => ['flag' => 'no', 'id' => 'bad']]]],
         'dependent rule under a key with a comma' => [['rows' => 'array', 'rows.*.id' => 'same:rows.*.copy', 'rows.*.copy' => 'integer'], ['rows' => ['a.b,c' => ['id' => 1, 'copy' => 1]]]],
         'dependent rule under a key with a pipe' => [['rows' => 'array', 'rows.*.id' => 'same:rows.*.copy', 'rows.*.copy' => 'integer'], ['rows' => ['a.b|c' => ['id' => 1, 'copy' => 1]]]],
+        'dotted key in a list item' => [['items' => 'array', 'items.*.first\.name' => 'required|string'], ['items' => [['first.name' => 'x']]]],
+        'key with an asterisk' => [['items' => 'array', 'items.*.name' => 'required|string'], ['items' => ['c*d' => ['name' => 'x']]]],
         'distinct across keys' => [['groups' => 'array', 'groups.*.options' => 'array', 'groups.*.options.*' => 'distinct'], ['groups' => [7 => ['options' => ['2.5' => 'a', '3' => 'a', '4' => 'b']]]]],
     ];
 }
@@ -53,6 +55,11 @@ function dottedDataKeyResult(Closure $makeValidator): array
 it('expands a wildcard over a key that contains a dot as one escaped key', function (): void {
     expect(WildcardExpander::expand('groups.*.options.*', ['groups' => ['x.y' => ['options' => ['2.5' => '1']]]]))
         ->toBe(['groups.x\.y.options.2\.5']);
+});
+
+it('expands one wildcard over a key that contains a dot as one escaped key', function (): void {
+    expect(WildcardExpander::expand('rows.*.size', ['rows' => ['a.b' => [], 3 => 'x']]))
+        ->toBe(['rows.a\.b.size', 'rows.3.size']);
 });
 
 it('validates data keys that contain a dot as native does', function (string $case, string $entryPoint): void {

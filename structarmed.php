@@ -63,10 +63,11 @@ return Architecture::define()
     ->layer('TestingArch', 'src/Testing/Arch')
     ->ruleset([
         'Contracts' => [],
-        'RuleConcerns' => [],
+        // The rule-object fast path compiles its rules with the leaf FastCheck layer.
+        'RuleConcerns' => ['FastCheck'],
         // The typed-builder hint exceptions name the builders they point to.
         'Exceptions' => ['Rules'],
-        'Rules' => ['Contracts', 'Exceptions', 'RuleConcerns'],
+        'Rules' => ['Contracts', 'Exceptions', 'RuleConcerns', 'FastCheck'],
         'FluentRule' => ['Rules'],
         'FastCheck' => [],
         'Results' => [],

@@ -207,3 +207,118 @@ it('escapes raw data that user code passes to setData() like native Laravel', fu
 
     expect($messages)->toBe(validator($data, ['email' => 'string|required_with:a.b'])->errors()->get('email'));
 });
+
+// A rule object skips its inner validator when a fast check proves the value
+// passes. These cases decide a field reference or a date parameter there.
+dataset('rule object fast-check references', [
+    'different with a parameter that parses as a date' => [
+        ['today' => 'x', 'items' => [['a' => 'x'], ['a' => 'y']]],
+        'items.*.a',
+        static fn () => FluentRule::string()->different('today'),
+        'string|different:today',
+    ],
+    'different with a date-like parameter next to a sibling reference' => [
+        ['today' => 'x', 'items' => [['a' => 'x', 'b' => 'x'], ['a' => 'y', 'b' => 'y']]],
+        'items.*.a',
+        static fn () => FluentRule::string()->same('items.*.b')->different('today'),
+        'string|same:items.*.b|different:today',
+    ],
+    'same with a wildcard sibling' => [
+        ['items' => [['a' => 'x', 'b' => 'x'], ['a' => 'x', 'b' => 'y']]],
+        'items.*.a',
+        static fn () => FluentRule::string()->same('items.*.b'),
+        'string|same:items.*.b',
+    ],
+    'after a sibling that differs per item' => [
+        ['items' => [['s' => '2025-06-01', 'e' => '2025-07-01'], ['s' => '2025-08-01', 'e' => '2025-07-01']]],
+        'items.*.e',
+        static fn () => FluentRule::date()->after('items.*.s'),
+        'date|after:items.*.s',
+    ],
+    'different with an escaped dot' => [
+        ['meta.code' => 'x', 'a' => 'x'],
+        'a',
+        static fn () => FluentRule::string()->different('meta\.code'),
+        'string|different:meta\.code',
+    ],
+    'different with an escaped dot under a wildcard' => [
+        ['meta.code' => 'x', 'items' => [['a' => 'x'], ['a' => 'y']]],
+        'items.*.a',
+        static fn () => FluentRule::string()->different('meta\.code'),
+        'string|different:meta\.code',
+    ],
+    'after an escaped dot' => [
+        ['meta.start' => '2025-08-01', 'e' => '2025-07-01'],
+        'e',
+        static fn () => FluentRule::date()->after('meta\.start'),
+        'date|after:meta\.start',
+    ],
+    'same with a nested field' => [
+        ['meta' => ['copy' => 'x'], 'a' => 'x', 'b' => 'y'],
+        'a',
+        static fn () => FluentRule::string()->same('meta.copy'),
+        'string|same:meta.copy',
+    ],
+    'different with a nested field' => [
+        ['meta' => ['copy' => 'x'], 'a' => 'x'],
+        'a',
+        static fn () => FluentRule::string()->different('meta.copy'),
+        'string|different:meta.copy',
+    ],
+    'different with two fields' => [
+        ['a' => 'z', 'b' => 'x', 'f' => 'x'],
+        'f',
+        static fn () => FluentRule::string()->rule('different:a,b'),
+        'string|different:a,b',
+    ],
+    'gt with a number' => [
+        ['n' => 3],
+        'n',
+        static fn () => FluentRule::numeric()->greaterThan('5'),
+        'numeric|gt:5',
+    ],
+    'after a missing sibling' => [
+        ['items' => [['e' => '2025-07-01']]],
+        'items.*.e',
+        static fn () => FluentRule::date()->after('items.*.s'),
+        'date|after:items.*.s',
+    ],
+    'after today' => [
+        ['items' => [['e' => '2000-07-01'], ['e' => '2999-07-01']]],
+        'items.*.e',
+        static fn () => FluentRule::date()->after('today'),
+        'date|after:today',
+    ],
+]);
+
+it('decides a field reference in the rule object fast check like native Laravel', function (array $data, string $key, Closure $fluent, string $native): void {
+    $expected = validator($data, [$key => $native])->errors()->toArray();
+
+    expect(validator($data, [$key => $fluent()])->errors()->toArray())->toBe($expected);
+})->with('rule object fast-check references');
+
+it('reads the referenced values again when one rule object validates new data', function (): void {
+    $rule = FluentRule::date()->after('items.*.s');
+    $passing = ['items' => [['s' => '2025-06-01', 'e' => '2025-07-01']]];
+    $failing = ['items' => [['s' => '2025-08-01', 'e' => '2025-07-01']]];
+
+    expect(validator($passing, ['items.*.e' => $rule])->passes())->toBeTrue()
+        ->and(validator($failing, ['items.*.e' => $rule])->errors()->toArray())
+        ->toBe(validator($failing, ['items.*.e' => 'date|after:items.*.s'])->errors()->toArray());
+});
+
+it('decides one rule object under two wildcard keys like native Laravel', function (): void {
+    $rule = FluentRule::string()->same('items.*.b');
+    $data = ['items' => [['a' => 'x', 'b' => 'x']], 'other' => [['a' => 'y']]];
+
+    expect(validator($data, ['items.*.a' => $rule, 'other.*.a' => $rule])->errors()->toArray())
+        ->toBe(validator($data, ['items.*.a' => 'string|same:items.*.b', 'other.*.a' => 'string|same:items.*.b'])->errors()->toArray())
+        ->toHaveKey('other.0.a');
+});
+
+it('uses the label and the message of a shared each() rule for every item', function (): void {
+    $rules = ['items' => FluentRule::array()->each(FluentRule::string('Item name')->max(1, 'Too long: :attribute'))];
+
+    expect(RuleSet::from($rules)->check(['items' => ['xx', 'yy']])->errors()->toArray())
+        ->toBe(['items.0' => ['Too long: Item name'], 'items.1' => ['Too long: Item name']]);
+});

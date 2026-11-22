@@ -11,6 +11,19 @@ namespace SanderMuller\FluentValidation\Internal;
  */
 final class ExpandedRuleMerger
 {
+    /**
+     * Add $rule to each path, merged with a rule the path already has.
+     *
+     * @param  array<string, mixed>  $rules
+     * @param  list<string>  $paths
+     */
+    public static function mergeInto(array &$rules, array $paths, mixed $rule): void
+    {
+        foreach ($paths as $path) {
+            $rules[$path] = isset($rules[$path]) ? self::merge($rules[$path], $rule) : $rule;
+        }
+    }
+
     public static function merge(mixed $existing, mixed $rule): mixed
     {
         if ($existing === null) {

@@ -14,11 +14,16 @@ use Illuminate\Validation\Rules\ProhibitedUnless;
 use Illuminate\Validation\Rules\RequiredIf;
 use Illuminate\Validation\Rules\RequiredUnless;
 use ReflectionProperty;
+use SanderMuller\FluentValidation\FastCheckCompiler;
 use Stringable;
 
 trait SelfValidates
 {
     public bool $implicit = true;
+
+    private const DATE_COMPARISON_RULES = ['after', 'after_or_equal', 'before', 'before_or_equal', 'date_equals'];
+
+    private const FIELD_COMPARISON_RULES = [...self::DATE_COMPARISON_RULES, 'same', 'different', 'gt', 'gte', 'lt', 'lte'];
 
     protected \Illuminate\Validation\Validator $validator;
 
@@ -26,6 +31,11 @@ trait SelfValidates
     protected array $data = [];
 
     private ?\Illuminate\Validation\Validator $ownRuleKeysFor = null;
+
+    private ?\Illuminate\Validation\Validator $fastChecksFor = null;
+
+    /** @var array{value?: (Closure(mixed): bool)|false, fields?: array{string, array<string, string>}|false, item?: (Closure(mixed, array<string, mixed>): bool)|false} */
+    private array $fastChecks = [];
 
     /** @var list<string> */
     private array $ownRuleKeys = [];
@@ -54,6 +64,10 @@ trait SelfValidates
             return;
         }
 
+        if ($nestedRules === [] && $this->passesFastCheck($value, $attribute)) {
+            return;
+        }
+
         // Presence rule objects run first, as in the compiled rules.
         [$presenceRules, $otherRules] = $this->splitPresenceRules($this->buildValidationRules());
         $rules = [$key => [...$presenceRules, ...$otherRules]] + $nestedRules;
@@ -73,6 +87,146 @@ trait SelfValidates
         }
 
         $this->forwardErrors($innerValidator, $attribute, $nestedRules !== [], $fail);
+    }
+
+    /**
+     * Whether a fast check proves the value passes, so the inner validator
+     * cannot fail. A rule the fast check cannot compile goes to the inner
+     * validator, and so does a value that fails, for the error message.
+     */
+    private function passesFastCheck(mixed $value, string $attribute): bool
+    {
+        $compiled = $this->compiledRules();
+
+        if (! is_string($compiled)) {
+            return false;
+        }
+
+        $this->startFastChecksForThisRun();
+
+        $check = $this->fastChecks['value'] ??= FastCheckCompiler::compile($compiled) ?? false;
+
+        if ($check !== false) {
+            return $check($value);
+        }
+
+        $fields = $this->fastChecks['fields'] ??= $this->referencedFields($compiled);
+
+        if ($fields === false) {
+            return false;
+        }
+
+        $check = $this->fastChecks['item'] ??= FastCheckCompiler::compileWithItemContext($fields[0]) ?? false;
+
+        if ($check === false) {
+            return false;
+        }
+
+        $values = $this->referencedValues($fields[1], $attribute);
+
+        return $values !== null && $check($value, $values);
+    }
+
+    /**
+     * Keeps the compiled checks for one validation run only: a date rule such
+     * as `after:today` compiles the date in.
+     */
+    private function startFastChecksForThisRun(): void
+    {
+        $validator = $this->validator ?? null;
+
+        if ($validator === null || $this->fastChecksFor !== $validator) {
+            $this->fastChecksFor = $validator;
+            $this->fastChecks = [];
+        }
+    }
+
+    /**
+     * The rules with each field they compare with renamed to `_ref<n>`, and
+     * each field under that name. False when no rule compares with a field.
+     *
+     * @return array{string, array<string, string>}|false
+     */
+    private function referencedFields(string $compiled): array|false
+    {
+        $fields = [];
+        $parts = explode('|', $compiled);
+
+        foreach ($parts as $position => $part) {
+            [$name, $field] = array_pad(explode(':', $part, 2), 2, null);
+
+            if ($field === null || ! in_array($name, self::FIELD_COMPARISON_RULES, true) || str_contains($field, ',')) {
+                continue;
+            }
+
+            // An escaped dot names a data key that holds a dot, which
+            // Arr::get() cannot read: the inner validator decides it.
+            if (str_contains($field, '\\')) {
+                return false;
+            }
+
+            // A date rule reads a parameter that parses as a date as a date.
+            if (in_array($name, self::DATE_COMPARISON_RULES, true) && strtotime($field) !== false) {
+                continue;
+            }
+
+            $reference = '_ref' . count($fields);
+            $fields[$reference] = $field;
+            $parts[$position] = $name . ':' . $reference;
+        }
+
+        return $fields === [] ? false : [implode('|', $parts), $fields];
+    }
+
+    /**
+     * The value of each referenced field. A `*` in a field takes this
+     * attribute's key, as Laravel does. Null when a field cannot be decided
+     * here.
+     *
+     * @param  array<string, string>  $fields
+     * @return array<string, mixed>|null
+     */
+    private function referencedValues(array $fields, string $attribute): ?array
+    {
+        $indexes = null;
+        $values = [];
+
+        foreach ($fields as $reference => $field) {
+            $path = $field;
+
+            if (str_contains($field, '*')) {
+                $indexes ??= $this->ownWildcardIndexes($attribute);
+
+                if ($indexes === null || substr_count($field, '*') > count($indexes)) {
+                    return null;
+                }
+
+                $path = vsprintf(str_replace('*', '%s', $field), $indexes);
+            }
+
+            $values[$reference] = Arr::get($this->data, $path);
+        }
+
+        return $values;
+    }
+
+    /**
+     * The keys that the one rule key holding this rule object has in the
+     * attribute; null when the rule object sits under no or several keys.
+     *
+     * @return list<string>|null
+     */
+    private function ownWildcardIndexes(string $attribute): ?array
+    {
+        $ruleKeys = $this->ownRuleKeys();
+
+        if (count($ruleKeys) !== 1 || ! str_contains($ruleKeys[0], '*')) {
+            return null;
+        }
+
+        $indexes = $this->wildcardIndexes($ruleKeys[0], $attribute);
+
+        return $indexes === [] ? null : $indexes;
     }
 
     private function shareNestedRuleKeys(\Illuminate\Validation\Validator $innerValidator): void
@@ -151,6 +305,10 @@ trait SelfValidates
      */
     private function keyForRuleKey(string $ruleKey, string $attribute, string $hash): ?string
     {
+        if ($this->isOwnDataKey($ruleKey, $attribute, $hash)) {
+            return $attribute;
+        }
+
         $dot = '__dot__' . $hash;
         $parts = explode('*', $ruleKey);
         $decoded = array_map(static fn (string $part): string => str_replace(['\\.', $dot, '__asterisk__' . $hash], ['.', '.', '*'], $part), $parts);
@@ -184,6 +342,33 @@ trait SelfValidates
         }
 
         return $first;
+    }
+
+    /**
+     * Whether the attribute is its own data key: the rule key has at most one
+     * `*` and no escaped dot, so it splits the attribute one way only, and the
+     * part the `*` takes holds no `.` or `*` to encode.
+     */
+    private function isOwnDataKey(string $ruleKey, string $attribute, string $hash): bool
+    {
+        if (str_contains($ruleKey, '\\') || str_contains($ruleKey, $hash) || substr_count($ruleKey, '*') > 1) {
+            return false;
+        }
+
+        $star = strpos($ruleKey, '*');
+
+        if ($star === false) {
+            return $ruleKey === $attribute;
+        }
+
+        $prefix = substr($ruleKey, 0, $star);
+        $suffix = substr($ruleKey, $star + 1);
+        $captureLength = strlen($attribute) - strlen($prefix) - strlen($suffix);
+
+        return $captureLength >= 0
+            && str_starts_with($attribute, $prefix)
+            && str_ends_with($attribute, $suffix)
+            && strpbrk(substr($attribute, strlen($prefix), $captureLength), '.*') === false;
     }
 
     /**
@@ -690,6 +875,8 @@ trait SelfValidates
     public function __clone(): void
     {
         $this->compiledCache = null;
+        $this->fastChecksFor = null;
+        $this->fastChecks = [];
     }
 
     /**

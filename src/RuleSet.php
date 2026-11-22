@@ -20,7 +20,6 @@ use SanderMuller\FluentValidation\Exceptions\BatchLimitExceededException;
 use SanderMuller\FluentValidation\Internal\BatchLimitRemap;
 use SanderMuller\FluentValidation\Internal\DependentParameterKeys;
 use SanderMuller\FluentValidation\Internal\DottedItemKeys;
-use SanderMuller\FluentValidation\Internal\EscapedFieldNames;
 use SanderMuller\FluentValidation\Internal\ExpandedRuleMerger;
 use SanderMuller\FluentValidation\Internal\ImplicitAttributes;
 use SanderMuller\FluentValidation\Internal\ItemAttributeNames;
@@ -28,6 +27,7 @@ use SanderMuller\FluentValidation\Internal\ItemErrorCollector;
 use SanderMuller\FluentValidation\Internal\ItemGroupValidator;
 use SanderMuller\FluentValidation\Internal\ItemRuleCompiler;
 use SanderMuller\FluentValidation\Internal\OutsideItemReferences;
+use SanderMuller\FluentValidation\Internal\RuleMetadata;
 use SanderMuller\FluentValidation\Internal\WildcardReferenceRewriter;
 use SanderMuller\FluentValidation\Internal\WildcardValidatedData;
 use SanderMuller\FluentValidation\Rules\ArrayRule;
@@ -1021,9 +1021,7 @@ final class RuleSet implements Arrayable, IteratorAggregate
                 $implicitAttributes[$field] = $paths;
             }
 
-            foreach ($paths as $path) {
-                $rules[$path] = ExpandedRuleMerger::merge($rules[$path] ?? null, $rule);
-            }
+            ExpandedRuleMerger::mergeInto($rules, $paths, $rule);
         }
 
         return [$rules, $implicitAttributes];
@@ -1035,13 +1033,21 @@ final class RuleSet implements Arrayable, IteratorAggregate
      */
     public static function compile(array $rules): array
     {
+        // Expanded wildcard fields share their rule objects.
+        $compiled = [];
+
         foreach ($rules as $field => $rule) {
-            if (is_object($rule) && method_exists($rule, 'compiledRules')) {
-                $rules[$field] = $rule->compiledRules();
+            if (is_object($rule)) {
+                $rules[$field] = $compiled[spl_object_id($rule)] ??= self::compileObject($rule);
             }
         }
 
         return $rules;
+    }
+
+    private static function compileObject(object $rule): mixed
+    {
+        return method_exists($rule, 'compiledRules') ? $rule->compiledRules() : $rule;
     }
 
     /**
@@ -1104,20 +1110,7 @@ final class RuleSet implements Arrayable, IteratorAggregate
      */
     public static function extractMetadata(array $rules): array
     {
-        $messages = [];
-        $attributes = [];
-
-        foreach (EscapedFieldNames::decode($rules) as $field => $rule) {
-            // For mixed arrays like ['exclude', FluentRule::string('ID')],
-            // look inside for rule objects with metadata.
-            $objects = is_object($rule) ? [$rule] : (is_array($rule) ? array_filter($rule, is_object(...)) : []);
-
-            foreach ($objects as $object) {
-                self::extractObjectMetadata($object, (string) $field, $messages, $attributes);
-            }
-        }
-
-        return [$messages, $attributes];
+        return RuleMetadata::extract($rules);
     }
 
     /**
@@ -1141,29 +1134,6 @@ final class RuleSet implements Arrayable, IteratorAggregate
         }
 
         return $rules;
-    }
-
-    /**
-     * @param  array<string, string>  $messages
-     * @param  array<string, string>  $attributes
-     */
-    private static function extractObjectMetadata(object $object, string $field, array &$messages, array &$attributes): void
-    {
-        if (method_exists($object, 'getLabel')) {
-            $label = $object->getLabel();
-
-            if (is_string($label)) {
-                $attributes[$field] = $label;
-            }
-        }
-
-        if (method_exists($object, 'getCustomMessages')) {
-            /** @var array<string, string> $customMessages */
-            $customMessages = $object->getCustomMessages();
-            foreach ($customMessages as $ruleName => $msg) {
-                $messages[$ruleName === '' ? $field : $field . '.' . $ruleName] = $msg;
-            }
-        }
     }
 
     /** @param  array<string, mixed>  $rules */

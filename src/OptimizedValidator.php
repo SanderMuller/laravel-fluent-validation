@@ -56,6 +56,36 @@ class OptimizedValidator extends MemoizingValidator
     }
 
     /**
+     * Parse the data as Laravel does, which only replaces a `.` or `*` in a
+     * key. Data without such a key comes back as it is, without a copy.
+     *
+     * @param  array<array-key, mixed>  $data
+     * @return array<array-key, mixed>
+     */
+    public function parseData(array $data): array
+    {
+        return self::holdsKeyToReplace($data) ? parent::parseData($data) : $data;
+    }
+
+    /**
+     * @param  array<array-key, mixed>  $data
+     */
+    private static function holdsKeyToReplace(array $data): bool
+    {
+        if (! array_is_list($data) && strpbrk(implode('', array_keys($data)), '.*') !== false) {
+            return true;
+        }
+
+        foreach ($data as $value) {
+            if (is_array($value) && self::holdsKeyToReplace($value)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
      * Set plain string rules on concrete attributes, as setRules() would,
      * exploding each distinct rule string once. Expanded wildcard attributes
      * repeat the same few rule strings.
