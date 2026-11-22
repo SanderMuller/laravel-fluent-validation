@@ -2,6 +2,8 @@
 
 namespace SanderMuller\FluentValidation;
 
+use SanderMuller\FluentValidation\Internal\AsteriskPlaceholder;
+
 class WildcardExpander
 {
     /**
@@ -56,8 +58,8 @@ class WildcardExpander
         $paths = [];
 
         foreach (array_keys($current) as $key) {
-            // Escaped as in a rule key, so a key such as `2.5` stays one key.
-            $paths[] = $prefix . (is_int($key) ? $key : str_replace('.', '\\.', $key)) . $suffix;
+            // Escaped as in a rule key, so a key such as `2.5` or `c*d` stays one key.
+            $paths[] = $prefix . (is_int($key) ? $key : self::escapeKey($key)) . $suffix;
         }
 
         return $paths;
@@ -90,8 +92,8 @@ class WildcardExpander
             $paths = [];
 
             foreach (array_keys($current) as $key) {
-                // Escaped as in a rule key, so a key such as `2.5` stays one key.
-                array_push($paths, ...self::resolve($remaining, $current[$key], [...$path, is_int($key) ? (string) $key : str_replace('.', '\\.', $key)], true));
+                // Escaped as in a rule key, so a key such as `2.5` or `c*d` stays one key.
+                array_push($paths, ...self::resolve($remaining, $current[$key], [...$path, is_int($key) ? (string) $key : self::escapeKey($key)], true));
             }
 
             return $paths;
@@ -111,5 +113,18 @@ class WildcardExpander
         }
 
         return self::resolve($remaining, $current[$segment], [...$path, $segment], $afterWildcard);
+    }
+
+    /**
+     * Escapes a data key as a rule key: a dot as `\.`, and an asterisk as
+     * Laravel's placeholder, as Laravel reads a `*` in a rule key as a wildcard.
+     */
+    private static function escapeKey(string $key): string
+    {
+        if (str_contains($key, '*')) {
+            $key = str_replace('*', AsteriskPlaceholder::value(), $key);
+        }
+
+        return str_replace('.', '\\.', $key);
     }
 }

@@ -4,7 +4,8 @@ namespace SanderMuller\FluentValidation\Internal;
 
 /**
  * Laravel looks up the label and messages of a field with an escaped dot
- * (`rows.a\.b`) by its decoded name (`rows.a.b`).
+ * (`rows.a\.b`) or an asterisk placeholder by its decoded name (`rows.a.b`,
+ * `rows.c*d`).
  *
  * @internal
  */
@@ -22,12 +23,18 @@ final class EscapedFieldNames
      */
     public static function decode(array $rules): array
     {
-        if (! str_contains(implode("\n", array_keys($rules)), '\\.')) {
+        $keys = implode("\n", array_keys($rules));
+        $hasAsterisk = str_contains($keys, '__asterisk__');
+
+        if (! $hasAsterisk && ! str_contains($keys, '\\.')) {
             return $rules;
         }
 
+        $search = $hasAsterisk ? ['\\.', AsteriskPlaceholder::value()] : ['\\.'];
+        $replace = $hasAsterisk ? ['.', '*'] : ['.'];
+
         foreach ($rules as $field => $rule) {
-            $decoded = str_replace('\\.', '.', (string) $field);
+            $decoded = str_replace($search, $replace, (string) $field);
 
             if ($decoded !== (string) $field) {
                 unset($rules[$field]);
