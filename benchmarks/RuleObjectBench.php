@@ -53,7 +53,7 @@ final class RuleObjectBench
     }
 
     #[DataProvider('size')]
-    #[ExpectedFor('events-100', instructions: '342.2M', cycles: '440.5M', memory: '320.4KiB')]
+    #[ExpectedFor('events-100', instructions: '65.50M', cycles: '80.09M', memory: '335.4KiB')]
     public function benchValidate(int $count): void
     {
         Scenarios::validateNative($this->rules, $this->data);
