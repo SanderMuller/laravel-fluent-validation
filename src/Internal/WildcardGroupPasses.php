@@ -2,9 +2,9 @@
 
 namespace SanderMuller\FluentValidation\Internal;
 
+use Closure;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationRuleParser;
-use SanderMuller\FluentValidation\RuleSet;
 
 /**
  * Builds the per-item validation passes of one wildcard group.
@@ -25,14 +25,15 @@ final class WildcardGroupPasses
      * @param  array<string, string>  $messages
      * @param  array<string, string>  $attributes
      * @param  array<string, mixed>  $data
+     * @param  Closure(array<string, mixed>): array<string, mixed>  $compile  `RuleSet::compile()`
      * @return list<array{0: array<string, mixed>, 1: array<string, string>, 2: array<string, string>, 3: bool}>|null
      */
-    public static function for(array $groupRules, string $parent, array $messages, array $attributes, array $data, bool $stopOnFirstFailure): ?array
+    public static function for(array $groupRules, string $parent, array $messages, array $attributes, array $data, bool $stopOnFirstFailure, Closure $compile): ?array
     {
         $passes = [];
 
         if (! isset($groupRules['*']) || count($groupRules) === 1) {
-            $passes[] = self::groupPass($groupRules, $parent, $messages, $attributes);
+            $passes[] = self::groupPass($groupRules, $parent, $messages, $attributes, $compile);
         } else {
             $itemRule = ['*' => $groupRules['*']];
 
@@ -41,14 +42,14 @@ final class WildcardGroupPasses
             }
 
             $fieldRules = array_diff_key($groupRules, $itemRule);
-            $fieldMessages = ItemAttributeNames::fieldPassMessages($messages, $parent, array_map(strval(...), array_keys($fieldRules)), self::ruleNames($itemRule['*']));
+            $fieldMessages = ItemAttributeNames::fieldPassMessages($messages, $parent, array_map(strval(...), array_keys($fieldRules)), self::ruleNames($itemRule['*'], $compile));
 
             if ($fieldMessages === null) {
                 return null;
             }
 
-            $passes[] = self::groupPass($itemRule, $parent, $messages, $attributes);
-            $passes[] = self::groupPass($fieldRules, $parent, $fieldMessages, $attributes);
+            $passes[] = self::groupPass($itemRule, $parent, $messages, $attributes, $compile);
+            $passes[] = self::groupPass($fieldRules, $parent, $fieldMessages, $attributes, $compile);
         }
 
         foreach ($passes as [$itemRules]) {
@@ -64,11 +65,12 @@ final class WildcardGroupPasses
      * The snake-case names of the string rules in a rule, as message keys
      * name them.
      *
+     * @param  Closure(array<string, mixed>): array<string, mixed>  $compile
      * @return list<string>
      */
-    private static function ruleNames(mixed $rule): array
+    private static function ruleNames(mixed $rule, Closure $compile): array
     {
-        $compiled = RuleSet::compile(['*' => $rule])['*'] ?? [];
+        $compiled = $compile(['*' => $rule])['*'] ?? [];
         $parts = is_string($compiled) ? explode('|', $compiled) : (is_array($compiled) ? $compiled : []);
         $names = [];
 
@@ -86,9 +88,10 @@ final class WildcardGroupPasses
      * @param  array<string, mixed>  $groupRules
      * @param  array<string, string>  $messages
      * @param  array<string, string>  $attributes
+     * @param  Closure(array<string, mixed>): array<string, mixed>  $compile
      * @return array{0: array<string, mixed>, 1: array<string, string>, 2: array<string, string>, 3: bool}
      */
-    private static function groupPass(array $groupRules, string $parent, array $messages, array $attributes): array
+    private static function groupPass(array $groupRules, string $parent, array $messages, array $attributes, Closure $compile): array
     {
         $isScalar = array_keys($groupRules) === ['*'];
 
@@ -99,13 +102,13 @@ final class WildcardGroupPasses
         // Field keys are identical before and after the rewrite, so the
         // extracted metadata stays correctly keyed.
         $metadataRules = $isScalar ? ['_v' => $groupRules['*']] : $groupRules;
-        [$itemMessages, $itemAttributes] = RuleSet::extractMetadata($metadataRules);
+        [$itemMessages, $itemAttributes] = RuleMetadata::extract($metadataRules);
         $itemMessages = ItemAttributeNames::relativeToItem($messages, $parent, $isScalar) + $messages + $itemMessages;
         $itemAttributes = ItemAttributeNames::relativeToItem($attributes, $parent, $isScalar) + $attributes + $itemAttributes;
 
         $rawItemRules = $isScalar ? $metadataRules : self::rewriteRulesForPerItem($groupRules, $parent);
 
-        return [RuleSet::compile($rawItemRules), $itemMessages, $itemAttributes, $isScalar];
+        return [$compile($rawItemRules), $itemMessages, $itemAttributes, $isScalar];
     }
 
     /**

@@ -772,7 +772,7 @@ final class RuleSet implements Arrayable, IteratorAggregate
                 continue;
             }
 
-            $passes = WildcardGroupPasses::for($groupRules, $parent, $messages, $attributes, $data, $this->stopOnFirstFailure);
+            $passes = WildcardGroupPasses::for($groupRules, $parent, $messages, $attributes, $data, $this->stopOnFirstFailure, self::compile(...));
 
             // Per-item validators can't strip cross-item unknown keys, read
             // fields outside the item, or report the fields an exclude rule
