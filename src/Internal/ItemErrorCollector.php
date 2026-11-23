@@ -32,16 +32,29 @@ final class ItemErrorCollector
     /**
      * Append errors from a failed per-item validator into the accumulator,
      * keyed by full dotted path (`{parent}.{index}.{field}` or `{parent}.{index}` for scalar each).
+     * Returns whether an error is on `$stopAt`, the group's first rule key:
+     * Laravel reports no later item before it.
      *
      * @param  array<string, list<string>>  $errors
      */
-    public function collectErrors(Validator $validator, string $parent, int|string $index, bool $isScalar, array &$errors): void
+    public function collectErrors(Validator $validator, string $parent, int|string $index, bool $isScalar, array &$errors, ?string $stopAt = null): bool
     {
         /** @var array<string, list<string>> $itemErrors */
         $itemErrors = $validator->errors()->toArray();
+        $reached = $isScalar && $stopAt !== null;
+
         foreach ($itemErrors as $field => $fieldErrors) {
             $fullPath = $isScalar ? "{$parent}.{$index}" : "{$parent}.{$index}.{$field}";
             $errors[$fullPath] = $fieldErrors;
+            $reached = $reached || ($stopAt !== null && $this->isRule((string) $field, $stopAt));
         }
+
+        return $reached;
+    }
+
+    private function isRule(string $field, string $ruleKey): bool
+    {
+        return $field === $ruleKey
+            || (str_contains($ruleKey, '*') && preg_replace('/(?<=^|\.)\d+(?=\.|$)/', '*', $field) === $ruleKey);
     }
 }

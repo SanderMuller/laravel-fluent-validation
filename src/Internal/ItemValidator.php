@@ -18,10 +18,6 @@ use SanderMuller\FluentValidation\ValueConditionalReducer;
  * dispatch-value) and the per-rule-shape validator cache (reuse
  * `Validator` instances across items with the same effective rule set).
  *
- * Extracted from `RuleSet::validateItems` in Phase 2b. Instantiated once
- * per wildcard group dispatch — `stopOnFirstFailure` is cooked into the
- * constructor so the loop can bail without checking `$this->ruleSet->…`.
- *
  * @internal
  *
  * @phpstan-import-type ExcludedFields from WildcardValidatedData
@@ -29,9 +25,9 @@ use SanderMuller\FluentValidation\ValueConditionalReducer;
 final readonly class ItemValidator
 {
     public function __construct(
-        private bool $stopOnFirstFailure,
         private ItemRuleCompiler $compiler,
         private ItemErrorCollector $errors,
+        private ?string $stopAt = null,
     ) {}
 
     /**
@@ -140,12 +136,8 @@ final readonly class ItemValidator
 
                     $names->forItem($validatorCache[$cacheKey], $index, $itemData);
 
-                    if (! $validatorCache[$cacheKey]->passes()) {
-                        $this->errors->collectErrors($validatorCache[$cacheKey], $parent, $index, $isScalar, $errors);
-
-                        if ($this->stopOnFirstFailure) {
-                            return $errors;
-                        }
+                    if (! $validatorCache[$cacheKey]->passes() && $this->errors->collectErrors($validatorCache[$cacheKey], $parent, $index, $isScalar, $errors, $this->stopAt)) {
+                        return $errors;
                     }
 
                     continue;
@@ -168,12 +160,8 @@ final readonly class ItemValidator
 
             $names->forItem($validatorCache[$cacheKey], $index, $itemData);
 
-            if (! $validatorCache[$cacheKey]->passes()) {
-                $this->errors->collectErrors($validatorCache[$cacheKey], $parent, $index, $isScalar, $errors);
-
-                if ($this->stopOnFirstFailure) {
-                    return $errors;
-                }
+            if (! $validatorCache[$cacheKey]->passes() && $this->errors->collectErrors($validatorCache[$cacheKey], $parent, $index, $isScalar, $errors, $this->stopAt)) {
+                return $errors;
             }
         }
 

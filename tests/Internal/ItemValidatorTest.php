@@ -6,10 +6,9 @@ use SanderMuller\FluentValidation\Internal\ItemErrorCollector;
 use SanderMuller\FluentValidation\Internal\ItemGroupValidator;
 use SanderMuller\FluentValidation\Internal\ItemRuleCompiler;
 
-function makeItemValidator(bool $stopOnFirstFailure = false): ItemGroupValidator
+function makeItemValidator(): ItemGroupValidator
 {
     return new ItemGroupValidator(
-        $stopOnFirstFailure,
         new ItemRuleCompiler(),
         new ItemErrorCollector(),
     );
@@ -63,24 +62,8 @@ it('validate handles scalar each under _v key', function (): void {
         ->and($errors)->not->toHaveKey('tags.2');
 });
 
-it('validate with stopOnFirstFailure=true returns after the first failing item', function (): void {
-    $validator = makeItemValidator(stopOnFirstFailure: true);
-
-    $errors = $validator->validate(
-        items: [['name' => ''], ['name' => ''], ['name' => '']],
-        itemRules: ['name' => 'required|string'],
-        itemMessages: [],
-        itemAttributes: [],
-        parent: 'users',
-        isScalar: false,
-    );
-
-    expect($errors)->toHaveCount(1)
-        ->and($errors)->toHaveKey('users.0.name');
-});
-
-it('validate with stopOnFirstFailure=false collects errors from every failing item', function (): void {
-    $validator = makeItemValidator(stopOnFirstFailure: false);
+it('validate collects errors from every failing item', function (): void {
+    $validator = makeItemValidator();
 
     $errors = $validator->validate(
         items: [['name' => ''], ['name' => ''], ['name' => '']],

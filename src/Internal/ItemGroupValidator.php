@@ -20,9 +20,9 @@ use Illuminate\Validation\Validator as BaseValidator;
 final readonly class ItemGroupValidator
 {
     public function __construct(
-        private bool $stopOnFirstFailure,
         private ItemRuleCompiler $compiler,
         private ItemErrorCollector $errors,
+        private ?string $stopAt = null,
     ) {}
 
     /**
@@ -37,13 +37,13 @@ final readonly class ItemGroupValidator
     {
         $conditionalFields = $this->compiler->analyzeConditionals($itemRules);
         $nestedParents = $this->nestedConditionParents($conditionalFields);
-        $itemValidator = new ItemValidator($this->stopOnFirstFailure, $this->compiler, $this->errors);
+        $itemValidator = new ItemValidator($this->compiler, $this->errors, $this->stopAt);
 
         if ($nestedParents === []) {
             return $itemValidator->validate($items, $itemRules, $itemMessages, $itemAttributes, $parent, $isScalar, $conditionalFields, $excludedFields);
         }
 
-        $split = $nestedParents === null || $isScalar || $this->stopOnFirstFailure || $this->hasDottedNestedKeys($items, $nestedParents)
+        $split = $nestedParents === null || $isScalar || $this->hasDottedNestedKeys($items, $nestedParents)
             ? null
             : NestedExcludeSplit::for($itemRules, $conditionalFields);
 
@@ -59,7 +59,7 @@ final readonly class ItemGroupValidator
             /** @var array<string, mixed> $itemData */
             $itemData = $isScalar ? ['_v' => $item] : (is_array($item) ? $item : []);
 
-            if (! $this->validateWhole($index, $itemData, $itemRules, $itemMessages, $itemAttributes, $parent, $isScalar, $names, $excludedFields, $errors) && $this->stopOnFirstFailure) {
+            if ($this->validateWhole($index, $itemData, $itemRules, $itemMessages, $itemAttributes, $parent, $isScalar, $names, $excludedFields, $errors)) {
                 return $errors;
             }
         }
@@ -277,7 +277,6 @@ final readonly class ItemGroupValidator
     private function validateWhole(int|string $index, array $itemData, array $itemRules, array $itemMessages, array $itemAttributes, string $parent, bool $isScalar, ItemAttributeNames $names, array &$excludedFields, array &$errors): bool
     {
         $validator = ItemValidator::makeItemValidator($itemData, $itemRules, $itemMessages, $itemAttributes);
-        $validator->stopOnFirstFailure($this->stopOnFirstFailure);
 
         $names->forItem($validator, $index, $itemData);
 
@@ -288,11 +287,7 @@ final readonly class ItemGroupValidator
             $excludedFields[$index] = $excluded;
         }
 
-        if (! $passes) {
-            $this->errors->collectErrors($validator, $parent, $index, $isScalar, $errors);
-        }
-
-        return $passes;
+        return ! $passes && $this->errors->collectErrors($validator, $parent, $index, $isScalar, $errors, $this->stopAt);
     }
 
     /**
