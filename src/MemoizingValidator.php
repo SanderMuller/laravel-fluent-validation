@@ -2,6 +2,7 @@
 
 namespace SanderMuller\FluentValidation;
 
+use Illuminate\Translation\Translator;
 use Illuminate\Validation\ValidationRuleParser;
 use Illuminate\Validation\Validator;
 
@@ -135,15 +136,21 @@ class MemoizingValidator extends Validator
 
     /**
      * Looks up the message template once per attribute, rule and attribute
-     * type. The key also holds the translator and its locale, and a change of
-     * the custom or fallback messages drops the kept templates. Translation
-     * lines added while the validator lives are not seen.
+     * type. The key also holds the translator, its locale and its fallback
+     * locale, and a change of the custom or fallback messages drops the kept
+     * templates. Translation lines added while the validator lives are not
+     * seen.
      *
      * @param  string  $attribute
      * @param  string  $rule
      */
     protected function getMessage($attribute, $rule): mixed
     {
+        if ($this->replacePlaceholderInString((string) $attribute) !== (string) $attribute) {
+            // Laravel looks up the type of the attribute with and without the placeholder.
+            return parent::getMessage($attribute, $rule);
+        }
+
         $sources = [$this->customMessages, $this->fallbackMessages];
 
         if ($sources !== $this->messageSources) {
@@ -151,7 +158,7 @@ class MemoizingValidator extends Validator
             $this->messageSources = $sources;
         }
 
-        $key = spl_object_id($this->translator) . '|' . $this->translator->getLocale() . '|' . $this->getAttributeType($attribute) . '|' . $rule . '|' . $attribute;
+        $key = spl_object_id($this->translator) . '|' . $this->translator->getLocale() . '|' . ($this->translator instanceof Translator ? $this->translator->getFallback() : '') . '|' . $this->getAttributeType($attribute) . '|' . $rule . '|' . $attribute;
 
         if (! isset($this->messageTemplates[$key])) {
             $message = parent::getMessage($attribute, $rule);

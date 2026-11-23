@@ -216,3 +216,41 @@ it('reduces each item on its own when a dependency is not a scalar or not a top-
         [['mode' => 'on', 'meta' => ['kind' => 'thin']], ['mode' => 'on', 'meta' => ['kind' => 'full']], ['mode' => 'on', 'meta' => ['kind' => 'full'], 'note' => 'n']],
     ],
 ]);
+
+it('keeps float dependency values apart that differ past the 14th digit', function (): void {
+    assertReducedRulesParity(
+        [
+            'items.*.mode' => 'nullable',
+            'items.*.rate' => 'nullable',
+            'items.*.note' => ['exclude_if:items.*.mode,off', 'required_if:items.*.rate,0.3', 'nullable', 'string'],
+        ],
+        [['mode' => 'on', 'rate' => 0.30000000000000004], ['mode' => 'on', 'rate' => 0.3]],
+    );
+
+    assertDispatchParity(
+        [
+            'items.*.rate' => 'nullable',
+            'items.*.note' => ['exclude_if:items.*.rate,9', 'required_if:items.*.rate,1', 'nullable', 'string'],
+        ],
+        [['rate' => 1.000000000000001], ['rate' => 1.0]],
+    );
+});
+
+it('reduces each item as on its own when an exclude condition reads a field another exclude rule can remove', function (): void {
+    $rules = [
+        'items' => 'array',
+        'items.*.x' => 'nullable',
+        'items.*.flag' => ['exclude_if:items.*.x,1', 'boolean'],
+        'items.*.f' => ['exclude_if:items.*.flag,true', 'integer'],
+    ];
+    $first = ['x' => 1, 'flag' => '1', 'f' => 'abc'];
+    $second = ['x' => 1, 'flag' => 'true', 'f' => 'abc'];
+    $errors = static fn (array $items): array => array_keys(RuleSet::from($rules)->check(['items' => $items])->errors()->toArray());
+    $alone = static fn (array $item, int $index): array => array_map(
+        static fn (string $key): string => str_replace('items.0.', "items.{$index}.", $key),
+        $errors([$item]),
+    );
+
+    expect($errors([$first, $second]))->toBe([...$alone($first, 0), ...$alone($second, 1)])
+        ->and($errors([$second, $first]))->toBe([...$alone($second, 0), ...$alone($first, 1)]);
+});

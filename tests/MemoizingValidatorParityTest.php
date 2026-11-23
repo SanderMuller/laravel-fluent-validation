@@ -1,5 +1,6 @@
 <?php declare(strict_types=1);
 
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Fluent;
 use Illuminate\Translation\ArrayLoader;
 use Illuminate\Translation\Translator;
@@ -329,4 +330,39 @@ it('matches native when setRules or sometimes changes the rules between setData 
             ->and($memoizing->passes())->toBe($native->passes())
             ->and($memoizing->errors()->toArray())->toBe($native->errors()->toArray());
     }
+});
+
+it('looks up the message again after the fallback locale changes', function (): void {
+    $messages = [];
+
+    foreach ([BaseValidator::class, MemoizingValidator::class] as $class) {
+        $translator = memoMessageTranslator();
+        $translator->setLocale('de');
+        $translator->setFallback('en');
+        $validator = new $class($translator, [], ['name' => 'required']);
+        $validator->passes();
+        $translator->setFallback('nl');
+        $validator->setData([]);
+        $validator->passes();
+        $messages[$class] = $validator->errors()->first('name');
+    }
+
+    expect($messages[MemoizingValidator::class])->toBe($messages[BaseValidator::class])->toBe('nl: name verplicht');
+});
+
+it('matches native for an escaped-dot attribute whose nested value changes type', function (): void {
+    $rules = ['a\.b' => 'max:1'];
+    $messages = ['a.b.max' => ['file' => 'File message', 'string' => 'String message']];
+    $results = [];
+
+    foreach ([BaseValidator::class, MemoizingValidator::class] as $class) {
+        $validator = new $class(memoMessageTranslator(), ['a.b' => 'xx', 'a' => ['b' => 'str']], $rules, $messages);
+        $validator->passes();
+        $first = $validator->errors()->toArray();
+        $validator->setData(['a.b' => 'xx', 'a' => ['b' => UploadedFile::fake()->create('x.txt', 5)]]);
+        $validator->passes();
+        $results[$class] = [$first, $validator->errors()->toArray()];
+    }
+
+    expect($results[MemoizingValidator::class])->toBe($results[BaseValidator::class]);
 });

@@ -50,6 +50,11 @@ final class DispatchField
 
         $value = $itemData[$field];
 
+        if (is_float($value)) {
+            // A string cast keeps 14 digits, so two different floats could share a key.
+            return 'float:' . sprintf('%.17g', $value);
+        }
+
         return is_scalar($value) || $value === null
             ? get_debug_type($value) . ':' . $value
             : null;
