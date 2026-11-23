@@ -131,15 +131,16 @@ final class FlatValues
         }
 
         foreach ($lists as $key => [$keys]) {
-            $columns = array_column($records, $key);
+            $union = [];
 
-            if (! self::filledArrays($columns)) {
-                return false;
+            foreach ($records as $record) {
+                // A null or empty list takes the exact walk, which applies its rule.
+                if (is_array($record) && array_key_exists($key, $record) && (! is_array($record[$key]) || ! self::collectKeys($record[$key], $union))) {
+                    return false;
+                }
             }
 
-            $items = array_merge(...$columns);
-
-            if ($items !== [] && ! self::allHoldOnly($items, $keys)) {
+            if (array_diff_key($union, $keys) !== []) {
                 return false;
             }
         }
@@ -148,39 +149,33 @@ final class FlatValues
     }
 
     /**
-     * Is each element a filled array that holds only the keys? One merge
-     * of all elements checks their keys in C, which costs less than a check
-     * of each. False also when this check cannot tell: a list with other
-     * keys, or int keys, which the merge renumbers.
+     * Is each element a filled array that holds only the keys? The keys of
+     * all elements are gathered into one array first, so one compare checks
+     * them all. False also when this check cannot tell: an empty list, or a
+     * list with other keys.
      *
      * @param  array<array-key, mixed>  $list
      * @param  array<array-key, mixed>  $keys
      */
     private static function allHoldOnly(array $list, array $keys): bool
     {
-        if (! self::filledArrays($list)) {
-            return false;
-        }
+        $union = [];
 
-        foreach (array_keys($keys) as $key) {
-            if (is_int($key)) {
-                return false;
-            }
-        }
-
-        return array_diff_key(array_merge(...$list), $keys) === [];
+        return self::collectKeys($list, $union) && array_diff_key($union, $keys) === [];
     }
 
     /**
-     * Is the value a list of filled arrays?
+     * Adds the keys of each element to the union, when the value is a filled
+     * list of filled arrays.
      *
      * @param  array<array-key, mixed>  $list
+     * @param  array<array-key, mixed>  $union
      *
-     * @phpstan-assert-if-true list<non-empty-array<array-key, mixed>> $list
+     * @param-out array<array-key, mixed>  $union
      */
-    private static function filledArrays(array $list): bool
+    private static function collectKeys(array $list, array &$union): bool
     {
-        if (! array_is_list($list)) {
+        if ($list === [] || ! array_is_list($list)) {
             return false;
         }
 
@@ -188,6 +183,8 @@ final class FlatValues
             if (! is_array($element) || $element === []) {
                 return false;
             }
+
+            $union += $element;
         }
 
         return true;
