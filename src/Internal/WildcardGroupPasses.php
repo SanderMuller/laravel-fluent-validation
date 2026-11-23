@@ -1,0 +1,156 @@
+<?php declare(strict_types=1);
+
+namespace SanderMuller\FluentValidation\Internal;
+
+use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationRuleParser;
+use SanderMuller\FluentValidation\RuleSet;
+
+/**
+ * Builds the per-item validation passes of one wildcard group.
+ *
+ * @internal Implementation detail of `RuleSet`.
+ */
+final class WildcardGroupPasses
+{
+    /**
+     * The per-item passes of a group, or null when the group needs full
+     * expansion. A rule on `items.*` validates the item itself, so a group
+     * with that rule and field rules runs it in a pass of its own. Laravel
+     * links the two only through an exclude rule on the item, a reference
+     * from the item rule to a field, and stopOnFirstFailure; the group then
+     * needs full expansion.
+     *
+     * @param  array<string, mixed>  $groupRules
+     * @param  array<string, string>  $messages
+     * @param  array<string, string>  $attributes
+     * @param  array<string, mixed>  $data
+     * @return list<array{0: array<string, mixed>, 1: array<string, string>, 2: array<string, string>, 3: bool}>|null
+     */
+    public static function for(array $groupRules, string $parent, array $messages, array $attributes, array $data, bool $stopOnFirstFailure): ?array
+    {
+        $passes = [];
+
+        if (! isset($groupRules['*']) || count($groupRules) === 1) {
+            $passes[] = self::groupPass($groupRules, $parent, $messages, $attributes);
+        } else {
+            $itemRule = ['*' => $groupRules['*']];
+
+            if ($stopOnFirstFailure || WildcardValidatedData::excludes($itemRule) || OutsideItemReferences::fromItemRule($itemRule, $data)) {
+                return null;
+            }
+
+            $fieldRules = array_diff_key($groupRules, $itemRule);
+            $fieldMessages = ItemAttributeNames::fieldPassMessages($messages, $parent, array_map(strval(...), array_keys($fieldRules)), self::ruleNames($itemRule['*']));
+
+            if ($fieldMessages === null) {
+                return null;
+            }
+
+            $passes[] = self::groupPass($itemRule, $parent, $messages, $attributes);
+            $passes[] = self::groupPass($fieldRules, $parent, $fieldMessages, $attributes);
+        }
+
+        foreach ($passes as [$itemRules]) {
+            if (self::requiresFullExpansion($itemRules)) {
+                return null;
+            }
+        }
+
+        return $passes;
+    }
+
+    /**
+     * The snake-case names of the string rules in a rule, as message keys
+     * name them.
+     *
+     * @return list<string>
+     */
+    private static function ruleNames(mixed $rule): array
+    {
+        $compiled = RuleSet::compile(['*' => $rule])['*'] ?? [];
+        $parts = is_string($compiled) ? explode('|', $compiled) : (is_array($compiled) ? $compiled : []);
+        $names = [];
+
+        foreach ($parts as $part) {
+            if (is_string($part)) {
+                $name = ValidationRuleParser::parse($part)[0];
+                $names[] = is_string($name) ? Str::snake($name) : '';
+            }
+        }
+
+        return $names;
+    }
+
+    /**
+     * @param  array<string, mixed>  $groupRules
+     * @param  array<string, string>  $messages
+     * @param  array<string, string>  $attributes
+     * @return array{0: array<string, mixed>, 1: array<string, string>, 2: array<string, string>, 3: bool}
+     */
+    private static function groupPass(array $groupRules, string $parent, array $messages, array $attributes): array
+    {
+        $isScalar = array_keys($groupRules) === ['*'];
+
+        // Extract metadata from the pre-rewrite rules: rewriteRulesForPerItem
+        // may flatten object-form rules (FluentRule/FieldRule) into native
+        // arrays to reach the conditional deps buried inside them, which
+        // would otherwise drop the object's labels and per-rule messages.
+        // Field keys are identical before and after the rewrite, so the
+        // extracted metadata stays correctly keyed.
+        $metadataRules = $isScalar ? ['_v' => $groupRules['*']] : $groupRules;
+        [$itemMessages, $itemAttributes] = RuleSet::extractMetadata($metadataRules);
+        $itemMessages = ItemAttributeNames::relativeToItem($messages, $parent, $isScalar) + $messages + $itemMessages;
+        $itemAttributes = ItemAttributeNames::relativeToItem($attributes, $parent, $isScalar) + $attributes + $itemAttributes;
+
+        $rawItemRules = $isScalar ? $metadataRules : self::rewriteRulesForPerItem($groupRules, $parent);
+
+        return [RuleSet::compile($rawItemRules), $itemMessages, $itemAttributes, $isScalar];
+    }
+
+    /**
+     * Rewrite wildcard field references to item-relative paths so per-item
+     * validation works. Transforms:
+     *   ['exclude_unless', 'items.*.type', 'chapter'] → ['exclude_unless', 'type', 'chapter']
+     *   'gte:items.*.start_time' → 'gte:start_time'
+     *
+     * @param  array<string, mixed>  $groupRules
+     * @return array<string, mixed>
+     */
+    private static function rewriteRulesForPerItem(array $groupRules, string $parent): array
+    {
+        $rewriter = new WildcardReferenceRewriter($parent . '.*.');
+        $rewritten = [];
+
+        foreach ($groupRules as $field => $rule) {
+            // FluentRule/FieldRule objects compile to either a pipe-joined string
+            // or an array of native rules/objects. A conditional dep like
+            // requiredUnless('items.*.type', …) keeps its `items.*.` prefix until
+            // this point, so strip it here or the per-item reducer's data_get on
+            // the relative item never resolves it.
+            if (is_object($rule) && method_exists($rule, 'compiledRules')) {
+                $rule = $rule->compiledRules();
+            }
+
+            $rewritten[$field] = $rewriter->rewrite($rule);
+        }
+
+        return $rewritten;
+    }
+
+    /** @param  array<string, mixed>  $compiledRules */
+    private static function requiresFullExpansion(array $compiledRules): bool
+    {
+        // Cross-item rules like distinct need full expansion to compare across items.
+        // Nested wildcards (chapters.*.title) are fine — the per-item validator
+        // handles them within each item's scope.
+        foreach ($compiledRules as $compiledRule) {
+            $ruleString = is_string($compiledRule) ? $compiledRule : (is_array($compiledRule) ? implode('|', array_filter($compiledRule, is_string(...))) : '');
+            if (str_contains($ruleString, 'distinct')) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+}

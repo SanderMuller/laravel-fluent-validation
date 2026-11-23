@@ -2337,14 +2337,14 @@ it('dropUnknownFields strips unknown nested keys inside each()', function (): vo
         ->and($validated['items'][1])->toHaveKey('name', 'Bar')->not->toHaveKey('other');
 });
 
-it('dropUnknownFields drops empty items like native, and the default keeps them with the other unknown keys', function (): void {
+it('drops empty items and unknown keys like native, with and without dropUnknownFields', function (): void {
     $rules = ['items' => 'array', 'items.*.x' => 'nullable'];
 
     foreach ([[['x' => 1, 'y' => 2], []], [[], ['x' => 1]], [[], []]] as $items) {
         $data = ['items' => $items];
 
         expect(RuleSet::from($rules)->dropUnknownFields()->validate($data))->toBe(validator($data, $rules)->validated())
-            ->and(RuleSet::from($rules)->validate($data))->toBe($data);
+            ->and(RuleSet::from($rules)->validate($data))->toBe(validator($data, $rules)->validated());
     }
 });
 
@@ -2875,8 +2875,10 @@ it('wildcard fast path enforces required_with (sibling present → required)', f
     expect(RuleSet::from($rules)->validate($valid))->toBe($valid);
 
     // phone absent → required_with inactive → phone_type optional → pass.
+    // Like native, validated() leaves out the item no rule validates.
     $noPhone = ['contacts' => [[]]];
-    expect(RuleSet::from($rules)->validate($noPhone))->toBe(['contacts' => [[]]]);
+    expect(RuleSet::from($rules)->validate($noPhone))
+        ->toBeEmpty();
 });
 
 it('wildcard fast path enforces required_with with multi-param (any sibling present)', function (): void {
@@ -2898,9 +2900,10 @@ it('wildcard fast path enforces required_with with multi-param (any sibling pres
         ['b' => 'y'],
     ]]))->toThrow(ValidationException::class);
 
-    // neither → label optional → pass.
+    // neither → label optional → pass. Like native, validated() leaves out the empty item.
     $neither = ['rows' => [[]]];
-    expect(RuleSet::from($rules)->validate($neither))->toBe(['rows' => [[]]]);
+    expect(RuleSet::from($rules)->validate($neither))
+        ->toBeEmpty();
 
     // both + label → pass.
     $full = ['rows' => [['a' => 'x', 'b' => 'y', 'label' => 'ok']]];
@@ -2922,9 +2925,11 @@ it('wildcard fast path fast-checks required_with alone (stripped rule is empty)'
         ['trigger' => 'x'],
     ]]))->toThrow(ValidationException::class);
 
-    // trigger missing → pass regardless of conditional value.
+    // trigger missing → pass regardless of conditional value. Like native,
+    // validated() leaves out the empty item.
     $noTrigger = ['items' => [[]]];
-    expect(RuleSet::from($rules)->validate($noTrigger))->toBe(['items' => [[]]]);
+    expect(RuleSet::from($rules)->validate($noTrigger))
+        ->toBeEmpty();
 });
 
 it('wildcard fast path enforces required_without (sibling absent → required)', function (): void {

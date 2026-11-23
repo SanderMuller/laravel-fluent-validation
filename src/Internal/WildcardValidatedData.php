@@ -257,8 +257,12 @@ final class WildcardValidatedData
         return $data;
     }
 
-    /** @param  array<array-key, mixed>  $rules */
-    private static function excludes(array $rules): bool
+    /**
+     * Can a rule exclude its attribute?
+     *
+     * @param  array<array-key, mixed>  $rules
+     */
+    public static function excludes(array $rules): bool
     {
         foreach ($rules as $rule) {
             foreach (self::ruleParts($rule) as $part) {

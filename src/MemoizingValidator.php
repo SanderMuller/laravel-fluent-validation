@@ -2,6 +2,7 @@
 
 namespace SanderMuller\FluentValidation;
 
+use Closure;
 use Illuminate\Translation\Translator;
 use Illuminate\Validation\ValidationRuleParser;
 use Illuminate\Validation\Validator;
@@ -70,6 +71,14 @@ class MemoizingValidator extends Validator
 
     /** @var array{0: array<array-key, mixed>, 1: array<array-key, mixed>}|null */
     private ?array $messageSources = null;
+
+    /**
+     * Gives the full path of an attribute of one wildcard item, so `:index`
+     * and `:position` read the item's own index.
+     *
+     * @var (Closure(string): string)|null
+     */
+    private ?Closure $placeholderAttribute = null;
 
     /**
      * Clear the static parse cache. Used by tests that need a known cache
@@ -171,6 +180,35 @@ class MemoizingValidator extends Validator
         }
 
         return $this->messageTemplates[$key];
+    }
+
+    /**
+     * @internal Set by the per-item path of `RuleSet`.
+     *
+     * @param  Closure(string): string  $placeholderAttribute
+     */
+    public function setPlaceholderAttribute(Closure $placeholderAttribute): void
+    {
+        $this->placeholderAttribute = $placeholderAttribute;
+    }
+
+    /**
+     * @param  string  $message
+     * @param  string  $attribute
+     * @param  string  $placeholder
+     */
+    protected function replaceIndexOrPositionPlaceholder($message, $attribute, $placeholder, ?Closure $modifier = null): string
+    {
+        // Laravel returns the message as it is when it holds no placeholder.
+        if (stripos($message, $placeholder) === false) {
+            return $message;
+        }
+
+        if ($this->placeholderAttribute instanceof Closure) {
+            $attribute = ($this->placeholderAttribute)($attribute);
+        }
+
+        return parent::replaceIndexOrPositionPlaceholder($message, $attribute, $placeholder, $modifier);
     }
 
     /**

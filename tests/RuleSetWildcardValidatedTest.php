@@ -208,8 +208,8 @@ function excludedUnderParentRuleCases(): array
         'literal key with a dot' => [
             ['items' => 'array', 'items.*.type' => 'string', 'items.*.meta.size' => 'exclude_unless:items.*.type,box|integer'],
             ['items' => [['type' => 'bag', 'meta.size' => 'literal', 'meta' => ['size' => 'x']]]],
-            // The literal key has no rule, so it stays as an unknown key (see dropUnknownFields()).
-            ['items' => [['type' => 'bag', 'meta.size' => 'literal', 'meta' => []]]],
+            // Like native, validated() leaves out the literal key and the emptied parent, which no rule validates.
+            ['items' => [['type' => 'bag']]],
         ],
         'scalar items' => [
             ['tags' => 'array', 'tags.*' => 'exclude_if:tags.*,b|string'],

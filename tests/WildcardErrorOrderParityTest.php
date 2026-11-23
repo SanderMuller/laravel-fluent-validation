@@ -142,3 +142,16 @@ it('keeps the failed top-level rules when wildcard errors also exist', function 
     expect($result->validator()->failed())->toBe(['title' => ['Required' => []]])
         ->and($result->errors()->keys())->toBe(['title', 'items.0.x']);
 });
+
+it('fills in the index and position placeholders of a wildcard message like native', function (): void {
+    $rules = ['items' => 'array', 'items.*' => 'array|min:2', 'items.*.x' => 'integer', 'items.*.tags' => 'array', 'items.*.tags.*' => 'integer'];
+    $data = ['items' => [['x' => 1], ['x' => 'a', 'tags' => [1, 'b']]]];
+    $messages = [
+        'items.*.min' => 'Item :position (:index)',
+        'items.*.x.integer' => 'X :ordinal-position',
+        'items.*.tags.*.integer' => 'Tag :first-position.:second-position',
+    ];
+
+    expect(RuleSet::from($rules)->check($data, $messages)->errors()->toArray())
+        ->toBe(validator($data, $rules, $messages)->errors()->toArray());
+});

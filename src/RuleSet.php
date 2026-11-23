@@ -22,15 +22,15 @@ use SanderMuller\FluentValidation\Internal\DependentParameterKeys;
 use SanderMuller\FluentValidation\Internal\DottedItemKeys;
 use SanderMuller\FluentValidation\Internal\ExpandedRuleMerger;
 use SanderMuller\FluentValidation\Internal\ImplicitAttributes;
-use SanderMuller\FluentValidation\Internal\ItemAttributeNames;
 use SanderMuller\FluentValidation\Internal\ItemErrorCollector;
 use SanderMuller\FluentValidation\Internal\ItemGroupValidator;
 use SanderMuller\FluentValidation\Internal\ItemRuleCompiler;
+use SanderMuller\FluentValidation\Internal\NativeValidatedData;
 use SanderMuller\FluentValidation\Internal\OutsideItemReferences;
 use SanderMuller\FluentValidation\Internal\RuleMetadata;
 use SanderMuller\FluentValidation\Internal\TopLevelValidation;
 use SanderMuller\FluentValidation\Internal\WildcardErrorOrder;
-use SanderMuller\FluentValidation\Internal\WildcardReferenceRewriter;
+use SanderMuller\FluentValidation\Internal\WildcardGroupPasses;
 use SanderMuller\FluentValidation\Internal\WildcardShape;
 use SanderMuller\FluentValidation\Internal\WildcardValidatedData;
 use SanderMuller\FluentValidation\Rules\ArrayRule;
@@ -656,16 +656,19 @@ final class RuleSet implements Arrayable, IteratorAggregate
         $topValidated = TopLevelValidation::fastValidated($this->ruleCompiler, $data, $topCompiled);
         $topErrors = [];
         $topValidator = null;
+        $topExcluded = [];
 
         if ($topValidated === null) {
-            [$topValidated, $topErrors, $topValidator] = TopLevelValidation::run($data, $topCompiled, $messages, $attributes, $this->stopOnFirstFailure);
+            [$topValidated, $topErrors, $topValidator, $topExcluded] = TopLevelValidation::run($data, $topCompiled, $messages, $attributes, $this->stopOnFirstFailure);
         }
 
         $uncoveredGroups = WildcardValidatedData::uncovered($topCompiled, $wildcardGroups);
 
         $fallbackResult = null;
         $excludedFields = [];
-        $allErrors = $this->validateWildcardGroups(TopLevelValidation::groupsToValidate($wildcardGroups, $topErrors), $data, $messages, $attributes, $fallbackResult, $uncoveredGroups, $excludedFields, $wildcardKeys);
+        // Laravel also drops the rules below an attribute an exclude rule removed.
+        $groups = TopLevelValidation::groupsToValidate($wildcardGroups, $topErrors + array_fill_keys($topExcluded, []));
+        $allErrors = $this->validateWildcardGroups($groups, $data, $messages, $attributes, $fallbackResult, $uncoveredGroups, $excludedFields, $wildcardKeys);
 
         if ($fallbackResult !== null) {
             return $fallbackResult;
@@ -677,7 +680,10 @@ final class RuleSet implements Arrayable, IteratorAggregate
             TopLevelValidation::fail($errors, $topValidator);
         }
 
-        return WildcardValidatedData::add(WildcardValidatedData::withoutExcluded($topValidated, $excludedFields), $uncoveredGroups, $data);
+        // The top-level validator returns a group's parent whole, so it
+        // cannot leave out the keys no wildcard rule validates.
+        return NativeValidatedData::of($topCompiled + self::compile(TopLevelValidation::standardRules($this->flatten(), $wildcardGroups)), $data, $topExcluded, $excludedFields)
+            ?? WildcardValidatedData::add(WildcardValidatedData::withoutExcluded($topValidated, $excludedFields), $uncoveredGroups, $data);
     }
 
     /**
@@ -766,35 +772,26 @@ final class RuleSet implements Arrayable, IteratorAggregate
                 continue;
             }
 
-            $isScalar = isset($groupRules['*']) && count($groupRules) === 1;
-
-            // Extract metadata from the pre-rewrite rules: rewriteRulesForPerItem
-            // may flatten object-form rules (FluentRule/FieldRule) into native
-            // arrays to reach the conditional deps buried inside them, which
-            // would otherwise drop the object's labels and per-rule messages.
-            // Field keys are identical before and after the rewrite, so the
-            // extracted metadata stays correctly keyed.
-            $metadataRules = $isScalar ? ['_v' => $groupRules['*']] : $groupRules;
-            [$itemMessages, $itemAttributes] = self::extractMetadata($metadataRules);
-            $itemMessages = ItemAttributeNames::relativeToItem($messages, $parent, $isScalar) + $messages + $itemMessages;
-            $itemAttributes = ItemAttributeNames::relativeToItem($attributes, $parent, $isScalar) + $attributes + $itemAttributes;
-
-            $rawItemRules = $isScalar
-                ? $metadataRules
-                : $this->rewriteRulesForPerItem($groupRules, $parent);
-            $itemRules = self::compile($rawItemRules);
+            $passes = WildcardGroupPasses::for($groupRules, $parent, $messages, $attributes, $data, $this->stopOnFirstFailure);
 
             // Per-item validators can't strip cross-item unknown keys, read
             // fields outside the item, or report the fields an exclude rule
             // removed; fall back to the single fully-expanded validator then.
-            if ($this->dropUnknownFields || $this->requiresFullExpansion($itemRules) || OutsideItemReferences::exist($groupRules, $parent, $data) || WildcardValidatedData::excludesFields($uncoveredGroups, $parent) || DottedItemKeys::exist($items)) {
+            if ($passes === null || $this->dropUnknownFields || OutsideItemReferences::exist($groupRules, $parent, $data) || WildcardValidatedData::excludesFields($uncoveredGroups, $parent) || DottedItemKeys::exist($items)) {
                 $fallbackResult = $this->validateStandard($data, $messages, $attributes, $wildcardGroups);
 
                 return [];
             }
 
-            $excludedFields[$parent] = [];
-            $allErrors += $this->validateItems($items, $itemRules, $itemMessages, $itemAttributes, $parent, $isScalar, $excludedFields[$parent]);
+            // Only the last pass can exclude a field, see WildcardGroupPasses.
+            $excluded = [];
+
+            foreach ($passes as [$itemRules, $itemMessages, $itemAttributes, $isScalar]) {
+                $excluded = [];
+                $allErrors += $this->validateItems($items, $itemRules, $itemMessages, $itemAttributes, $parent, $isScalar, $excluded);
+            }
+
+            $excludedFields[$parent] = $excluded;
 
             if ($this->stopOnFirstFailure && WildcardErrorOrder::holdsFirstRule($allErrors, $wildcardKeys)) {
                 break;
@@ -879,52 +876,6 @@ final class RuleSet implements Arrayable, IteratorAggregate
                 if (preg_match($pattern, $inputKey) === 1) {
                     return true;
                 }
-            }
-        }
-
-        return false;
-    }
-
-    /**
-     * Rewrite wildcard field references to item-relative paths so per-item
-     * validation works. Transforms:
-     *   ['exclude_unless', 'items.*.type', 'chapter'] → ['exclude_unless', 'type', 'chapter']
-     *   'gte:items.*.start_time' → 'gte:start_time'
-     *
-     * @param  array<string, mixed>  $groupRules
-     * @return array<string, mixed>
-     */
-    private function rewriteRulesForPerItem(array $groupRules, string $parent): array
-    {
-        $rewriter = new WildcardReferenceRewriter($parent . '.*.');
-        $rewritten = [];
-
-        foreach ($groupRules as $field => $rule) {
-            // FluentRule/FieldRule objects compile to either a pipe-joined string
-            // or an array of native rules/objects. A conditional dep like
-            // requiredUnless('items.*.type', …) keeps its `items.*.` prefix until
-            // this point, so strip it here or the per-item reducer's data_get on
-            // the relative item never resolves it.
-            if (is_object($rule) && method_exists($rule, 'compiledRules')) {
-                $rule = $rule->compiledRules();
-            }
-
-            $rewritten[$field] = $rewriter->rewrite($rule);
-        }
-
-        return $rewritten;
-    }
-
-    /** @param  array<string, mixed>  $compiledRules */
-    private function requiresFullExpansion(array $compiledRules): bool
-    {
-        // Cross-item rules like distinct need full expansion to compare across items.
-        // Nested wildcards (chapters.*.title) are fine — the per-item validator
-        // handles them within each item's scope.
-        foreach ($compiledRules as $compiledRule) {
-            $ruleString = is_string($compiledRule) ? $compiledRule : (is_array($compiledRule) ? implode('|', array_filter($compiledRule, is_string(...))) : '');
-            if (str_contains($ruleString, 'distinct')) {
-                return true;
             }
         }
 

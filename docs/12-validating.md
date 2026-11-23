@@ -61,7 +61,7 @@ Wildcard arrays are checked too. `items.0.hack` fails if only `items.*.name` is 
 
 ## Silently dropping unknown fields
 
-`dropUnknownFields()` removes unknown keys from the `validated()` output instead of rejecting them. Laravel already leaves out unknown top-level keys; this also covers arrays declared with `children()`, `each()` or dotted keys:
+`validated()` leaves out the keys no rule validates, as Laravel does: unknown top-level keys, and unknown keys in arrays declared with `children()`, `each()` or dotted keys. An app can keep the keys in arrays with Laravel's `Validator::includeUnvalidatedArrayKeys()`. `dropUnknownFields()` leaves them out even then:
 
 ```php
 $validated = RuleSet::from([

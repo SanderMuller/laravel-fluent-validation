@@ -46,6 +46,44 @@ final readonly class ExcludedFieldTree
         return $keys === [] && $children === [] ? null : new self($keys, array_filter($children));
     }
 
+    /**
+     * The fields excluded from the whole data: the attributes the top-level
+     * validator excluded, and the tree of each item of each group.
+     *
+     * @param  list<string>  $topLevel
+     * @param  array<string, array<int|string, self|false>>  $byGroup  per parent, per item index
+     */
+    public static function forData(array $topLevel, array $byGroup): ?self
+    {
+        $tree = self::fromPaths(array_map(static fn (string $attribute): array => explode('.', $attribute), $topLevel));
+
+        foreach ($byGroup as $parent => $byIndex) {
+            $items = array_filter($byIndex);
+
+            if ($items === []) {
+                continue;
+            }
+
+            $group = new self([], $items);
+
+            foreach (array_reverse(explode('.', $parent)) as $segment) {
+                $group = new self([], [$segment => $group]);
+            }
+
+            $tree = $tree instanceof self ? $tree->with($group) : $group;
+        }
+
+        return $tree;
+    }
+
+    /**
+     * The excluded fields below a key: true when the key itself is excluded.
+     */
+    public function below(int|string $key): self|true|null
+    {
+        return isset($this->keys[$key]) ? true : $this->children[$key] ?? null;
+    }
+
     public function with(self $other): self
     {
         $keys = $this->keys + $other->keys;

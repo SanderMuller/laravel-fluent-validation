@@ -38,6 +38,12 @@ $shapeCases = [
     'a numeric child key, passing' => [['rows' => 'array', 'rows.*.0' => 'integer'], ['rows' => [[1], [2]]]],
     'items.* with items.*.x, failing' => [['items' => 'array', 'items.*' => 'array|min:2', 'items.*.x' => 'integer'], ['items' => [['x' => 'a'], ['x' => 1, 'y' => 2]]]],
     'items.* with items.*.x, passing' => [['items' => 'array', 'items.*' => 'array', 'items.*.x' => 'integer'], ['items' => [['x' => 1], ['x' => 2]]]],
+    'items.* with items.*.x and no parent rule' => [['items.*' => 'array|min:2', 'items.*.x' => 'integer'], ['items' => [['x' => 'a'], ['x' => 3, 'k' => 1]]]],
+    'items.*.x before items.*' => [['items' => 'array', 'items.*.x' => 'integer', 'items.*' => 'array|min:2'], ['items' => [['x' => 'a'], ['x' => 1, 'y' => 2], ['x' => 'b', 'y' => 1]]]],
+    'items.* with a non-array item' => [['items' => 'array', 'items.*' => 'array', 'items.*.x' => 'required'], ['items' => [['x' => 1], 'z', null]]],
+    'items.* that names a top-level field' => [['type' => 'string', 'items' => 'array', 'items.*' => 'required_if:type,a|array', 'items.*.x' => 'integer'], ['type' => 'a', 'items' => [null, ['x' => 'q']]]],
+    'items.* that names a field of the item' => [['items' => 'array', 'items.*' => 'array|required_with:items.*.x', 'items.*.x' => 'integer'], ['items' => [['x' => 1], []]]],
+    'items.* with an exclude rule' => [['flag' => 'boolean', 'items' => 'array', 'items.*' => 'exclude_if:flag,true|array', 'items.*.x' => 'integer'], ['flag' => true, 'items' => [['x' => 'a']]]],
     'items.*.*' => [['items' => 'array', 'items.*.*' => 'integer'], ['items' => [[1, 'a'], ['b']]]],
     'items.*.* with items.*.x' => [['items' => 'array', 'items.*.*' => 'integer', 'items.*.x' => 'min:5'], ['items' => [['x' => 3, 'y' => 'a'], ['x' => 'b']]]],
     'items.* with items.*.*' => [['items' => 'array', 'items.*' => 'array', 'items.*.*' => 'integer'], ['items' => [[1, 'a'], 'z']]],
@@ -100,3 +106,20 @@ it('evaluates a conditional parent rule with a closure once for a rule shape tha
 
     expect($calls)->toBe(1);
 });
+
+/** @var array<string, array{0: array<string, mixed>, 1: array<string, mixed>, 2: array<string, string>}> $itemMessageCases */
+$itemMessageCases = [
+    'a message for the item rule' => [['items.*.x' => 'integer|min:5'], ['items' => [['x' => 1]]], ['items.*.min' => 'Item small']],
+    'a message for one item' => [['items.*.x' => 'integer|min:5'], ['items' => [['x' => 1]]], ['items.0.min' => 'Item zero small']],
+    'a field named like a rule of the item' => [['items.*.min' => 'integer', 'items.*.x' => 'integer|min:5'], ['items' => [['x' => 1, 'min' => 'q']]], ['items.*.min' => 'M']],
+    'a wildcard below the item' => [['items.*.x' => 'integer', 'items.*.t' => 'array', 'items.*.t.*' => 'integer'], ['items' => [['x' => 'q', 't' => [1, 'a']]]], ['items.*.*' => 'Any']],
+];
+
+foreach ($itemMessageCases as $name => [$fieldRules, $data, $messages]) {
+    it("applies {$name} like native next to a rule on items.*", function () use ($fieldRules, $data, $messages): void {
+        $rules = ['items' => 'array', 'items.*' => 'array|min:2', ...$fieldRules];
+
+        expect(RuleSet::from($rules)->check($data, $messages)->errors()->toArray())
+            ->toBe(validator($data, $rules, $messages)->errors()->toArray());
+    });
+}

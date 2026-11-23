@@ -7,6 +7,7 @@ use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\ConditionalRules;
 use Illuminate\Validation\ValidationException;
 use Illuminate\Validation\ValidationRuleParser;
+use Illuminate\Validation\Validator as BaseValidator;
 
 /**
  * Validates the rules without a wildcard, which Laravel runs before every
@@ -50,15 +51,15 @@ final class TopLevelValidation
     }
 
     /**
-     * The validated data, the errors and the failed validator. With
-     * stopOnFirstFailure a failure throws, because Laravel then reports no
-     * wildcard error.
+     * The validated data, the errors, the failed validator and the
+     * attributes an exclude rule removed. With stopOnFirstFailure a failure
+     * throws, because Laravel then reports no wildcard error.
      *
      * @param  array<string, mixed>  $data
      * @param  array<string, mixed>  $rules  compiled
      * @param  array<string, string>  $messages
      * @param  array<string, string>  $attributes
-     * @return array{0: array<string, mixed>, 1: array<string, list<string>>, 2: ValidatorContract|null}
+     * @return array{0: array<string, mixed>, 1: array<string, list<string>>, 2: ValidatorContract|null, 3: list<string>}
      *
      * @throws ValidationException
      */
@@ -70,7 +71,7 @@ final class TopLevelValidation
             /** @var array<string, mixed> $validated */
             $validated = $validator->validated();
 
-            return [$validated, [], null];
+            return [$validated, [], null, self::excludedAttributes($validator)];
         }
 
         if ($stopOnFirstFailure) {
@@ -80,7 +81,19 @@ final class TopLevelValidation
         /** @var array<string, list<string>> $errors */
         $errors = $validator->errors()->toArray();
 
-        return [[], $errors, $validator];
+        return [[], $errors, $validator, []];
+    }
+
+    /**
+     * @return list<string>
+     */
+    private static function excludedAttributes(ValidatorContract $validator): array
+    {
+        if (! $validator instanceof BaseValidator) {
+            return [];
+        }
+
+        return array_values((fn (): array => $this->excludeAttributes)->call($validator));
     }
 
     /**

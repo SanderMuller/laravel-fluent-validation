@@ -77,7 +77,7 @@ These cases get little or no speedup:
 - **Multi-param `different:a,b,c`.** Single-field `different:a` is fast-checked; comma-list forms fall through.
 - **Closures, and custom `ValidationRule` objects outside `RuleSet` or that read the validator or its data.** Opaque to the fast-check compiler. Performance depends on what the rule does.
 - **`distinct` rules.** Require comparing values across all items in the array, not per-item.
-- **Rules on an item and on its fields.** `items.*` together with `items.*.name` (for example `each(FluentRule::array()->children([...]))`), `items.*.*`, and two rule keys that reach the same field run in Laravel's own validator, so the rules merge as they do in Laravel.
+- **`items.*.*`, and two rule keys that reach the same field.** These run in Laravel's own validator, so the rules merge as they do in Laravel.
 - **Database rules with closure callbacks** (`exists`/`unique` with `->where(fn ...)`). Can't be batched; each item fires its own query.
 
 > [!TIP]

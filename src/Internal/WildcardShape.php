@@ -4,9 +4,9 @@ namespace SanderMuller\FluentValidation\Internal;
 
 /**
  * Finds rule sets the per-item validator cannot split by item. Laravel
- * merges the rules of every key that expands to one attribute, and a rule on
- * `items.*` validates the item itself, so such rule sets need Laravel's
- * fully expanded validator.
+ * merges the rules of every key that expands to one attribute, so such rule
+ * sets need Laravel's fully expanded validator. A rule on `items.*` next to
+ * field rules splits: see `WildcardGroupPasses`.
  *
  * @internal Implementation detail of `RuleSet`.
  */
@@ -46,24 +46,14 @@ final class WildcardShape
      */
     private static function splitsBadly(array $topKeys, array $wildcardKeys): bool
     {
-        $itemRules = [];
-        $fieldRules = [];
-
         foreach ($wildcardKeys as $key) {
-            $rest = substr($key, (int) strpos($key, '.*') + 2);
-            $parent = substr($key, 0, (int) strpos($key, '.*'));
-
             // `items.*.*` puts a wildcard directly below the item.
-            if (str_starts_with($rest, '.*')) {
+            if (str_starts_with(substr($key, (int) strpos($key, '.*') + 2), '.*')) {
                 return true;
             }
-
-            $rest === '' ? $itemRules[$parent] = true : $fieldRules[$parent] = true;
         }
 
-        return array_intersect_key($itemRules, $fieldRules) !== []
-            || self::overlap($wildcardKeys)
-            || self::expandsTo($topKeys, $wildcardKeys);
+        return self::overlap($wildcardKeys) || self::expandsTo($topKeys, $wildcardKeys);
     }
 
     /**

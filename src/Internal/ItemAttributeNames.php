@@ -2,9 +2,11 @@
 
 namespace SanderMuller\FluentValidation\Internal;
 
+use Closure;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Validator;
 use ReflectionProperty;
+use SanderMuller\FluentValidation\MemoizingValidator;
 
 /**
  * Makes a per-item validator name its fields by the full path, as Laravel
@@ -22,6 +24,9 @@ use ReflectionProperty;
 final class ItemAttributeNames
 {
     private string $path = '';
+
+    /** @var (Closure(string): string)|null */
+    private ?Closure $placeholderResolver = null;
 
     private readonly string $rulePattern;
 
@@ -75,6 +80,55 @@ final class ItemAttributeNames
         return $relative;
     }
 
+    /**
+     * The messages for the field pass of a group with a rule on `items.*`.
+     * The field validator would read a message of the item rule, such as
+     * `items.*.min` or `items.0.min`, as a `min` message for every field, so
+     * those are left out. Null when a key names both a field and a rule of
+     * the item, or holds a wildcard below the item (`items.*.*`): the field
+     * validator cannot read such a key as Laravel does.
+     *
+     * @param  array<string, string>  $messages
+     * @param  list<string>  $fieldKeys  the field rule keys, relative to the item
+     * @param  list<string>  $itemRuleNames  the snake-case rule names of the item rule
+     * @return array<string, string>|null
+     */
+    public static function fieldPassMessages(array $messages, string $parent, array $fieldKeys, array $itemRuleNames): ?array
+    {
+        $fields = array_flip(array_map(static fn (string $key): string => explode('.', $key, 2)[0], $fieldKeys));
+        $rules = array_flip($itemRuleNames);
+        $fieldMessages = [];
+
+        foreach ($messages as $key => $message) {
+            $name = self::itemLevelName($key, $parent);
+
+            if ($name !== null && (str_contains($name, '*') || isset($fields[$name], $rules[$name]))) {
+                return null;
+            }
+
+            if ($name === null || isset($fields[$name])) {
+                $fieldMessages[$key] = $message;
+            }
+        }
+
+        return $fieldMessages;
+    }
+
+    /**
+     * The last segment of a key one level below an item (`items.*.min`,
+     * `items.0.min`), or null for any other key.
+     */
+    private static function itemLevelName(string $key, string $parent): ?string
+    {
+        if (! str_starts_with($key, $parent . '.')) {
+            return null;
+        }
+
+        $segments = explode('.', substr($key, strlen($parent) + 1));
+
+        return count($segments) === 2 ? $segments[1] : null;
+    }
+
     /** @param  array<string, mixed>  $itemData */
     public function forItem(Validator $validator, int|string $index, array $itemData): void
     {
@@ -101,6 +155,10 @@ final class ItemAttributeNames
 
         $property->setValue($validator, $implicitAttributes);
         $validator->setImplicitAttributesFormatter($this->fullPath(...));
+
+        if ($validator instanceof MemoizingValidator) {
+            $validator->setPlaceholderAttribute($this->placeholderResolver ??= $this->placeholderPath(...));
+        }
 
         // Laravel uses the first message that fits in the caller's order, but
         // an exact attribute name before a wildcard one.
@@ -190,6 +248,11 @@ final class ItemAttributeNames
                 $this->addPaths($implicitAttributes, $value, $path . '.');
             }
         }
+    }
+
+    private function placeholderPath(string $attribute): string
+    {
+        return $this->isScalar ? $this->path : $this->path . '.' . $attribute;
     }
 
     private function fullPath(string $attribute): string

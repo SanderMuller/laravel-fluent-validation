@@ -29,6 +29,28 @@ final class OutsideItemReferences
      */
     public static function exist(array $groupRules, string $parent, array $data): bool
     {
+        return self::existWithPrefix($groupRules, $parent . '.*.', $data);
+    }
+
+    /**
+     * Does the rule on `items.*` name another field? Laravel reads a field
+     * of the item there too, which a validator of the item value alone
+     * cannot see.
+     *
+     * @param  array<string, mixed>  $itemRule
+     * @param  array<string, mixed>  $data
+     */
+    public static function fromItemRule(array $itemRule, array $data): bool
+    {
+        return self::existWithPrefix($itemRule, null, $data);
+    }
+
+    /**
+     * @param  array<string, mixed>  $groupRules
+     * @param  array<string, mixed>  $data
+     */
+    private static function existWithPrefix(array $groupRules, ?string $prefix, array $data): bool
+    {
         $candidates = [];
 
         foreach (self::ruleParts($groupRules) as [$name, $parameters]) {
@@ -36,7 +58,7 @@ final class OutsideItemReferences
                 return true;
             }
 
-            if (self::namesOutside($name, $parameters, $parent . '.*.', $data)) {
+            if (self::namesOutside($name, $parameters, $prefix, $data)) {
                 $candidates[$name] = true;
             }
         }
@@ -74,7 +96,7 @@ final class OutsideItemReferences
      * @param  list<string>  $parameters
      * @param  array<string, mixed>  $data
      */
-    private static function namesOutside(string $name, array $parameters, string $prefix, array $data): bool
+    private static function namesOutside(string $name, array $parameters, ?string $prefix, array $data): bool
     {
         $count = isset(WildcardReferenceRewriter::VALUE_CONDITIONALS[$name]) ? 1 : count($parameters);
 
@@ -88,12 +110,12 @@ final class OutsideItemReferences
     }
 
     /** @param  array<string, mixed>  $data */
-    private static function isOutside(string $name, string $field, string $prefix, array $data): bool
+    private static function isOutside(string $name, string $field, ?string $prefix, array $data): bool
     {
         $isDateRule = isset(self::DATE_RULES[$name]);
 
         // The per-item rewrite strips the prefix of a dependent rule's field.
-        if (str_starts_with($field, $prefix)) {
+        if ($prefix !== null && str_starts_with($field, $prefix)) {
             return $isDateRule && $name !== 'DateEquals' && self::parsesAsDate(substr($field, strlen($prefix)));
         }
 
