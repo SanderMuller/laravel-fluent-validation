@@ -254,3 +254,27 @@ it('reduces each item as on its own when an exclude condition reads a field anot
     expect($errors([$first, $second]))->toBe([...$alone($first, 0), ...$alone($second, 1)])
         ->and($errors([$second, $first]))->toBe([...$alone($second, 0), ...$alone($first, 1)]);
 });
+
+it('converts values for a boolean dependency that an exclude rule removes, like native', function (array $noteRule): void {
+    assertReducedRulesParity(
+        [
+            'items.*.x' => 'nullable',
+            'items.*.flag' => ['exclude_if:items.*.x,1', 'boolean'],
+            'items.*.f' => ['exclude_if:items.*.flag,true', 'integer'],
+            'items.*.note' => $noteRule,
+        ],
+        [
+            ['x' => 1, 'flag' => '1', 'f' => 'abc'],
+            ['x' => 1, 'flag' => 'true', 'f' => 'abc'],
+            ['x' => 2, 'flag' => '1', 'f' => 'abc'],
+            ['x' => 1, 'flag' => '0', 'f' => 'abc'],
+        ],
+    );
+})->with([
+    'an exclude rule only' => [['nullable', 'string']],
+    'a required_if on the field' => [['required_if:items.*.flag,true', 'string']],
+    'an accepted_if on the field' => [['accepted_if:items.*.flag,true', 'nullable']],
+    'a declined_if on the field' => [['declined_if:items.*.flag,true', 'nullable']],
+    'a missing_if on the field' => [['missing_if:items.*.flag,true']],
+    'a present_unless on the field' => [['present_unless:items.*.flag,false']],
+]);

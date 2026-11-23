@@ -32,7 +32,7 @@ final class ConditionalValueMatcher
         return self::matchesValue(
             data_get($itemData, $depPath),
             $rawValues,
-            self::dependentHasBooleanRule($depPath, $itemRules),
+            self::hasBooleanRule($depPath, $itemRules),
         );
     }
 
@@ -130,7 +130,7 @@ final class ConditionalValueMatcher
      *
      * @param  array<string, mixed>  $itemRules
      */
-    private static function dependentHasBooleanRule(string $depPath, array $itemRules): bool
+    public static function hasBooleanRule(string $depPath, array $itemRules): bool
     {
         $rules = $itemRules[$depPath] ?? null;
 

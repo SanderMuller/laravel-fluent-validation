@@ -44,7 +44,7 @@ final class ReducedRulesCache
      */
     public static function for(ItemRuleCompiler $compiler, array $itemRules, array $conditionalFields, array $itemMessages, array $siblingFields): self
     {
-        $dependencies = self::dependencies($itemRules, $conditionalFields);
+        $dependencies = self::dependencies($itemRules);
         // A field whose conditions read only dependency fields has its outcome in their values.
         $keyedConditionals = array_filter($conditionalFields, static fn (array $conditions): bool => array_diff(array_column($conditions, 'field'), $dependencies ?? []) !== []);
 
@@ -81,22 +81,13 @@ final class ReducedRulesCache
 
     /**
      * The fields the presence and value conditionals read, when each one is a
-     * top-level key; null otherwise. Also null when an exclude condition reads
-     * a field that an exclude rule can remove: the reduction then compares
-     * against rules the key does not see.
+     * top-level key; null otherwise.
      *
      * @param  array<string, mixed>  $itemRules
-     * @param  array<string, list<array{action: string, field: string, values: list<string>}>>  $conditionalFields
      * @return list<string>|null
      */
-    private static function dependencies(array $itemRules, array $conditionalFields): ?array
+    private static function dependencies(array $itemRules): ?array
     {
-        foreach ($conditionalFields as $conditions) {
-            if (array_intersect_key(array_flip(array_column($conditions, 'field')), $conditionalFields) !== []) {
-                return null;
-            }
-        }
-
         $fields = array_values(array_unique([...PresenceConditionalReducer::dependencies($itemRules), ...ValueConditionalReducer::dependencies($itemRules)]));
 
         foreach ($fields as $field) {

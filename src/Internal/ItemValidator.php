@@ -196,10 +196,27 @@ final readonly class ItemValidator
      */
     private function rulesForLaravel(array $rules, array $itemRules, array $itemData, array $conditionalFields, array $itemMessages, array $siblingFields, ?string $dispatchValue, array &$byDispatch): array
     {
-        if (array_intersect_key($rules, $siblingFields) === []) {
-            return $rules;
+        if (array_intersect_key($rules, $siblingFields) !== []) {
+            $rules = $this->withActiveConditionals($rules, $itemRules, $itemData, $conditionalFields, $itemMessages, $siblingFields, $dispatchValue, $byDispatch);
         }
 
+        // Laravel removes an excluded field only after its rule loop, so a rule
+        // that reads the field still sees its `boolean` rule.
+        return $rules === [] ? [] : $rules + ItemRuleCompiler::excludedBooleanRules(array_diff_key($conditionalFields, $rules), $itemRules);
+    }
+
+    /**
+     * @param  array<string, mixed>  $rules
+     * @param  array<string, mixed>  $itemRules
+     * @param  array<string, mixed>  $itemData
+     * @param  array<string, list<array{action: string, field: string, values: list<string>}>>  $conditionalFields
+     * @param  array<string, string>  $itemMessages
+     * @param  array<string, true>  $siblingFields
+     * @param  array<string, array<string, mixed>>  $byDispatch
+     * @return array<string, mixed>
+     */
+    private function withActiveConditionals(array $rules, array $itemRules, array $itemData, array $conditionalFields, array $itemMessages, array $siblingFields, ?string $dispatchValue, array &$byDispatch): array
+    {
         $laravelRules = $dispatchValue !== null && isset($byDispatch[$dispatchValue])
             ? $byDispatch[$dispatchValue]
             : $this->compiler->reduceRulesForItem($itemRules, $itemData, $conditionalFields, $itemMessages, $siblingFields, keepActiveConditionals: true);

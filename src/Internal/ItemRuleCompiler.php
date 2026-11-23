@@ -61,8 +61,12 @@ final class ItemRuleCompiler
      */
     public function reduceRulesForItem(array $itemRules, array $itemData, array $conditionalFields, array $itemMessages = [], ?array $siblingFields = null, bool $keepActiveConditionals = false): array
     {
+        // Laravel removes an excluded field only after it has run every rule,
+        // so a `boolean` rule on an excluded field still converts the values.
+        $allRules = $itemRules;
+
         foreach ($conditionalFields as $field => $conditions) {
-            if (self::fieldIsExcluded($conditions, $itemData, $itemRules)) {
+            if (self::fieldIsExcluded($conditions, $itemData, $allRules)) {
                 unset($itemRules[$field]);
             } else {
                 // Kept — strip the exclude tuple so only the actual validation
@@ -75,10 +79,31 @@ final class ItemRuleCompiler
 
         foreach ($reducible as $field => $rule) {
             $rule = PresenceConditionalReducer::apply($rule, (string) $field, $itemData, $itemMessages, $keepActiveConditionals);
-            $itemRules[$field] = ValueConditionalReducer::apply($rule, (string) $field, $itemData, $itemMessages, $itemRules, $keepActiveConditionals);
+            $itemRules[$field] = ValueConditionalReducer::apply($rule, (string) $field, $itemData, $itemMessages, $allRules, $keepActiveConditionals);
         }
 
         return $itemRules;
+    }
+
+    /**
+     * Rules that let Laravel exclude each given field that has a `boolean`
+     * rule, and still see that rule when another rule reads the field.
+     *
+     * @param  array<array-key, mixed>  $fields
+     * @param  array<string, mixed>  $itemRules
+     * @return array<string, list<string>>
+     */
+    public static function excludedBooleanRules(array $fields, array $itemRules): array
+    {
+        $rules = [];
+
+        foreach (array_keys($fields) as $field) {
+            if (ConditionalValueMatcher::hasBooleanRule((string) $field, $itemRules)) {
+                $rules[(string) $field] = ['exclude', 'boolean'];
+            }
+        }
+
+        return $rules;
     }
 
     /**
