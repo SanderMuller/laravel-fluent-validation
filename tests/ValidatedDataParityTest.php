@@ -40,6 +40,11 @@ $validatedCases = [
     'an excluded parent of item and field rules' => [['r' => 'exclude_if:flag,1|nullable', 'r.*' => 'array', 'r.*.b' => 'exclude_if:r.*.f,1|nullable|array', 'flag' => 'nullable'], ['r' => [1], 'flag' => 1]],
     'records with flat lists' => [['orders' => 'array', 'orders.*.no' => 'string', 'orders.*.lines' => 'nullable|array', 'orders.*.lines.*.id' => 'integer'], ['orders' => [['no' => 'a', 's' => 1, 'lines' => [['id' => 1, 's' => 2], 3, []]], ['no' => 'b', 'lines' => null], ['lines' => []], 'x', []]]],
     'records with flat lists without a list rule' => [['orders' => 'array', 'orders.*.no' => 'nullable', 'orders.*.lines.*.id' => 'integer'], ['orders' => [['no' => 'a', 'lines' => [['id' => 1, 's' => 2]]], ['no' => 'b', 'lines' => null], ['no' => 'c', 'lines' => []]]]],
+    'items with an unknown int key' => [['items' => 'array', 'items.*.x' => 'integer'], ['items' => [['x' => 1], ['x' => 2, 5 => 'leak']]]],
+    'items with an int field key' => [['items' => 'array', 'items.*.0' => 'integer'], ['items' => [[0 => 1], [0 => 2, 1 => 'leak']]]],
+    'a list with string keys' => [['items' => 'array', 'items.*.x' => 'integer'], ['items' => ['a' => ['x' => 1], 'b' => ['x' => 2, 's' => 'leak']]]],
+    'records with a list with string keys' => [['orders' => 'array', 'orders.*.lines' => 'array', 'orders.*.lines.*.id' => 'integer'], ['orders' => [['lines' => ['a' => ['id' => 1], 'b' => ['id' => 2, 's' => 'leak']]]]]],
+    'records with an unknown int key in a list item' => [['orders' => 'array', 'orders.*.lines' => 'array', 'orders.*.lines.*.id' => 'integer'], ['orders' => [['lines' => [['id' => 1], ['id' => 2, 3 => 'leak']]]]]],
 ];
 
 foreach ($validatedCases as $name => [$rules, $data]) {

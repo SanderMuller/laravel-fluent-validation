@@ -18,6 +18,10 @@ final class FlatValues
      */
     public static function items(array $value, array $keys): mixed
     {
+        if ($value !== [] && self::allHoldOnly($value, $keys)) {
+            return $value;
+        }
+
         if (! array_is_list($value) && self::hasDottedKey($value)) {
             return Pruned::EscapedKey;
         }
@@ -54,6 +58,10 @@ final class FlatValues
      */
     public static function records(array $value, array $fields, array $lists): array|Pruned
     {
+        if ($value !== [] && self::recordsHoldOnly($value, $fields, $lists)) {
+            return $value;
+        }
+
         if (! array_is_list($value) && self::hasDottedKey($value)) {
             return Pruned::EscapedKey;
         }
@@ -106,6 +114,83 @@ final class FlatValues
         }
 
         return $kept === [] ? Pruned::None : $kept;
+    }
+
+    /**
+     * Does each record hold only its fields, and each item of its lists
+     * only the item keys? See {@see allHoldOnly()}.
+     *
+     * @param  array<array-key, mixed>  $records
+     * @param  array<array-key, mixed>  $fields
+     * @param  array<array-key, array{array<array-key, true>, bool}>  $lists
+     */
+    private static function recordsHoldOnly(array $records, array $fields, array $lists): bool
+    {
+        if (! self::allHoldOnly($records, $fields)) {
+            return false;
+        }
+
+        foreach ($lists as $key => [$keys]) {
+            $columns = array_column($records, $key);
+
+            if (! self::filledArrays($columns)) {
+                return false;
+            }
+
+            $items = array_merge(...$columns);
+
+            if ($items !== [] && ! self::allHoldOnly($items, $keys)) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * Is each element a filled array that holds only the keys? One merge
+     * of all elements checks their keys in C, which costs less than a check
+     * of each. False also when this check cannot tell: a list with other
+     * keys, or int keys, which the merge renumbers.
+     *
+     * @param  array<array-key, mixed>  $list
+     * @param  array<array-key, mixed>  $keys
+     */
+    private static function allHoldOnly(array $list, array $keys): bool
+    {
+        if (! self::filledArrays($list)) {
+            return false;
+        }
+
+        foreach (array_keys($keys) as $key) {
+            if (is_int($key)) {
+                return false;
+            }
+        }
+
+        return array_diff_key(array_merge(...$list), $keys) === [];
+    }
+
+    /**
+     * Is the value a list of filled arrays?
+     *
+     * @param  array<array-key, mixed>  $list
+     *
+     * @phpstan-assert-if-true list<non-empty-array<array-key, mixed>> $list
+     */
+    private static function filledArrays(array $list): bool
+    {
+        if (! array_is_list($list)) {
+            return false;
+        }
+
+        foreach ($list as $element) {
+            if (! is_array($element) || $element === []) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     /**
