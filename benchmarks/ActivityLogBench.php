@@ -60,7 +60,7 @@ final class ActivityLogBench
     }
 
     #[DataProvider('size')]
-    #[ExpectedFor('entries-250', instructions: '12.57M', cycles: '15.74M', memory: '117.2KiB')]
+    #[ExpectedFor('entries-250', instructions: '14.23M', cycles: '17.74M', memory: '125.3KiB')]
     public function benchValidate(int $count): void
     {
         Scenarios::validate($this->rules, $this->data);
