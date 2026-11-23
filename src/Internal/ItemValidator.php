@@ -50,6 +50,7 @@ final readonly class ItemValidator
         $hasSiblingDependentConditionals = $siblingFields !== [];
 
         $dispatchField = DispatchField::find($this->compiler, $conditionalFields, $itemRules);
+        $reducedRules = ReducedRulesCache::for($this->compiler, $itemRules, $conditionalFields, $itemMessages, $siblingFields);
         /** @var array<string, array<string, mixed>> $rulesByDispatch */
         $rulesByDispatch = [];
         /** @var array<string, array{0: array<string, Closure(array<string, mixed>): bool>, 1: array<string, mixed>}> $fastChecksByDispatch */
@@ -98,8 +99,7 @@ final readonly class ItemValidator
                 [$dispatchFastChecks, $dispatchSlowRules] = $fastChecksByDispatch[$dispatchValue];
                 $excludedFields[$index] = $excludedByDispatch[$dispatchValue] ??= WildcardValidatedData::excludedTree(array_diff_key($conditionalFields, $effectiveRules));
             } elseif ($conditionalFields !== [] || $hasSiblingDependentConditionals) {
-                $effectiveRules = $this->compiler->reduceRulesForItem($itemRules, $itemData, $conditionalFields, $itemMessages, $siblingFields);
-                $reducedKey = $this->compiler->ruleCacheKey($effectiveRules);
+                [$effectiveRules, $reducedKey] = $reducedRules->reduce($itemData);
                 // Memoize compiled fast-checks per distinct reduced rule set —
                 // many items reduce identically, so reuse beats recompiling.
                 [$dispatchFastChecks, $dispatchSlowRules] = $fastChecksByReduced[$reducedKey]

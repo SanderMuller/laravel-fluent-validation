@@ -25,7 +25,7 @@ final readonly class NestedExcludeSplit
      * @param  array<string, mixed>  $reducerRules
      * @param  array<string, list<array{action: string, field: string, values: list<string>}>>  $reducerConditionals
      * @param  array<string, mixed>  $nestedRules  the split fields and the fields their rules read, in rule order
-     * @param  list<array{0: string, 1: string, 2: list<array{action: string, field: string, values: list<string>}>, 3: Closure(mixed): bool}>|null  $decidable  per split field: the nested parent, the path below it, the exclude conditions and the check of the other rules
+     * @param  list<array{0: string, 1: string, 2: list<array{action: string, field: string, values: list<string>}>, 3: list<array{action: string, field: string, values: list<string>}>, 4: Closure(mixed): bool}>|null  $decidable  per split field: the nested parent, the path below it, the exclude conditions on the item, the exclude conditions on the nested item (relative to it) and the check of the other rules
      */
     private function __construct(
         public array $reducerRules,
@@ -83,16 +83,16 @@ final readonly class NestedExcludeSplit
 
         $excluded = [];
 
-        foreach ($this->decidable as [$parent, $path, $conditions, $check]) {
+        foreach ($this->decidable as [$parent, $path, $itemConditions, $nestedConditions, $check]) {
             $nested = Arr::get($item, $parent);
+            $excludedInItem = $itemConditions !== [] && ItemRuleCompiler::fieldIsExcluded($itemConditions, $item, []);
 
-            foreach (is_array($nested) ? array_keys($nested) : [] as $key) {
-                $attribute = "{$parent}.{$key}.{$path}";
-                $concrete = array_map(static fn (array $condition): array => ['field' => str_replace('*', (string) $key, $condition['field'])] + $condition, $conditions);
+            foreach (is_array($nested) ? $nested : [] as $key => $nestedItem) {
+                $nestedItem = is_array($nestedItem) ? $nestedItem : [];
 
-                if (ItemRuleCompiler::fieldIsExcluded($concrete, $item, [])) {
-                    $excluded[] = $attribute;
-                } elseif (! $check(Arr::get($item, $attribute)) && (Arr::has($item, $attribute) || ! $check(null))) {
+                if ($excludedInItem || ItemRuleCompiler::fieldIsExcluded($nestedConditions, $nestedItem, [])) {
+                    $excluded[] = "{$parent}.{$key}.{$path}";
+                } elseif (! $check(Arr::get($nestedItem, $path)) && (Arr::has($nestedItem, $path) || ! $check(null))) {
                     return null;
                 }
             }
@@ -109,7 +109,7 @@ final readonly class NestedExcludeSplit
      * @param  array<string, mixed>  $nestedRules
      * @param  array<string, true>  $split
      * @param  array<string, list<array{action: string, field: string, values: list<string>}>>  $conditionalFields
-     * @return list<array{0: string, 1: string, 2: list<array{action: string, field: string, values: list<string>}>, 3: Closure(mixed): bool}>|null
+     * @return list<array{0: string, 1: string, 2: list<array{action: string, field: string, values: list<string>}>, 3: list<array{action: string, field: string, values: list<string>}>, 4: Closure(mixed): bool}>|null
      */
     private static function decidable(array $nestedRules, array $split, array $conditionalFields): ?array
     {
@@ -128,14 +128,14 @@ final readonly class NestedExcludeSplit
                 return null;
             }
 
-            foreach ($conditions as $condition) {
-                if (substr_count($condition['field'], '*') > 1 || isset($split[$condition['field']])) {
-                    return null;
-                }
+            [$parent, $path] = explode('.*.', $field, 2);
+            $byScope = NestedExcludeConditions::byScope($conditions, $parent, $split);
+
+            if ($byScope === null) {
+                return null;
             }
 
-            [$parent, $path] = explode('.*.', $field, 2);
-            $fields[] = [$parent, $path, $conditions, $check];
+            $fields[] = [$parent, $path, ...$byScope, $check];
         }
 
         return $fields;

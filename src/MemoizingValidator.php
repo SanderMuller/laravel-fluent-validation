@@ -51,6 +51,26 @@ class MemoizingValidator extends Validator
     protected static array $parsedRuleCache = [];
 
     /**
+     * The rules setData() explodes from the initial rules, kept when the
+     * explode does not read the data: null before the first setData(), false
+     * when it reads the data.
+     *
+     * @var array<array-key, mixed>|false|null
+     */
+    private array|false|null $rulesWithoutData = null;
+
+    /**
+     * Message templates by translator, locale, attribute type, rule and
+     * attribute, for the custom and fallback messages in $messageSources.
+     *
+     * @var array<string, string>
+     */
+    private array $messageTemplates = [];
+
+    /** @var array{0: array<array-key, mixed>, 1: array<array-key, mixed>}|null */
+    private ?array $messageSources = null;
+
+    /**
      * Clear the static parse cache. Used by tests that need a known cache
      * state; the Octane lifecycle is not a caller — workers tolerate the
      * cap-reset at runtime via {@see getRule()}.
@@ -60,6 +80,87 @@ class MemoizingValidator extends Validator
     public static function resetParseCache(): void
     {
         self::$parsedRuleCache = [];
+    }
+
+    /**
+     * Sets the data, and reuses the rules the first call exploded when the
+     * explode does not read the data: string rules on keys without a `*`.
+     * Byte-identical to the parent otherwise.
+     *
+     * @param  array<array-key, mixed>  $data
+     * @return $this
+     */
+    public function setData(array $data): static
+    {
+        if (! is_array($this->rulesWithoutData)) {
+            parent::setData($data);
+            $this->rulesWithoutData ??= self::explodeReadsData($this->initialRules) ? false : $this->rules;
+
+            return $this;
+        }
+
+        $this->data = $this->parseData($data);
+        $this->rules = $this->rulesWithoutData;
+
+        return $this;
+    }
+
+    /**
+     * @param  array<array-key, mixed>  $rules
+     * @return $this
+     */
+    public function setRules(array $rules): static
+    {
+        $this->rulesWithoutData = null;
+
+        return parent::setRules($rules);
+    }
+
+    /**
+     * @param  array<array-key, mixed>  $rules
+     */
+    private static function explodeReadsData(array $rules): bool
+    {
+        foreach ($rules as $attribute => $rule) {
+            if (str_contains((string) $attribute, '*') || ! (is_string($rule) || (is_array($rule) && array_filter($rule, is_string(...)) === $rule))) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Looks up the message template once per attribute, rule and attribute
+     * type. The key also holds the translator and its locale, and a change of
+     * the custom or fallback messages drops the kept templates. Translation
+     * lines added while the validator lives are not seen.
+     *
+     * @param  string  $attribute
+     * @param  string  $rule
+     */
+    protected function getMessage($attribute, $rule): mixed
+    {
+        $sources = [$this->customMessages, $this->fallbackMessages];
+
+        if ($sources !== $this->messageSources) {
+            $this->messageTemplates = [];
+            $this->messageSources = $sources;
+        }
+
+        $key = spl_object_id($this->translator) . '|' . $this->translator->getLocale() . '|' . $this->getAttributeType($attribute) . '|' . $rule . '|' . $attribute;
+
+        if (! isset($this->messageTemplates[$key])) {
+            $message = parent::getMessage($attribute, $rule);
+
+            if (! is_string($message)) {
+                return $message;
+            }
+
+            $this->messageTemplates[$key] = $message;
+        }
+
+        return $this->messageTemplates[$key];
     }
 
     /**

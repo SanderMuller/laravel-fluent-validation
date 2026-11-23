@@ -24,7 +24,7 @@ final class ConditionalValueMatcher
      * `validateRequiredIf`/`…Unless` comparison semantics?
      *
      * @param  list<?string>         $rawValues  The rule's value parameters.
-     * @param  array<string, mixed>  $itemData
+     * @param  array<array-key, mixed>  $itemData
      * @param  array<string, mixed>  $itemRules  Item-scoped rules, for the `boolean` declaration check.
      */
     public static function matches(string $depPath, array $rawValues, array $itemData, array $itemRules): bool

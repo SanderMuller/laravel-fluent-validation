@@ -1,5 +1,6 @@
 <?php declare(strict_types=1);
 
+use Illuminate\Support\Fluent;
 use Illuminate\Translation\ArrayLoader;
 use Illuminate\Translation\Translator;
 use Illuminate\Validation\Rule;
@@ -205,4 +206,127 @@ it('drops the cache after the cap is exceeded', function (): void {
     $validator->passes();
 
     expect(memoParseCacheCount())->toBe(1);
+});
+
+/**
+ * A translator with English and Dutch lines, so a stale message template
+ * shows up as a message in the wrong language or of the wrong type.
+ */
+function memoMessageTranslator(): Translator
+{
+    $loader = new ArrayLoader();
+    $loader->addMessages('en', 'validation', ['required' => 'en: :attribute required', 'min' => ['numeric' => 'en: :attribute at least :min', 'string' => 'en: :attribute at least :min characters']]);
+    $loader->addMessages('nl', 'validation', ['required' => 'nl: :attribute verplicht', 'min' => ['numeric' => 'nl: :attribute minstens :min', 'string' => 'nl: :attribute minstens :min tekens']]);
+
+    return new Translator($loader, 'en');
+}
+
+/**
+ * @param  array<array-key, mixed>  $data
+ * @param  array<array-key, mixed>  $rules
+ * @param  Closure(BaseValidator): mixed  $between
+ */
+function assertMessageParityAcrossPasses(array $data, array $rules, Closure $between): void
+{
+    $nativeTranslator = memoMessageTranslator();
+    $memoTranslator = memoMessageTranslator();
+    $native = new BaseValidator($nativeTranslator, $data, $rules);
+    $memoizing = new MemoizingValidator($memoTranslator, $data, $rules);
+
+    expect($memoizing->passes())->toBe($native->passes())
+        ->and($memoizing->errors()->toArray())->toBe($native->errors()->toArray());
+
+    $between($native);
+    $between($memoizing);
+
+    expect($memoizing->passes())->toBe($native->passes())
+        ->and($memoizing->errors()->toArray())->toBe($native->errors()->toArray());
+}
+
+it('looks up the message again after the custom messages change', function (): void {
+    assertMessageParityAcrossPasses(
+        ['name' => ''],
+        ['name' => 'required'],
+        static fn (BaseValidator $validator) => $validator->setCustomMessages(['name.required' => 'Name is needed.']),
+    );
+});
+
+it('looks up the message again after the fallback messages change', function (): void {
+    assertMessageParityAcrossPasses(
+        ['name' => ''],
+        ['name' => 'required'],
+        static fn (BaseValidator $validator) => $validator->setFallbackMessages(['required' => 'Fallback: :attribute']),
+    );
+});
+
+it('looks up the message again after the locale changes', function (): void {
+    assertMessageParityAcrossPasses(
+        ['name' => '', 'age' => 1],
+        ['name' => 'required', 'age' => 'numeric|min:5'],
+        static fn (BaseValidator $validator) => $validator->getTranslator()->setLocale('nl'),
+    );
+});
+
+it('keeps the message of each attribute type apart for one rule', function (): void {
+    assertMessageParityAcrossPasses(
+        ['age' => 1, 'code' => 'ab', 'count' => '2'],
+        ['age' => 'numeric|min:5', 'code' => 'string|min:5', 'count' => 'integer|min:5'],
+        static fn (BaseValidator $validator) => $validator->setData(['age' => 'ab', 'code' => 'ab', 'count' => 2]),
+    );
+});
+
+it('looks up the message again when new rules change the attribute type', function (): void {
+    assertMessageParityAcrossPasses(
+        ['age' => 'abc'],
+        ['age' => 'string|min:5'],
+        static fn (BaseValidator $validator) => $validator->setRules(['age' => 'numeric|min:5'])->setData(['age' => 3]),
+    );
+});
+
+it('matches native when setData changes the data', function (array $rules, array $first, array $second): void {
+    $translator = new Translator(new ArrayLoader(), 'en');
+    $native = new BaseValidator($translator, $first, $rules);
+    $memoizing = new MemoizingValidator($translator, $first, $rules);
+
+    foreach ([$first, $second, $first] as $data) {
+        $native->setData($data);
+        $memoizing->setData($data);
+
+        expect($memoizing->passes())->toBe($native->passes())
+            ->and($memoizing->getRules())->toBe($native->getRules())
+            ->and($memoizing->errors()->toArray())->toBe($native->errors()->toArray());
+
+        if ($native->passes()) {
+            expect($memoizing->validated())->toBe($native->validated());
+        }
+    }
+})->with([
+    'string rules' => [['name' => 'required|string', 'age' => 'nullable|integer|min:1'], ['name' => 'a', 'age' => 3], ['name' => '', 'age' => 0]],
+    'array rules' => [['name' => ['required', 'string'], 'tags' => ['array']], ['name' => 'a', 'tags' => []], ['tags' => 'x']],
+    'a wildcard key' => [['items' => 'array', 'items.*.id' => 'required|integer'], ['items' => [['id' => 1]]], ['items' => [['id' => 1], ['id' => 'x'], []]]],
+    'a rule object' => [['name' => ['required', Rule::in(['a', 'b'])]], ['name' => 'a'], ['name' => 'c']],
+    'a conditional rule' => [['name' => 'nullable', 'code' => [Rule::when(fn (Fluent $input): bool => $input['name'] === 'x', ['required'])]], ['name' => 'y'], ['name' => 'x']],
+]);
+
+it('matches native when setRules or sometimes changes the rules between setData calls', function (): void {
+    $translator = new Translator(new ArrayLoader(), 'en');
+    $data = ['name' => '', 'age' => 'x'];
+    $native = new BaseValidator($translator, $data, ['name' => 'required']);
+    $memoizing = new MemoizingValidator($translator, $data, ['name' => 'required']);
+    $steps = [
+        static fn (BaseValidator $validator) => $validator->setData($data),
+        static fn (BaseValidator $validator) => $validator->setRules(['age' => 'integer']),
+        static fn (BaseValidator $validator) => $validator->setData(['age' => 'y']),
+        static fn (BaseValidator $validator) => $validator->sometimes('name', 'required', static fn (): bool => true),
+        static fn (BaseValidator $validator) => $validator->setData(['age' => 1]),
+    ];
+
+    foreach ($steps as $step) {
+        $step($native);
+        $step($memoizing);
+
+        expect($memoizing->getRules())->toBe($native->getRules())
+            ->and($memoizing->passes())->toBe($native->passes())
+            ->and($memoizing->errors()->toArray())->toBe($native->errors()->toArray());
+    }
 });

@@ -277,6 +277,22 @@ function nestedExcludeInteractionCases(): array
             ['q.*.answers.0.note' => 'exclude_if:q.*.mode,off|string', 'q.*.answers.*.target' => $target],
             [['mode' => 'off', 'answers' => [['type' => 'link', 'target' => 'abc', 'note' => 'n'], ['type' => 'jump', 'target' => 5]]]],
         ],
+        'an item and a nested-item condition on one nested field' => [
+            ['q.*.answers.*.target' => 'exclude_if:q.*.mode,off|exclude_unless:q.*.answers.*.type,jump|integer'],
+            [['mode' => 'off', 'answers' => [['type' => 'jump', 'target' => 'bad']]], ['mode' => 'on', 'answers' => [['type' => 'link', 'target' => 'bad'], ['type' => 'jump', 'target' => 'bad']]], ['mode' => 'on', 'answers' => [['type' => 'jump', 'target' => 4], ['type' => 'link', 'target' => 'bad']]]],
+        ],
+        'an item and a nested-item condition on one nested field, valid' => [
+            ['q.*.answers.*.target' => 'exclude_if:q.*.mode,off|exclude_unless:q.*.answers.*.type,jump|integer'],
+            [['mode' => 'off', 'answers' => [['type' => 'jump', 'target' => 5]]], ['mode' => 'on', 'answers' => [['type' => 'jump', 'target' => 6], ['type' => 'link', 'target' => 'abc']]]],
+        ],
+        'a condition on a field below the nested item' => [
+            ['q.*.answers.*.action' => 'array', 'q.*.answers.*.action.type' => 'string', 'q.*.answers.*.target' => 'exclude_unless:q.*.answers.*.action.type,jump|integer'],
+            [['answers' => [['action' => ['type' => 'jump'], 'target' => 'bad'], ['action' => ['type' => 'link'], 'target' => 'bad'], ['target' => 'bad']]], ['answers' => [['action' => ['type' => 'link'], 'target' => 'bad'], ['action' => ['type' => 'jump'], 'target' => 2]]]],
+        ],
+        'a scalar nested item' => [
+            ['q.*.answers' => 'array', 'q.*.answers.*.target' => $target],
+            [['answers' => ['text', ['type' => 'jump', 'target' => 3], ['type' => 'link', 'target' => 'bad']]], ['answers' => ['text', ['type' => 'jump', 'target' => 'bad']]]],
+        ],
         'an outer and a nested exclude in one item, invalid' => [
             ['q.*.limit' => 'exclude_if:q.*.mode,off|integer', 'q.*.answers.*.target' => $target],
             [['mode' => 'on', 'limit' => 'x', 'answers' => [['type' => 'link', 'target' => 'abc'], ['type' => 'jump', 'target' => 'bad']]]],

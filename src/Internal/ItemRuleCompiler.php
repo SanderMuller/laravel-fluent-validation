@@ -86,7 +86,7 @@ final class ItemRuleCompiler
      * Laravel, which evaluates every exclude rule on a field.
      *
      * @param  list<array{action: string, field: string, values: list<string>}>  $conditions
-     * @param  array<string, mixed>  $itemData
+     * @param  array<array-key, mixed>  $itemData
      * @param  array<string, mixed>  $itemRules
      */
     public static function fieldIsExcluded(array $conditions, array $itemData, array $itemRules): bool
