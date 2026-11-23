@@ -1,5 +1,6 @@
 <?php declare(strict_types=1);
 
+use Illuminate\Validation\Rule;
 use SanderMuller\FluentValidation\RuleSet;
 
 // =========================================================================
@@ -73,4 +74,29 @@ it('runs a custom parent rule once for a rule shape that needs full expansion', 
 
     expect($result->passes())->toBeTrue()
         ->and($calls)->toBe(1);
+});
+
+it('reads a parent rule like Laravel when it skips the items of a failed parent', function (mixed $parentRule): void {
+    $result = RuleSet::from(['items' => $parentRule, 'items.*' => 'array', 'items.*.x' => 'integer'])
+        ->check(['items' => [['x' => 'a'], ['x' => 'b'], ['x' => 'c']]]);
+
+    expect($result->errors()->keys())->toBe(['items']);
+})->with([
+    'conditional rule' => [fn (): mixed => Rule::when(true, ['array', 'max:2'])],
+    'space before the rule name' => ['array| max:2'],
+    'capitalised rule name' => ['array|Max:2'],
+]);
+
+it('evaluates a conditional parent rule with a closure once for a rule shape that needs full expansion', function (): void {
+    $calls = 0;
+    $condition = static function () use (&$calls): bool {
+        $calls++;
+
+        return true;
+    };
+
+    RuleSet::from(['items' => Rule::when($condition, ['array', 'max:2']), 'items.*' => 'array', 'items.*.x' => 'integer'])
+        ->check(['items' => [['x' => 1], ['x' => 2], ['x' => 3]]]);
+
+    expect($calls)->toBe(1);
 });

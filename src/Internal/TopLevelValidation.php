@@ -4,7 +4,9 @@ namespace SanderMuller\FluentValidation\Internal;
 
 use Illuminate\Contracts\Validation\Validator as ValidatorContract;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Validation\ConditionalRules;
 use Illuminate\Validation\ValidationException;
+use Illuminate\Validation\ValidationRuleParser;
 
 /**
  * Validates the rules without a wildcard, which Laravel runs before every
@@ -134,7 +136,7 @@ final class TopLevelValidation
      * Rules that limit the size or type of a value. They read nothing else
      * and run no query, so they can run here and again in Laravel's validator.
      */
-    private const STRUCTURAL_RULES = ['array', 'list', 'required', 'filled', 'present', 'nullable', 'sometimes', 'bail', 'min', 'max', 'size', 'between'];
+    private const STRUCTURAL_RULES = ['Array', 'List', 'Required', 'Filled', 'Present', 'Nullable', 'Sometimes', 'Bail', 'Min', 'Max', 'Size', 'Between'];
 
     /**
      * The errors of the structural rules on a group's parent or a key above
@@ -157,7 +159,7 @@ final class TopLevelValidation
                 array_keys($wildcardGroups),
                 static fn (int|string $parent): bool => (string) $parent === (string) $key || str_starts_with((string) $parent, $key . '.'),
             ) !== [];
-            $structural = $isParent ? self::structuralParts($rule) : [];
+            $structural = $isParent ? self::structuralParts($data, (string) $key, $rule) : [];
 
             if ($structural !== []) {
                 $parentRules[$key] = $structural;
@@ -173,16 +175,34 @@ final class TopLevelValidation
     }
 
     /**
+     * The structural parts of a rule, read with Laravel's own parser. A
+     * conditional rule with a closure condition is left out, so the closure
+     * runs only once, in Laravel's validator.
+     *
+     * @param  array<string, mixed>  $data
      * @return list<string>
      */
-    private static function structuralParts(mixed $rule): array
+    private static function structuralParts(array $data, string $key, mixed $rule): array
     {
-        $parts = is_string($rule) ? explode('|', $rule) : (is_array($rule) ? $rule : []);
+        /** @var array<string, list<mixed>> $parsed */
+        $parsed = (new ValidationRuleParser($data))->explode(ValidationRuleParser::filterConditionalRules([$key => self::withoutClosureConditions($rule)], $data))->rules;
 
         return array_values(array_filter(
-            $parts,
-            static fn (mixed $part): bool => is_string($part) && in_array(explode(':', $part, 2)[0], self::STRUCTURAL_RULES, true),
+            $parsed[$key] ?? [],
+            static fn (mixed $part): bool => is_string($part) && in_array(ValidationRuleParser::parse($part)[0], self::STRUCTURAL_RULES, true),
         ));
+    }
+
+    private static function withoutClosureConditions(mixed $rule): mixed
+    {
+        $hasClosure = static fn (mixed $part): bool => $part instanceof ConditionalRules
+            && is_callable((fn (): mixed => $this->condition)->call($part));
+
+        if ($hasClosure($rule)) {
+            return [];
+        }
+
+        return is_array($rule) ? array_values(array_filter($rule, static fn (mixed $part): bool => ! $hasClosure($part))) : $rule;
     }
 
     /**
