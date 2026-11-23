@@ -93,8 +93,11 @@ class MemoizingValidator extends Validator
     public function setData(array $data): static
     {
         if (! is_array($this->rulesWithoutData)) {
+            // parent::setData() calls setRules() with the same initial rules,
+            // which clears the known result.
+            $readsData = $this->rulesWithoutData === false;
             parent::setData($data);
-            $this->rulesWithoutData ??= self::explodeReadsData($this->initialRules) ? false : $this->rules;
+            $this->rulesWithoutData = $readsData || $this->explodeReadsData($this->initialRules) ? false : $this->rules;
 
             return $this;
         }
@@ -119,10 +122,10 @@ class MemoizingValidator extends Validator
     /**
      * @param  array<array-key, mixed>  $rules
      */
-    private static function explodeReadsData(array $rules): bool
+    private function explodeReadsData(array $rules): bool
     {
         foreach ($rules as $attribute => $rule) {
-            if (str_contains((string) $attribute, '*') || ! (is_string($rule) || (is_array($rule) && array_filter($rule, is_string(...)) === $rule))) {
+            if (str_contains((string) $attribute, '*') || ! is_string($rule) && (! is_array($rule) || array_filter($rule, is_string(...)) !== $rule)) {
                 return true;
             }
         }
