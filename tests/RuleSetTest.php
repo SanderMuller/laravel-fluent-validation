@@ -2337,6 +2337,17 @@ it('dropUnknownFields strips unknown nested keys inside each()', function (): vo
         ->and($validated['items'][1])->toHaveKey('name', 'Bar')->not->toHaveKey('other');
 });
 
+it('dropUnknownFields drops empty items like native, and the default keeps them with the other unknown keys', function (): void {
+    $rules = ['items' => 'array', 'items.*.x' => 'nullable'];
+
+    foreach ([[['x' => 1, 'y' => 2], []], [[], ['x' => 1]], [[], []]] as $items) {
+        $data = ['items' => $items];
+
+        expect(RuleSet::from($rules)->dropUnknownFields()->validate($data))->toBe(validator($data, $rules)->validated())
+            ->and(RuleSet::from($rules)->validate($data))->toBe($data);
+    }
+});
+
 it('dropUnknownFields forces stripping even when host factory has disabled the flag', function (): void {
     $factory = resolve(Illuminate\Validation\Factory::class);
     $factory->includeUnvalidatedArrayKeys();
