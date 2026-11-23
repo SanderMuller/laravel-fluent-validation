@@ -31,6 +31,7 @@ use SanderMuller\FluentValidation\Internal\RuleMetadata;
 use SanderMuller\FluentValidation\Internal\TopLevelValidation;
 use SanderMuller\FluentValidation\Internal\WildcardErrorOrder;
 use SanderMuller\FluentValidation\Internal\WildcardReferenceRewriter;
+use SanderMuller\FluentValidation\Internal\WildcardShape;
 use SanderMuller\FluentValidation\Internal\WildcardValidatedData;
 use SanderMuller\FluentValidation\Rules\ArrayRule;
 use SanderMuller\FluentValidation\Rules\FieldRule;
@@ -632,7 +633,7 @@ final class RuleSet implements Arrayable, IteratorAggregate
 
         if ($wildcardGroups === []) {
             $compiled = self::compile($topRules);
-            $fastValidated = $this->fastValidatedTopRules($data, $compiled);
+            $fastValidated = TopLevelValidation::fastValidated($this->ruleCompiler, $data, $compiled);
 
             if ($fastValidated !== null) {
                 return $fastValidated;
@@ -647,7 +648,12 @@ final class RuleSet implements Arrayable, IteratorAggregate
         }
 
         $topCompiled = self::compile($topRules);
-        $topValidated = $this->fastValidatedTopRules($data, $topCompiled);
+
+        if (WildcardShape::needsFullExpansion(array_map(strval(...), array_keys($topRules)), $wildcardKeys)) {
+            return $this->validateStandard($data, $messages, $attributes, TopLevelValidation::groupsToValidate($wildcardGroups, TopLevelValidation::parentErrors($data, $topCompiled, $wildcardGroups, $messages, $attributes)));
+        }
+
+        $topValidated = TopLevelValidation::fastValidated($this->ruleCompiler, $data, $topCompiled);
         $topErrors = [];
         $topValidator = null;
 
@@ -672,39 +678,6 @@ final class RuleSet implements Arrayable, IteratorAggregate
         }
 
         return WildcardValidatedData::add(WildcardValidatedData::withoutExcluded($topValidated, $excludedFields), $uncoveredGroups, $data);
-    }
-
-    /**
-     * Validate top-level rules with fast checks alone. Returns the validated
-     * data, or null when Laravel must run: no fast checks, a slow rule, a
-     * failed check (Laravel builds the error messages), or a dotted key
-     * (children() needs Laravel's nested lookup and validated-data shaping).
-     *
-     * @param  array<string, mixed>  $data
-     * @param  array<string, mixed>  $compiled
-     * @return array<string, mixed>|null
-     */
-    private function fastValidatedTopRules(array $data, array $compiled): ?array
-    {
-        foreach (array_keys($compiled) as $key) {
-            if (str_contains($key, '.')) {
-                return null;
-            }
-        }
-
-        [$fastChecks, $slowRules] = $this->ruleCompiler->buildFastChecks($compiled);
-
-        if ($slowRules !== [] || $fastChecks === []) {
-            return null;
-        }
-
-        foreach ($fastChecks as $check) {
-            if (! $check($data)) {
-                return null;
-            }
-        }
-
-        return array_intersect_key($data, $compiled);
     }
 
     /**

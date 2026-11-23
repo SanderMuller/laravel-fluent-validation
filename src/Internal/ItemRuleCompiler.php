@@ -185,6 +185,9 @@ final class ItemRuleCompiler
         [$checks, $readableRules] = CustomRuleFastCheck::split($readableRules);
 
         foreach ($readableRules as $field => $rule) {
+            // A numeric rule key such as `0` is an integer array key.
+            $field = (string) $field;
+
             if (! is_string($rule)) {
                 $slowRules[$field] = $rule;
 
@@ -192,7 +195,7 @@ final class ItemRuleCompiler
             }
 
             $valueCheck = FastCheckCompiler::compile($rule);
-            $itemAwareCheck = $valueCheck instanceof Closure ? null : $this->compileItemAwareCheck((string) $field, $rule);
+            $itemAwareCheck = $valueCheck instanceof Closure ? null : $this->compileItemAwareCheck($field, $rule);
 
             if (! $valueCheck instanceof Closure && ! $itemAwareCheck instanceof Closure) {
                 $slowRules[$field] = $rule;

@@ -80,9 +80,9 @@ final class WildcardErrorOrder
             static fn (string $key): string => '/^' . str_replace('\*', '[^.]*', preg_quote($key, '/')) . '\z/',
             $wildcardKeys,
         );
-        // With no two keys that expand to one attribute, an attribute with
-        // numeric item keys finds its rule key without a regex per key.
-        $byKey = $byShape && ! self::overlap($wildcardKeys) ? array_flip($wildcardKeys) : [];
+        // No two keys expand to one attribute (see WildcardShape), so an
+        // attribute with numeric item keys finds its rule key without a regex.
+        $byKey = $byShape ? array_flip($wildcardKeys) : [];
         /** @var array<int, array<string, list<string>>> $byRule */
         $byRule = [];
 
@@ -121,45 +121,5 @@ final class WildcardErrorOrder
         }
 
         return count($patterns);
-    }
-
-    /**
-     * Can one attribute match two of the keys?
-     *
-     * @param  list<string>  $wildcardKeys
-     */
-    private static function overlap(array $wildcardKeys): bool
-    {
-        $segments = array_map(static fn (string $key): array => explode('.', $key), $wildcardKeys);
-        $count = count($segments);
-
-        for ($i = 0; $i < $count; $i++) {
-            for ($j = $i + 1; $j < $count; $j++) {
-                if (self::segmentsOverlap($segments[$i], $segments[$j])) {
-                    return true;
-                }
-            }
-        }
-
-        return false;
-    }
-
-    /**
-     * @param  list<string>  $a
-     * @param  list<string>  $b
-     */
-    private static function segmentsOverlap(array $a, array $b): bool
-    {
-        if (count($a) !== count($b)) {
-            return false;
-        }
-
-        foreach ($a as $depth => $segment) {
-            if ($segment !== $b[$depth] && $segment !== '*' && $b[$depth] !== '*') {
-                return false;
-            }
-        }
-
-        return true;
     }
 }
