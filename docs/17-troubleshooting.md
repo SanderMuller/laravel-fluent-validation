@@ -9,6 +9,9 @@ These require `HasFluentRules` or `FluentValidator` to resolve wildcard paths. S
 **Child form request loses or corrupts parent rules**
 `array_merge_recursive` flattens FluentRule objects into arrays. See [Extending parent rules](07-extending-rules.md) for the supported merge patterns (`put()`, `except()`, `modify()`, `modifyEach()`, `modifyChildren()`, spread and clone).
 
+**`items.*` and an explicit key such as `items.1` give a different result than plain Laravel**
+In plain Laravel, an explicit key written after the wildcard key replaces the wildcard rules for that element, so `['items.*' => 'integer', 'items.1' => 'nullable']` accepts `'x'` at `items.1`. `RuleSet::validate()` and `check()` apply both rules, as Laravel does when the explicit key comes first. Write the explicit key first to get the same result in both.
+
 **Method not found on a rule type**
 Use `->rule('method_name')` as an escape hatch for any Laravel rule not yet available as a fluent method. Accepts strings, objects, and `['rule', ...$params]` tuples.
 If you think it should be a native method, [open an issue](https://github.com/SanderMuller/laravel-fluent-validation/issues) and we'll add it.

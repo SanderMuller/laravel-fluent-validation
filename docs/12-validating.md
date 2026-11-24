@@ -33,7 +33,12 @@ foreach ($rows as $row) {
 | `->safe()`             | `ValidatedInput`    | Same data as `validated()`, wrapped for `->only()`/`->except()`/`->collect()` access |
 | `->validator()`        | `ValidatorContract` | Escape hatch for deep Laravel integration (`->after()`, `->sometimes()`, extensions) |
 
-`safe()` returns the package's `ValidatedInput`, a subclass of Laravel's. It adds `->file($key)`, which returns the `UploadedFile`, or the default when that is a file, or `null`, and `->files($key)`, which returns a list of the `UploadedFile`s under the key. `->file()` comes with Laravel 13.3 too; the subclass gives it to older versions. `->nullableString($key)` returns the value as a plain string, or the default (`null` unless you pass one) when it is missing, blank, or not a string or number. Numbers are cast to strings. Unlike `->string()`, which wraps `null` in a `Stringable`, you get `?string` back without an `is_string()` check. `->nullableInteger($key)` returns `->integer($key)` for a filled value and the default otherwise, where `->integer()` gives `0` for a blank field. A form request that uses `HasFluentRules` returns the same class from `$request->safe()`.
+`safe()` returns the package's `ValidatedInput`, a subclass of Laravel's. A form request that uses `HasFluentRules` returns the same class from `$request->safe()`. It adds:
+
+- `->file($key)`: the `UploadedFile`, or the default when that is a file, or `null`. Laravel 13.3 has `->file()` too; the subclass gives it to older versions.
+- `->files($key)`: a list of the `UploadedFile`s under the key.
+- `->nullableString($key)`: the value as a plain string, or the default (`null` unless you pass one) when it is missing, blank, or not a string or number. Numbers are cast to strings. Unlike `->string()`, which wraps `null` in a `Stringable`, it returns `?string`.
+- `->nullableInteger($key)`: `->integer($key)` for a filled value, and the default otherwise. `->integer()` gives `0` for a blank field.
 
 `check()` runs the same engine as `validate()` (fast-check closures, wildcard expansion, batched DB queries) and wraps the outcome rather than re-parsing.
 
