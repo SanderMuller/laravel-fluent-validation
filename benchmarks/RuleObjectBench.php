@@ -7,11 +7,13 @@ use Tally\Attribute\Before;
 use Tally\Attribute\DataProvider;
 use Tally\Attribute\ExpectedFor;
 use Tally\Attribute\Linear;
+use Tally\Attribute\Warmup;
 
 /**
  * Rule objects under wildcard keys in Laravel's own validator. Each item
  * validates through an inner validator of the rule object.
  */
+#[Warmup(1)]
 final class RuleObjectBench
 {
     /** @var array<string, mixed> */

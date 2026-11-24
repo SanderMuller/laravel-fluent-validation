@@ -9,10 +9,12 @@ use Tally\Attribute\DataProvider;
 use Tally\Attribute\ExpectedFor;
 use Tally\Attribute\Linear;
 use Tally\Attribute\RelativeTolerance;
+use Tally\Attribute\Warmup;
 
 /**
  * Most fields pair requiredIf with excludeUnless on the same sibling field.
  */
+#[Warmup(1)]
 final class ActivityLogBench
 {
     /** @var array<string, mixed> */

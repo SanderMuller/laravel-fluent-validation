@@ -9,10 +9,12 @@ use Tally\Attribute\DataProvider;
 use Tally\Attribute\ExpectedFor;
 use Tally\Attribute\Linear;
 use Tally\Attribute\RelativeTolerance;
+use Tally\Attribute\Warmup;
 
 /**
  * A large flat list of scalar values.
  */
+#[Warmup(1)]
 final class TagListBench
 {
     /** @var array<string, mixed> */

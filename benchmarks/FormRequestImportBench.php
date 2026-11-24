@@ -10,10 +10,12 @@ use Tally\Attribute\Before;
 use Tally\Attribute\DataProvider;
 use Tally\Attribute\ExpectedFor;
 use Tally\Attribute\Linear;
+use Tally\Attribute\Warmup;
 
 /**
  * The product import through a HasFluentRules form request.
  */
+#[Warmup(1)]
 final class FormRequestImportBench
 {
     private ProductImportRequest $request;

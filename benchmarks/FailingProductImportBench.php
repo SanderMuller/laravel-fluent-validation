@@ -9,10 +9,12 @@ use Tally\Attribute\DataProvider;
 use Tally\Attribute\ExpectedFor;
 use Tally\Attribute\Linear;
 use Tally\Attribute\RelativeTolerance;
+use Tally\Attribute\Warmup;
 
 /**
  * A wildcard group where every 10th item fails, so those items go to Laravel.
  */
+#[Warmup(1)]
 final class FailingProductImportBench
 {
     /** @var array<string, mixed> */

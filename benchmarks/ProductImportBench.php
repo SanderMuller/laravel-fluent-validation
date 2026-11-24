@@ -9,10 +9,12 @@ use Tally\Attribute\DataProvider;
 use Tally\Attribute\ExpectedFor;
 use Tally\Attribute\Linear;
 use Tally\Attribute\RelativeTolerance;
+use Tally\Attribute\Warmup;
 
 /**
  * A wildcard group of flat items, every rule fast-checked.
  */
+#[Warmup(1)]
 final class ProductImportBench
 {
     /** @var array<string, mixed> */

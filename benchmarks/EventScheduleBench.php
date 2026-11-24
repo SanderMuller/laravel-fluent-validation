@@ -9,10 +9,12 @@ use Tally\Attribute\DataProvider;
 use Tally\Attribute\ExpectedFor;
 use Tally\Attribute\Linear;
 use Tally\Attribute\RelativeTolerance;
+use Tally\Attribute\Warmup;
 
 /**
  * Date comparisons against sibling fields, partly fast-checked.
  */
+#[Warmup(1)]
 final class EventScheduleBench
 {
     /** @var array<string, mixed> */

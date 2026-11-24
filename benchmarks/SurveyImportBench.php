@@ -9,10 +9,12 @@ use Tally\Attribute\DataProvider;
 use Tally\Attribute\ExpectedFor;
 use Tally\Attribute\Linear;
 use Tally\Attribute\RelativeTolerance;
+use Tally\Attribute\Warmup;
 
 /**
  * Conditionals on the item type and, inside nested answers, on each answer.
  */
+#[Warmup(1)]
 final class SurveyImportBench
 {
     /** @var array<string, mixed> */

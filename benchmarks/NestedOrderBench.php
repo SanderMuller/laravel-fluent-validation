@@ -9,10 +9,12 @@ use Tally\Attribute\DataProvider;
 use Tally\Attribute\ExpectedFor;
 use Tally\Attribute\Linear;
 use Tally\Attribute\RelativeTolerance;
+use Tally\Attribute\Warmup;
 
 /**
  * Nested each(): orders with five line items each.
  */
+#[Warmup(1)]
 final class NestedOrderBench
 {
     /** @var array<string, mixed> */

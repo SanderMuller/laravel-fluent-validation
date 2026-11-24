@@ -9,10 +9,12 @@ use Tally\Attribute\DataProvider;
 use Tally\Attribute\ExpectedFor;
 use Tally\Attribute\Linear;
 use Tally\Attribute\RelativeTolerance;
+use Tally\Attribute\Warmup;
 
 /**
  * Many exclude_unless conditions on a wildcard group.
  */
+#[Warmup(1)]
 final class ConditionalImportBench
 {
     /** @var array<string, mixed> */
