@@ -81,7 +81,7 @@ final class TopLevelValidation
         /** @var array<string, list<string>> $errors */
         $errors = $validator->errors()->toArray();
 
-        return [[], $errors, $validator, []];
+        return [[], $errors, $validator, self::excludedAttributes($validator)];
     }
 
     /**

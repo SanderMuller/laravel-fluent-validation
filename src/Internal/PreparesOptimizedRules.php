@@ -42,6 +42,7 @@ trait PreparesOptimizedRules
     {
         // Expanded attributes of one pattern share a rule string; extract its conditions once.
         $conditionsByRule = [];
+        $excluded = [];
 
         foreach ($rules as $attribute => $ruleSet) {
             // Recognise both the array-tuple and the string/pipe-joined forms of
@@ -50,38 +51,58 @@ trait PreparesOptimizedRules
             // array-tuple-only check would silently skip (leaving the rule set
             // fully expanded and the validator quadratic).
             $conditions = is_string($ruleSet)
-                ? $conditionsByRule[$ruleSet] ??= ExcludeConditionExtractor::extract($ruleSet)
-                : ExcludeConditionExtractor::extract($ruleSet);
+                ? $conditionsByRule[$ruleSet] ??= ExcludeConditionExtractor::extractLeading($ruleSet)
+                : ExcludeConditionExtractor::extractLeading($ruleSet);
 
-            foreach ($conditions as $condition) {
-                $conditionField = ConditionalEvaluationPhase::resolveWildcard((string) $attribute, $condition['field']);
-
-                // Unresolved wildcard (the dep position has no matching segment) —
-                // leave the rule for the validator to resolve rather than guess.
-                if (str_contains($conditionField, '*')) {
-                    continue;
-                }
-
-                // exclude_if is inactive when the dependent field is absent
-                // (mirrors Laravel's Arr::has short-circuit), regardless of value.
-                if ($condition['action'] === 'exclude_if' && ! Arr::has($data, $conditionField)) {
-                    continue;
-                }
-
-                // Pass the full rule set so a `boolean`-declared dependent sent as
-                // raw '0'/'1' coerces like Laravel.
-                $match = ConditionalValueMatcher::matches($conditionField, $condition['values'], $data, $rules);
-                $shouldExclude = $condition['action'] === 'exclude_unless' ? ! $match : $match;
-
-                if ($shouldExclude) {
-                    unset($rules[$attribute]);
-
-                    break;
-                }
+            if ($conditions !== [] && $this->preExcludeConditionsMatch((string) $attribute, $conditions, $data, $rules)) {
+                $excluded[$attribute] = true;
             }
         }
 
-        return $rules;
+        if ($excluded === []) {
+            return $rules;
+        }
+
+        [$removed, $below] = ConditionalEvaluationPhase::removableExclusions($rules, $excluded);
+
+        return array_diff_key($rules, $removed, $below);
+    }
+
+    /**
+     * Does one of the exclude conditions exclude the attribute? A condition
+     * the data cannot decide is left to the validator.
+     *
+     * @param  list<array{action: string, field: string, values: list<string>}>  $conditions
+     * @param  array<string, mixed>  $data
+     * @param  array<string, mixed>  $rules
+     */
+    private function preExcludeConditionsMatch(string $attribute, array $conditions, array $data, array $rules): bool
+    {
+        foreach ($conditions as $condition) {
+            $conditionField = ConditionalEvaluationPhase::resolveWildcard($attribute, $condition['field']);
+
+            // Unresolved wildcard (the dep position has no matching segment) —
+            // leave the rule for the validator to resolve rather than guess.
+            if (str_contains($conditionField, '*')) {
+                continue;
+            }
+
+            // exclude_if is inactive when the dependent field is absent
+            // (mirrors Laravel's Arr::has short-circuit), regardless of value.
+            if ($condition['action'] === 'exclude_if' && ! Arr::has($data, $conditionField)) {
+                continue;
+            }
+
+            // Pass the full rule set so a `boolean`-declared dependent sent as
+            // raw '0'/'1' coerces like Laravel.
+            $match = ConditionalValueMatcher::matches($conditionField, $condition['values'], $data, $rules);
+
+            if ($condition['action'] === 'exclude_unless' ? ! $match : $match) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
@@ -120,8 +141,12 @@ trait PreparesOptimizedRules
 
         foreach ($implicitAttributes as $pattern => $expandedPaths) {
             if (isset($fastChecks[$pattern])) {
+                // The check is compiled from the first path's rule. An explicit
+                // key such as `items.1.a` can give another path its own rule.
+                $rule = $preparedRules[$expandedPaths[0]];
+
                 foreach ($expandedPaths as $path) {
-                    if (isset($preparedRules[$path])) {
+                    if (isset($preparedRules[$path]) && $preparedRules[$path] === $rule) {
                         $map[$path] = $pattern;
                     }
                 }

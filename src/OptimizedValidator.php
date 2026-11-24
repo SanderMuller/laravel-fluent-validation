@@ -9,6 +9,7 @@ use Illuminate\Validation\Rules\In;
 use Illuminate\Validation\Rules\NotIn;
 use SanderMuller\FluentValidation\Internal\ConditionalEvaluationPhase;
 use SanderMuller\FluentValidation\Internal\ConditionalVerdict;
+use SanderMuller\FluentValidation\Internal\ExcludeConditionExtractor;
 use Stringable;
 
 /**
@@ -35,6 +36,9 @@ class OptimizedValidator extends MemoizingValidator
     /** @var array<string, true> */
     private array $referencedAttributes = [];
 
+    /** @var list<string> attributes an exclude rule removed before Laravel's loop */
+    private array $excludedAttributes = [];
+
     /**
      * @param array<string, Closure(mixed): bool> $fastChecks
      * @param  array<string, string>  $attributePatternMap
@@ -51,6 +55,21 @@ class OptimizedValidator extends MemoizingValidator
                 $this->fastCheckGroups[$pattern][] = $attribute;
             }
         }
+
+        return $this;
+    }
+
+    /**
+     * The attributes an exclude rule removed before the validator was made.
+     * Their data goes after validation, as in Laravel.
+     *
+     * @internal
+     *
+     * @param  list<string>  $attributes
+     */
+    public function withExcludedAttributes(array $attributes): static
+    {
+        $this->excludedAttributes = $attributes;
 
         return $this;
     }
@@ -116,21 +135,55 @@ class OptimizedValidator extends MemoizingValidator
     {
         $originalRules = $this->rules;
         $removedRules = $this->runFastCheckPhase();
-        $this->runConditionalPhase($removedRules);
+        $this->runConditionalPhase($removedRules, $originalRules);
 
         if ($removedRules === [] && $this->rules === []) {
+            $this->removeExcludedAttributes();
+
             return $this->finalizeWithoutParent();
         }
 
-        $result = parent::passes();
+        $result = $this->excludedAttributes === [] ? parent::passes() : $this->passesBeforeAfterHooks();
 
         // Restore fast-checked rules in their original order, so validated()
         // returns their data in rule order. (Excluded rules are intentionally
-        // NOT restored.)
+        // NOT restored, nor are the rules below a path Laravel excluded.)
+        if ($this->excludeAttributes !== []) {
+            $removedRules = array_filter($removedRules, fn (string $attribute): bool => ! $this->shouldBeExcluded($attribute), ARRAY_FILTER_USE_KEY);
+        }
+
         $kept = $this->rules + $removedRules;
         $this->rules = array_replace(array_intersect_key($originalRules, $kept), $kept);
 
         return $result;
+    }
+
+    /**
+     * Laravel removes the data of the excluded attributes after its loop and
+     * before the after hooks, so the data goes in a hook that runs first.
+     */
+    private function passesBeforeAfterHooks(): bool
+    {
+        $after = $this->after;
+        $this->after = [$this->removeExcludedAttributes(...), ...$after];
+
+        try {
+            return parent::passes();
+        } finally {
+            $this->after = $after;
+        }
+    }
+
+    /**
+     * Laravel removes the data of an excluded attribute at the end of its
+     * loop, so the other rules still read it. The rule is gone already, and
+     * removeAttribute() would then remove a rule of the parent key by index.
+     */
+    private function removeExcludedAttributes(): void
+    {
+        foreach ($this->excludedAttributes as $attribute) {
+            Arr::forget($this->data, $attribute);
+        }
     }
 
     /**
@@ -171,13 +224,15 @@ class OptimizedValidator extends MemoizingValidator
      * orchestration and Laravel-validator state mutation.
      *
      * @param array<string, mixed> $removedRules
+     * @param  array<array-key, mixed>  $originalRules  the rules in validation order
      */
-    private function runConditionalPhase(array &$removedRules): void
+    private function runConditionalPhase(array &$removedRules, array $originalRules): void
     {
         $phase = ConditionalEvaluationPhase::for($this);
         // Closure (not [$this, 'getValue']) because parent::getValue() is
         // protected — only invokable from inside this class scope.
         $getValue = fn (string $field): mixed => $this->getValue($field);
+        $excluded = [];
 
         foreach ($phase->indexConditionalAttrs($this->rules) as $attribute => $tuples) {
             /** @var list<mixed> $rules */
@@ -186,8 +241,10 @@ class OptimizedValidator extends MemoizingValidator
             $verdict = $phase->evaluate($attribute, $tuples, $getValue);
 
             if ($verdict === ConditionalVerdict::Exclude) {
-                // Excluded — don't add to removedRules so it's absent from validated().
-                unset($this->rules[$attribute]);
+                // Laravel runs the rules before an exclude rule, so it keeps those.
+                if (! ExcludeConditionExtractor::followsOtherRule($rules)) {
+                    $excluded[$attribute] = true;
+                }
 
                 continue;
             }
@@ -206,6 +263,35 @@ class OptimizedValidator extends MemoizingValidator
                 $removedRules[$attribute] = $rules;
                 unset($this->rules[$attribute]);
             }
+        }
+
+        $this->removeExcluded($excluded, $removedRules, $originalRules);
+    }
+
+    /**
+     * Removes the rules of the excluded attributes, and the rules below them
+     * that Laravel skips, see {@see ConditionalEvaluationPhase::removableExclusions()}.
+     *
+     * @param  array<string, true>  $excluded
+     * @param  array<string, mixed>  $removedRules
+     * @param  array<array-key, mixed>  $originalRules
+     */
+    private function removeExcluded(array $excluded, array &$removedRules, array $originalRules): void
+    {
+        if ($excluded === []) {
+            return;
+        }
+
+        [$removed, $below] = ConditionalEvaluationPhase::removableExclusions(array_intersect_key($originalRules, $this->rules + $removedRules), $excluded);
+
+        foreach (array_keys($removed) as $attribute) {
+            // Not added to removedRules, so it is absent from validated().
+            unset($this->rules[$attribute]);
+            $this->excludedAttributes[] = $attribute;
+        }
+
+        foreach (array_keys($below) as $attribute) {
+            unset($this->rules[$attribute], $removedRules[$attribute]);
         }
     }
 

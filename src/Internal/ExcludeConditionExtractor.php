@@ -26,6 +26,17 @@ final class ExcludeConditionExtractor
     private const ACTIONS = ['exclude_unless', 'exclude_if'];
 
     /**
+     * Rules that may come before an exclude rule without a change to the
+     * pre-evaluation: `bail`, `nullable` and `sometimes` add no error, and
+     * FluentRule writes `requiredIf()` and its kin before `excludeUnless()`.
+     */
+    private const ALLOWED_BEFORE_EXCLUDE = [
+        'bail' => true, 'nullable' => true, 'sometimes' => true,
+        'required_if' => true, 'required_unless' => true, 'required_with' => true, 'required_with_all' => true,
+        'required_without' => true, 'required_without_all' => true, 'prohibited_if' => true, 'prohibited_unless' => true,
+    ];
+
+    /**
      * @return list<array{action: string, field: string, values: list<string>}>
      */
     public static function extract(mixed $ruleValue): array
@@ -40,6 +51,76 @@ final class ExcludeConditionExtractor
         }
 
         return $conditions;
+    }
+
+    /**
+     * {@see extract()}, or none when a rule that can fail comes before an
+     * exclude rule: Laravel must then run the rules in order.
+     *
+     * @return list<array{action: string, field: string, values: list<string>}>
+     */
+    public static function extractLeading(mixed $ruleValue): array
+    {
+        $conditions = [];
+        $other = false;
+
+        foreach (self::segments($ruleValue) as $segment) {
+            $condition = self::parseSegment($segment);
+
+            if ($condition === null) {
+                $other = $other || ! isset(self::ALLOWED_BEFORE_EXCLUDE[self::ruleName($segment)]);
+
+                continue;
+            }
+
+            if ($other) {
+                return [];
+            }
+
+            $conditions[] = $condition;
+        }
+
+        return $conditions;
+    }
+
+    /**
+     * Does a rule that can fail come before an exclude rule? Laravel runs the
+     * rules in order, so that rule can add an error before the exclusion.
+     */
+    public static function followsOtherRule(mixed $ruleValue): bool
+    {
+        $other = false;
+
+        foreach (self::segments($ruleValue) as $segment) {
+            $name = self::ruleName($segment);
+
+            if ($name === 'exclude_if' || $name === 'exclude_unless') {
+                if ($other) {
+                    return true;
+                }
+
+                continue;
+            }
+
+            $other = $other || ! isset(self::ALLOWED_BEFORE_EXCLUDE[$name]);
+        }
+
+        return false;
+    }
+
+    private static function ruleName(mixed $segment): string
+    {
+        if (is_array($segment)) {
+            $segment = $segment[0] ?? null;
+        }
+
+        if (! is_string($segment)) {
+            return '';
+        }
+
+        $colon = strpos($segment, ':');
+
+        return $colon === false ? $segment : substr($segment, 0, $colon);
     }
 
     /**

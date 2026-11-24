@@ -131,6 +131,70 @@ final class ConditionalEvaluationPhase
     }
 
     /**
+     * The excluded attributes the optimizer can remove, and the rules below
+     * them. Laravel skips a rule below an excluded path that comes after the
+     * path, but runs one that comes before it. An exclude rule with such a
+     * rule before it stays with Laravel.
+     *
+     * @param  array<array-key, mixed>  $rules  in validation order
+     * @param  array<string, true>  $excluded
+     * @return array{0: array<string, true>, 1: array<string, true>} the attributes, and the rules below them
+     */
+    public static function removableExclusions(array $rules, array $excluded): array
+    {
+        $positions = [];
+        $firstBelow = [];
+
+        foreach (array_keys($rules) as $position => $key) {
+            $key = (string) $key;
+            $positions[$key] = $position;
+
+            if (isset($excluded[$key])) {
+                continue;
+            }
+
+            for ($path = $key; ($dot = strrpos($path, '.')) !== false && ! isset($firstBelow[$path = substr($path, 0, $dot)]);) {
+                $firstBelow[$path] = $position;
+            }
+        }
+
+        $removed = [];
+
+        foreach (array_keys($excluded) as $attribute) {
+            if (($firstBelow[$attribute] ?? PHP_INT_MAX) > $positions[$attribute]) {
+                $removed[$attribute] = true;
+            }
+        }
+
+        return [$removed, array_intersect_key($removed, $firstBelow) === [] ? [] : self::keysBelow($rules, $excluded, $removed)];
+    }
+
+    /**
+     * @param  array<array-key, mixed>  $rules
+     * @param  array<string, true>  $excluded
+     * @param  array<string, true>  $removed
+     * @return array<string, true>
+     */
+    private static function keysBelow(array $rules, array $excluded, array $removed): array
+    {
+        $below = [];
+
+        foreach (array_keys(array_diff_key($rules, $excluded)) as $key) {
+            for ($path = (string) $key; ($dot = strrpos($path, '.')) !== false;) {
+                $path = substr($path, 0, $dot);
+
+                if (isset($removed[$path])) {
+                    $below[(string) $key] = true;
+
+                    break;
+                }
+            }
+        }
+
+        return $below;
+    }
+
+    /**
      * Replace wildcards in a condition field reference with the concrete key
      * at the SAME dot-position in the attribute path — mirroring how Laravel
      * resolves a dependent wildcard reference against the attribute under

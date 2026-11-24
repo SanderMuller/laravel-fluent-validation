@@ -60,7 +60,8 @@ abstract class FluentValidator extends OptimizedValidator
             $attributes + $prepared->attributes,
         );
 
-        $this->withFastChecks($fastChecks, $attributePatternMap, $referencedAttributes);
+        $this->withFastChecks($fastChecks, $attributePatternMap, $referencedAttributes)
+            ->withExcludedAttributes(array_keys(array_diff_key($prepared->rules, $preparedRules)));
 
         if ($prepared->implicitAttributes !== []) {
             ImplicitAttributes::set($this, $prepared->implicitAttributes);

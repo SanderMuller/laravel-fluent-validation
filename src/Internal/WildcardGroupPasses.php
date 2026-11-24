@@ -52,8 +52,10 @@ final class WildcardGroupPasses
             $passes[] = self::groupPass($fieldRules, $parent, $fieldMessages, $attributes, $compile);
         }
 
-        foreach ($passes as [$itemRules]) {
-            if (self::requiresFullExpansion($itemRules)) {
+        foreach ($passes as [$itemRules, , , $isScalar]) {
+            // A rule on the item that can fail before an exclude rule on it:
+            // only Laravel runs those in order.
+            if (self::requiresFullExpansion($itemRules) || ($isScalar && ExcludeConditionExtractor::followsOtherRule(current($itemRules)))) {
                 return null;
             }
         }

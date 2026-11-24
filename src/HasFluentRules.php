@@ -233,7 +233,8 @@ trait HasFluentRules
         // rules or conditional rules were pre-excluded.
         if ($fastChecks !== [] || count($preparedRules) < count($prepared->rules)) {
             $validator = $this->makeOptimizedValidator($factory, $data, $preparedRules, $messages, $attributes);
-            $validator->withFastChecks($fastChecks, $attributePatternMap, $referencedAttributes);
+            $validator->withFastChecks($fastChecks, $attributePatternMap, $referencedAttributes)
+                ->withExcludedAttributes(array_keys(array_diff_key($prepared->rules, $preparedRules)));
         } else {
             /** @var Validator $validator */
             $validator = $factory->make($data, $preparedRules, $messages, $attributes);

@@ -78,6 +78,7 @@ These cases get little or no speedup:
 - **Closures, and custom `ValidationRule` objects outside `RuleSet` or that read the validator or its data.** Opaque to the fast-check compiler. Performance depends on what the rule does.
 - **`distinct` rules.** Require comparing values across all items in the array, not per-item.
 - **`items.*.*`, and two rule keys that reach the same field.** These run in Laravel's own validator, so the rules merge as they do in Laravel.
+- **An exclude rule after a rule that can fail**, such as `string|exclude_unless:type,a`. Laravel runs the rules in order, so with `HasFluentRules`, with `FluentValidator`, and on `items.*` alone, such a rule runs in Laravel's own validator. Put the exclude rule before the type rules, as `FluentRule` does. Only `bail`, `nullable`, `sometimes` and the `required_if` family may come before it.
 - **Database rules with closure callbacks** (`exists`/`unique` with `->where(fn ...)`). Can't be batched; each item fires its own query.
 
 > [!TIP]
