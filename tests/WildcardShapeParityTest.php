@@ -61,10 +61,22 @@ $shapeCases = [
     'items.* alone with required_if on a field of the item' => [['items' => 'array', 'items.*' => 'required_if:items.*.t,a|nullable'], ['items' => [['t' => 'b'], ['t' => 'a']]]],
     'a nested items.* alone that excludes on a field of the item' => [['o.items' => 'array', 'o.items.*' => 'exclude_if:o.items.*.f,1|integer'], ['o' => ['items' => [['f' => 1], 3]]]],
     'items.* alone with a value that looks like a field' => [['items' => 'array', 'items.*' => 'in:items.*.f'], ['items' => ['items.*.f']]],
+    'items.*.a.* that excludes on a field of the item' => [['items' => 'array', 'items.*.a' => 'array', 'items.*.a.*' => 'exclude_if:items.*.f,1|integer', 'items.*.f' => 'integer'], ['items' => [['a' => ['x', 'y'], 'f' => 1], ['a' => [1, 2], 'f' => 0]]]],
+    'items.*.a.* that excludes under a nullable parent' => [['items.*.a.*' => 'exclude_if:items.*.f,1', 'items' => 'nullable'], ['items' => [1 => ['a' => ['z' => 's'], 'f' => 1]]]],
+    'items.*.a.*.b that excludes on a field of the item' => [['items' => 'array', 'items.*.a' => 'array', 'items.*.a.*.b' => 'exclude_if:items.*.f,1|integer', 'items.*.a.*.c' => 'nullable', 'items.*.f' => 'integer'], ['items' => [['a' => [['b' => 'x', 'c' => 1, 'd' => 2]], 'f' => 1], ['a' => [['b' => 3, 'c' => 4]], 'f' => 0]]]],
+    'items.*.a.*.b that excludes on a field of the element' => [['items' => 'array', 'items.*.a' => 'array', 'items.*.a.*.b' => 'exclude_if:items.*.a.*.f,1|integer', 'items.*.a.*.f' => 'integer'], ['items' => [['a' => [['b' => 'x', 'f' => 1], ['b' => 2, 'f' => 0]]]]]],
+    'an excluded items.0' => [['items' => 'array', 'items.*.b' => 'string', 'items.0' => 'exclude_if:flag,1', 'flag' => 'nullable'], ['items' => [['b' => []], ['b' => 'ok']], 'flag' => 1]],
+    'an excluded items.0 before the wildcard keys' => [['items.0' => 'exclude_if:flag,1', 'items' => 'array', 'items.*.b' => 'string', 'flag' => 'nullable'], ['items' => [['b' => []], ['b' => 'ok']], 'flag' => 1]],
+    'an excluded items.0.b' => [['items' => 'array', 'items.*.b' => 'string', 'items.0.b' => 'exclude_if:flag,1', 'flag' => 'nullable'], ['items' => [['b' => [], 'c' => 1], ['b' => 'ok']], 'flag' => 1]],
+    'an excluded items.0 of a scalar items.*' => [['items' => 'array', 'items.*' => 'integer', 'items.0' => 'exclude_if:flag,1', 'flag' => 'nullable'], ['items' => ['x', 2], 'flag' => 1]],
+    'items.0 that an exclude rule keeps' => [['items' => 'array', 'items.*.b' => 'string', 'items.0' => 'exclude_if:flag,1', 'flag' => 'nullable'], ['items' => [['b' => []]], 'flag' => 0]],
     'items.1 after items.*' => [['items' => 'array', 'items.*' => 'integer', 'items.1' => 'nullable'], ['items' => [1, 'x']]],
     'items.1 after items.*, failing' => [['items' => 'array', 'items.*' => 'integer', 'items.1' => 'nullable'], ['items' => ['a', 'x']]],
     'items.0.x after items.*.x' => [['items' => 'array', 'items.*.x' => 'integer', 'items.0.x' => 'nullable'], ['items' => [['x' => 'q'], ['x' => 'r']]]],
     'items.0.x after items.*.x and items.*.y' => [['items.*.x' => 'integer', 'items.*.y' => 'required', 'items.0.x' => 'string', 'items' => 'array'], ['items' => [['x' => 'q'], ['x' => 2, 'y' => 1]]]],
+    'an explicit key inside an item that items.* excludes' => [['items' => 'array', 'items.*' => 'exclude_unless:items.*.t,keep|array', 'items.0.l' => 'string'], ['items' => [['x']]]],
+    'an explicit key inside an item that items.* keeps' => [['items' => 'array', 'items.*' => 'exclude_unless:items.*.t,keep|array', 'items.0.l' => 'string'], ['items' => [['x'], ['t' => 'keep']]]],
+    'an excluded items.0.l.0' => [['items' => 'array', 'items.*.l' => 'array', 'items.*.l.*.x' => 'string', 'items.0.l.0' => 'exclude_if:flag,1', 'flag' => 'nullable'], ['items' => [['l' => [['x' => []], ['x' => 'ok']]]], 'flag' => 1]],
 ];
 
 foreach ($shapeCases as $name => [$rules, $data]) {

@@ -668,7 +668,7 @@ final class RuleSet implements Arrayable, IteratorAggregate
         $excludedFields = [];
         // Laravel also drops the rules below an attribute an exclude rule removed.
         $groups = TopLevelValidation::groupsToValidate($wildcardGroups, $topErrors + array_fill_keys($topExcluded, []));
-        $allErrors = $this->validateWildcardGroups($groups, $data, $messages, $attributes, $fallbackResult, $uncoveredGroups, $excludedFields, $wildcardKeys);
+        $allErrors = $this->validateWildcardGroups($groups, $data, $messages, $attributes, $fallbackResult, $uncoveredGroups, $excludedFields, $wildcardKeys, $topExcluded);
 
         if ($fallbackResult !== null) {
             return $fallbackResult;
@@ -745,6 +745,7 @@ final class RuleSet implements Arrayable, IteratorAggregate
      * @param  array<string, array<string, mixed>>  $uncoveredGroups  {@see WildcardValidatedData::uncovered()}
      * @param  array<string, array<int|string, ExcludedItem>>  $excludedFields  {@see WildcardValidatedData::withoutExcluded()}
      * @param  list<string>  $wildcardKeys  the wildcard rule keys, in rule order
+     * @param  list<string>  $topExcluded  the attributes the top-level validator excluded
      * @return array<string, list<string>>
      *
      * @throws ValidationException
@@ -758,6 +759,7 @@ final class RuleSet implements Arrayable, IteratorAggregate
         array  $uncoveredGroups = [],
         array  &$excludedFields = [],
         array  $wildcardKeys = [],
+        array  $topExcluded = [],
     ): array {
         /** @var array<string, list<string>> $allErrors */
         $allErrors = [];
@@ -768,6 +770,8 @@ final class RuleSet implements Arrayable, IteratorAggregate
                 continue;
             }
 
+            $items = TopLevelValidation::withoutExcludedItems($items, $parent, $topExcluded);
+
             if ($items === []) {
                 continue;
             }
@@ -775,9 +779,10 @@ final class RuleSet implements Arrayable, IteratorAggregate
             $passes = WildcardGroupPasses::for($groupRules, $parent, $messages, $attributes, $data, $this->stopOnFirstFailure, self::compile(...));
 
             // Per-item validators can't strip cross-item unknown keys, read
-            // fields outside the item, or report the fields an exclude rule
-            // removed; fall back to the single fully-expanded validator then.
-            if ($passes === null || $this->dropUnknownFields || OutsideItemReferences::exist($groupRules, $parent, $data) || WildcardValidatedData::excludesFields($uncoveredGroups, $parent) || DottedItemKeys::exist($items)) {
+            // fields outside the item, skip the rules below an attribute a
+            // top-level exclude rule removed inside an item, or report the fields an exclude
+            // rule removed; fall back to the single fully-expanded validator then.
+            if ($passes === null || $this->dropUnknownFields || TopLevelValidation::excludesInsideItem($topExcluded, $parent) || OutsideItemReferences::exist($groupRules, $parent, $data) || WildcardValidatedData::excludesFields($uncoveredGroups, $parent) || DottedItemKeys::exist($items)) {
                 $fallbackResult = $this->validateStandard($data, $messages, $attributes, $wildcardGroups);
 
                 return [];

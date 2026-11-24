@@ -158,15 +158,7 @@ final class WildcardValidatedData
                 continue;
             }
 
-            $item = array_diff_key($items[$index], $fields->keys);
-
-            foreach ($fields->children as $key => $child) {
-                if (isset($item[$key]) && is_array($item[$key])) {
-                    $item[$key] = $child->children === [] ? array_diff_key($item[$key], $child->keys) : $child->removeFrom($item[$key]);
-                }
-            }
-
-            $items[$index] = $item;
+            $items[$index] = $fields->removeFrom($items[$index]);
         }
 
         return $items;
@@ -227,10 +219,11 @@ final class WildcardValidatedData
         foreach (array_keys($excluded) as $field) {
             $name = (string) $field;
 
-            // The reducer decides a field below a nested wildcard for the
-            // whole item, not for each nested item, so it removes nothing.
-            // A field with an escaped dot has no plain path to remove.
-            if (! str_contains($name, '*') && ! str_contains($name, '\\')) {
+            // A field below a nested wildcard (`tags.*`) reaches the reducer
+            // only when its condition reads a field of the item itself, so
+            // it holds for every nested item. A field with an escaped dot
+            // has no plain path to remove.
+            if (! str_contains($name, '\\')) {
                 $paths[] = explode('.', $name);
             }
         }

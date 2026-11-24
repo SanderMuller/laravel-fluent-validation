@@ -211,6 +211,44 @@ final class TopLevelValidation
     }
 
     /**
+     * The items without those a top-level exclude rule removed, such as
+     * `items.0`. Laravel skips the rules below an excluded attribute.
+     *
+     * @param  array<array-key, mixed>  $items
+     * @param  list<string>  $excluded  the attributes the top-level validator excluded
+     * @return array<array-key, mixed>
+     */
+    public static function withoutExcludedItems(array $items, string $parent, array $excluded): array
+    {
+        foreach ($excluded as $attribute) {
+            $index = str_starts_with($attribute, $parent . '.') ? substr($attribute, strlen($parent) + 1) : '';
+
+            if ($index !== '' && ! str_contains($index, '.')) {
+                unset($items[$index]);
+            }
+        }
+
+        return $items;
+    }
+
+    /**
+     * Did a top-level exclude rule remove an attribute inside an item, such
+     * as `items.0.tags.1`? The per-item validator cannot skip its rules.
+     *
+     * @param  list<string>  $excluded  the attributes the top-level validator excluded
+     */
+    public static function excludesInsideItem(array $excluded, string $parent): bool
+    {
+        foreach ($excluded as $attribute) {
+            if (str_starts_with($attribute, $parent . '.') && str_contains(substr($attribute, strlen($parent) + 1), '.')) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
      * The groups to validate per item. A group whose parent, or a key above
      * it, failed a top-level rule is left out: a parent that fails `max` can
      * hold any number of items, and each could run a database query.

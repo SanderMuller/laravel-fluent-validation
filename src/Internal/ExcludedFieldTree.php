@@ -5,6 +5,7 @@ namespace SanderMuller\FluentValidation\Internal;
 /**
  * The fields an exclude rule removed from one item, as a tree: the keys to
  * remove at this level, and a tree for each key whose children lose fields.
+ * A `*` key stands for every key at its level, as in a rule key.
  *
  * @internal
  */
@@ -58,14 +59,16 @@ final readonly class ExcludedFieldTree
         $tree = self::fromPaths(array_map(static fn (string $attribute): array => explode('.', $attribute), $topLevel));
 
         foreach ($byGroup as $parent => $byIndex) {
-            // A whole excluded item (true) is already gone from the data the tree is read against.
+            // A whole excluded item is gone from the data, but an explicit
+            // rule key below it, such as `items.0.tags`, still names it.
             $items = array_filter($byIndex, static fn (self|bool $item): bool => $item instanceof self);
+            $whole = array_filter($byIndex, static fn (self|bool $item): bool => $item === true);
 
-            if ($items === []) {
+            if ($items === [] && $whole === []) {
                 continue;
             }
 
-            $group = new self([], $items);
+            $group = new self($whole, $items);
 
             foreach (array_reverse(explode('.', $parent)) as $segment) {
                 $group = new self([], [$segment => $group]);
@@ -103,11 +106,17 @@ final readonly class ExcludedFieldTree
      */
     public function removeFrom(array $data): array
     {
+        if (isset($this->keys['*'])) {
+            return [];
+        }
+
         $data = array_diff_key($data, $this->keys);
 
         foreach ($this->children as $key => $child) {
-            if (isset($data[$key]) && is_array($data[$key])) {
-                $data[$key] = $child->removeFrom($data[$key]);
+            foreach ($key === '*' ? array_keys($data) : [$key] as $dataKey) {
+                if (isset($data[$dataKey]) && is_array($data[$dataKey])) {
+                    $data[$dataKey] = $child->removeFrom($data[$dataKey]);
+                }
             }
         }
 
