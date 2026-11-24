@@ -229,21 +229,27 @@ final class ConditionalEvaluationPhase
     }
 
     /**
-     * What a `required_if` rule of the attribute becomes, as Laravel decides
-     * it: `required` when active, an empty string when not, or null when the
-     * rule stays with Laravel.
+     * The rule that each value-conditional rule becomes when it is active.
+     */
+    public const PRESENCE_RULES = ['required_if' => 'required', 'required_unless' => 'required', 'prohibited_if' => 'prohibited', 'prohibited_unless' => 'prohibited'];
+
+    /**
+     * What a `required_if`, `required_unless`, `prohibited_if` or
+     * `prohibited_unless` rule of the attribute becomes, as Laravel decides
+     * it: `required` or `prohibited` when active, an empty string when not,
+     * or null when the rule stays with Laravel.
      *
      * @param  array<array-key, mixed>  $parameters
      * @param  array<array-key, mixed>  $data
      * @param  array<array-key, mixed>  $rules  the rules Laravel reads for a `boolean` dependent
      */
-    public static function requiredIfRule(string $attribute, array $parameters, array $data, array $rules): ?string
+    public static function presenceRule(string $name, string $attribute, array $parameters, array $data, array $rules): ?string
     {
         $parameters = array_values($parameters);
         $values = array_slice($parameters, 1);
         $field = $parameters[0] ?? null;
 
-        if (! is_string($field) || str_contains($field, '\\') || $values === [] || array_filter($values, is_string(...)) !== $values) {
+        if (! isset(self::PRESENCE_RULES[$name]) || ! is_string($field) || str_contains($field, '\\') || $values === [] || array_filter($values, is_string(...)) !== $values) {
             return null;
         }
 
@@ -253,11 +259,14 @@ final class ConditionalEvaluationPhase
             return null;
         }
 
-        if (! Arr::has($data, $field)) {
+        // Only required_if is inactive when the dependent is absent.
+        if ($name === 'required_if' && ! Arr::has($data, $field)) {
             return '';
         }
 
-        return ConditionalValueMatcher::matchesValue(Arr::get($data, $field), $values) ? 'required' : '';
+        $active = ConditionalValueMatcher::matchesValue(Arr::get($data, $field), $values) === str_ends_with($name, '_if');
+
+        return $active ? self::PRESENCE_RULES[$name] : '';
     }
 
     private function withEscapedDots(string $attribute): string

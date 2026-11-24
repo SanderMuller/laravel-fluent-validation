@@ -386,8 +386,10 @@ class OptimizedValidator extends MemoizingValidator
      */
     private function fastCheckPart(string $attribute, mixed $rule, array $originalRules): ?string
     {
-        if (is_string($rule) && str_starts_with($rule, 'required_if:')) {
-            $rule = ['required_if', ...str_getcsv(substr($rule, 12), ',', '"', '\\')];
+        $name = is_string($rule) ? strstr($rule, ':', true) : false;
+
+        if ($name !== false && isset(ConditionalEvaluationPhase::PRESENCE_RULES[$name])) {
+            $rule = [$name, ...str_getcsv(substr((string) $rule, strlen($name) + 1), ',', '"', '\\')];
         }
 
         if (is_string($rule)) {
@@ -409,7 +411,7 @@ class OptimizedValidator extends MemoizingValidator
             return '';
         }
 
-        return $rule[0] === 'required_if' ? ConditionalEvaluationPhase::requiredIfRule($attribute, array_slice($rule, 1), $this->data, $originalRules) : null;
+        return ConditionalEvaluationPhase::presenceRule($rule[0], $attribute, array_slice($rule, 1), $this->data, $originalRules);
     }
 
     /**
