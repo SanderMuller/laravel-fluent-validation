@@ -11,7 +11,7 @@ use Illuminate\Validation\ValidationRuleParser;
  * filter. That filter builds a collection per attribute and costs more than
  * the explode, but changes nothing when no rule is conditional.
  *
- * @internal Implementation detail of `HasFluentRules`.
+ * @internal Implementation detail of `OptimizedRules`.
  */
 final class UnconditionalRules
 {

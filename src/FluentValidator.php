@@ -5,6 +5,7 @@ namespace SanderMuller\FluentValidation;
 use Illuminate\Contracts\Translation\Translator;
 use Illuminate\Validation\DatabasePresenceVerifier;
 use SanderMuller\FluentValidation\Internal\ImplicitAttributes;
+use SanderMuller\FluentValidation\Internal\OptimizedRules;
 use SanderMuller\FluentValidation\Internal\PreparesOptimizedRules;
 
 /**
@@ -55,10 +56,12 @@ abstract class FluentValidator extends OptimizedValidator
         parent::__construct(
             resolve(Translator::class),
             $data,
-            $preparedRules,
+            [],
             $messages + $prepared->messages,
             $attributes + $prepared->attributes,
         );
+
+        OptimizedRules::set($this, $preparedRules);
 
         $this->withFastChecks($fastChecks, $attributePatternMap, $referencedAttributes)
             ->withExcludedAttributes(array_keys(array_diff_key($prepared->rules, $preparedRules)));

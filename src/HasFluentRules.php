@@ -8,9 +8,8 @@ use Illuminate\Validation\Validator;
 use ReflectionMethod;
 use ReflectionNamedType;
 use SanderMuller\FluentValidation\Internal\ImplicitAttributes;
-use SanderMuller\FluentValidation\Internal\PlainRules;
+use SanderMuller\FluentValidation\Internal\OptimizedRules;
 use SanderMuller\FluentValidation\Internal\PreparesOptimizedRules;
-use SanderMuller\FluentValidation\Internal\UnconditionalRules;
 use SanderMuller\FluentValidation\Internal\ValidatorStateCopier;
 
 /**
@@ -275,8 +274,6 @@ trait HasFluentRules
         array $messages,
         array $attributes,
     ): OptimizedValidator {
-        $plainRules = PlainRules::of($rules);
-
         // The factory only supplies configuration: it gets no data or rules,
         // so it does not parse them. The validator below parses them once.
         /** @var Validator $base */
@@ -292,12 +289,6 @@ trait HasFluentRules
 
         ValidatorStateCopier::copy($base, $optimized);
 
-        if ($plainRules !== null) {
-            return $optimized->setPlainRules($plainRules);
-        }
-
-        $exploded = UnconditionalRules::explode($optimized->getData(), $rules);
-
-        return $exploded === null ? $optimized->setRules($rules) : $optimized->setExplodedRules($rules, ...$exploded);
+        return OptimizedRules::set($optimized, $rules);
     }
 }

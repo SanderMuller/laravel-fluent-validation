@@ -8,7 +8,7 @@ namespace SanderMuller\FluentValidation\Internal;
  * escaped dot needs a placeholder, and a rule object or array needs
  * preparing.
  *
- * @internal Implementation detail of `HasFluentRules`.
+ * @internal Implementation detail of `OptimizedRules`.
  */
 final class PlainRules
 {
