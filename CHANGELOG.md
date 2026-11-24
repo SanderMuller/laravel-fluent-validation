@@ -2,6 +2,18 @@
 
 All notable changes to `laravel-fluent-validation` will be documented in this file.
 
+## 1.47.7 - 2026-11-24
+
+<!-- verified-sha: dca949ffc0a98456cb56dc898ee182adbc5dc1d1 -->
+### Changed
+
+- A form request with `HasFluentRules` now does less work per attribute when it builds its validator. On a conditional import with 100 items and 47 exclude rules, a request takes about 30% less time.
+- The speedup figures in the docs are measured again, with a new form request for each call. A form request with `HasFluentRules` is up to about 37x faster than Laravel's validator, and `RuleSet::validate()` is up to about 300x faster.
+
+**Full Changelog**: https://github.com/SanderMuller/laravel-fluent-validation/compare/1.47.6...1.47.7
+
+<!-- benchmark-start -->
+<!-- benchmark-end -->
 ## 1.47.6 - 2026-11-24
 
 <!-- verified-sha: 308f3282a511d7ddaf12c3aaac62b54cabcfc7c2 -->
@@ -14,13 +26,17 @@ All notable changes to `laravel-fluent-validation` will be documented in this fi
 ### Fixed
 
 - Fixed an explicit key after `items.*`, such as `items.1`, getting the wildcard rules too. In Laravel the explicit rule replaces them.
+  
 - Fixed `exclude_if:items.*.f,1` on `items.*` alone never excluding the item.
+  
 - Fixed excluded data and the rules below it in a form request with `HasFluentRules`, in `FluentValidator` and in `RuleSet`:
+  
   - An exclude rule below a nested wildcard, such as `items.*.tags.*`, now removes those elements from `validated()`.
   - A top-level exclude rule on `items.0` now skips the rules inside that item, also when another top-level rule fails.
   - An explicit key inside an excluded item no longer stays in `validated()`.
   
 - Fixed an explicit key such as `items.1.a` getting the fast check of `items.*.a` instead of its own rule, in a form request and in `FluentValidator`.
+  
 
 **Full Changelog**: https://github.com/SanderMuller/laravel-fluent-validation/compare/1.47.5...1.47.6
 
@@ -229,6 +245,7 @@ $safe->nullableInteger('rank', 0);  // 0 when the field is blank
 
 
 
+
 ```
 ### Fixed
 
@@ -282,6 +299,7 @@ $safe = $request->safe();
 
 $safe->nullableString('nickname');          // 'Johnny', or null
 $safe->nullableString('nickname', 'guest'); // 'guest' when the field is empty
+
 
 
 
@@ -821,6 +839,7 @@ Malformed wildcard rule key [items*]: a wildcard segment must be written as '.*'
 
 
 
+
 ```
 This matches the package's existing fail-fast on malformed array-rule keys.
 
@@ -924,6 +943,7 @@ illuminate/*: ^11.0||^12.0||^13.0  ->  ^12.0||^13.0
 
 
 
+
 ```
 The CI matrix drops its Laravel 11 legs (and the `orchestra/testbench ^9.0` requirement that only existed to test them); Laravel 12 and 13 remain, across PHP 8.2 / 8.3 / 8.4 on Ubuntu and Windows.
 
@@ -962,6 +982,7 @@ The file was plain markdown — zero Blade directives, zero render-time tokens �
 
 ```
 ⚠ guideline `core.blade.php` skipped — no renderer registered for its extension.
+
 
 
 
@@ -1060,6 +1081,7 @@ FluentRule::email()->requiredIf($enabled)->nullable()
 
 
 
+
 ```
 This diverged from both native Laravel (`['nullable', Rule::requiredIf(true)]`) and the compiled `HasFluentRules` path, which were already correct — so the gap only surfaced when a `FluentRule` validated in isolation.
 
@@ -1104,6 +1126,7 @@ The remap built a synthetic `Validator::make([], [])`, pushed the error message 
 $caught->validator->errors()->keys();   // ['actions']                      ✅
 $caught->validator->errors()->first();  // human-readable message          ✅
 $caught->validator->failed();           // []                              ❌
+
 
 
 
@@ -1221,6 +1244,7 @@ $validated = RuleSet::from([
 
 
 
+
 ```
 Top-level keys outside the rule set are already excluded from `validated()`; this flag extends the same behavior to nested array shapes declared via `children()`, `each()`, or dotted rule keys. Maps to Laravel's `Validator::$excludeUnvalidatedArrayKeys`, but gives per-`RuleSet` control instead of relying on whatever the host factory's flag happens to be set to — useful when an application has called `Factory::includeUnvalidatedArrayKeys()` globally and a specific call site needs the strict default back.
 
@@ -1238,6 +1262,7 @@ $validated = RuleSet::from([...])->validate($request->all());
 
 // 1.27
 $validated = RuleSet::from([...])->validate($request);
+
 
 
 
