@@ -110,29 +110,32 @@ trait PreparesOptimizedRules
     /**
      * Build fast-check closures and the attribute-to-pattern lookup map.
      *
-     * Attributes whose rules another attribute's dependent rule reads are not
-     * fast-checked: removing their rules would change Laravel's verdict.
+     * Attributes whose rules another attribute's dependent rule reads keep
+     * their rules while a dependent attribute is still validated: removing
+     * them would change Laravel's verdict.
      *
      * @param  array<string, mixed>  $preparedRules  Rules after pre-exclusion
-     * @return array{0: array<string, Closure(mixed): bool>, 1: array<string, string>, 2: array<string, true>} checks, attribute patterns, attributes to keep
+     * @return array{0: array<string, Closure(mixed): bool>, 1: array<string, string>, 2: array<string, true>, 3: array<string, array{0: Closure(mixed, array<string, mixed>): bool, 1: list<string>}>, 4: array<string, list<string>|false>} value checks, attribute patterns, referenced attributes, item checks, dependents of the referenced attributes
      */
     private function buildFastCheckMaps(PreparedRules $prepared, array $preparedRules): array
     {
-        $referenced = ReferencedAttributes::find($prepared->rules, $prepared->implicitAttributes);
+        $dependents = ReferencedAttributes::withDependents($prepared->rules, $prepared->implicitAttributes);
         $wildcardRules = [];
         foreach ($prepared->implicitAttributes as $pattern => $expandedPaths) {
-            if (isset($preparedRules[$expandedPaths[0] ?? '']) && ! isset($referenced[$expandedPaths[0]])) {
+            if (isset($preparedRules[$expandedPaths[0] ?? ''])) {
                 $wildcardRules[$pattern] = $preparedRules[$expandedPaths[0]];
             }
         }
 
         $fastChecks = OptimizedValidator::buildFastChecks($wildcardRules);
+        $itemChecks = ItemFieldChecks::build(array_diff_key($wildcardRules, $fastChecks), $preparedRules);
+        $attributePatternMap = $this->buildAttributePatternMap($fastChecks + $itemChecks, $prepared->implicitAttributes, $preparedRules);
 
-        return [$fastChecks, $this->buildAttributePatternMap($fastChecks, $prepared->implicitAttributes, $preparedRules), $referenced];
+        return [$fastChecks, $attributePatternMap, array_fill_keys(array_keys($dependents), true), $itemChecks, $dependents];
     }
 
     /**
-     * @param array<string, Closure(mixed): bool> $fastChecks
+     * @param  array<string, mixed>  $fastChecks  only the keys, the patterns that have a check, are read
      * @param  array<string, list<string>>  $implicitAttributes
      * @param  array<string, mixed>  $preparedRules
      * @return array<string, string>

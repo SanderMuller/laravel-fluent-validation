@@ -11,6 +11,7 @@ use SanderMuller\FluentValidation\Internal\ConditionalEvaluationPhase;
 use SanderMuller\FluentValidation\Internal\ConditionalVerdict;
 use SanderMuller\FluentValidation\Internal\ExcludeConditionExtractor;
 use SanderMuller\FluentValidation\Internal\ValidatedRuleKeys;
+use SanderMuller\FluentValidation\Internal\WildcardFastChecks;
 use Stringable;
 
 /**
@@ -28,11 +29,7 @@ use Stringable;
  */
 class OptimizedValidator extends MemoizingValidator
 {
-    /** @var array<string, Closure(mixed): bool> Fast checks keyed by wildcard pattern */
-    private array $fastChecks = [];
-
-    /** @var array<string, list<string>> Pattern → expanded attributes (pre-grouped) */
-    private array $fastCheckGroups = [];
+    private ?WildcardFastChecks $wildcardFastChecks = null;
 
     /** @var array<string, true> */
     private array $referencedAttributes = [];
@@ -43,19 +40,14 @@ class OptimizedValidator extends MemoizingValidator
     /**
      * @param array<string, Closure(mixed): bool> $fastChecks
      * @param  array<string, string>  $attributePatternMap
-     * @param  array<string, true>  $referencedAttributes  attributes whose rules a dependent rule reads; never fast-checked away
+     * @param  array<string, true>  $referencedAttributes  attributes whose rules a dependent rule reads; fast-checked only when no dependent is left
+     * @param  array<string, array{0: Closure(mixed, array<string, mixed>): bool, 1: list<string>}>  $itemChecks  checks that read fields of the item of the attribute, with those fields, keyed by pattern
+     * @param  array<string, list<string>|false>  $dependents  referenced attribute => the attributes whose rules read it, or false when not known
      */
-    public function withFastChecks(array $fastChecks, array $attributePatternMap, array $referencedAttributes = []): static
+    public function withFastChecks(array $fastChecks, array $attributePatternMap, array $referencedAttributes = [], array $itemChecks = [], array $dependents = []): static
     {
-        $this->fastChecks = $fastChecks;
         $this->referencedAttributes = $referencedAttributes;
-
-        // Pre-group attributes by pattern for the fast-check loop
-        foreach ($attributePatternMap as $attribute => $pattern) {
-            if (isset($fastChecks[$pattern])) {
-                $this->fastCheckGroups[$pattern][] = $attribute;
-            }
-        }
+        $this->wildcardFastChecks = WildcardFastChecks::of($fastChecks, $attributePatternMap, $referencedAttributes, $itemChecks, $dependents);
 
         return $this;
     }
@@ -154,8 +146,11 @@ class OptimizedValidator extends MemoizingValidator
     public function passes(): bool
     {
         $originalRules = $this->rules;
-        $removedRules = $this->runFastCheckPhase();
+        // Closure (not [$this, 'getValue']) because parent::getValue() is protected.
+        $getValue = fn (int|string $attribute): mixed => $this->getValue((string) $attribute);
+        $removedRules = $this->wildcardFastChecks?->removePassing($this->rules, $this->getData(), $getValue) ?? [];
         $this->runConditionalPhase($removedRules, $originalRules);
+        $this->wildcardFastChecks?->removePassingReferenced($this->rules, $removedRules, $getValue);
 
         if ($removedRules === [] && $this->rules === []) {
             $this->removeExcludedAttributes();
@@ -226,37 +221,6 @@ class OptimizedValidator extends MemoizingValidator
         foreach ($this->excludedAttributes as $attribute) {
             Arr::forget($this->data, $attribute);
         }
-    }
-
-    /**
-     * Phase 1: Fast-check wildcard attributes by pattern. Iterates per-pattern
-     * with all values for that pattern, improving cache locality and reducing
-     * closure dispatch overhead.
-     *
-     * @return array<string, mixed> Removed rules keyed by attribute.
-     */
-    private function runFastCheckPhase(): array
-    {
-        if ($this->fastCheckGroups === []) {
-            return [];
-        }
-
-        $removedRules = [];
-        $flatData = Arr::dot($this->getData());
-
-        foreach ($this->fastCheckGroups as $pattern => $attributes) {
-            $check = $this->fastChecks[$pattern];
-
-            foreach ($attributes as $attribute) {
-                // Arr::dot() has no key for a non-empty array, so read those values as Laravel does.
-                if (isset($this->rules[$attribute]) && $check(array_key_exists($attribute, $flatData) ? $flatData[$attribute] : $this->getValue($attribute))) {
-                    $removedRules[$attribute] = $this->rules[$attribute];
-                    unset($this->rules[$attribute]);
-                }
-            }
-        }
-
-        return $removedRules;
     }
 
     /**
@@ -419,8 +383,10 @@ class OptimizedValidator extends MemoizingValidator
      * A rule as one pipe string for the fast check: a string, or an array of
      * plain strings and `in` / `not_in` rule objects without a pipe inside.
      * Null for anything else.
+     *
+     * @internal
      */
-    private static function plainRuleString(mixed $rule): ?string
+    public static function plainRuleString(mixed $rule): ?string
     {
         if (! is_array($rule)) {
             return is_string($rule) ? $rule : null;

@@ -51,7 +51,7 @@ abstract class FluentValidator extends OptimizedValidator
         // by OptimizedValidator::passes(); this only drops the exclude_* ones.
         $preparedRules = $this->preExcludeRules($prepared->rules, $data);
 
-        [$fastChecks, $attributePatternMap, $referencedAttributes] = $this->buildFastCheckMaps($prepared, $preparedRules);
+        $fastCheckMaps = $this->buildFastCheckMaps($prepared, $preparedRules);
 
         parent::__construct(
             resolve(Translator::class),
@@ -63,7 +63,7 @@ abstract class FluentValidator extends OptimizedValidator
 
         OptimizedRules::set($this, $preparedRules);
 
-        $this->withFastChecks($fastChecks, $attributePatternMap, $referencedAttributes)
+        $this->withFastChecks(...$fastCheckMaps)
             ->withExcludedAttributes(array_keys(array_diff_key($prepared->rules, $preparedRules)));
 
         if ($prepared->implicitAttributes !== []) {

@@ -72,7 +72,7 @@ All optimizations are Octane-safe. The shared validation factory is never change
 
 These cases get little or no speedup:
 
-- **`gt`/`gte`/`lt`/`lte` without a type flag.** Laravel derives comparison type from an accompanying rule (`string`/`array`/`numeric`/`integer`). Without one, these fall through to Laravel. With a type flag, sibling-field comparisons like `numeric|gt:min_price` are fast-checked.
+- **`gt`/`gte`/`lt`/`lte` without a type flag.** Laravel derives comparison type from an accompanying rule (`string`/`array`/`numeric`/`integer`). Without one, these fall through to Laravel. With a type flag, sibling-field comparisons like `numeric|gt:min_price` are fast-checked. In a form request and in `FluentValidator`, that holds only when every `gt`/`gte`/`lt`/`lte` rule in the set also has `numeric`, `integer` or `decimal`: Laravel's other size comparisons change with each one it runs.
 - **`date_format` + date field-ref.** Laravel parses both sides with the declared format and has lenient missing-ref handling our strtotime-based closure can't match. Falls through to Laravel.
 - **Multi-param `different:a,b,c`.** Single-field `different:a` is fast-checked; comma-list forms fall through.
 - **Closures, and custom `ValidationRule` objects outside `RuleSet` or that read the validator or its data.** Opaque to the fast-check compiler. Performance depends on what the rule does.

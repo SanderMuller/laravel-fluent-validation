@@ -37,7 +37,7 @@ return Architecture::define()
         'src/ValueConditionalReducer.php',
     ])
     // Generic validators: drop-in subclasses of Laravel's Validator.
-    ->layer('GenericValidator', ['src/MemoizingValidator.php', 'src/OptimizedValidator.php', 'src/Internal/ValidatedRuleKeys.php'])
+    ->layer('GenericValidator', ['src/MemoizingValidator.php', 'src/OptimizedValidator.php', 'src/Internal/ValidatedRuleKeys.php', 'src/Internal/WildcardFastChecks.php'])
     ->layer(
         'Internal',
         [
@@ -45,7 +45,7 @@ return Architecture::define()
             'src/BatchDatabaseChecker.php',
             'src/PrecomputedPresenceVerifier.php',
         ],
-        // The conditional-rule helpers and the validated() helper are part of the layers defined above.
+        // The conditional-rule helpers and the validator helpers are part of the layers defined above.
         [
             'src/Internal/AbstractConditionalReducer.php',
             'src/Internal/ConditionalEvaluationPhase.php',
@@ -53,6 +53,7 @@ return Architecture::define()
             'src/Internal/ConditionalVerdict.php',
             'src/Internal/ExcludeConditionExtractor.php',
             'src/Internal/ValidatedRuleKeys.php',
+            'src/Internal/WildcardFastChecks.php',
         ]
     )
     ->layer('RuleSet', ['src/RuleSet.php', 'src/WildcardExpander.php'])

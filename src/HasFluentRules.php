@@ -224,16 +224,16 @@ trait HasFluentRules
         // constructor, so excluded rules are never parsed.
         $preparedRules = $this->preExcludeRules($prepared->rules, $data);
 
-        [$fastChecks, $attributePatternMap, $referencedAttributes] = $this->buildFastCheckMaps($prepared, $preparedRules);
+        $fastCheckMaps = $this->buildFastCheckMaps($prepared, $preparedRules);
 
         $messages = $this->messages() + $prepared->messages;
         $attributes = $this->attributes() + $prepared->attributes;
 
         // Only use OptimizedValidator when there are fast-checkable wildcard
         // rules or conditional rules were pre-excluded.
-        if ($fastChecks !== [] || count($preparedRules) < count($prepared->rules)) {
+        if ($fastCheckMaps[0] !== [] || $fastCheckMaps[3] !== [] || count($preparedRules) < count($prepared->rules)) {
             $validator = $this->makeOptimizedValidator($factory, $data, $preparedRules, $messages, $attributes);
-            $validator->withFastChecks($fastChecks, $attributePatternMap, $referencedAttributes)
+            $validator->withFastChecks(...$fastCheckMaps)
                 ->withExcludedAttributes(array_keys(array_diff_key($prepared->rules, $preparedRules)));
         } else {
             /** @var Validator $validator */
