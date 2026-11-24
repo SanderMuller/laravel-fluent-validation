@@ -49,6 +49,8 @@ final readonly class ItemValidator
         $byReduced = [];
         // A local copy saves a method call per item.
         $byDispatch = [];
+        /** @var array<string, array<string, mixed>> $laravelRulesByDispatch */
+        $laravelRulesByDispatch = [];
         /** @var array<string, BaseValidator> $validatorCache */
         $validatorCache = [];
         /** @var array<string, list<string>> $errors */
@@ -94,7 +96,7 @@ final readonly class ItemValidator
                 }
 
                 if ($fastPass) {
-                    $reducedSlowRules = $this->rulesForLaravel($dispatchSlowRules, $itemRules, $itemData, $conditionalFields, $itemMessages, $siblingFields, $dispatchValue, $plan->laravelRulesByDispatch);
+                    $reducedSlowRules = $this->rulesForLaravel($dispatchSlowRules, $itemRules, $itemData, $conditionalFields, $itemMessages, $siblingFields, $dispatchValue, $laravelRulesByDispatch);
 
                     if ($reducedSlowRules === []) {
                         continue;
@@ -123,7 +125,7 @@ final readonly class ItemValidator
             }
 
             $effectiveRules = ($plan->laravelFields)($effectiveRules, $dispatchFastChecks, $dispatchSlowRules, $itemData);
-            $effectiveRules = $this->rulesForLaravel($effectiveRules, $itemRules, $itemData, $conditionalFields, $itemMessages, $siblingFields, $dispatchValue, $plan->laravelRulesByDispatch);
+            $effectiveRules = $this->rulesForLaravel($effectiveRules, $itemRules, $itemData, $conditionalFields, $itemMessages, $siblingFields, $dispatchValue, $laravelRulesByDispatch);
             $cacheKey = $this->compiler->ruleCacheKey($effectiveRules);
 
             if (! isset($validatorCache[$cacheKey])) {

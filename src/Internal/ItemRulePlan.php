@@ -29,6 +29,9 @@ final class ItemRulePlan
 
     private const DISPATCH_MAX = 256;
 
+    /** A longer dispatch value is request data the plan does not keep. */
+    private const DISPATCH_KEY_MAX = 128;
+
     /** @var array<string, self> */
     private static array $plans = [];
 
@@ -40,14 +43,6 @@ final class ItemRulePlan
 
     /** Is the plan kept for the next call? */
     private bool $kept = false;
-
-    /**
-     * The rules Laravel validates an item against, per dispatch value, see
-     * `ItemValidator::rulesForLaravel()`.
-     *
-     * @var array<string, array<string, mixed>>
-     */
-    public array $laravelRulesByDispatch = [];
 
     /**
      * @param  array<string, mixed>  $itemRules  the item rules, with plain rule lists joined
@@ -105,14 +100,23 @@ final class ItemRulePlan
      */
     public function forDispatch(string $value, array $itemData): array
     {
-        if (! isset($this->byDispatch[$value]) && count($this->byDispatch) >= self::DISPATCH_MAX) {
-            $this->byDispatch = [];
-            $this->laravelRulesByDispatch = [];
+        if (isset($this->byDispatch[$value])) {
+            return $this->byDispatch[$value];
         }
 
-        return $this->byDispatch[$value] ??= $this->reduced(
+        $reduced = $this->reduced(
             $this->compiler->reduceRulesForItem($this->itemRules, $itemData, $this->conditionalFields, $this->itemMessages, $this->siblingFields),
         );
+
+        if (strlen($value) > self::DISPATCH_KEY_MAX) {
+            return $reduced;
+        }
+
+        if (count($this->byDispatch) >= self::DISPATCH_MAX) {
+            $this->byDispatch = [];
+        }
+
+        return $this->byDispatch[$value] = $reduced;
     }
 
     /**

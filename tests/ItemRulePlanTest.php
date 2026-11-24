@@ -90,3 +90,24 @@ it('reduces the rules again for the items of a later validation', function (): v
         ->and(RuleSet::from($rules)->check(['items' => [['type' => 'big']]])->errors()->keys())->toBe(['items.0.size'])
         ->and(RuleSet::from($rules)->check(['items' => [['type' => 'small', 'size' => 'x']]])->validated())->toBe(['items' => [['type' => 'small']]]);
 });
+
+it('keeps short dispatch values only, and at most 256 of them', function (): void {
+    $plan = itemRulePlan(['type' => 'required|string', 'size' => 'nullable|exclude_unless:type,big|integer']);
+    $kept = static fn (): mixed => (new ReflectionProperty($plan, 'byDispatch'))->getValue($plan);
+    $longValue = 'string:' . str_repeat('x', 200);
+
+    $plan->forDispatch($longValue, ['type' => str_repeat('x', 200)]);
+
+    expect($kept())
+        ->toBeEmpty();
+
+    for ($i = 1; $i <= 256; $i++) {
+        $plan->forDispatch('string:v' . $i, ['type' => 'v' . $i]);
+    }
+
+    expect($kept())->toHaveCount(256);
+
+    $plan->forDispatch('string:big', ['type' => 'big']);
+
+    expect($kept())->toHaveCount(1)->toHaveKey('string:big');
+});

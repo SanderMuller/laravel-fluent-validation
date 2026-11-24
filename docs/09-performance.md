@@ -66,7 +66,7 @@ To handle a limit differently, for example as HTTP 413, catch `BatchLimitExceede
 
 Laravel parses a rule string such as `max:255` again on every internal check, and again for every array item. The optimized entry points cache each parse in a worker-wide static. Only string rules are cached. On a large array whose rules fall through to Laravel, this roughly halves the remaining time.
 
-All optimizations are Octane-safe. The shared validation factory is never changed. The parse cache is the only state kept across requests: it holds rule strings and their parse results, never request data, and it resets when it reaches its size cap.
+All optimizations are Octane-safe. The shared validation factory is never changed. The state kept across requests is a set of caches keyed by the rules: parse results, compiled checks, and a plan per wildcard rule set. A plan also keeps the rules reduced for up to 256 values of the field its conditional rules read, such as `type`, when the value is at most 128 bytes long. Those values are the only request data kept. Each cache resets when it reaches its size cap. Rules that compare with the current time, such as `after:today`, are compiled again on each request.
 
 ## When this won't help
 
