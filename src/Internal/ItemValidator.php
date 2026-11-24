@@ -62,7 +62,7 @@ final readonly class ItemValidator
 
         [$fastChecks, $originalSlowRules] = $this->compiler->buildFastChecks($itemRules);
         $passChecks = $this->compiler->passChecks($itemRules, $fastChecks);
-        $laravelFields = $this->laravelFieldFilter($isScalar, $itemRules);
+        $laravelFields = $this->laravelFieldFilter($isScalar, $itemRules, $fastChecks, $passChecks);
         /** @var array<string, BaseValidator> $validatorCache */
         $validatorCache = [];
         /** @var array<string, list<string>> $errors */
@@ -94,7 +94,6 @@ final readonly class ItemValidator
 
                 $effectiveRules = $rulesByDispatch[$dispatchValue];
                 [$dispatchFastChecks, $dispatchSlowRules] = $fastChecksByDispatch[$dispatchValue];
-                $dispatchPassChecks = $dispatchFastChecks;
                 $excludedFields[$index] = $excludedByDispatch[$dispatchValue] ??= WildcardValidatedData::excludedTree(array_diff_key($conditionalFields, $effectiveRules));
             } elseif ($conditionalFields !== [] || $hasSiblingDependentConditionals) {
                 $reducedRules ??= ReducedRulesCache::for($this->compiler, $itemRules, $conditionalFields, $itemMessages, $siblingFields);
@@ -103,17 +102,15 @@ final readonly class ItemValidator
                 // many items reduce identically, so reuse beats recompiling.
                 [$dispatchFastChecks, $dispatchSlowRules] = $fastChecksByReduced[$reducedKey]
                     ??= $this->compiler->buildFastChecks($effectiveRules);
-                $dispatchPassChecks = $dispatchFastChecks;
                 $excludedFields[$index] = $excludedByReduced[$reducedKey] ??= WildcardValidatedData::excludedTree(array_diff_key($conditionalFields, $effectiveRules));
             } else {
                 $effectiveRules = $itemRules;
-                $dispatchFastChecks = $fastChecks;
-                $dispatchPassChecks = $passChecks;
+                $dispatchFastChecks = $passChecks;
                 $dispatchSlowRules = $originalSlowRules;
             }
 
             if ($dispatchFastChecks !== []) {
-                $fastPass = $this->errors->passesAllFastChecks($dispatchPassChecks, $itemData);
+                $fastPass = $this->errors->passesAllFastChecks($dispatchFastChecks, $itemData);
 
                 if ($fastPass && $dispatchSlowRules === []) {
                     continue;
@@ -231,24 +228,22 @@ final readonly class ItemValidator
      * rule can read any field, all rules go.
      *
      * @param  array<string, mixed>  $itemRules
-     * @return Closure(array<string, mixed>, array<string, Closure(array<string, mixed>): bool>, array<string, mixed>, array<string, mixed>): array<string, mixed>
+     * @param  array<array-key, Closure(array<string, mixed>): bool>  $fieldChecks
+     * @param  array<array-key, Closure(array<string, mixed>): bool>  $passChecks
+     * @return Closure(array<string, mixed>, array<array-key, Closure(array<string, mixed>): bool>, array<string, mixed>, array<string, mixed>): array<string, mixed>
      */
-    private function laravelFieldFilter(bool $isScalar, array $itemRules): Closure
+    private function laravelFieldFilter(bool $isScalar, array $itemRules, array $fieldChecks, array $passChecks): Closure
     {
         if ($isScalar || FieldLocalRules::canReadAnyField($itemRules)) {
             return static fn (array $rules): array => $rules;
         }
 
         $fieldLocalRules = new FieldLocalRules();
+        $merged = array_diff_key($passChecks, $fieldChecks);
+        $replaced = array_diff_key($fieldChecks, $passChecks);
 
-        return static function (array $rules, array $fastChecks, array $slowRules, array $itemData) use ($fieldLocalRules): array {
-            $pending = array_keys($slowRules);
-
-            foreach ($fastChecks as $field => $check) {
-                if (! $check($itemData)) {
-                    $pending[] = $field;
-                }
-            }
+        return static function (array $rules, array $fastChecks, array $slowRules, array $itemData) use ($fieldLocalRules, $merged, $replaced): array {
+            $pending = [...array_keys($slowRules), ...ItemErrorCollector::failedFields($fastChecks, $itemData, $merged, $replaced)];
 
             $keep = [];
 

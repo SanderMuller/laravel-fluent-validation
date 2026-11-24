@@ -30,6 +30,42 @@ final class ItemErrorCollector
     }
 
     /**
+     * The fields whose fast check fails. A failed merged check of
+     * {@see ItemRuleCompiler::passChecks()} gives the fields of the checks
+     * it replaced that fail.
+     *
+     * @param  array<array-key, Closure(array<string, mixed>): bool>  $fastChecks
+     * @param  array<string, mixed>  $itemData
+     * @param  array<array-key, Closure(array<string, mixed>): bool>  $merged
+     * @param  array<array-key, Closure(array<string, mixed>): bool>  $replaced
+     * @return list<array-key>
+     */
+    public static function failedFields(array $fastChecks, array $itemData, array $merged, array $replaced): array
+    {
+        $failed = [];
+
+        foreach ($fastChecks as $field => $check) {
+            if ($check($itemData)) {
+                continue;
+            }
+
+            if (($merged[$field] ?? null) !== $check) {
+                $failed[] = $field;
+
+                continue;
+            }
+
+            foreach ($replaced as $replacedField => $replacedCheck) {
+                if (! $replacedCheck($itemData)) {
+                    $failed[] = $replacedField;
+                }
+            }
+        }
+
+        return $failed;
+    }
+
+    /**
      * Append errors from a failed per-item validator into the accumulator,
      * keyed by full dotted path (`{parent}.{index}.{field}` or `{parent}.{index}` for scalar each).
      * Returns whether an error is on `$stopAt`, the group's first rule key:
