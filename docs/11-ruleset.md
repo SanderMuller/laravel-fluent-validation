@@ -186,7 +186,7 @@ For Rector rules, PHPStan extensions and the Livewire bridge. Application code u
 | `->except(...$fields)` | `RuleSet` | Drop the named fields (variadic strings or single array). |
 | `->expandWildcards($data)` | `array` | Pre-expand wildcards against `$data` without validating. |
 | `RuleSet::extractMetadata($rules)` | `array` | Extract `[messages, attributes]` from labelled fluent rules. |
-| `->dropUnknownFields()` | `RuleSet` | Silently strip unvalidated array sub-keys from `validated()` output. Lenient counterpart to `failOnUnknownFields()`. |
+| `->dropUnknownFields()` | `RuleSet` | Strip unvalidated array sub-keys from `validated()` output, also when the app keeps them with `Validator::includeUnvalidatedArrayKeys()`. Lenient counterpart to `failOnUnknownFields()`. |
 | `->failOnUnknownFields()` | `RuleSet` | Reject input keys not present in the rule set. |
 | `->field($name, $rule)` | `RuleSet` | Add a field via the fluent builder. |
 | `->flattenRules()` | `array` | Flat dotted/wildcard form of the rules; `each`/`children` are unwrapped. |
