@@ -106,7 +106,7 @@ final class WildcardGroupPasses
         $itemMessages = ItemAttributeNames::relativeToItem($messages, $parent, $isScalar) + $messages + $itemMessages;
         $itemAttributes = ItemAttributeNames::relativeToItem($attributes, $parent, $isScalar) + $attributes + $itemAttributes;
 
-        $rawItemRules = $isScalar ? $metadataRules : self::rewriteRulesForPerItem($groupRules, $parent);
+        $rawItemRules = $isScalar ? self::rewriteRulesForPerItem($metadataRules, $parent, '_v.') : self::rewriteRulesForPerItem($groupRules, $parent);
 
         return [$compile($rawItemRules), $itemMessages, $itemAttributes, $isScalar];
     }
@@ -120,9 +120,9 @@ final class WildcardGroupPasses
      * @param  array<string, mixed>  $groupRules
      * @return array<string, mixed>
      */
-    private static function rewriteRulesForPerItem(array $groupRules, string $parent): array
+    private static function rewriteRulesForPerItem(array $groupRules, string $parent, string $itemPrefix = ''): array
     {
-        $rewriter = new WildcardReferenceRewriter($parent . '.*.');
+        $rewriter = new WildcardReferenceRewriter($parent . '.*.', $itemPrefix);
         $rewritten = [];
 
         foreach ($groupRules as $field => $rule) {

@@ -1,6 +1,7 @@
 <?php declare(strict_types=1);
 
 use Illuminate\Validation\Rule;
+use SanderMuller\FluentValidation\FluentRule;
 use SanderMuller\FluentValidation\RuleSet;
 
 // =========================================================================
@@ -50,6 +51,13 @@ $shapeCases = [
     'items.0.* with items.*.x' => [['items' => 'array', 'items.0.*' => 'integer', 'items.*.x' => 'min:5'], ['items' => [['x' => 3], ['x' => 'b']]]],
     'items.0.x with items.*.x' => [['items' => 'array', 'items.0.x' => 'integer', 'items.*.x' => 'min:10'], ['items' => [['x' => 3], ['x' => 'b']]]],
     'items.1.x between wildcard keys' => [['items' => 'array', 'items.*.y' => 'required', 'items.1.x' => 'integer', 'items.*.x' => 'min:10'], ['items' => [['x' => 3], ['x' => 'b']]]],
+    'items.* alone that excludes on a field of the item' => [['items' => 'array', 'items.*' => 'exclude_if:items.*.f,1|integer'], ['items' => [['f' => 1], 5]]],
+    'items.* alone that keeps an item on a field of the item' => [['items' => 'array', 'items.*' => 'exclude_if:items.*.f,1|integer'], ['items' => [['f' => 0]]]],
+    'items.* alone that excludes under a nullable parent' => [['items.*' => 'exclude_if:items.*.f,1', 'items' => 'nullable'], ['items' => ['a' => ['f' => 1], 'b' => ['f' => 0]]]],
+    'items.* alone with exclude_unless on a field of the item' => [['items' => 'array', 'items.*' => 'exclude_unless:items.*.t,keep|array'], ['items' => [['t' => 'keep', 'x' => 1], ['t' => 'drop']]]],
+    'items.* alone with required_if on a field of the item' => [['items' => 'array', 'items.*' => 'required_if:items.*.t,a|nullable'], ['items' => [['t' => 'b'], ['t' => 'a']]]],
+    'a nested items.* alone that excludes on a field of the item' => [['o.items' => 'array', 'o.items.*' => 'exclude_if:o.items.*.f,1|integer'], ['o' => ['items' => [['f' => 1], 3]]]],
+    'items.* alone with a value that looks like a field' => [['items' => 'array', 'items.*' => 'in:items.*.f'], ['items' => ['items.*.f']]],
 ];
 
 foreach ($shapeCases as $name => [$rules, $data]) {
@@ -123,3 +131,11 @@ foreach ($itemMessageCases as $name => [$fieldRules, $data, $messages]) {
             ->toBe(validator($data, $rules, $messages)->errors()->toArray());
     });
 }
+
+it('excludes an item on a field of the item in a fluent each() rule like native', function (): void {
+    $rules = ['items' => FluentRule::array()->each(FluentRule::array()->excludeIf('items.*.f', 1))];
+    $data = ['items' => [['f' => 1, 'x' => 2], ['f' => 0]]];
+
+    expect(RuleSet::from($rules)->validate($data))
+        ->toEqual(validator($data, RuleSet::compile(RuleSet::from($rules)->flattenRules()))->validated());
+});

@@ -17,7 +17,10 @@ use SanderMuller\FluentValidation\FastCheckCompiler;
  *
  * @internal Implementation detail of `RuleSet`.
  *
+ * An excluded item is true when the whole item is excluded.
+ *
  * @phpstan-type ExcludedFields ExcludedFieldTree|false
+ * @phpstan-type ExcludedItem ExcludedFieldTree|bool
  */
 final class WildcardValidatedData
 {
@@ -121,7 +124,7 @@ final class WildcardValidatedData
      * data, which holds a covered group's parent as the input gave it.
      *
      * @param  array<string, mixed>  $validated
-     * @param  array<string, array<int|string, ExcludedFields>>  $excludedFields  per parent, per item index
+     * @param  array<string, array<int|string, ExcludedItem>>  $excludedFields  per parent, per item index
      * @return array<string, mixed>
      */
     public static function withoutExcluded(array $validated, array $excludedFields): array
@@ -139,12 +142,18 @@ final class WildcardValidatedData
 
     /**
      * @param  array<mixed, mixed>  $items
-     * @param  array<int|string, ExcludedFields>  $byIndex
+     * @param  array<int|string, ExcludedItem>  $byIndex
      * @return array<mixed, mixed>
      */
     private static function withoutItemFields(array $items, array $byIndex): array
     {
         foreach ($byIndex as $index => $fields) {
+            if ($fields === true) {
+                unset($items[$index]);
+
+                continue;
+            }
+
             if ($fields === false || ! isset($items[$index]) || ! is_array($items[$index])) {
                 continue;
             }
@@ -161,6 +170,18 @@ final class WildcardValidatedData
         }
 
         return $items;
+    }
+
+    /**
+     * The exclusions of a scalar each(), whose item data is `['_v' => $item]`:
+     * an excluded `_v` is the whole item.
+     *
+     * @param  array<int|string, ExcludedFields>  $byIndex
+     * @return array<int|string, ExcludedItem>
+     */
+    public static function scalarItems(array $byIndex): array
+    {
+        return array_map(static fn (ExcludedFieldTree|false $fields): ExcludedFieldTree|bool => $fields !== false && isset($fields->keys['_v']) ? true : $fields, $byIndex);
     }
 
     /**

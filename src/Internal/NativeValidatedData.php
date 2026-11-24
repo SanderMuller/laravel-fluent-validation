@@ -35,7 +35,7 @@ final class NativeValidatedData
      * @param  array<string, mixed>  $rules  compiled, the rules Laravel ran
      * @param  array<string, mixed>  $data
      * @param  list<string>  $topLevelExcluded  the attributes the top-level validator excluded
-     * @param  array<string, array<int|string, ExcludedFieldTree|false>>  $excludedFields  per parent, per item index
+     * @param  array<string, array<int|string, ExcludedFieldTree|bool>>  $excludedFields  per parent, per item index; true when the whole item is excluded
      * @return array<string, mixed>|null
      */
     public static function of(array $rules, array $data, array $topLevelExcluded, array $excludedFields): ?array

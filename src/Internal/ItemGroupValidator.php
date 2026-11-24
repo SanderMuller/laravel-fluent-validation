@@ -18,6 +18,7 @@ use SanderMuller\FluentValidation\FastCheckCompiler;
  * @internal
  *
  * @phpstan-import-type ExcludedFields from WildcardValidatedData
+ * @phpstan-import-type ExcludedItem from WildcardValidatedData
  */
 final readonly class ItemGroupValidator
 {
@@ -32,10 +33,27 @@ final readonly class ItemGroupValidator
      * @param  array<string, mixed>  $itemRules
      * @param  array<string, string>  $itemMessages
      * @param  array<string, string>  $itemAttributes
-     * @param  array<int|string, ExcludedFields>  $excludedFields  receives, per item index, the fields an exclude rule removed
+     * @param  array<int|string, ExcludedItem>  $excludedFields  receives, per item index, the fields an exclude rule removed
      * @return array<string, list<string>>
      */
     public function validate(array $items, array $itemRules, array $itemMessages, array $itemAttributes, string $parent, bool $isScalar, array &$excludedFields = []): array
+    {
+        $excludedByIndex = [];
+        $errors = $this->validateGroup($items, $itemRules, $itemMessages, $itemAttributes, $parent, $isScalar, $excludedByIndex);
+        $excludedFields = $isScalar ? WildcardValidatedData::scalarItems($excludedByIndex) : $excludedByIndex;
+
+        return $errors;
+    }
+
+    /**
+     * @param  array<int|string, mixed>  $items
+     * @param  array<string, mixed>  $itemRules
+     * @param  array<string, string>  $itemMessages
+     * @param  array<string, string>  $itemAttributes
+     * @param  array<int|string, ExcludedFields>  $excludedFields
+     * @return array<string, list<string>>
+     */
+    private function validateGroup(array $items, array $itemRules, array $itemMessages, array $itemAttributes, string $parent, bool $isScalar, array &$excludedFields): array
     {
         $conditionalFields = $this->compiler->analyzeConditionals($itemRules);
 

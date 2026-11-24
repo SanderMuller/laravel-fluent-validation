@@ -51,14 +51,15 @@ final readonly class ExcludedFieldTree
      * validator excluded, and the tree of each item of each group.
      *
      * @param  list<string>  $topLevel
-     * @param  array<string, array<int|string, self|false>>  $byGroup  per parent, per item index
+     * @param  array<string, array<int|string, self|bool>>  $byGroup  per parent, per item index; true when the whole item is excluded
      */
     public static function forData(array $topLevel, array $byGroup): ?self
     {
         $tree = self::fromPaths(array_map(static fn (string $attribute): array => explode('.', $attribute), $topLevel));
 
         foreach ($byGroup as $parent => $byIndex) {
-            $items = array_filter($byIndex);
+            // A whole excluded item (true) is already gone from the data the tree is read against.
+            $items = array_filter($byIndex, static fn (self|bool $item): bool => $item instanceof self);
 
             if ($items === []) {
                 continue;

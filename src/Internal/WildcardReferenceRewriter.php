@@ -17,7 +17,7 @@ use ReflectionProperty;
  *
  * @internal Implementation detail of `RuleSet`.
  */
-final readonly class WildcardReferenceRewriter
+final class WildcardReferenceRewriter
 {
     /**
      * Rules that Laravel reads through `parseDependentRuleParameters()`: the
@@ -33,13 +33,18 @@ final readonly class WildcardReferenceRewriter
         'RequiredIf' => true, 'RequiredUnless' => true,
     ];
 
-    /** @var array<string, int> studly rule names */
-    private array $dependentRules;
+    /**
+     * Studly rule names, read when a rule first names the prefix: reading
+     * them makes a validator.
+     *
+     * @var array<string, int>|null
+     */
+    private ?array $dependentRules = null;
 
-    public function __construct(private string $prefix)
-    {
-        $this->dependentRules = array_flip(self::dependentRules());
-    }
+    /**
+     * @param  string  $replacement  takes the place of the prefix: `_v.` for a scalar each, whose item data is `['_v' => $item]`
+     */
+    public function __construct(private readonly string $prefix, private readonly string $replacement = '') {}
 
     public function rewrite(mixed $rule): mixed
     {
@@ -104,6 +109,8 @@ final readonly class WildcardReferenceRewriter
     {
         $rule = Str::studly(trim($rule));
 
+        $this->dependentRules ??= array_flip(self::dependentRules());
+
         if (! isset($this->dependentRules[$rule])) {
             return $parameters;
         }
@@ -126,7 +133,7 @@ final readonly class WildcardReferenceRewriter
         $field = substr($value, strlen($lead));
 
         return str_starts_with($field, $this->prefix)
-            ? $lead . substr($field, strlen($this->prefix))
+            ? $lead . $this->replacement . substr($field, strlen($this->prefix))
             : $value;
     }
 
