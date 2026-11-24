@@ -174,7 +174,7 @@ it('applies an explicit key after a wildcard key in a form request like native',
         /** @return array<string, mixed> */
         public function rules(): array
         {
-            return ['items' => 'array', 'items.*' => 'integer', 'items.1' => 'nullable|string'];
+            return ['items' => ['array'], 'items.*' => ['integer'], 'items.1' => ['nullable', 'string']];
         }
     };
     $data = ['items' => [1, 'x']];

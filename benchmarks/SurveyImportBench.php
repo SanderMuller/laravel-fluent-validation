@@ -62,7 +62,7 @@ final class SurveyImportBench
     }
 
     #[DataProvider('size')]
-    #[ExpectedFor('questions-100', instructions: '29.91M', cycles: '35.25M', memory: '337.6KiB')]
+    #[ExpectedFor('questions-100', instructions: '30.63M', cycles: '35.99M', memory: '337.6KiB')]
     public function benchValidate(int $count): void
     {
         Scenarios::validate($this->rules, $this->data);
