@@ -101,3 +101,38 @@ it('checks several fields of nested wildcard elements of an item like native', f
     'missing required field' => [[['qty' => 2]]],
     'scalar element' => [[['id' => 1], 5]],
 ]);
+
+it('checks number bounds of several nested fields like native', function (array $line): void {
+    assertPerItemParity(
+        ['orders.*.lines' => 'array', 'orders.*.lines.*.id' => 'required|integer|min:1|max:100', 'orders.*.lines.*.price' => 'required|numeric|min:0.5|max:9.5', 'orders.*.lines.*.qty' => 'nullable|integer|min:1'],
+        ['orders' => [['lines' => [['id' => 5, 'price' => 1.5, 'qty' => 2], $line]]]],
+    );
+})->with([
+    'in bounds' => [['id' => 100, 'price' => 9.5, 'qty' => null]],
+    'int below the minimum' => [['id' => 0, 'price' => 1, 'qty' => 1]],
+    'int above the maximum' => [['id' => 101, 'price' => 1, 'qty' => 1]],
+    'float below the minimum' => [['id' => 1, 'price' => 0.25, 'qty' => 1]],
+    'float above the maximum' => [['id' => 1, 'price' => 9.75, 'qty' => 1]],
+    'float for an integer field' => [['id' => 5.0, 'price' => 1, 'qty' => 1]],
+    'numeric string' => [['id' => '7', 'price' => '2.5', 'qty' => '3']],
+    'numeric string out of bounds' => [['id' => '700', 'price' => '2.5', 'qty' => 1]],
+    'infinite float' => [['id' => 1, 'price' => INF, 'qty' => 1]],
+    'missing required field' => [['price' => 1, 'qty' => 1]],
+    'null optional field' => [['id' => 1, 'price' => 1, 'qty' => null]],
+    'int below the minimum of a field without a maximum' => [['id' => 1, 'price' => 1, 'qty' => 0]],
+]);
+
+it('checks number minimums of several nested fields like native', function (mixed $line): void {
+    assertPerItemParity(
+        ['orders.*.lines' => 'array', 'orders.*.lines.*.id' => 'required|integer|min:1', 'orders.*.lines.*.price' => 'required|numeric|min:0.5'],
+        ['orders' => [['lines' => [['id' => 5, 'price' => 1.5], $line]]]],
+    );
+})->with([
+    'in bounds' => [['id' => 1, 'price' => 0.5]],
+    'int below the minimum' => [['id' => 0, 'price' => 1]],
+    'float below the minimum' => [['id' => 1, 'price' => 0.25]],
+    'float for an integer field' => [['id' => 5.0, 'price' => 1]],
+    'non-whole float for an integer field' => [['id' => 5.5, 'price' => 1]],
+    'string' => [['id' => 'x', 'price' => 1]],
+    'scalar line' => [5],
+]);

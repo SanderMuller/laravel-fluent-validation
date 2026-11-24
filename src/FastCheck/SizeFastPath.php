@@ -3,6 +3,7 @@
 namespace SanderMuller\FluentValidation\FastCheck;
 
 use Closure;
+use WeakMap;
 
 /**
  * A shortcut for plain size rules such as `required|integer|min:1`,
@@ -21,6 +22,22 @@ final class SizeFastPath
 {
     private const ALLOWED_KEYS = ['required', 'nullable', 'numeric', 'integer', 'integer.strict', 'string', 'array', 'boolean', 'min', 'max', 'in'];
 
+    /** @var WeakMap<Closure, array{bool, int|float, int|float}>|null */
+    private static ?WeakMap $numberBounds = null;
+
+    /**
+     * The bounds of a check that {@see wrap()} made for an `integer` or
+     * `numeric` rule: whether a finite float is a number too, the minimum
+     * and the maximum. A number in the bounds passes the check, a number
+     * outside fails it. Any other value needs the check itself.
+     *
+     * @return array{bool, int|float, int|float}|null
+     */
+    public static function numberBounds(Closure $check): ?array
+    {
+        return self::$numberBounds[$check] ?? null;
+    }
+
     /**
      * @param  array<string, mixed>  $config
      * @param  Closure(mixed): bool  $check  the full check for the config
@@ -38,12 +55,24 @@ final class SizeFastPath
         $max = is_int($config['max']) || is_float($config['max']) ? $config['max'] : INF;
 
         return match ($type) {
-            'integer' => static fn (mixed $value): bool => is_int($value) ? $value >= $min && $value <= $max : $check($value),
-            'numeric' => self::numeric($min, $max, $check),
+            'integer' => self::withBounds(static fn (mixed $value): bool => is_int($value) ? $value >= $min && $value <= $max : $check($value), false, $min, $max),
+            'numeric' => self::withBounds(self::numeric($min, $max, $check), true, $min, $max),
             'string' => self::string($min, $max, is_array($config['in']) ? array_flip(array_filter($config['in'], is_string(...))) : null, $check),
             'boolean' => static fn (mixed $value): bool => in_array($value, [true, false, 1, 0, '1', '0'], true) || $check($value),
             default => self::array($min, $max, $check),
         };
+    }
+
+    /**
+     * @param  Closure(mixed): bool  $check
+     * @return Closure(mixed): bool
+     */
+    private static function withBounds(Closure $check, bool $acceptsFloat, int|float $min, int|float $max): Closure
+    {
+        self::$numberBounds ??= new WeakMap();
+        self::$numberBounds[$check] = [$acceptsFloat, $min, $max];
+
+        return $check;
     }
 
     /**

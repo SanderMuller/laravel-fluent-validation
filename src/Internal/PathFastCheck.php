@@ -3,6 +3,7 @@
 namespace SanderMuller\FluentValidation\Internal;
 
 use Closure;
+use SanderMuller\FluentValidation\FastCheck\SizeFastPath;
 
 /**
  * Wraps a compiled fast check so it reads its value from a path inside the
@@ -110,6 +111,13 @@ final class PathFastCheck
      */
     public static function eachItemAll(int|string $parent, array $valueChecks): Closure
     {
+        $bounds = array_map(SizeFastPath::numberBounds(...), $valueChecks);
+
+        if (! in_array(null, $bounds, true)) {
+            /** @var array<array-key, array{bool, int|float, int|float}> $bounds */
+            return NumberBoundsCheck::eachItem($parent, $bounds, $valueChecks);
+        }
+
         return static function (array $data) use ($parent, $valueChecks): bool {
             $items = $data[$parent] ?? null;
 
