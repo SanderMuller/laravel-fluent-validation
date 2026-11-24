@@ -36,7 +36,7 @@ Labels and per-rule messages attach to the rule itself, so there's no separate `
 
 ## Performance
 
-You notice the difference on requests with many fields or large wildcard arrays, such as imports and bulk edits. `RuleSet::validate()` is [up to 240x faster](10-benchmarks.md) for nested wildcards, and a form request with `HasFluentRules` up to about 24x. `exists`/`unique` checks on a wildcard array run as one query instead of one per item. [Performance](09-performance.md) explains how.
+You notice the difference on requests with many fields or large wildcard arrays, such as imports and bulk edits. `RuleSet::validate()` is [up to 300x faster](10-benchmarks.md) for nested wildcards, and a form request with `HasFluentRules` up to about 37x. `exists`/`unique` checks on a wildcard array run as one query instead of one per item. [Performance](09-performance.md) explains how.
 
 <details>
 <summary><a name="compared-to-rule"></a>Compared to Laravel's <code>Rule</code> class</summary>

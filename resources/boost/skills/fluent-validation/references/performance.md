@@ -11,8 +11,8 @@ The `HasFluentRules` trait (and `FluentFormRequest`) applies five optimizations 
 | Optimization | What it does | Speedup |
 |---|---|---|
 | **O(n) wildcard expansion** | `WildcardExpander` replaces Laravel's O(n²) approach | ~20% for large arrays |
-| **Per-attribute fast-checks** | Pure PHP closures skip Laravel for valid items (rules listed below) | Up to 24x for simple rules |
-| **Partial fast-check** | Fast-checkable fields use PHP, non-eligible fields go through Laravel | 3x with custom Rule objects |
+| **Per-attribute fast-checks** | Pure PHP closures skip Laravel for valid items (rules listed below) | Up to 37x for simple rules |
+| **Partial fast-check** | Fast-checkable fields use PHP, non-eligible fields go through Laravel | 4x with custom Rule objects |
 | **Batched DB validation** | `exists`/`unique` rules batched into single `whereIn` query | N queries → 1 query |
 | **Rule-parse memoization** | Caches Laravel's rule-string parsing worker-wide; residual slow-path rules parse once instead of per probe and per item | ~2x on the slow-path residual |
 

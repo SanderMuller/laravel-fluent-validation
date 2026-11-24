@@ -4,14 +4,14 @@ Measured numbers for the optimizations described in [Performance](09-performance
 
 | Scenario                                                                    | Optimizations                          | Native Laravel | Optimized   | Speedup |
 |-----------------------------------------------------------------------------|----------------------------------------|----------------|-------------|---------|
-| [Product import](#product-import), 500 items, simple rules                  | Wildcard, fast-check                   | ~93ms          | **~0.6ms**  | ~161x   |
-| [Nested order lines](#nested-order-lines), 1000 orders × 5 line items       | Wildcard, fast-check (nested)          | ~476ms         | **~2ms**    | ~244x   |
-| [Conditional import](#conditional-import), 100 items, 47 conditional fields | Wildcard, pre-evaluation               | ~143ms         | **~1.3ms**  | ~108x   |
-| [Event scheduling](#event-scheduling), 100 items, field-ref dates           | Wildcard, fast-check (field-ref dates) | ~14ms          | **~0.5ms**  | ~26x    |
-| [Article submission](#article-submission), 50 items, custom Rule objects    | Wildcard, fast-check (custom objects)  | ~5ms           | **~0.2ms**  | ~34x    |
+| [Product import](#product-import), 500 items, simple rules                  | Wildcard, fast-check                   | ~85ms          | **~0.5ms**  | ~172x   |
+| [Nested order lines](#nested-order-lines), 1000 orders × 5 line items       | Wildcard, fast-check (nested)          | ~412ms         | **~1.4ms**  | ~304x   |
+| [Conditional import](#conditional-import), 100 items, 47 conditional fields | Wildcard, pre-evaluation               | ~114ms         | **~1.5ms**  | ~74x    |
+| [Event scheduling](#event-scheduling), 100 items, field-ref dates           | Wildcard, fast-check (field-ref dates) | ~12ms          | **~0.5ms**  | ~23x    |
+| [Article submission](#article-submission), 50 items, custom Rule objects    | Wildcard, fast-check (custom objects)  | ~5ms           | **~0.2ms**  | ~29x    |
 | [Login form](#login-form), 3 fields, no wildcards                           | Fast-check (flat)                      | ~0.1ms         | **~0.01ms** | ~11x    |
 
-All numbers are from `php benchmark.php` (macOS, PHP 8.5, OPcache), which measures `RuleSet::validate()`; CI runs produce the same scenarios on Ubuntu. A form request with `HasFluentRules` gains less on the same scenarios: about 24x for the product import, 17x for the nested order lines, 6x for the conditional import and 3x for the article submission.
+All numbers are from `php benchmark.php` (macOS, PHP 8.5, OPcache), which measures `RuleSet::validate()`; CI runs produce the same scenarios on Ubuntu. A form request with `HasFluentRules` gains less on the same scenarios, measured with a new request for each call: about 37x for the product import, 24x for the nested order lines, 8x for the conditional import and 4x for the article submission.
 
 ## Instruction counts
 

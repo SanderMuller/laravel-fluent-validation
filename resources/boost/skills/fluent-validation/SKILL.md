@@ -172,7 +172,7 @@ All rule types support macros via `Macroable`.
 
 ## Performance (large arrays)
 
-`HasFluentRules` automatically applies O(n) wildcard expansion, per-attribute fast-checks, and batched DB validation (`exists`/`unique` rules batched into a single `whereIn` query). Up to **24x faster** for simple rules, **3x** for rule sets with custom Rule objects, and **N→1 queries** for database rules. Use `RuleSet::validate()` for inline validation outside FormRequests; it is up to **240x faster** on large arrays. See `references/performance.md` for details.
+`HasFluentRules` automatically applies O(n) wildcard expansion, per-attribute fast-checks, and batched DB validation (`exists`/`unique` rules batched into a single `whereIn` query). Up to **37x faster** for simple rules, **4x** for rule sets with custom Rule objects, and **N→1 queries** for database rules. Use `RuleSet::validate()` for inline validation outside FormRequests; it is up to **300x faster** on large arrays. See `references/performance.md` for details.
 
 ## Livewire Components
 
