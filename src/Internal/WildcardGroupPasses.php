@@ -52,10 +52,8 @@ final class WildcardGroupPasses
             $passes[] = self::groupPass($fieldRules, $parent, $fieldMessages, $attributes, $compile);
         }
 
-        foreach ($passes as [$itemRules, , , $isScalar]) {
-            // A rule on the item that can fail before an exclude rule on it:
-            // only Laravel runs those in order.
-            if (self::requiresFullExpansion($itemRules) || ($isScalar && ExcludeConditionExtractor::followsOtherRule(current($itemRules)))) {
+        foreach ($passes as [$itemRules]) {
+            if (self::requiresFullExpansion($itemRules)) {
                 return null;
             }
         }
@@ -148,14 +146,39 @@ final class WildcardGroupPasses
     {
         // Cross-item rules like distinct need full expansion to compare across items.
         // Nested wildcards (chapters.*.title) are fine — the per-item validator
-        // handles them within each item's scope.
+        // handles them within each item's scope. So is an exclude rule, unless a
+        // rule that can fail comes before it: only Laravel runs those in order.
         foreach ($compiledRules as $compiledRule) {
-            $ruleString = is_string($compiledRule) ? $compiledRule : (is_array($compiledRule) ? implode('|', array_filter($compiledRule, is_string(...))) : '');
-            if (str_contains($ruleString, 'distinct')) {
+            $strings = is_array($compiledRule) ? array_filter($compiledRule, is_string(...)) : [];
+            $ruleString = is_string($compiledRule) ? $compiledRule : implode('|', $strings);
+
+            if (str_contains($ruleString, 'distinct') || (self::mayExcludeLater($compiledRule, $strings, $ruleString) && ExcludeConditionExtractor::followsOtherRule($compiledRule))) {
                 return true;
             }
         }
 
         return false;
+    }
+
+    /**
+     * A quick test before {@see ExcludeConditionExtractor::followsOtherRule()}:
+     * can an exclude rule come after the first rule? A rule that is not a
+     * string is an exclude tuple or an object.
+     *
+     * @param  array<array-key, mixed>  $strings  the string rules of an array rule
+     */
+    private static function mayExcludeLater(mixed $compiledRule, array $strings, string $ruleString): bool
+    {
+        if (str_contains($ruleString, '|exclude_')) {
+            return true;
+        }
+
+        if (! is_array($compiledRule)) {
+            return false;
+        }
+
+        $others = count($compiledRule) - count($strings);
+
+        return $others > 1 || ($others === 1 && is_string(reset($compiledRule)));
     }
 }

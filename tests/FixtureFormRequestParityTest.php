@@ -15,6 +15,7 @@ use SanderMuller\FluentValidation\Tests\Fixtures\ExcludedItemWithTopErrorFluentF
 use SanderMuller\FluentValidation\Tests\Fixtures\ExplicitItemKeyRuleFluentFormRequest;
 use SanderMuller\FluentValidation\Tests\Fixtures\ExplicitKeyAfterEachFluentFormRequest;
 use SanderMuller\FluentValidation\Tests\Fixtures\ExplicitKeyInExcludedItemFluentFormRequest;
+use SanderMuller\FluentValidation\Tests\Fixtures\FieldExcludeAfterRuleFluentFormRequest;
 use SanderMuller\FluentValidation\Tests\Fixtures\ItemExcludeAfterRuleFluentFormRequest;
 use SanderMuller\FluentValidation\Tests\Fixtures\ItemFieldReferenceFluentFormRequest;
 use SanderMuller\FluentValidation\Tests\Fixtures\NestedWildcardExcludeFluentFormRequest;
@@ -105,6 +106,8 @@ function fixtureCases(): array
         'exclude after another rule, the other rule fails' => [ExcludeAfterOtherRuleFluentFormRequest::class, ['items' => [['b' => 's'], ['status' => 'drop']]], ['errors' => ['items.0' => ['The items.0 field must be a string.']]]],
         'exclude after another rule, the other rule passes' => [ExcludeAfterOtherRuleFluentFormRequest::class, ['items' => ['text', ['status' => 'keep']]], ['validated' => ['items' => [1 => ['status' => 'keep']]]]],
         'item exclude after a rule, the rule fails' => [ItemExcludeAfterRuleFluentFormRequest::class, ['items' => ['text', ['status' => 'keep']]], ['errors' => ['items.0' => ['The items.0 field must be an array.']]]],
+        'field exclude after a rule, the rule fails' => [FieldExcludeAfterRuleFluentFormRequest::class, ['lines' => [['qty' => 5, 'skip' => 1], ['qty' => 'x', 'skip' => 0]]], ['errors' => ['lines.0.qty' => ['The lines.0.qty field must be a string.']]]],
+        'field exclude after a rule, the rule passes' => [FieldExcludeAfterRuleFluentFormRequest::class, ['lines' => [['qty' => '5', 'skip' => 1], ['qty' => 'x', 'skip' => 0]]], ['validated' => ['lines' => [1 => ['qty' => 'x']]]]],
         'item exclude after a rule, the rule passes' => [ItemExcludeAfterRuleFluentFormRequest::class, ['items' => [['status' => 'drop'], ['status' => 'keep']]], ['validated' => ['items' => [1 => ['status' => 'keep']]]]],
         'excluded item next to a failing top-level rule' => [ExcludedItemWithTopErrorFluentFormRequest::class, ['flag' => 1, 'note' => 'x', 'items' => [['x' => 1], ['name' => 'n']]], ['errors' => ['note' => ['The note field must be at least 3 characters.']]]],
     ];
