@@ -2,6 +2,24 @@
 
 All notable changes to `laravel-fluent-validation` will be documented in this file.
 
+## 1.47.5 - 2026-11-24
+
+<!-- verified-sha: dd50241e7fe38125be8f52369b7c2d44173c5553 -->
+### Changed
+
+- `validate()` and `check()->validated()` now leave out item keys that no rule validates, as Laravel does. Plain `each()` kept them.
+  To keep them, call `Validator::includeUnvalidatedArrayKeys()`.
+- `each(FluentRule::array()->children([...]))` is fast again. 1.47.4 made it slower on large arrays.
+- Made `each()` with a plain scalar rule, and number fields in nested lists, faster to validate.
+
+### Fixed
+
+- Fixed rules below a field that an exclude rule removed still being validated.
+
+**Full Changelog**: https://github.com/SanderMuller/laravel-fluent-validation/compare/1.47.4...1.47.5
+
+<!-- benchmark-start -->
+<!-- benchmark-end -->
 ## 1.47.4 - 2026-11-23
 
 <!-- verified-sha: c8bc1304061ce183cf2b018e79caa5af043e6b22 -->
@@ -185,6 +203,7 @@ $safe->nullableInteger('rank', 0);  // 0 when the field is blank
 
 
 
+
 ```
 ### Fixed
 
@@ -238,6 +257,7 @@ $safe = $request->safe();
 
 $safe->nullableString('nickname');          // 'Johnny', or null
 $safe->nullableString('nickname', 'guest'); // 'guest' when the field is empty
+
 
 
 
@@ -773,6 +793,7 @@ Malformed wildcard rule key [items*]: a wildcard segment must be written as '.*'
 
 
 
+
 ```
 This matches the package's existing fail-fast on malformed array-rule keys.
 
@@ -874,6 +895,7 @@ illuminate/*: ^11.0||^12.0||^13.0  ->  ^12.0||^13.0
 
 
 
+
 ```
 The CI matrix drops its Laravel 11 legs (and the `orchestra/testbench ^9.0` requirement that only existed to test them); Laravel 12 and 13 remain, across PHP 8.2 / 8.3 / 8.4 on Ubuntu and Windows.
 
@@ -912,6 +934,7 @@ The file was plain markdown — zero Blade directives, zero render-time tokens �
 
 ```
 ⚠ guideline `core.blade.php` skipped — no renderer registered for its extension.
+
 
 
 
@@ -1006,6 +1029,7 @@ FluentRule::email()->requiredIf($enabled)->nullable()
 
 
 
+
 ```
 This diverged from both native Laravel (`['nullable', Rule::requiredIf(true)]`) and the compiled `HasFluentRules` path, which were already correct — so the gap only surfaced when a `FluentRule` validated in isolation.
 
@@ -1050,6 +1074,7 @@ The remap built a synthetic `Validator::make([], [])`, pushed the error message 
 $caught->validator->errors()->keys();   // ['actions']                      ✅
 $caught->validator->errors()->first();  // human-readable message          ✅
 $caught->validator->failed();           // []                              ❌
+
 
 
 
@@ -1163,6 +1188,7 @@ $validated = RuleSet::from([
 
 
 
+
 ```
 Top-level keys outside the rule set are already excluded from `validated()`; this flag extends the same behavior to nested array shapes declared via `children()`, `each()`, or dotted rule keys. Maps to Laravel's `Validator::$excludeUnvalidatedArrayKeys`, but gives per-`RuleSet` control instead of relying on whatever the host factory's flag happens to be set to — useful when an application has called `Factory::includeUnvalidatedArrayKeys()` globally and a specific call site needs the strict default back.
 
@@ -1180,6 +1206,7 @@ $validated = RuleSet::from([...])->validate($request->all());
 
 // 1.27
 $validated = RuleSet::from([...])->validate($request);
+
 
 
 
