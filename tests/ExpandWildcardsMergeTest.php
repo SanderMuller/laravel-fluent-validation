@@ -56,3 +56,11 @@ it('merges a wildcard FluentRule into an explicit FluentRule as one rule list', 
     expect($expanded['items.0.name'])->toBe(['string', 'max:3', 'nullable', 'string'])
         ->and(validator(['items' => [['name' => null]]], $expanded)->passes())->toBeTrue();
 });
+
+it('lists the paths in the order Laravel does', function (): void {
+    $rules = ['items.*' => 'integer', 'items.1' => 'nullable', 'title' => 'string'];
+    $data = ['items' => [1, 'x', 3], 'title' => 't'];
+
+    expect(array_keys(RuleSet::from($rules)->expandWildcards($data)))
+        ->toBe(array_keys(Validator::make($data, $rules)->getRules()));
+});

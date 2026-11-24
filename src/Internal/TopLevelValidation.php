@@ -98,8 +98,7 @@ final class TopLevelValidation
 
     /**
      * The flattened rules for a fully expanded validator: the top-level rules
-     * first, then the wildcard rules of the given groups. Laravel lists the
-     * attributes a wildcard rule expands to after every top-level attribute.
+     * and the wildcard rules of the given groups, in rule order.
      *
      * @param  array<string, mixed>  $flatRules
      * @param  array<string, array<string, mixed>>  $wildcardGroups
@@ -107,18 +106,11 @@ final class TopLevelValidation
      */
     public static function standardRules(array $flatRules, array $wildcardGroups): array
     {
-        $topRules = [];
-        $wildcardRules = [];
-
-        foreach ($flatRules as $field => $rule) {
-            if (! str_contains($field, '*')) {
-                $topRules[$field] = $rule;
-            } elseif (isset($wildcardGroups[substr($field, 0, (int) strpos($field, '.*'))])) {
-                $wildcardRules[$field] = $rule;
-            }
-        }
-
-        return $topRules + $wildcardRules;
+        return array_filter(
+            $flatRules,
+            static fn (string $field): bool => ! str_contains($field, '*') || isset($wildcardGroups[substr($field, 0, (int) strpos($field, '.*'))]),
+            ARRAY_FILTER_USE_KEY,
+        );
     }
 
     /**

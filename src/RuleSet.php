@@ -928,7 +928,10 @@ final class RuleSet implements Arrayable, IteratorAggregate
     public function expand(array $data, ?array $flatRules = null): array
     {
         $flatRules ??= $this->flatten();
-        $rules = [];
+        // Laravel keeps each explicit key at its place, before the attributes
+        // a wildcard adds. An explicit key after the wildcard key replaces
+        // the wildcard rules, one before it gets them added.
+        $rules = array_filter($flatRules, static fn (string $field): bool => ! str_contains($field, '*'), ARRAY_FILTER_USE_KEY);
         $implicitAttributes = [];
 
         foreach ($flatRules as $field => $rule) {

@@ -1,6 +1,9 @@
 <?php declare(strict_types=1);
 
+use Illuminate\Http\Request;
+use Illuminate\Routing\Redirector;
 use Illuminate\Validation\Rule;
+use SanderMuller\FluentValidation\FluentFormRequest;
 use SanderMuller\FluentValidation\FluentRule;
 use SanderMuller\FluentValidation\RuleSet;
 
@@ -58,6 +61,10 @@ $shapeCases = [
     'items.* alone with required_if on a field of the item' => [['items' => 'array', 'items.*' => 'required_if:items.*.t,a|nullable'], ['items' => [['t' => 'b'], ['t' => 'a']]]],
     'a nested items.* alone that excludes on a field of the item' => [['o.items' => 'array', 'o.items.*' => 'exclude_if:o.items.*.f,1|integer'], ['o' => ['items' => [['f' => 1], 3]]]],
     'items.* alone with a value that looks like a field' => [['items' => 'array', 'items.*' => 'in:items.*.f'], ['items' => ['items.*.f']]],
+    'items.1 after items.*' => [['items' => 'array', 'items.*' => 'integer', 'items.1' => 'nullable'], ['items' => [1, 'x']]],
+    'items.1 after items.*, failing' => [['items' => 'array', 'items.*' => 'integer', 'items.1' => 'nullable'], ['items' => ['a', 'x']]],
+    'items.0.x after items.*.x' => [['items' => 'array', 'items.*.x' => 'integer', 'items.0.x' => 'nullable'], ['items' => [['x' => 'q'], ['x' => 'r']]]],
+    'items.0.x after items.*.x and items.*.y' => [['items.*.x' => 'integer', 'items.*.y' => 'required', 'items.0.x' => 'string', 'items' => 'array'], ['items' => [['x' => 'q'], ['x' => 2, 'y' => 1]]]],
 ];
 
 foreach ($shapeCases as $name => [$rules, $data]) {
@@ -138,4 +145,32 @@ it('excludes an item on a field of the item in a fluent each() rule like native'
 
     expect(RuleSet::from($rules)->validate($data))
         ->toEqual(validator($data, RuleSet::compile(RuleSet::from($rules)->flattenRules()))->validated());
+});
+
+it('applies an explicit key after a fluent each() rule like native', function (): void {
+    $rules = ['items' => FluentRule::array()->each(FluentRule::integer()), 'items.1' => 'nullable|string'];
+    $native = RuleSet::compile(RuleSet::from($rules)->flattenRules());
+
+    foreach ([['items' => [1, 'x']], ['items' => ['a', 2]]] as $data) {
+        expect(RuleSet::from($rules)->check($data)->errors()->toArray())
+            ->toBe(validator($data, $native)->errors()->toArray());
+    }
+});
+
+it('applies an explicit key after a wildcard key in a form request like native', function (): void {
+    $formRequest = new class extends FluentFormRequest {
+        /** @return array<string, mixed> */
+        public function rules(): array
+        {
+            return ['items' => 'array', 'items.*' => 'integer', 'items.1' => 'nullable|string'];
+        }
+    };
+    $data = ['items' => [1, 'x']];
+
+    $instance = $formRequest::createFrom(Request::create('/test', 'POST', $data));
+    $instance->setContainer(app());
+    $instance->setRedirector(resolve(Redirector::class));
+    $instance->validateResolved();
+
+    expect($instance->validated())->toBe(validator($data, $formRequest->rules())->validated());
 });
