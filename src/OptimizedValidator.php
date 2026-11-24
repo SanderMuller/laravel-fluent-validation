@@ -10,6 +10,7 @@ use Illuminate\Validation\Rules\NotIn;
 use SanderMuller\FluentValidation\Internal\ConditionalEvaluationPhase;
 use SanderMuller\FluentValidation\Internal\ConditionalVerdict;
 use SanderMuller\FluentValidation\Internal\ExcludeConditionExtractor;
+use SanderMuller\FluentValidation\Internal\ValidatedRuleKeys;
 use Stringable;
 
 /**
@@ -175,6 +176,28 @@ class OptimizedValidator extends MemoizingValidator
         $this->rules = array_replace(array_intersect_key($originalRules, $kept), $kept);
 
         return $result;
+    }
+
+    /**
+     * Gives the same result as Laravel's validated(), with less work per
+     * rule key, see {@see ValidatedRuleKeys}.
+     *
+     * @return array<array-key, mixed>
+     */
+    public function validated(): array
+    {
+        if (! $this->messages instanceof MessageBag) {
+            $this->passes();
+        }
+
+        if ($this->messages->isNotEmpty()) {
+            return parent::validated();
+        }
+
+        $results = ValidatedRuleKeys::data($this->getRules(), $this->getData(), $this->excludeUnvalidatedArrayKeys);
+        $placeholders = ['__dot__' . static::$placeholderHash, '__asterisk__' . static::$placeholderHash];
+
+        return ValidatedRuleKeys::holdsKey($results, $placeholders) ? $this->replacePlaceholders($results) : $results;
     }
 
     /**
