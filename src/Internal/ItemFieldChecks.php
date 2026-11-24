@@ -117,7 +117,7 @@ final class ItemFieldChecks
             return $isDateRule && $parameter !== null ? null : false;
         }
 
-        if (! str_starts_with($parameter, $prefix)) {
+        if (! str_starts_with($parameter, $prefix) || $isDateRule && self::resolvedPathCanReadAsDate($parameter)) {
             return false;
         }
 
@@ -129,6 +129,25 @@ final class ItemFieldChecks
         }
 
         return $field;
+    }
+
+    /**
+     * Laravel parses the parameter as a date after it replaces each `*` with a
+     * key, and some of those paths parse, such as `x.1.2.from` or `x.1000.from`.
+     */
+    private static function resolvedPathCanReadAsDate(string $parameter): bool
+    {
+        if (substr_count($parameter, '*') > 1 || preg_match('/(?:\A|\.)\d+\./', $parameter) === 1) {
+            return true;
+        }
+
+        foreach (['0', '1', '12', '31', '2025'] as $key) {
+            if (strtotime(str_replace('*', $key, $parameter)) !== false) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**

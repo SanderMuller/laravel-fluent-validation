@@ -61,6 +61,18 @@ function itemFieldCaseList(): iterable
         ['items' => ['min' => 2, 0 => 3, 1 => 1]],
         ['items' => 'array', 'items.*' => 'numeric|gte:items.min'],
     ];
+    yield 'a date field below two wildcards, whose full path reads as a date' => [
+        ['x' => [1 => [2 => ['from' => '2020-01-01', 'to' => '2025-01-01']]]],
+        ['x.*.*.from' => 'date', 'x.*.*.to' => 'date|after:x.*.*.from'],
+    ];
+    yield 'a date field below a numeric key, whose full path reads as a date' => [
+        ['x' => [1 => [2 => ['from' => '2020-01-01', 'to' => '2025-01-01']]]],
+        ['x.1.*.from' => 'date', 'x.1.*.to' => 'date|after:x.1.*.from'],
+    ];
+    yield 'a date field whose full path reads as a date for a four-digit key' => [
+        ['x' => [1000 => ['from' => '2020-01-01', 'to' => '2025-01-01']]],
+        ['x.*.from' => 'date', 'x.*.to' => 'date|after:x.*.from'],
+    ];
     yield 'a size comparison without a numeric rule elsewhere' => [
         ['other' => '12', 'top' => '5', 'items' => $items],
         ['top' => 'string|gte:other', 'other' => 'string', 'items.*.min' => 'numeric', 'items.*.max' => 'numeric|gte:items.*.min'],
@@ -100,10 +112,10 @@ it('leaves to Laravel only the item attributes that fail or that a failing attri
         ->and(array_values(array_unique($validator->validatedByLaravel)))->toBe(['items.1.min', 'items.1.max']);
 });
 
-it('builds an item check only for fields of the item that Laravel resolves per attribute', function (string $rule, ?array $fields): void {
-    $checks = ItemFieldChecks::build(['items.*.b' => $rule], ['items.*.b' => $rule]);
+it('builds an item check only for fields of the item that Laravel resolves per attribute', function (string $rule, ?array $fields, string $pattern = 'items.*.b'): void {
+    $checks = ItemFieldChecks::build([$pattern => $rule], [$pattern => $rule]);
 
-    expect(isset($checks['items.*.b']) ? $checks['items.*.b'][1] : null)->toBe($fields);
+    expect(isset($checks[$pattern]) ? $checks[$pattern][1] : null)->toBe($fields);
 })->with([
     'gte' => ['numeric|gte:items.*.a', ['a']],
     'two fields' => ['numeric|gte:items.*.a|lt:items.*.c', ['a', 'c']],
@@ -115,6 +127,10 @@ it('builds an item check only for fields of the item that Laravel resolves per a
     'date_equals with a field outside the item' => ['date|date_equals:start|after:items.*.from', null],
     'a field name that reads as a date' => ['date|after:items.*.today', null],
     'a one-letter field name that reads as a time zone' => ['date|after:items.*.a', null],
+    'a date field below two wildcards' => ['date|after:items.*.*.to', null, 'items.*.*.b'],
+    'a date field below a numeric key' => ['date|after:items.1.*.to', null, 'items.1.*.b'],
+    'a date field whose full path reads as a date for some keys' => ['date|after:x.*.to', null, 'x.*.b'],
+    'a size comparison below two wildcards' => ['numeric|gte:items.*.*.to', ['to'], 'items.*.*.b'],
     'no field' => ['numeric|min:1', null],
 ]);
 
