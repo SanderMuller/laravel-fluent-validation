@@ -45,13 +45,15 @@ abstract class FluentValidator extends OptimizedValidator
         array $messages = [],
         array $attributes = [],
     ) {
-        $prepared = RuleSet::from($rules)->prepareForImplicitAttributes($data);
+        $ruleSet = RuleSet::from($rules);
+        $flatRules = $ruleSet->flattenRules();
+        $prepared = $ruleSet->prepareForImplicitAttributes($data, $flatRules);
 
         // Remaining conditionals (required_if/_unless) are pre-evaluated later
         // by OptimizedValidator::passes(); this only drops the exclude_* ones.
         $preparedRules = $this->preExcludeRules($prepared->rules, $data);
 
-        $fastCheckMaps = $this->buildFastCheckMaps($prepared, $preparedRules);
+        $fastCheckMaps = $this->buildFastCheckMaps($prepared, $preparedRules, array_keys($flatRules));
 
         parent::__construct(
             resolve(Translator::class),

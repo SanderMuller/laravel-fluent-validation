@@ -57,14 +57,16 @@ final readonly class WildcardFastChecks
 
     /**
      * Removes the attributes that pass their check from the rules, except the
-     * referenced ones.
+     * referenced ones. An attribute whose rules differ from the rules the
+     * checks were built for stays.
      *
      * @param  array<array-key, mixed>  $rules
+     * @param  array<array-key, mixed>|null  $checkedRules  the rules the checks were built for, or null when no rule changed
      * @param  array<array-key, mixed>  $data
      * @param  Closure(int|string): mixed  $getValue  the validator's value of an attribute
      * @return array<string, mixed> the removed rules
      */
-    public function removePassing(array &$rules, array $data, Closure $getValue): array
+    public function removePassing(array &$rules, ?array $checkedRules, array $data, Closure $getValue): array
     {
         if ($this->groups === []) {
             return [];
@@ -78,7 +80,7 @@ final readonly class WildcardFastChecks
 
             foreach ($attributes as $attribute) {
                 // Arr::dot() has no key for a non-empty array, so read those values as Laravel does.
-                if (isset($rules[$attribute]) && ($check instanceof Closure ? $check(array_key_exists($attribute, $flatData) ? $flatData[$attribute] : $getValue($attribute)) : $this->passesItemCheck($pattern, (string) $attribute, $getValue))) {
+                if (isset($rules[$attribute]) && ($checkedRules === null || $this->isUnchanged($rules, $checkedRules, $attribute)) && ($check instanceof Closure ? $check(array_key_exists($attribute, $flatData) ? $flatData[$attribute] : $getValue($attribute)) : $this->passesItemCheck($pattern, (string) $attribute, $getValue))) {
                     $removedRules[$attribute] = $rules[$attribute];
                     unset($rules[$attribute]);
                 }
@@ -93,10 +95,11 @@ final readonly class WildcardFastChecks
      * reads, and that pass their check. One that leaves can let another go.
      *
      * @param  array<array-key, mixed>  $rules
+     * @param  array<array-key, mixed>|null  $checkedRules  the rules the checks were built for, or null when no rule changed
      * @param  array<string, mixed>  $removedRules
      * @param  Closure(int|string): mixed  $getValue
      */
-    public function removePassingReferenced(array &$rules, array &$removedRules, Closure $getValue): void
+    public function removePassingReferenced(array &$rules, ?array $checkedRules, array &$removedRules, Closure $getValue): void
     {
         $pending = $this->referenced;
 
@@ -110,13 +113,26 @@ final readonly class WildcardFastChecks
 
                 unset($pending[$attribute]);
 
-                if (isset($rules[$attribute]) && $this->passes($pattern, (string) $attribute, $getValue)) {
+                if ($this->isUnchanged($rules, $checkedRules, $attribute) && $this->passes($pattern, (string) $attribute, $getValue)) {
                     $removedRules[$attribute] = $rules[$attribute];
                     unset($rules[$attribute]);
                     $removed = true;
                 }
             }
         } while ($removed);
+    }
+
+    /**
+     * @param  array<array-key, mixed>  $rules
+     * @param  array<array-key, mixed>|null  $checkedRules
+     */
+    private function isUnchanged(array $rules, ?array $checkedRules, int|string $attribute): bool
+    {
+        if ($checkedRules === null) {
+            return isset($rules[$attribute]);
+        }
+
+        return isset($rules[$attribute], $checkedRules[$attribute]) && $rules[$attribute] === $checkedRules[$attribute];
     }
 
     /**

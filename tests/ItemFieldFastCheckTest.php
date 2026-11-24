@@ -151,11 +151,11 @@ it('removes a referenced attribute only when no attribute left in the rules read
     $rules = ['items.0.a' => ['integer'], 'items.1.a' => ['integer'], 'items.0.b' => ['integer'], 'items.1.b' => ['integer']];
     $getValue = static fn (int|string $attribute): mixed => data_get($data, (string) $attribute);
 
-    $removed = $checks->removePassing($rules, $data, $getValue);
+    $removed = $checks->removePassing($rules, $rules, $data, $getValue);
 
     expect(array_keys($rules))->toBe(['items.0.a', 'items.1.a', 'items.1.b']);
 
-    $checks->removePassingReferenced($rules, $removed, $getValue);
+    $checks->removePassingReferenced($rules, $rules, $removed, $getValue);
 
     expect(array_keys($rules))->toBe(['items.1.a', 'items.1.b'])
         ->and(array_keys($removed))->toBe(['items.0.b', 'items.0.a']);
@@ -167,7 +167,7 @@ it('removes a chain of referenced attributes from the end', function (): void {
     $rules = ['a.0.x' => ['integer'], 'a.0.y' => ['integer']];
     $removed = [];
 
-    $checks->removePassingReferenced($rules, $removed, static fn (int|string $attribute): int => 1);
+    $checks->removePassingReferenced($rules, $rules, $removed, static fn (int|string $attribute): int => 1);
 
     expect($rules)
         ->toBeEmpty();
@@ -178,7 +178,7 @@ it('keeps a referenced attribute whose dependents are not known', function (): v
     $rules = ['a.0.x' => ['integer']];
     $removed = [];
 
-    $checks->removePassingReferenced($rules, $removed, static fn (int|string $attribute): int => 1);
+    $checks->removePassingReferenced($rules, $rules, $removed, static fn (int|string $attribute): int => 1);
 
     expect($rules)->toHaveKey('a.0.x');
 });

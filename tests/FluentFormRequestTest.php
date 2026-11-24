@@ -468,8 +468,8 @@ it('handles rules without wildcards', function (): void {
     /** @var Validator $validator */
     $validator = (fn () => $this->createDefaultValidator($factory))->call($formRequest);
 
-    // No wildcard rules — returns a plain Validator, not OptimizedValidator.
-    expect($validator)->not->toBeInstanceOf(OptimizedValidator::class);
+    // Flat rules get fast checks too, so the form request uses OptimizedValidator.
+    expect($validator)->toBeInstanceOf(OptimizedValidator::class);
     expect($validator->passes())->toBeTrue()
         ->and($validator->validated())->toHaveKeys(['name', 'email']);
 });

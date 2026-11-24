@@ -31,6 +31,9 @@ class OptimizedValidator extends MemoizingValidator
 {
     private ?WildcardFastChecks $wildcardFastChecks = null;
 
+    /** @var array<array-key, mixed> the rules the fast checks were built for */
+    private array $fastCheckedRules = [];
+
     /** @var array<string, true> */
     private array $referencedAttributes = [];
 
@@ -47,6 +50,8 @@ class OptimizedValidator extends MemoizingValidator
     public function withFastChecks(array $fastChecks, array $attributePatternMap, array $referencedAttributes = [], array $itemChecks = [], array $dependents = []): static
     {
         $this->referencedAttributes = $referencedAttributes;
+        // A rule added later, such as with sometimes(), leaves its attribute to Laravel.
+        $this->fastCheckedRules = $this->rules;
         $this->wildcardFastChecks = WildcardFastChecks::of($fastChecks, $attributePatternMap, $referencedAttributes, $itemChecks, $dependents);
 
         return $this;
@@ -148,9 +153,11 @@ class OptimizedValidator extends MemoizingValidator
         $originalRules = $this->rules;
         // Closure (not [$this, 'getValue']) because parent::getValue() is protected.
         $getValue = fn (int|string $attribute): mixed => $this->getValue((string) $attribute);
-        $removedRules = $this->wildcardFastChecks?->removePassing($this->rules, $this->getData(), $getValue) ?? [];
+        // Null when no rule changed since the fast checks were built, the common case.
+        $checkedRules = $this->rules === $this->fastCheckedRules ? null : $this->fastCheckedRules;
+        $removedRules = $this->wildcardFastChecks?->removePassing($this->rules, $checkedRules, $this->getData(), $getValue) ?? [];
         $this->runConditionalPhase($removedRules, $originalRules);
-        $this->wildcardFastChecks?->removePassingReferenced($this->rules, $removedRules, $getValue);
+        $this->wildcardFastChecks?->removePassingReferenced($this->rules, $checkedRules, $removedRules, $getValue);
 
         if ($removedRules === [] && $this->rules === []) {
             $this->removeExcludedAttributes();

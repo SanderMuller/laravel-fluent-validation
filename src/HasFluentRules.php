@@ -217,14 +217,15 @@ trait HasFluentRules
         // (the latter pattern lets callers chain ->only/->except/->merge
         // before returning, eliminating a terminal ->toArray() call).
         $ruleSet = $rules instanceof RuleSet ? $rules : RuleSet::from($rules);
-        $prepared = $ruleSet->prepareForImplicitAttributes($data);
+        $flatRules = $ruleSet->flattenRules();
+        $prepared = $ruleSet->prepareForImplicitAttributes($data, $flatRules);
 
         // Pre-exclude rules whose exclude_unless/exclude_if conditions
         // don't match the actual data. This happens BEFORE the validator
         // constructor, so excluded rules are never parsed.
         $preparedRules = $this->preExcludeRules($prepared->rules, $data);
 
-        $fastCheckMaps = $this->buildFastCheckMaps($prepared, $preparedRules);
+        $fastCheckMaps = $this->buildFastCheckMaps($prepared, $preparedRules, array_keys($flatRules));
 
         $messages = $this->messages() + $prepared->messages;
         $attributes = $this->attributes() + $prepared->attributes;

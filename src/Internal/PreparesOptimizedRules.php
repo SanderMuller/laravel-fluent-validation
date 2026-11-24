@@ -115,23 +115,49 @@ trait PreparesOptimizedRules
      * them would change Laravel's verdict.
      *
      * @param  array<string, mixed>  $preparedRules  Rules after pre-exclusion
+     * @param  list<array-key>  $ruleKeys  the keys of the rule set before wildcard expansion
      * @return array{0: array<string, Closure(mixed): bool>, 1: array<string, string>, 2: array<string, true>, 3: array<string, array{0: Closure(mixed, array<string, mixed>): bool, 1: list<string>}>, 4: array<string, list<string>|false>} value checks, attribute patterns, referenced attributes, item checks, dependents of the referenced attributes
      */
-    private function buildFastCheckMaps(PreparedRules $prepared, array $preparedRules): array
+    private function buildFastCheckMaps(PreparedRules $prepared, array $preparedRules, array $ruleKeys): array
     {
         $dependents = ReferencedAttributes::withDependents($prepared->rules, $prepared->implicitAttributes);
-        $wildcardRules = [];
-        foreach ($prepared->implicitAttributes as $pattern => $expandedPaths) {
+        $patterns = $prepared->implicitAttributes + $this->flatAttributePatterns($ruleKeys, $preparedRules);
+        $patternRules = [];
+        foreach ($patterns as $pattern => $expandedPaths) {
             if (isset($preparedRules[$expandedPaths[0] ?? ''])) {
-                $wildcardRules[$pattern] = $preparedRules[$expandedPaths[0]];
+                $patternRules[$pattern] = $preparedRules[$expandedPaths[0]];
             }
         }
 
-        $fastChecks = OptimizedValidator::buildFastChecks($wildcardRules);
-        $itemChecks = ItemFieldChecks::build(array_diff_key($wildcardRules, $fastChecks), $preparedRules);
-        $attributePatternMap = $this->buildAttributePatternMap($fastChecks + $itemChecks, $prepared->implicitAttributes, $preparedRules);
+        $fastChecks = OptimizedValidator::buildFastChecks($patternRules);
+        $itemChecks = ItemFieldChecks::build(array_diff_key($patternRules, $fastChecks), $preparedRules);
+        $attributePatternMap = $this->buildAttributePatternMap($fastChecks + $itemChecks, $patterns, $preparedRules);
 
         return [$fastChecks, $attributePatternMap, array_fill_keys(array_keys($dependents), true), $itemChecks, $dependents];
+    }
+
+    /**
+     * Each rule key without a wildcard, as a pattern of its own, so it gets a
+     * fast check too. Its check is built from its own rule, also when a
+     * wildcard pattern covers it. A key with an escaped dot is left out.
+     *
+     * @param  list<array-key>  $ruleKeys
+     * @param  array<string, mixed>  $preparedRules
+     * @return array<string, list<string>>
+     */
+    private function flatAttributePatterns(array $ruleKeys, array $preparedRules): array
+    {
+        $patterns = [];
+
+        foreach ($ruleKeys as $attribute) {
+            $attribute = (string) $attribute;
+
+            if (isset($preparedRules[$attribute]) && strpbrk($attribute, '*\\') === false) {
+                $patterns[$attribute] = [$attribute];
+            }
+        }
+
+        return $patterns;
     }
 
     /**
