@@ -62,7 +62,7 @@ final class EventScheduleBench
     }
 
     #[DataProvider('size')]
-    #[ExpectedFor('events-100', instructions: '10.24M', cycles: '13.16M', memory: '55.07KiB')]
+    #[ExpectedFor('events-100', instructions: '10.13M', cycles: '11.90M', memory: '54.63KiB')]
     public function benchValidate(int $count): void
     {
         Scenarios::validate($this->rules, $this->data);

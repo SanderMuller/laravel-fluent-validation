@@ -62,7 +62,7 @@ final class TagListBench
     }
 
     #[DataProvider('size')]
-    #[ExpectedFor('tags-1000', instructions: '1.629M', cycles: '2.238M', memory: '38.60KiB')]
+    #[ExpectedFor('tags-1000', instructions: '1.623M', cycles: '1.717M', memory: '38.55KiB')]
     public function benchValidate(int $count): void
     {
         Scenarios::validate($this->rules, $this->data);

@@ -62,7 +62,7 @@ final class NestedOrderBench
     }
 
     #[DataProvider('size')]
-    #[ExpectedFor('orders-1000', instructions: '26.79M', cycles: '32.33M', memory: '48.09KiB')]
+    #[ExpectedFor('orders-1000', instructions: '26.44M', cycles: '28.89M', memory: '47.79KiB')]
     public function benchValidate(int $count): void
     {
         Scenarios::validate($this->rules, $this->data);
