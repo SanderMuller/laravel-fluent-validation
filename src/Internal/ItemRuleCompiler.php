@@ -173,6 +173,48 @@ final class ItemRuleCompiler
     }
 
     /**
+     * The checks of {@see buildFastChecks()} for the question whether all of
+     * them pass: the plain checks of two or more fields below one wildcard
+     * (`items.*.a`, `items.*.b`) run in one loop over the items.
+     *
+     * @param  array<string, mixed>  $compiledRules
+     * @param  array<string, Closure(array<string, mixed>): bool>  $fastChecks  from buildFastChecks() for the same rules
+     * @return array<array-key, Closure(array<string, mixed>): bool>
+     */
+    public function passChecks(array $compiledRules, array $fastChecks): array
+    {
+        $byParent = [];
+
+        foreach (array_keys($fastChecks) as $field) {
+            $rule = $compiledRules[$field] ?? null;
+
+            if (is_string($rule) && preg_match('/\A([^.]+)\.\*\.([^.*\\\\]+)\z/', (string) $field, $match) === 1 && FastCheckCompiler::compile($rule) instanceof Closure) {
+                $byParent[$match[1]][$field] = $match[2];
+            }
+        }
+
+        foreach ($byParent as $parent => $children) {
+            if (count($children) < 2) {
+                continue;
+            }
+
+            $valueChecks = [];
+
+            foreach ($children as $field => $child) {
+                /** @var string $rule */
+                $rule = $compiledRules[$field];
+                $valueChecks[$child] = FastCheckCompiler::compile($rule);
+                unset($fastChecks[$field]);
+            }
+
+            // A new key: the item can have a check of its own under `parent.*`.
+            $fastChecks[] = PathFastCheck::eachItemAll($parent, array_filter($valueChecks));
+        }
+
+        return $fastChecks;
+    }
+
+    /**
      * Build fast-check closures for eligible fields.
      * Returns fast checks for compilable fields and the remaining slow rules.
      *

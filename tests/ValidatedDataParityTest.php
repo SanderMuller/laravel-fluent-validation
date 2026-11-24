@@ -45,6 +45,8 @@ $validatedCases = [
     'a list with string keys' => [['items' => 'array', 'items.*.x' => 'integer'], ['items' => ['a' => ['x' => 1], 'b' => ['x' => 2, 's' => 'leak']]]],
     'records with a list with string keys' => [['orders' => 'array', 'orders.*.lines' => 'array', 'orders.*.lines.*.id' => 'integer'], ['orders' => [['lines' => ['a' => ['id' => 1], 'b' => ['id' => 2, 's' => 'leak']]]]]],
     'records with an unknown int key in a list item' => [['orders' => 'array', 'orders.*.lines' => 'array', 'orders.*.lines.*.id' => 'integer'], ['orders' => [['lines' => [['id' => 1], ['id' => 2, 3 => 'leak']]]]]],
+    'fields below a numeric parent' => [['groups' => 'array', 'groups.*.0' => 'array', 'groups.*.0.*.a' => 'integer', 'groups.*.0.*.b' => 'string'], ['groups' => [[0 => [['a' => 1, 'b' => 'x', 's' => 1]]]]]],
+    'fields and a rule on the items below one parent' => [['orders' => 'array', 'orders.*.lines' => 'array', 'orders.*.lines.*' => 'array', 'orders.*.lines.*.id' => 'integer', 'orders.*.lines.*.qty' => 'integer'], ['orders' => [['lines' => [['id' => 1, 'qty' => 2]]]]]],
 ];
 
 foreach ($validatedCases as $name => [$rules, $data]) {

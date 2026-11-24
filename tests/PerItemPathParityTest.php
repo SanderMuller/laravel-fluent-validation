@@ -88,3 +88,16 @@ it('keeps a dependency date_format for a sibling after rule like native', functi
     'end before start' => [['start' => '01/12/2025', 'end' => '2025-06-01']],
     'end after start' => [['start' => '01/12/2025', 'end' => '2026-06-01']],
 ]);
+
+it('checks several fields of nested wildcard elements of an item like native', function (array $lines): void {
+    assertPerItemParity(
+        ['orders.*.lines' => 'array', 'orders.*.lines.*.id' => 'required|integer', 'orders.*.lines.*.qty' => 'nullable|integer'],
+        ['orders' => [['lines' => [['id' => 1, 'qty' => 2]]], ['lines' => $lines]]],
+    );
+})->with([
+    'valid elements' => [[['id' => 1, 'qty' => 2], ['id' => 3]]],
+    'bad first field' => [[['id' => 1], ['id' => 'x', 'qty' => 2]]],
+    'bad second field' => [[['id' => 1, 'qty' => 'x']]],
+    'missing required field' => [[['qty' => 2]]],
+    'scalar element' => [[['id' => 1], 5]],
+]);

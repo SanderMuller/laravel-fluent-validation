@@ -61,6 +61,7 @@ final readonly class ItemValidator
         $excludedByReduced = [];
 
         [$fastChecks, $originalSlowRules] = $this->compiler->buildFastChecks($itemRules);
+        $passChecks = $this->compiler->passChecks($itemRules, $fastChecks);
         $laravelFields = $this->laravelFieldFilter($isScalar, $itemRules);
         /** @var array<string, BaseValidator> $validatorCache */
         $validatorCache = [];
@@ -93,6 +94,7 @@ final readonly class ItemValidator
 
                 $effectiveRules = $rulesByDispatch[$dispatchValue];
                 [$dispatchFastChecks, $dispatchSlowRules] = $fastChecksByDispatch[$dispatchValue];
+                $dispatchPassChecks = $dispatchFastChecks;
                 $excludedFields[$index] = $excludedByDispatch[$dispatchValue] ??= WildcardValidatedData::excludedTree(array_diff_key($conditionalFields, $effectiveRules));
             } elseif ($conditionalFields !== [] || $hasSiblingDependentConditionals) {
                 $reducedRules ??= ReducedRulesCache::for($this->compiler, $itemRules, $conditionalFields, $itemMessages, $siblingFields);
@@ -101,15 +103,17 @@ final readonly class ItemValidator
                 // many items reduce identically, so reuse beats recompiling.
                 [$dispatchFastChecks, $dispatchSlowRules] = $fastChecksByReduced[$reducedKey]
                     ??= $this->compiler->buildFastChecks($effectiveRules);
+                $dispatchPassChecks = $dispatchFastChecks;
                 $excludedFields[$index] = $excludedByReduced[$reducedKey] ??= WildcardValidatedData::excludedTree(array_diff_key($conditionalFields, $effectiveRules));
             } else {
                 $effectiveRules = $itemRules;
                 $dispatchFastChecks = $fastChecks;
+                $dispatchPassChecks = $passChecks;
                 $dispatchSlowRules = $originalSlowRules;
             }
 
             if ($dispatchFastChecks !== []) {
-                $fastPass = $this->errors->passesAllFastChecks($dispatchFastChecks, $itemData);
+                $fastPass = $this->errors->passesAllFastChecks($dispatchPassChecks, $itemData);
 
                 if ($fastPass && $dispatchSlowRules === []) {
                     continue;

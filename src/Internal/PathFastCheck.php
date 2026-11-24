@@ -101,6 +101,39 @@ final class PathFastCheck
     }
 
     /**
+     * The checks of {@see eachItem()} for several fields of the same items,
+     * in one loop.
+     *
+     * @param  int|string  $parent  PHP stores a numeric segment as an int key
+     * @param  array<array-key, Closure(mixed): bool>  $valueChecks  per field of the item
+     * @return Closure(array<string, mixed>): bool
+     */
+    public static function eachItemAll(int|string $parent, array $valueChecks): Closure
+    {
+        return static function (array $data) use ($parent, $valueChecks): bool {
+            $items = $data[$parent] ?? null;
+
+            if (! is_array($items)) {
+                return true;
+            }
+
+            foreach ($items as $item) {
+                if (! is_array($item)) {
+                    return false;
+                }
+
+                foreach ($valueChecks as $child => $valueCheck) {
+                    if (! $valueCheck($item[$child] ?? null)) {
+                        return false;
+                    }
+                }
+            }
+
+            return true;
+        };
+    }
+
+    /**
      * @param  Closure(mixed, array<string, mixed>): bool  $itemAwareCheck
      * @return Closure(array<string, mixed>): bool
      */
