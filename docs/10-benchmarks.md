@@ -15,7 +15,7 @@ All numbers are from `php benchmark.php` (macOS, PHP 8.5, OPcache), which measur
 
 ## Instruction counts
 
-Wall-clock times depend on the machine, so CI also counts the CPU instructions of each benchmark on Linux with `phpstan/tally`, after one warm-up call that is not counted. The warm-up call also fills the caches that the package keeps between calls in one process, so the counts show repeated validation, as in an import loop or a queue worker. When a change raises a count above its allowed tolerance, the Tally job fails until the new numbers are accepted. The table shows the accepted numbers from `benchmarks/*.php`. The form request import goes through `HasFluentRules`, and the other fluent counts come from `RuleSet::validate()`. The native counts come from `Validator::make(...)->validate()` with the same rules, compiled to Laravel's own format.
+Wall-clock times depend on the machine, so CI also counts the CPU instructions of each benchmark on Linux with `phpstan/tally`, after one warm-up call that is not counted. The warm-up call also fills the caches that the package keeps between calls in one process, so the counts show repeated validation, as in an import loop or a queue worker. When a change raises a count above its allowed tolerance, the Tally job fails until the new numbers are accepted. The table shows the accepted numbers from `benchmarks/*.php`. The form request import and the conditional form request go through `HasFluentRules`, and the other fluent counts come from `RuleSet::validate()`. The native counts come from `Validator::make(...)->validate()` with the same rules, compiled to Laravel's own format.
 
 <!-- tally-table -->
 
