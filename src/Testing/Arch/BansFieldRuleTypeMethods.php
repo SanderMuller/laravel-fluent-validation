@@ -60,7 +60,7 @@ final class BansFieldRuleTypeMethods
         } catch (\Error $error) {
             throw new RuntimeException('BansFieldRuleTypeMethods requires nikic/php-parser ^5.0 '
             . '(installed version is too old). '
-            . 'Upgrade: composer require --dev "nikic/php-parser:^5.0"', $error->getCode(), previous: $error);
+            . 'Upgrade: composer require --dev "nikic/php-parser:^5.0"', previous: $error);
         }
 
         $banned = array_flip(TypedBuilderHint::knownMethods());
