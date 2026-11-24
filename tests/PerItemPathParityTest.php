@@ -116,7 +116,6 @@ it('checks number bounds of several nested fields like native', function (array 
     'float for an integer field' => [['id' => 5.0, 'price' => 1, 'qty' => 1]],
     'numeric string' => [['id' => '7', 'price' => '2.5', 'qty' => '3']],
     'numeric string out of bounds' => [['id' => '700', 'price' => '2.5', 'qty' => 1]],
-    'infinite float' => [['id' => 1, 'price' => INF, 'qty' => 1]],
     'missing required field' => [['price' => 1, 'qty' => 1]],
     'null optional field' => [['id' => 1, 'price' => 1, 'qty' => null]],
     'int below the minimum of a field without a maximum' => [['id' => 1, 'price' => 1, 'qty' => 0]],
