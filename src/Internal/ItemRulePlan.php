@@ -3,6 +3,8 @@
 namespace SanderMuller\FluentValidation\Internal;
 
 use Closure;
+use Illuminate\Validation\Rules\In;
+use Illuminate\Validation\Rules\NotIn;
 use SanderMuller\FluentValidation\FastCheckCompiler;
 use SanderMuller\FluentValidation\PresenceConditionalReducer;
 use SanderMuller\FluentValidation\ValueConditionalReducer;
@@ -35,6 +37,9 @@ final class ItemRulePlan
 
     /** @var (Closure(array<string, mixed>): bool)|null */
     private ?Closure $passAll = null;
+
+    /** Is the plan kept for the next call? */
+    private bool $kept = false;
 
     /**
      * The rules Laravel validates an item against, per dispatch value, see
@@ -82,7 +87,12 @@ final class ItemRulePlan
             self::$plans = [];
         }
 
-        return self::$plans[$key] ??= self::build($compiler, $itemRules, $conditionalFields, $itemMessages, $isScalar);
+        if (! isset(self::$plans[$key])) {
+            self::$plans[$key] = self::build($compiler, $itemRules, $conditionalFields, $itemMessages, $isScalar);
+            self::$plans[$key]->kept = true;
+        }
+
+        return self::$plans[$key];
     }
 
     /**
@@ -129,9 +139,10 @@ final class ItemRulePlan
     }
 
     /**
-     * One check for the question whether an item passes all the checks. A
-     * field's check that only reads the field's value runs without the
-     * closure around it, which saves a call per field and item.
+     * One check for the question whether an item passes all the checks. In
+     * a kept plan, a field's check that only reads the field's value runs
+     * without the closure around it, which saves a call per field and item.
+     * A plan for one call does not repay the extra arrays and closures.
      *
      * @param  array<string, mixed>  $rules
      * @param  array<array-key, Closure(array<string, mixed>): bool>  $checks
@@ -139,13 +150,15 @@ final class ItemRulePlan
      */
     private function passAllOf(array $rules, array $checks): Closure
     {
+        if (! $this->kept) {
+            return $this->allPass([], $checks);
+        }
+
         $valueChecks = [];
         $others = [];
 
         foreach ($checks as $field => $check) {
-            $rule = is_string($field) && $field !== '*' && ! str_contains($field, '.') ? $rules[$field] ?? null : null;
-            // A date rule compiles anew on each call, so it keeps its own closure.
-            $valueCheck = is_string($rule) && ! self::readsTheClock($rule) ? FastCheckCompiler::compile($rule) : null;
+            $valueCheck = $this->valueCheck($rules, $field);
 
             if ($valueCheck instanceof Closure) {
                 $valueChecks[$field] = $valueCheck;
@@ -154,14 +167,39 @@ final class ItemRulePlan
             }
         }
 
-        return static function (array $data) use ($valueChecks, $others): bool {
+        return $this->allPass($valueChecks, $others);
+    }
+
+    /**
+     * The check of the field's value alone, or null when the field's check
+     * reads more. A date rule compiles anew on each call, so it keeps its
+     * own closure.
+     *
+     * @param  array<string, mixed>  $rules
+     * @return (Closure(mixed): bool)|null
+     */
+    private function valueCheck(array $rules, int|string $field): ?Closure
+    {
+        $rule = is_string($field) && $field !== '*' && ! str_contains($field, '.') ? $rules[$field] ?? null : null;
+
+        return is_string($rule) && ! self::readsTheClock($rule) ? FastCheckCompiler::compile($rule) : null;
+    }
+
+    /**
+     * @param  array<array-key, Closure(mixed): bool>  $valueChecks  per field
+     * @param  array<array-key, Closure(array<string, mixed>): bool>  $checks
+     * @return Closure(array<string, mixed>): bool
+     */
+    private function allPass(array $valueChecks, array $checks): Closure
+    {
+        return static function (array $data) use ($valueChecks, $checks): bool {
             foreach ($valueChecks as $field => $valueCheck) {
                 if (! $valueCheck($data[$field] ?? null)) {
                     return false;
                 }
             }
 
-            foreach ($others as $check) {
+            foreach ($checks as $check) {
                 if (! $check($data)) {
                     return false;
                 }
@@ -227,11 +265,23 @@ final class ItemRulePlan
         return str_contains($text, 'after') || str_contains($text, 'before') || str_contains($text, 'date_equals');
     }
 
-    /** @param  array<array-key, mixed>  $rule */
+    /**
+     * Does the rule hold only values that serialize() writes in full? That
+     * is a scalar, or Laravel's own `in` or `not_in` rule: its values decide
+     * all it does.
+     *
+     * @param  array<array-key, mixed>  $rule
+     */
     private static function holdsScalarsOnly(array $rule): bool
     {
         foreach ($rule as $part) {
-            if (is_array($part) ? ! self::holdsScalarsOnly($part) : ! is_scalar($part) && $part !== null) {
+            $plain = match (true) {
+                is_array($part) => self::holdsScalarsOnly($part),
+                is_object($part) => $part::class === In::class || $part::class === NotIn::class,
+                default => true,
+            };
+
+            if (! $plain) {
                 return false;
             }
         }

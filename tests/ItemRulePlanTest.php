@@ -1,5 +1,7 @@
 <?php declare(strict_types=1);
 
+use Illuminate\Validation\Rule;
+use Illuminate\Validation\Rules\In;
 use SanderMuller\FluentValidation\FluentRule;
 use SanderMuller\FluentValidation\Internal\ItemRuleCompiler;
 use SanderMuller\FluentValidation\Internal\ItemRulePlan;
@@ -41,6 +43,19 @@ it('makes a new plan for rules that hold an object', function (): void {
     $rules = ['name' => ['required', FluentRule::string()]];
 
     expect(itemRulePlan($rules))->not->toBe(itemRulePlan($rules));
+});
+
+it("reuses the plan for rules with Laravel's in and not_in rules", function (): void {
+    $rules = static fn (array $values): array => ['type' => ['required', Rule::in($values)], 'kind' => ['nullable', Rule::notIn(['x'])]];
+
+    expect(itemRulePlan($rules(['a', 'b'])))->toBe(itemRulePlan($rules(['a', 'b'])))
+        ->and(itemRulePlan($rules(['a', 'c'])))->not->toBe(itemRulePlan($rules(['a', 'b'])));
+});
+
+it('makes a new plan for a subclass of the in rule', function (): void {
+    $rules = static fn (): array => ['type' => ['required', new class (['a']) extends In {}]];
+
+    expect(itemRulePlan($rules()))->not->toBe(itemRulePlan($rules()));
 });
 
 it('drops the plans after the cap and builds them again', function (): void {
