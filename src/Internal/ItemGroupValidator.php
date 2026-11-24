@@ -2,8 +2,10 @@
 
 namespace SanderMuller\FluentValidation\Internal;
 
+use Closure;
 use Illuminate\Support\Arr;
 use Illuminate\Validation\Validator as BaseValidator;
+use SanderMuller\FluentValidation\FastCheckCompiler;
 
 /**
  * Validates the items of a wildcard group with {@see ItemValidator}. An exclude
@@ -36,6 +38,11 @@ final readonly class ItemGroupValidator
     public function validate(array $items, array $itemRules, array $itemMessages, array $itemAttributes, string $parent, bool $isScalar, array &$excludedFields = []): array
     {
         $conditionalFields = $this->compiler->analyzeConditionals($itemRules);
+
+        if ($isScalar && $conditionalFields === [] && $this->scalarItemsPass($items, $itemRules)) {
+            return [];
+        }
+
         $nestedParents = $this->nestedConditionParents($conditionalFields);
         $itemValidator = new ItemValidator($this->compiler, $this->errors, $this->stopAt);
 
@@ -65,6 +72,31 @@ final readonly class ItemGroupValidator
         }
 
         return $errors;
+    }
+
+    /**
+     * Does each item pass a scalar rule that compiles to one value check?
+     * Such a rule reads no other field, so Laravel has nothing left to check.
+     *
+     * @param  array<int|string, mixed>  $items
+     * @param  array<string, mixed>  $itemRules
+     */
+    private function scalarItemsPass(array $items, array $itemRules): bool
+    {
+        $rule = count($itemRules) === 1 ? $itemRules['_v'] ?? null : null;
+        $check = is_string($rule) ? FastCheckCompiler::compile($rule) : null;
+
+        if (! $check instanceof Closure) {
+            return false;
+        }
+
+        foreach ($items as $item) {
+            if (! $check($item)) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     /**
