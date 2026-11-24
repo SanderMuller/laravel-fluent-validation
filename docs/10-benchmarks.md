@@ -11,7 +11,7 @@ Measured numbers for the optimizations described in [Performance](09-performance
 | [Article submission](#article-submission), 50 items, custom Rule objects    | Wildcard, fast-check (custom objects)  | ~5ms           | **~0.2ms**  | ~29x    |
 | [Login form](#login-form), 3 fields, no wildcards                           | Fast-check (flat)                      | ~0.1ms         | **~0.01ms** | ~11x    |
 
-All numbers are from `php benchmark.php` (macOS, PHP 8.5, OPcache), which measures `RuleSet::validate()`; CI runs produce the same scenarios on Ubuntu. A form request with `HasFluentRules` gains less on the same scenarios, measured with a new request for each call: about 37x for the product import, 24x for the nested order lines, 15x for the event scheduling, 9x for the conditional import and 4x for the article submission.
+All numbers are from `php benchmark.php` (macOS, PHP 8.5, OPcache), which measures `RuleSet::validate()`; CI runs produce the same scenarios on Ubuntu. A form request with `HasFluentRules` gains less on the same scenarios, measured with a new request for each call: about 36x for the product import, 23x for the nested order lines, 15x for the event scheduling, 13x for the conditional import and 4x for the article submission.
 
 ## Instruction counts
 
