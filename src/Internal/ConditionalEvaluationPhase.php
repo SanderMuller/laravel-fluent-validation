@@ -3,6 +3,7 @@
 namespace SanderMuller\FluentValidation\Internal;
 
 use Closure;
+use Illuminate\Support\Arr;
 use Illuminate\Validation\Validator;
 
 /**
@@ -225,6 +226,38 @@ final class ConditionalEvaluationPhase
         }
 
         return implode('.', $fieldSegments);
+    }
+
+    /**
+     * What a `required_if` rule of the attribute becomes, as Laravel decides
+     * it: `required` when active, an empty string when not, or null when the
+     * rule stays with Laravel.
+     *
+     * @param  array<array-key, mixed>  $parameters
+     * @param  array<array-key, mixed>  $data
+     * @param  array<array-key, mixed>  $rules  the rules Laravel reads for a `boolean` dependent
+     */
+    public static function requiredIfRule(string $attribute, array $parameters, array $data, array $rules): ?string
+    {
+        $parameters = array_values($parameters);
+        $values = array_slice($parameters, 1);
+        $field = $parameters[0] ?? null;
+
+        if (! is_string($field) || str_contains($field, '\\') || $values === [] || array_filter($values, is_string(...)) !== $values) {
+            return null;
+        }
+
+        $field = self::resolveWildcard($attribute, $field);
+
+        if (str_contains($field, '*') || ConditionalValueMatcher::hasBooleanRule($field, [$field => $rules[$field] ?? null])) {
+            return null;
+        }
+
+        if (! Arr::has($data, $field)) {
+            return '';
+        }
+
+        return ConditionalValueMatcher::matchesValue(Arr::get($data, $field), $values) ? 'required' : '';
     }
 
     private function withEscapedDots(string $attribute): string

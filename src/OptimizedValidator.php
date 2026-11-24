@@ -272,7 +272,7 @@ class OptimizedValidator extends MemoizingValidator
 
             // Not excluded — try fast-checking the remaining non-conditional
             // rules (e.g., the "string" part of ["exclude_unless:...", "string"]).
-            if ($this->tryFastCheckRemaining($attribute, $rules)) {
+            if ($this->tryFastCheckRemaining($attribute, $rules, $originalRules)) {
                 $removedRules[$attribute] = $rules;
                 unset($this->rules[$attribute]);
             }
@@ -314,10 +314,11 @@ class OptimizedValidator extends MemoizingValidator
      * compiled and the value passed — caller may then drop the attribute.
      *
      * @param  list<mixed>  $rules
+     * @param  array<array-key, mixed>  $originalRules
      */
-    private function tryFastCheckRemaining(string $attribute, array $rules): bool
+    private function tryFastCheckRemaining(string $attribute, array $rules, array $originalRules): bool
     {
-        $remainingRule = isset($this->referencedAttributes[$attribute]) ? null : $this->extractNonConditionalRule($rules);
+        $remainingRule = isset($this->referencedAttributes[$attribute]) ? null : $this->extractNonConditionalRule($attribute, $rules, $originalRules);
 
         if ($remainingRule === null) {
             return false;
@@ -356,34 +357,59 @@ class OptimizedValidator extends MemoizingValidator
      * and join them into a pipe-delimited string for fast-check compilation.
      *
      * @param  list<mixed>  $rules
+     * @param  array<array-key, mixed>  $originalRules
      */
-    private function extractNonConditionalRule(array $rules): ?string
+    private function extractNonConditionalRule(string $attribute, array $rules, array $originalRules): ?string
     {
         $stringParts = [];
 
         foreach ($rules as $rule) {
-            if (is_string($rule)) {
-                $stringParts[] = $rule;
-            } elseif (is_array($rule) && isset($rule[0]) && is_string($rule[0])) {
-                // Exclude tuple — skip it (already evaluated). A required_if or
-                // required_unless tuple is not, so it falls through to Laravel.
-                if (in_array($rule[0], ['exclude_unless', 'exclude_if'], true)) {
-                    continue;
-                }
+            $part = $this->fastCheckPart($attribute, $rule, $originalRules);
 
-                // Other array tuple — can't fast-check.
+            if ($part === null) {
                 return null;
-            } elseif ($rule instanceof Stringable) {
-                // Stringable objects like Rule::in(), Rule::notIn() — stringify
-                // them so FastCheckCompiler can handle them.
-                $stringParts[] = (string) $rule;
-            } else {
-                // Non-stringable object (Closure, custom ValidationRule) — bail.
-                return null;
+            }
+
+            if ($part !== '') {
+                $stringParts[] = $part;
             }
         }
 
         return $stringParts !== [] ? implode('|', $stringParts) : null;
+    }
+
+    /**
+     * One rule as a part of the fast check: the rule string, an empty string
+     * for a rule the check leaves out, or null for a rule it cannot run.
+     *
+     * @param  array<array-key, mixed>  $originalRules
+     */
+    private function fastCheckPart(string $attribute, mixed $rule, array $originalRules): ?string
+    {
+        if (is_string($rule) && str_starts_with($rule, 'required_if:')) {
+            $rule = ['required_if', ...str_getcsv(substr($rule, 12), ',', '"', '\\')];
+        }
+
+        if (is_string($rule)) {
+            return $rule;
+        }
+
+        // Stringable objects like Rule::in(), Rule::notIn() — stringify
+        // them so FastCheckCompiler can handle them.
+        if ($rule instanceof Stringable) {
+            return (string) $rule;
+        }
+
+        if (! is_array($rule) || ! isset($rule[0]) || ! is_string($rule[0])) {
+            return null;
+        }
+
+        // Exclude tuple — skip it (already evaluated).
+        if (in_array($rule[0], ['exclude_unless', 'exclude_if'], true)) {
+            return '';
+        }
+
+        return $rule[0] === 'required_if' ? ConditionalEvaluationPhase::requiredIfRule($attribute, array_slice($rule, 1), $this->data, $originalRules) : null;
     }
 
     /**
