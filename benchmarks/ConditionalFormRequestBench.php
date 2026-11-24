@@ -8,6 +8,7 @@ use SanderMuller\FluentValidation\Benchmarks\Support\ConditionalImportRequest;
 use SanderMuller\FluentValidation\Benchmarks\Support\Scenarios;
 use Tally\Attribute\Before;
 use Tally\Attribute\DataProvider;
+use Tally\Attribute\ExpectedFor;
 use Tally\Attribute\Linear;
 use Tally\Attribute\Warmup;
 
@@ -52,6 +53,7 @@ final class ConditionalFormRequestBench
     }
 
     #[DataProvider('size')]
+    #[ExpectedFor('items-100', instructions: '159.1M', cycles: '183.6M', memory: '1.432MiB')]
     public function benchValidate(int $count): void
     {
         (clone $this->request)->validateResolved();
