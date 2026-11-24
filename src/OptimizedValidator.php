@@ -127,6 +127,25 @@ class OptimizedValidator extends MemoizingValidator
     }
 
     /**
+     * Set rules that are already exploded against this validator's data, as
+     * setRules() would set them.
+     *
+     * @internal
+     *
+     * @param  array<array-key, mixed>  $initialRules
+     * @param  array<array-key, mixed>  $rules
+     * @param  array<array-key, mixed>  $implicitAttributes
+     */
+    public function setExplodedRules(array $initialRules, array $rules, array $implicitAttributes): static
+    {
+        $this->initialRules = $initialRules;
+        $this->rules = $rules;
+        $this->implicitAttributes = $implicitAttributes;
+
+        return $this;
+    }
+
+    /**
      * Pre-validate fast-checkable attributes and pre-evaluate conditional
      * rules (exclude_unless/exclude_if) before the main validation loop,
      * removing passing/excluded attributes so Laravel never iterates them.

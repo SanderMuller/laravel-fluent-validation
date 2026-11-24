@@ -40,8 +40,9 @@ trait PreparesOptimizedRules
      */
     private function preExcludeRules(array $rules, array $data): array
     {
-        // Expanded attributes of one pattern share a rule string; extract its conditions once.
-        $conditionsByRule = [];
+        // The expanded attributes of one pattern come in a row with the same rules: extract their conditions once.
+        $previousRuleSet = null;
+        $conditions = [];
         $excluded = [];
 
         foreach ($rules as $attribute => $ruleSet) {
@@ -50,9 +51,10 @@ trait PreparesOptimizedRules
             // plain string rules compile to the string form, which an
             // array-tuple-only check would silently skip (leaving the rule set
             // fully expanded and the validator quadratic).
-            $conditions = is_string($ruleSet)
-                ? $conditionsByRule[$ruleSet] ??= ExcludeConditionExtractor::extractLeading($ruleSet)
-                : ExcludeConditionExtractor::extractLeading($ruleSet);
+            if ($ruleSet !== $previousRuleSet) {
+                $previousRuleSet = $ruleSet;
+                $conditions = ExcludeConditionExtractor::extractLeading($ruleSet);
+            }
 
             if ($conditions !== [] && $this->preExcludeConditionsMatch((string) $attribute, $conditions, $data, $rules)) {
                 $excluded[$attribute] = true;

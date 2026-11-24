@@ -10,6 +10,7 @@ use ReflectionNamedType;
 use SanderMuller\FluentValidation\Internal\ImplicitAttributes;
 use SanderMuller\FluentValidation\Internal\PlainRules;
 use SanderMuller\FluentValidation\Internal\PreparesOptimizedRules;
+use SanderMuller\FluentValidation\Internal\UnconditionalRules;
 use SanderMuller\FluentValidation\Internal\ValidatorStateCopier;
 
 /**
@@ -276,18 +277,11 @@ trait HasFluentRules
     ): OptimizedValidator {
         $plainRules = PlainRules::of($rules);
 
-        // Create a standard Validator through the factory to get full setup,
-        // then transfer its configuration to an OptimizedValidator. Plain
-        // string rules skip the factory's parse: it then only supplies
-        // configuration, and gets no data or rules.
+        // The factory only supplies configuration: it gets no data or rules,
+        // so it does not parse them. The validator below parses them once.
         /** @var Validator $base */
-        $base = $plainRules === null
-            ? $factory->make($data, $rules, $messages, $attributes)
-            : $factory->make([], [], $messages, $attributes);
+        $base = $factory->make([], [], $messages, $attributes);
 
-        // Create with EMPTY rules to skip re-parsing the 3500+ expanded rules.
-        // The parsed rules AND factory-applied configuration are copied from
-        // the base validator below.
         $optimized = new OptimizedValidator(
             $base->getTranslator(),
             $data,
@@ -298,6 +292,12 @@ trait HasFluentRules
 
         ValidatorStateCopier::copy($base, $optimized);
 
-        return $plainRules === null ? $optimized : $optimized->setPlainRules($plainRules);
+        if ($plainRules !== null) {
+            return $optimized->setPlainRules($plainRules);
+        }
+
+        $exploded = UnconditionalRules::explode($optimized->getData(), $rules);
+
+        return $exploded === null ? $optimized->setRules($rules) : $optimized->setExplodedRules($rules, ...$exploded);
     }
 }

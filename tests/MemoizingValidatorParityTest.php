@@ -1,11 +1,13 @@
 <?php declare(strict_types=1);
 
+use Illuminate\Contracts\Support\Arrayable;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Fluent;
 use Illuminate\Translation\ArrayLoader;
 use Illuminate\Translation\Translator;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Validator as BaseValidator;
+use SanderMuller\FluentValidation\Internal\UnconditionalRules;
 use SanderMuller\FluentValidation\MemoizingValidator;
 use SanderMuller\FluentValidation\OptimizedValidator;
 
@@ -366,3 +368,24 @@ it('matches native for an escaped-dot attribute whose nested value changes type'
 
     expect($results[MemoizingValidator::class])->toBe($results[BaseValidator::class]);
 });
+
+it('explodes unconditional rules as native does', function (array $data, array $rules, bool $expectsLaravel = false): void {
+    $translator = new Translator(new ArrayLoader(), 'en');
+    $native = new BaseValidator($translator, $data, $rules);
+    $exploded = UnconditionalRules::explode($native->getData(), $rules);
+    $implicitAttributes = new ReflectionProperty(BaseValidator::class, 'implicitAttributes');
+
+    expect($exploded)->toBe($expectsLaravel ? null : ['rules' => $native->getRules(), 'implicitAttributes' => $implicitAttributes->getValue($native)]);
+})->with([
+    'array rules with keys' => [['name' => 'x'], ['name' => [2 => 'required', 'b' => 'string'], 'tags' => 'array|max:3']],
+    'nested wildcards' => [['items' => [['tags' => ['a', 'b']], ['tags' => []]]], ['items.*.tags.*' => ['string', ['in', 'a', 'b']], 'items.*' => 'array']],
+    'an escaped dot' => [['a.b' => 'x', 'a' => ['b' => 'y']], ['a\.b' => ['string'], 'a.b' => 'string'], true],
+    'a conditional rule' => [['name' => 'x'], ['code' => Rule::when(false, ['required'])], true],
+    'a conditional rule in a list' => [['name' => 'x'], ['name' => ['nullable', Rule::when(true, ['string'], ['integer'])]], true],
+    'an Arrayable rule' => [['name' => 'x'], ['name' => new class implements Arrayable {
+        public function toArray(): array
+        {
+            return ['required', 'string'];
+        }
+    }], true],
+]);
