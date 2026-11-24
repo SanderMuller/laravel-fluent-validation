@@ -47,6 +47,8 @@ final class ConditionalEvaluationPhase
     public function indexConditionalAttrs(array $rules): array
     {
         $map = [];
+        $previousRules = null;
+        $tuples = [];
 
         foreach ($rules as $attribute => $attributeRules) {
             if (! is_string($attribute)) {
@@ -54,8 +56,12 @@ final class ConditionalEvaluationPhase
             }
 
             // Recognise tuple AND string/pipe-joined exclude_* forms (the fluent
-            // `->excludeUnless()` API compiles to the string form).
-            $tuples = ExcludeConditionExtractor::extract($attributeRules);
+            // `->excludeUnless()` API compiles to the string form). The
+            // attributes of one pattern come in a row with the same rules.
+            if ($attributeRules !== $previousRules) {
+                $previousRules = $attributeRules;
+                $tuples = ExcludeConditionExtractor::extract($attributeRules);
+            }
 
             if ($tuples !== []) {
                 $map[$attribute] = $tuples;

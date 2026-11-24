@@ -3,13 +3,13 @@
 namespace SanderMuller\FluentValidation;
 
 use Closure;
-use Illuminate\Support\Arr;
 use Illuminate\Support\MessageBag;
 use Illuminate\Validation\Rules\In;
 use Illuminate\Validation\Rules\NotIn;
 use SanderMuller\FluentValidation\Internal\ConditionalEvaluationPhase;
 use SanderMuller\FluentValidation\Internal\ConditionalVerdict;
 use SanderMuller\FluentValidation\Internal\ExcludeConditionExtractor;
+use SanderMuller\FluentValidation\Internal\ExcludedData;
 use SanderMuller\FluentValidation\Internal\ValidatedRuleKeys;
 use SanderMuller\FluentValidation\Internal\WildcardFastChecks;
 use Stringable;
@@ -225,9 +225,7 @@ class OptimizedValidator extends MemoizingValidator
      */
     private function removeExcludedAttributes(): void
     {
-        foreach ($this->excludedAttributes as $attribute) {
-            Arr::forget($this->data, $attribute);
-        }
+        ExcludedData::forget($this->data, $this->excludedAttributes);
     }
 
     /**
@@ -246,6 +244,7 @@ class OptimizedValidator extends MemoizingValidator
         // protected — only invokable from inside this class scope.
         $getValue = fn (string $field): mixed => $this->getValue($field);
         $excluded = [];
+        $sharedCheck = [];
 
         foreach ($phase->indexConditionalAttrs($this->rules) as $attribute => $tuples) {
             /** @var list<mixed> $rules */
@@ -272,7 +271,7 @@ class OptimizedValidator extends MemoizingValidator
 
             // Not excluded — try fast-checking the remaining non-conditional
             // rules (e.g., the "string" part of ["exclude_unless:...", "string"]).
-            if ($this->tryFastCheckRemaining($attribute, $rules, $originalRules)) {
+            if ($this->tryFastCheckRemaining($attribute, $rules, $originalRules, $sharedCheck)) {
                 $removedRules[$attribute] = $rules;
                 unset($this->rules[$attribute]);
             }
@@ -315,22 +314,24 @@ class OptimizedValidator extends MemoizingValidator
      *
      * @param  list<mixed>  $rules
      * @param  array<array-key, mixed>  $originalRules
+     * @param  array{}|array{0: list<mixed>, 1: (Closure(mixed): bool)|null}  $sharedCheck  the check of the previous rules, when it holds for every attribute with those rules
      */
-    private function tryFastCheckRemaining(string $attribute, array $rules, array $originalRules): bool
+    private function tryFastCheckRemaining(string $attribute, array $rules, array $originalRules, array &$sharedCheck): bool
     {
-        $remainingRule = isset($this->referencedAttributes[$attribute]) ? null : $this->extractNonConditionalRule($attribute, $rules, $originalRules);
-
-        if ($remainingRule === null) {
+        if (isset($this->referencedAttributes[$attribute])) {
             return false;
         }
 
-        $check = FastCheckCompiler::compile($remainingRule);
-
-        if (! $check instanceof Closure) {
-            return false;
+        if ($sharedCheck !== [] && $sharedCheck[0] === $rules) {
+            $check = $sharedCheck[1];
+        } else {
+            $perAttribute = false;
+            $remainingRule = $this->extractNonConditionalRule($attribute, $rules, $originalRules, $perAttribute);
+            $check = $remainingRule === null ? null : FastCheckCompiler::compile($remainingRule);
+            $sharedCheck = $perAttribute ? [] : [$rules, $check];
         }
 
-        return $check($this->getValue($attribute));
+        return $check instanceof Closure && $check($this->getValue($attribute));
     }
 
     /**
@@ -358,13 +359,14 @@ class OptimizedValidator extends MemoizingValidator
      *
      * @param  list<mixed>  $rules
      * @param  array<array-key, mixed>  $originalRules
+     * @param  bool  $perAttribute  set when a part depends on the attribute
      */
-    private function extractNonConditionalRule(string $attribute, array $rules, array $originalRules): ?string
+    private function extractNonConditionalRule(string $attribute, array $rules, array $originalRules, bool &$perAttribute): ?string
     {
         $stringParts = [];
 
         foreach ($rules as $rule) {
-            $part = $this->fastCheckPart($attribute, $rule, $originalRules);
+            $part = $this->fastCheckPart($attribute, $rule, $originalRules, $perAttribute);
 
             if ($part === null) {
                 return null;
@@ -384,7 +386,7 @@ class OptimizedValidator extends MemoizingValidator
      *
      * @param  array<array-key, mixed>  $originalRules
      */
-    private function fastCheckPart(string $attribute, mixed $rule, array $originalRules): ?string
+    private function fastCheckPart(string $attribute, mixed $rule, array $originalRules, bool &$perAttribute): ?string
     {
         $name = is_string($rule) ? strstr($rule, ':', true) : false;
 
@@ -410,6 +412,8 @@ class OptimizedValidator extends MemoizingValidator
         if (in_array($rule[0], ['exclude_unless', 'exclude_if'], true)) {
             return '';
         }
+
+        $perAttribute = true;
 
         return ConditionalEvaluationPhase::presenceRule($rule[0], $attribute, array_slice($rule, 1), $this->data, $originalRules);
     }

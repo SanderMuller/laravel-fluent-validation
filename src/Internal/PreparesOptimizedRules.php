@@ -44,6 +44,7 @@ trait PreparesOptimizedRules
         $previousRuleSet = null;
         $conditions = [];
         $excluded = [];
+        $matches = [];
 
         foreach ($rules as $attribute => $ruleSet) {
             // Recognise both the array-tuple and the string/pipe-joined forms of
@@ -56,7 +57,7 @@ trait PreparesOptimizedRules
                 $conditions = ExcludeConditionExtractor::extractLeading($ruleSet);
             }
 
-            if ($conditions !== [] && $this->preExcludeConditionsMatch((string) $attribute, $conditions, $data, $rules)) {
+            if ($conditions !== [] && $this->preExcludeConditionsMatch((string) $attribute, $conditions, $data, $rules, $matches)) {
                 $excluded[$attribute] = true;
             }
         }
@@ -77,8 +78,9 @@ trait PreparesOptimizedRules
      * @param  list<array{action: string, field: string, values: list<string>}>  $conditions
      * @param  array<string, mixed>  $data
      * @param  array<string, mixed>  $rules
+     * @param  array<string, bool>  $matches  the match of each field and value list, shared between the attributes
      */
-    private function preExcludeConditionsMatch(string $attribute, array $conditions, array $data, array $rules): bool
+    private function preExcludeConditionsMatch(string $attribute, array $conditions, array $data, array $rules, array &$matches): bool
     {
         foreach ($conditions as $condition) {
             $conditionField = ConditionalEvaluationPhase::resolveWildcard($attribute, $condition['field']);
@@ -97,7 +99,7 @@ trait PreparesOptimizedRules
 
             // Pass the full rule set so a `boolean`-declared dependent sent as
             // raw '0'/'1' coerces like Laravel.
-            $match = ConditionalValueMatcher::matches($conditionField, $condition['values'], $data, $rules);
+            $match = $matches[$conditionField . "\0" . implode("\0", $condition['values'])] ??= ConditionalValueMatcher::matches($conditionField, $condition['values'], $data, $rules);
 
             if ($condition['action'] === 'exclude_unless' ? ! $match : $match) {
                 return true;

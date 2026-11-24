@@ -379,6 +379,16 @@ it('explodes unconditional rules as native does', function (array $data, array $
 })->with([
     'array rules with keys' => [['name' => 'x'], ['name' => [2 => 'required', 'b' => 'string'], 'tags' => 'array|max:3']],
     'nested wildcards' => [['items' => [['tags' => ['a', 'b']], ['tags' => []]]], ['items.*.tags.*' => ['string', ['in', 'a', 'b']], 'items.*' => 'array']],
+    'repeated rules with tuples and in rules' => [['items' => [['t' => 'a'], ['t' => 'b']]], [
+        'items.0.t' => ['bail', ['exclude_unless', 'items.0.k', 'a'], 'string', Rule::in(['a', 'b']), Rule::notIn(['c'])],
+        'items.1.t' => ['bail', ['exclude_unless', 'items.1.k', 'a'], 'string', Rule::in(['a', 'b']), Rule::notIn(['c'])],
+        'items.2.t' => ['bail', ['exclude_unless', 'items.2.k', 'a'], 'string', Rule::in(['a', 'b']), Rule::notIn(['c'])],
+        'items.0.u' => 'nullable|string',
+        'items.1.u' => 'nullable|string',
+        'items.0.v' => [],
+        'items.1.v' => ['required|string'],
+    ]],
+    'a rule object next to plain rules' => [['name' => 'x'], ['name' => 'string', 'code' => ['required', Rule::unique('users')]]],
     'an escaped dot' => [['a.b' => 'x', 'a' => ['b' => 'y']], ['a\.b' => ['string'], 'a.b' => 'string'], true],
     'a conditional rule' => [['name' => 'x'], ['code' => Rule::when(false, ['required'])], true],
     'a conditional rule in a list' => [['name' => 'x'], ['name' => ['nullable', Rule::when(true, ['string'], ['integer'])]], true],
