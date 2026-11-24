@@ -69,7 +69,7 @@ parameters:
 		# The nested fast-check → dispatch-cache → validator-cache loop carries
 		# the score; splitting those caches costs measurable performance.
 		-
-			rawMessage: 'Cognitive complexity for "SanderMuller\FluentValidation\Internal\ItemValidator::validate()" is 55, keep it under 20'
+			rawMessage: 'Cognitive complexity for "SanderMuller\FluentValidation\Internal\ItemValidator::validate()" is 52, keep it under 20'
 			identifier: complexity.functionLike
 			count: 1
 			path: src/Internal/ItemValidator.php

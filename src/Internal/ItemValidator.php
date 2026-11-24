@@ -41,28 +41,14 @@ final readonly class ItemValidator
      */
     public function validate(array $items, array $itemRules, array $itemMessages, array $itemAttributes, string $parent, bool $isScalar, array $conditionalFields, array &$excludedFields = []): array
     {
-        $itemRules = PlainRuleJoiner::joinAll($itemRules, $conditionalFields);
-        $siblingFields = PresenceConditionalReducer::fields($itemRules) + ValueConditionalReducer::fields($itemRules);
-        $hasSiblingDependentConditionals = $siblingFields !== [];
-
-        $dispatchField = DispatchField::find($this->compiler, $conditionalFields, $itemRules);
+        $plan = ItemRulePlan::for($this->compiler, $itemRules, $conditionalFields, $itemMessages, $isScalar);
+        $itemRules = $plan->itemRules;
+        $siblingFields = $plan->siblingFields;
         $reducedRules = null;
-        /** @var array<string, array<string, mixed>> $rulesByDispatch */
-        $rulesByDispatch = [];
-        /** @var array<string, array{0: array<string, Closure(array<string, mixed>): bool>, 1: array<string, mixed>}> $fastChecksByDispatch */
-        $fastChecksByDispatch = [];
-        /** @var array<string, array{0: array<string, Closure(array<string, mixed>): bool>, 1: array<string, mixed>}> $fastChecksByReduced */
-        $fastChecksByReduced = [];
-        /** @var array<string, array<string, mixed>> $laravelRulesByDispatch */
-        $laravelRulesByDispatch = [];
-        /** @var array<string, ExcludedFields> $excludedByDispatch */
-        $excludedByDispatch = [];
-        /** @var array<string, ExcludedFields> $excludedByReduced */
-        $excludedByReduced = [];
-
-        [$fastChecks, $originalSlowRules] = $this->compiler->buildFastChecks($itemRules);
-        $passChecks = $this->compiler->passChecks($itemRules, $fastChecks);
-        $laravelFields = $this->laravelFieldFilter($isScalar, $itemRules, $fastChecks, $passChecks);
+        /** @var array<string, array{0: array<string, mixed>, 1: array<string, Closure(array<string, mixed>): bool>, 2: array<string, mixed>, 3: ExcludedFields, 4: Closure(array<string, mixed>): bool}> $byReduced */
+        $byReduced = [];
+        // A local copy saves a method call per item.
+        $byDispatch = [];
         /** @var array<string, BaseValidator> $validatorCache */
         $validatorCache = [];
         /** @var array<string, list<string>> $errors */
@@ -74,8 +60,8 @@ final readonly class ItemValidator
         // conditionals can drop or rewrite rules per item, so the batched set
         // would no longer match the per-item rule set — disable batching.
         $batchVerifier = null;
-        if ($conditionalFields === [] && ! $hasSiblingDependentConditionals && BatchDatabaseChecker::isAvailable()) {
-            $batchVerifier = $this->compiler->buildBatchVerifier($originalSlowRules, $items, $isScalar);
+        if ($conditionalFields === [] && $siblingFields === [] && BatchDatabaseChecker::isAvailable()) {
+            $batchVerifier = $this->compiler->buildBatchVerifier($plan->slowRules, $items, $isScalar);
         }
 
         $names = new ItemAttributeNames($isScalar, array_map(strval(...), array_keys($itemRules)), $parent, $itemMessages, $itemAttributes);
@@ -84,40 +70,31 @@ final readonly class ItemValidator
             /** @var array<string, mixed> $itemData */
             $itemData = $isScalar ? ['_v' => $item] : (is_array($item) ? $item : []);
 
-            $dispatchValue = $dispatchField !== null ? DispatchField::key($itemData, $dispatchField) : null;
+            $dispatchValue = $plan->dispatchField !== null ? DispatchField::key($itemData, $plan->dispatchField) : null;
 
             if ($dispatchValue !== null) {
-                if (! isset($rulesByDispatch[$dispatchValue])) {
-                    $rulesByDispatch[$dispatchValue] = $this->compiler->reduceRulesForItem($itemRules, $itemData, $conditionalFields, $itemMessages, $siblingFields);
-                    $fastChecksByDispatch[$dispatchValue] = $this->compiler->buildFastChecks($rulesByDispatch[$dispatchValue]);
-                }
-
-                $effectiveRules = $rulesByDispatch[$dispatchValue];
-                [$dispatchFastChecks, $dispatchSlowRules] = $fastChecksByDispatch[$dispatchValue];
-                $excludedFields[$index] = $excludedByDispatch[$dispatchValue] ??= WildcardValidatedData::excludedTree(array_diff_key($conditionalFields, $effectiveRules));
-            } elseif ($conditionalFields !== [] || $hasSiblingDependentConditionals) {
+                [$effectiveRules, $dispatchFastChecks, $dispatchSlowRules, $excludedFields[$index], $passAll] = $byDispatch[$dispatchValue] ??= $plan->forDispatch($dispatchValue, $itemData);
+            } elseif ($conditionalFields !== [] || $siblingFields !== []) {
                 $reducedRules ??= ReducedRulesCache::for($this->compiler, $itemRules, $conditionalFields, $itemMessages, $siblingFields);
-                [$effectiveRules, $reducedKey] = $reducedRules->reduce($itemData);
-                // Memoize compiled fast-checks per distinct reduced rule set —
-                // many items reduce identically, so reuse beats recompiling.
-                [$dispatchFastChecks, $dispatchSlowRules] = $fastChecksByReduced[$reducedKey]
-                    ??= $this->compiler->buildFastChecks($effectiveRules);
-                $excludedFields[$index] = $excludedByReduced[$reducedKey] ??= WildcardValidatedData::excludedTree(array_diff_key($conditionalFields, $effectiveRules));
+                [$reduced, $reducedKey] = $reducedRules->reduce($itemData);
+                // Many items reduce identically, so reuse beats recompiling.
+                [$effectiveRules, $dispatchFastChecks, $dispatchSlowRules, $excludedFields[$index], $passAll] = $byReduced[$reducedKey] ??= $plan->reduced($reduced);
             } else {
                 $effectiveRules = $itemRules;
-                $dispatchFastChecks = $passChecks;
-                $dispatchSlowRules = $originalSlowRules;
+                $dispatchFastChecks = $plan->passChecks;
+                $passAll = $plan->passAll();
+                $dispatchSlowRules = $plan->slowRules;
             }
 
             if ($dispatchFastChecks !== []) {
-                $fastPass = $this->errors->passesAllFastChecks($dispatchFastChecks, $itemData);
+                $fastPass = $passAll($itemData);
 
                 if ($fastPass && $dispatchSlowRules === []) {
                     continue;
                 }
 
                 if ($fastPass) {
-                    $reducedSlowRules = $this->rulesForLaravel($dispatchSlowRules, $itemRules, $itemData, $conditionalFields, $itemMessages, $siblingFields, $dispatchValue, $laravelRulesByDispatch);
+                    $reducedSlowRules = $this->rulesForLaravel($dispatchSlowRules, $itemRules, $itemData, $conditionalFields, $itemMessages, $siblingFields, $dispatchValue, $plan->laravelRulesByDispatch);
 
                     if ($reducedSlowRules === []) {
                         continue;
@@ -145,8 +122,8 @@ final readonly class ItemValidator
                 }
             }
 
-            $effectiveRules = $laravelFields($effectiveRules, $dispatchFastChecks, $dispatchSlowRules, $itemData);
-            $effectiveRules = $this->rulesForLaravel($effectiveRules, $itemRules, $itemData, $conditionalFields, $itemMessages, $siblingFields, $dispatchValue, $laravelRulesByDispatch);
+            $effectiveRules = ($plan->laravelFields)($effectiveRules, $dispatchFastChecks, $dispatchSlowRules, $itemData);
+            $effectiveRules = $this->rulesForLaravel($effectiveRules, $itemRules, $itemData, $conditionalFields, $itemMessages, $siblingFields, $dispatchValue, $plan->laravelRulesByDispatch);
             $cacheKey = $this->compiler->ruleCacheKey($effectiveRules);
 
             if (! isset($validatorCache[$cacheKey])) {
@@ -219,47 +196,6 @@ final readonly class ItemValidator
         $dependencies = array_fill_keys([...PresenceConditionalReducer::dependencies($restored), ...ValueConditionalReducer::dependencies($restored)], true);
 
         return array_intersect_key($laravelRules, $rules + $dependencies);
-    }
-
-    /**
-     * Picks the rules Laravel runs for an item that failed a fast check. A
-     * field whose fast check passed has no errors, so Laravel gets the failed
-     * fields, the slow rules, and the fields whose rules those read. When a
-     * rule can read any field, all rules go.
-     *
-     * @param  array<string, mixed>  $itemRules
-     * @param  array<array-key, Closure(array<string, mixed>): bool>  $fieldChecks
-     * @param  array<array-key, Closure(array<string, mixed>): bool>  $passChecks
-     * @return Closure(array<string, mixed>, array<array-key, Closure(array<string, mixed>): bool>, array<string, mixed>, array<string, mixed>): array<string, mixed>
-     */
-    private function laravelFieldFilter(bool $isScalar, array $itemRules, array $fieldChecks, array $passChecks): Closure
-    {
-        if ($isScalar || FieldLocalRules::canReadAnyField($itemRules)) {
-            return static fn (array $rules): array => $rules;
-        }
-
-        $fieldLocalRules = new FieldLocalRules();
-        $merged = array_diff_key($passChecks, $fieldChecks);
-        $replaced = array_diff_key($fieldChecks, $passChecks);
-
-        return static function (array $rules, array $fastChecks, array $slowRules, array $itemData) use ($fieldLocalRules, $merged, $replaced): array {
-            $pending = [...array_keys($slowRules), ...ItemErrorCollector::failedFields($fastChecks, $itemData, $merged, $replaced)];
-
-            $keep = [];
-
-            while ($pending !== []) {
-                $field = array_pop($pending);
-
-                if (isset($keep[$field]) || ! array_key_exists($field, $rules)) {
-                    continue;
-                }
-
-                $keep[$field] = true;
-                $pending = [...$pending, ...$fieldLocalRules->references($rules[$field])];
-            }
-
-            return array_intersect_key($rules, $keep);
-        };
     }
 
     /**
