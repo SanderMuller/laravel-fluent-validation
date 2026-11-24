@@ -48,13 +48,13 @@ final class ConditionalFormRequestBench
     #[Linear('count')]
     public function benchGrowth(int $count): void
     {
-        $this->request->validateResolved();
+        (clone $this->request)->validateResolved();
     }
 
     #[DataProvider('size')]
     public function benchValidate(int $count): void
     {
-        $this->request->validateResolved();
+        (clone $this->request)->validateResolved();
     }
 
     private function makeRequest(int $count): ConditionalImportRequest

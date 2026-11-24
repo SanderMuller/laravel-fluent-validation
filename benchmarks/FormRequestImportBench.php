@@ -8,7 +8,6 @@ use SanderMuller\FluentValidation\Benchmarks\Support\ProductImportRequest;
 use SanderMuller\FluentValidation\Benchmarks\Support\Scenarios;
 use Tally\Attribute\Before;
 use Tally\Attribute\DataProvider;
-use Tally\Attribute\ExpectedFor;
 use Tally\Attribute\Linear;
 use Tally\Attribute\Warmup;
 
@@ -48,14 +47,13 @@ final class FormRequestImportBench
     #[Linear('count')]
     public function benchGrowth(int $count): void
     {
-        $this->request->validateResolved();
+        (clone $this->request)->validateResolved();
     }
 
     #[DataProvider('size')]
-    #[ExpectedFor('items-500', instructions: '14.70M', cycles: '16.15M', memory: '723.3KiB')]
     public function benchValidate(int $count): void
     {
-        $this->request->validateResolved();
+        (clone $this->request)->validateResolved();
     }
 
     private function makeRequest(int $count): ProductImportRequest
