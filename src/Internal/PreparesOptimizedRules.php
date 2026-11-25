@@ -118,7 +118,7 @@ trait PreparesOptimizedRules
      *
      * @param  array<string, mixed>  $preparedRules  Rules after pre-exclusion
      * @param  list<array-key>  $ruleKeys  the keys of the rule set before wildcard expansion
-     * @return array{0: array<string, Closure(mixed): bool>, 1: array<string, string>, 2: array<string, true>, 3: array<string, array{0: Closure(mixed, array<string, mixed>): bool, 1: list<string>}>, 4: array<string, list<string>|false>} value checks, attribute patterns, referenced attributes, item checks, dependents of the referenced attributes
+     * @return array{0: array<string, Closure(mixed): bool>, 1: array<string, string>, 2: array<string, true>, 3: array<string, array{0: Closure(mixed, array<string, mixed>): bool, 1: list<string>, 2: list<string>}>, 4: array<string, list<string>|false>} value checks, attribute patterns, referenced attributes, item checks, dependents of the referenced attributes
      */
     private function buildFastCheckMaps(PreparedRules $prepared, array $preparedRules, array $ruleKeys): array
     {

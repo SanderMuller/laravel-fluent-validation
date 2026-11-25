@@ -194,3 +194,109 @@ it('finds a dotted data key under a later wildcard like native Laravel', functio
         ->toBe(validator($data, ['items.*.*.name' => 'string'])->errors()->toArray())
         ->toHaveKey('items.a.b.c.name');
 });
+
+/**
+ * @param  array<string, mixed>  $data
+ * @param  array<string, mixed>  $rules
+ * @return array<string, mixed>
+ */
+function ruleSetOutcome(array $data, array $rules): array
+{
+    $result = RuleSet::from($rules)->check($data);
+
+    return $result->fails() ? ['errors' => $result->errors()->toArray()] : ['validated' => $result->validated()];
+}
+
+/**
+ * @param  array<string, mixed>  $data
+ * @param  array<string, mixed>  $rules
+ * @return array<string, mixed>
+ */
+function nativeOutcome(array $data, array $rules): array
+{
+    $validator = validator($data, $rules);
+
+    return $validator->fails() ? ['errors' => $validator->errors()->toArray()] : ['validated' => $validator->validated()];
+}
+
+/** @return array<string, array{array<string, mixed>, array<string, mixed>}> */
+function resolvedDateCases(): array
+{
+    return [
+        // Laravel parses `x.1.0.from` and `x.now.from` as dates, not as fields.
+        'a numeric key in the prefix' => [
+            ['x' => [1 => [['from' => '2025-01-05', 'to' => '2025-01-10']]]],
+            ['x.1.*.from' => 'date', 'x.1.*.to' => 'date|after:x.1.*.from'],
+        ],
+        'the item key now' => [
+            ['x' => ['now' => ['from' => '2099-01-10', 'to' => '2099-01-05']]],
+            ['x.*.from' => 'date', 'x.*.to' => 'date|after:x.*.from'],
+        ],
+        'the item key now, before now' => [
+            ['x' => ['now' => ['from' => '2020-01-01', 'to' => '2021-01-01']]],
+            ['x.*.from' => 'date', 'x.*.to' => 'date|after:x.*.from'],
+        ],
+        'the item key today' => [
+            ['x' => ['today' => ['from' => '2099-01-10', 'to' => '2099-01-05']]],
+            ['x.*.from' => 'date', 'x.*.to' => 'date|after:x.*.from'],
+        ],
+        'the item key today in a fluent rule' => [
+            ['x' => ['today' => ['from' => '2099-01-10', 'to' => '2099-01-05']]],
+            ['x' => FluentRule::array()->each(['from' => FluentRule::date(), 'to' => FluentRule::date()->after('x.*.from')])],
+        ],
+        // Laravel reads these paths as fields.
+        'a named prefix' => [
+            ['a' => ['b' => [['from' => '2025-01-10', 'to' => '2025-01-05']]]],
+            ['a.b.*.from' => 'date', 'a.b.*.to' => 'date|after:a.b.*.from'],
+        ],
+        'the item key monday' => [
+            ['events' => ['monday' => ['from' => '2099-01-10', 'to' => '2099-01-05']]],
+            ['events.*.from' => 'date', 'events.*.to' => 'date|after:events.*.from'],
+        ],
+    ];
+}
+
+it('reads a resolved date reference as a date when Laravel does in RuleSet', function (string $case): void {
+    [$data, $rules] = resolvedDateCases()[$case];
+
+    expect(ruleSetOutcome($data, $rules))->toBe(nativeOutcome($data, $rules));
+})->with(array_keys(resolvedDateCases()));
+
+/**
+ * The keys come in as strings, as from a rule key built at run time. PHP
+ * stores a key such as '1' as an integer.
+ *
+ * @return array<string, array{array<string, mixed>, array<string, mixed>}>
+ */
+function integerKeyCases(string $one = '1', string $two = '2', string $minusOne = '-1'): array
+{
+    return [
+        'valid' => [[$one => [['n' => 5]]], [$one . '.*.n' => 'required|integer']],
+        'invalid' => [[$one => [['n' => 'x']]], [$one . '.*.n' => 'required|integer']],
+        'a negative key next to a string key' => [[$minusOne => [['n' => 'x']], 'a' => [['n' => 5]]], [$minusOne . '.*.n' => 'integer', 'a.*.n' => 'integer']],
+        'a parent rule and a nested wildcard' => [[$two => [['rows' => [['n' => 'x']]]]], [$two => 'array', $two . '.*.rows.*.n' => 'integer']],
+        'an integer key without a wildcard' => [[$one => 'x', 'items' => [['n' => 5]]], [$one => 'integer', 'items.*.n' => 'integer']],
+        'an integer key alone' => [[$one => 'x'], [$one => 'integer']],
+        'a parent that fails its own rule' => [[$two => [['n' => 'x']]], [$two => 'array|min:2', $two . '.*.n' => 'integer']],
+        'a key with a leading zero' => [['01' => [['n' => 'x']]], ['01.*.n' => 'integer']],
+    ];
+}
+
+it('validates an integer top-level key like native Laravel in RuleSet', function (string $case): void {
+    [$data, $rules] = integerKeyCases()[$case];
+
+    expect(ruleSetOutcome($data, $rules))->toBe(nativeOutcome($data, $rules));
+})->with(array_keys(integerKeyCases()));
+
+it('uses the label of a fluent rule under an integer top-level key in RuleSet', function (string $key): void {
+    $rule = FluentRule::array()->required()->each(['n' => FluentRule::string()->max(1)->label('Number')]);
+
+    expect(RuleSet::from([$key => $rule])->check([$key => [['n' => 'xx']]])->errors()->toArray())
+        ->toBe([$key . '.0.n' => ['The Number field must not be greater than 1 characters.']]);
+})->with(['an integer key' => '1', 'a string key' => 'a']);
+
+it('rejects an unknown field under an integer top-level key in RuleSet', function (string $key): void {
+    $result = RuleSet::from([$key . '.*.n' => 'integer'])->failOnUnknownFields()->check([$key => [['n' => 5]], 'extra' => 1]);
+
+    expect($result->errors()->keys())->toBe(['extra']);
+})->with(['an integer key' => '1']);

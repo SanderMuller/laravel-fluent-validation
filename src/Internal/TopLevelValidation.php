@@ -30,7 +30,8 @@ final class TopLevelValidation
     public static function fastValidated(ItemRuleCompiler $compiler, array $data, array $compiled): ?array
     {
         foreach (array_keys($compiled) as $key) {
-            if (str_contains($key, '.')) {
+            // PHP stores a key such as '1' as an integer.
+            if (str_contains(strval($key), '.')) {
                 return null;
             }
         }

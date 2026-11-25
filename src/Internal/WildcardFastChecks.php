@@ -17,7 +17,7 @@ final readonly class WildcardFastChecks
 {
     /**
      * @param  array<string, Closure(mixed): bool>  $valueChecks  keyed by pattern
-     * @param  array<string, array{0: Closure(mixed, array<string, mixed>): bool, 1: list<string>}>  $itemChecks  checks that read fields of the item of the attribute, with those fields, keyed by pattern
+     * @param  array<string, array{0: Closure(mixed, array<string, mixed>): bool, 1: list<string>, 2: list<string>}>  $itemChecks  checks that read fields of the item of the attribute, with those fields, keyed by pattern
      * @param  array<string, list<string>>  $groups  pattern => expanded attributes
      * @param  array<string, array{0: string, 1: list<string>}>  $referenced  referenced attribute => its pattern and the attributes that read its rules
      */
@@ -32,7 +32,7 @@ final readonly class WildcardFastChecks
      * @param  array<string, Closure(mixed): bool>  $valueChecks
      * @param  array<string, string>  $attributePatternMap
      * @param  array<string, true>  $referencedAttributes
-     * @param  array<string, array{0: Closure(mixed, array<string, mixed>): bool, 1: list<string>}>  $itemChecks
+     * @param  array<string, array{0: Closure(mixed, array<string, mixed>): bool, 1: list<string>, 2: list<string>}>  $itemChecks
      * @param  array<string, list<string>|false>  $dependents
      */
     public static function of(array $valueChecks, array $attributePatternMap, array $referencedAttributes, array $itemChecks, array $dependents): self
@@ -154,13 +154,28 @@ final readonly class WildcardFastChecks
     private function passesItemCheck(string $pattern, string $attribute, Closure $getValue): bool
     {
         $dot = strrpos($attribute, '.');
-        $item = $dot === false ? null : $getValue(substr($attribute, 0, $dot));
 
-        if (! is_array($item) || ! isset($this->itemChecks[$pattern])) {
+        if ($dot === false || ! isset($this->itemChecks[$pattern])) {
             return false;
         }
 
-        [$check, $fields] = $this->itemChecks[$pattern];
+        $itemPath = substr($attribute, 0, $dot);
+        $item = $getValue($itemPath);
+
+        if (! is_array($item)) {
+            return false;
+        }
+
+        [$check, $fields, $dates] = $this->itemChecks[$pattern];
+
+        // Laravel reads a date field as a date when its full path, such as
+        // `apr.utc.from`, parses as one.
+        foreach ($dates as $field) {
+            if (DateLikePaths::parses($itemPath . '.' . $field)) {
+                return false;
+            }
+        }
+
         $values = [];
 
         foreach ($fields as $field) {

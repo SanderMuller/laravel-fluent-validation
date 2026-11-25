@@ -116,7 +116,7 @@ final class OutsideItemReferences
 
         // The per-item rewrite strips the prefix of a dependent rule's field.
         if ($prefix !== null && str_starts_with($field, $prefix)) {
-            return $isDateRule && $name !== 'DateEquals' && self::parsesAsDate(substr($field, strlen($prefix)));
+            return $isDateRule && $name !== 'DateEquals' && (self::parsesAsDate(substr($field, strlen($prefix))) || self::resolvedPathParsesAsDate($field, $data));
         }
 
         if ($isDateRule && self::parsesAsDate($field)) {
@@ -124,6 +124,68 @@ final class OutsideItemReferences
         }
 
         return str_contains($field, '*') || Arr::has($data, $field);
+    }
+
+    /**
+     * Does a path that Laravel resolves with the keys of the data parse as a
+     * date, such as `x.now.from` for `x.*.from`?
+     *
+     * @param  array<string, mixed>  $data
+     */
+    private static function resolvedPathParsesAsDate(string $field, array $data): bool
+    {
+        $star = (int) strrpos($field, '*');
+        $suffix = substr($field, $star + 1);
+
+        foreach (self::resolvedPrefixes(explode('.', substr($field, 0, $star + 1)), $data) as $path) {
+            // strtotime() is a cheap first filter: Date::parse() reads the same formats.
+            if (DateLikePaths::parses($path . $suffix) && self::parsesAsDate($path . $suffix)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * The paths of the data that the segments match, with each `*` replaced
+     * by a key.
+     *
+     * @param  list<string>  $segments
+     * @param  array<array-key, mixed>  $data
+     * @return list<string>
+     */
+    private static function resolvedPrefixes(array $segments, array $data): array
+    {
+        $nodes = [['', $data]];
+
+        foreach ($segments as $segment) {
+            $next = [];
+
+            foreach ($nodes as [$path, $node]) {
+                foreach (self::children($node, $segment) as $key => $child) {
+                    $next[] = [$path === '' ? (string) $key : $path . '.' . $key, $child];
+                }
+            }
+
+            $nodes = $next;
+        }
+
+        return array_column($nodes, 0);
+    }
+
+    /**
+     * The children of a node that a segment matches: all for `*`.
+     *
+     * @return array<array-key, mixed>
+     */
+    private static function children(mixed $node, string $segment): array
+    {
+        if (! is_array($node) || $segment === '*') {
+            return is_array($node) ? $node : [];
+        }
+
+        return array_key_exists($segment, $node) ? [$segment => $node[$segment]] : [];
     }
 
     /** Mirrors Laravel's getDateTime(). */

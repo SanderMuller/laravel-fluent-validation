@@ -53,7 +53,25 @@ final class WildcardShape
             }
         }
 
-        return self::overlap($wildcardKeys) || self::expandsTo($topKeys, $wildcardKeys);
+        return self::hasIntegerKey($topKeys, $wildcardKeys) || self::overlap($wildcardKeys) || self::expandsTo($topKeys, $wildcardKeys);
+    }
+
+    /**
+     * PHP stores a key such as `1` as an integer, which the per-item
+     * validator does not read.
+     *
+     * @param  list<string>  $topKeys
+     * @param  list<string>  $wildcardKeys
+     */
+    private static function hasIntegerKey(array $topKeys, array $wildcardKeys): bool
+    {
+        foreach ([...$topKeys, ...array_map(static fn (string $key): string => substr($key, 0, (int) strpos($key, '.*')), $wildcardKeys)] as $key) {
+            if ((string) (int) $key === $key) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**

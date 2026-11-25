@@ -44,7 +44,7 @@ class OptimizedValidator extends MemoizingValidator
      * @param array<string, Closure(mixed): bool> $fastChecks
      * @param  array<string, string>  $attributePatternMap
      * @param  array<string, true>  $referencedAttributes  attributes whose rules a dependent rule reads; fast-checked only when no dependent is left
-     * @param  array<string, array{0: Closure(mixed, array<string, mixed>): bool, 1: list<string>}>  $itemChecks  checks that read fields of the item of the attribute, with those fields, keyed by pattern
+     * @param  array<string, array{0: Closure(mixed, array<string, mixed>): bool, 1: list<string>, 2: list<string>}>  $itemChecks  checks that read fields of the item of the attribute, with those fields, keyed by pattern
      * @param  array<string, list<string>|false>  $dependents  referenced attribute => the attributes whose rules read it, or false when not known
      */
     public function withFastChecks(array $fastChecks, array $attributePatternMap, array $referencedAttributes = [], array $itemChecks = [], array $dependents = []): static

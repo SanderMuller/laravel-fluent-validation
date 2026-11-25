@@ -26,7 +26,7 @@ final class ItemFieldChecks
     /**
      * @param  array<string, mixed>  $patternRules  the rules of each wildcard pattern
      * @param  array<string, mixed>  $rules  all expanded rules
-     * @return array<string, array{0: Closure(mixed, array<string, mixed>): bool, 1: list<string>}> the check and the fields it reads, per pattern
+     * @return array<string, array{0: Closure(mixed, array<string, mixed>): bool, 1: list<string>, 2: list<string>}> the check, the fields it reads and the fields it reads as dates, per pattern
      */
     public static function build(array $patternRules, array $rules): array
     {
@@ -51,7 +51,7 @@ final class ItemFieldChecks
             $check = FastCheckCompiler::compileWithItemContext($itemRule['rule']);
 
             if ($check instanceof Closure) {
-                $checks[$pattern] = [$check, $itemRule['fields']];
+                $checks[$pattern] = [$check, $itemRule['fields'], $itemRule['dates']];
             }
         }
 
@@ -62,7 +62,7 @@ final class ItemFieldChecks
      * The rule with each field parameter relative to the item, or null when a
      * parameter names a field outside the item, or the rule names no field.
      *
-     * @return array{rule: string, fields: list<string>, size: bool}|null
+     * @return array{rule: string, fields: list<string>, dates: list<string>, size: bool}|null
      */
     private static function itemRule(string $pattern, string $rule): ?array
     {
@@ -75,6 +75,7 @@ final class ItemFieldChecks
         $prefix = substr($pattern, 0, $dot + 1);
         $parts = explode('|', $rule);
         $fields = [];
+        $dates = [];
         $size = false;
 
         foreach ($parts as $i => $part) {
@@ -98,11 +99,16 @@ final class ItemFieldChecks
             if ($field !== null) {
                 $parts[$i] = $name . ':' . $field;
                 $fields[] = $field;
+
+                if (in_array($name, self::DATE_RULES, true)) {
+                    $dates[] = $field;
+                }
+
                 $size = $size || in_array($name, self::SIZE_RULES, true);
             }
         }
 
-        return $fields === [] ? null : ['rule' => implode('|', $parts), 'fields' => array_values(array_unique($fields)), 'size' => $size];
+        return $fields === [] ? null : ['rule' => implode('|', $parts), 'fields' => array_values(array_unique($fields)), 'dates' => array_values(array_unique($dates)), 'size' => $size];
     }
 
     /**
@@ -117,7 +123,7 @@ final class ItemFieldChecks
             return $isDateRule && $parameter !== null ? null : false;
         }
 
-        if (! str_starts_with($parameter, $prefix) || $isDateRule && self::resolvedPathCanReadAsDate($parameter)) {
+        if (! str_starts_with($parameter, $prefix)) {
             return false;
         }
 
@@ -129,25 +135,6 @@ final class ItemFieldChecks
         }
 
         return $field;
-    }
-
-    /**
-     * Laravel parses the parameter as a date after it replaces each `*` with a
-     * key, and some of those paths parse, such as `x.1.2.from` or `x.1000.from`.
-     */
-    private static function resolvedPathCanReadAsDate(string $parameter): bool
-    {
-        if (substr_count($parameter, '*') > 1 || preg_match('/(?:\A|\.)\d+\./', $parameter) === 1) {
-            return true;
-        }
-
-        foreach (['0', '1', '12', '31', '2025'] as $key) {
-            if (strtotime(str_replace('*', $key, $parameter)) !== false) {
-                return true;
-            }
-        }
-
-        return false;
     }
 
     /**

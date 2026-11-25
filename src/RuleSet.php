@@ -702,6 +702,8 @@ final class RuleSet implements Arrayable, IteratorAggregate
         $wildcardKeys = [];
 
         foreach ($flat as $field => $rule) {
+            $field = strval($field);
+
             if (! str_contains($field, '*')) {
                 $topRules[$field] = $rule;
 
@@ -838,10 +840,10 @@ final class RuleSet implements Arrayable, IteratorAggregate
      */
     private function rejectUnknownFields(array $data, array $topRules, array $wildcardGroups, array $messages, array $attributes): void
     {
-        $allowedKeys = array_keys($topRules);
+        $allowedKeys = array_map(strval(...), array_keys($topRules));
 
         foreach ($wildcardGroups as $parent => $children) {
-            $allowedKeys[] = $parent;
+            $allowedKeys[] = strval($parent);
 
             foreach (array_keys($children) as $child) {
                 $allowedKeys[] = $child === '*'
@@ -852,7 +854,7 @@ final class RuleSet implements Arrayable, IteratorAggregate
 
         $unknownKeys = [];
 
-        foreach (array_keys(Arr::dot($data)) as $inputKey) {
+        foreach (array_map(strval(...), array_keys(Arr::dot($data))) as $inputKey) {
             if (! $this->isKnownField($inputKey, $allowedKeys)) {
                 $unknownKeys[$inputKey] = 'prohibited';
             }
@@ -940,6 +942,8 @@ final class RuleSet implements Arrayable, IteratorAggregate
         $implicitAttributes = [];
 
         foreach ($flatRules as $field => $rule) {
+            $field = strval($field);
+
             if (! str_contains($field, '*')) {
                 $rules[$field] = $rule;
 
@@ -1061,7 +1065,8 @@ final class RuleSet implements Arrayable, IteratorAggregate
         $rules = [];
 
         foreach ($this->fields as $field => $rule) {
-            self::flattenRule($field, $rule, $rules);
+            // PHP stores a key such as '1' as an integer.
+            self::flattenRule(strval($field), $rule, $rules);
         }
 
         return $rules;
