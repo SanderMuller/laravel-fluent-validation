@@ -20,7 +20,7 @@ use Illuminate\Validation\Validator as BaseValidator;
  * A custom extension or a `ValidatorAwareRule` can read any rule through the
  * validator, so a rule set with one keeps all fields.
  *
- * @internal Implementation detail of `ItemValidator`, `ReferencedAttributes` and `OutsideItemReferences`.
+ * @internal Implementation detail of `ItemValidator`, `ReferencedAttributes`, `OutsideItemReferences` and `RuleSetFirstGate`.
  */
 final readonly class FieldLocalRules
 {

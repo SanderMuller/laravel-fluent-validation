@@ -350,6 +350,5 @@ When a file has many flat keys sharing a common prefix, group them into a nested
 
 Flag these to the user before applying changes:
 
-- **Cross-field wildcard references** (`requiredUnless('items.*.type', ...)`) MUST use `HasFluentRules` or `FluentValidator`. They don't work through standalone FluentRule self-validation. Flag any file that has these.
 - **`anyOf()`** requires Laravel 13+. Use `class_exists(\Illuminate\Validation\Rules\AnyOf::class)` to check. Skip on older versions.
 - **Gradual adoption is fine.** Convert one field at a time. Fluent rules mix with string rules in the same array.

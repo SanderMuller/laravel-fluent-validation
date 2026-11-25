@@ -11,7 +11,7 @@ use Illuminate\Support\Facades\Date;
  * resolves, such as `x.now.from`, parses as one. The answer depends on the
  * string alone, so it holds across validations.
  *
- * @internal Implementation detail of `OutsideItemReferences` and `WildcardFastChecks`.
+ * @internal Implementation detail of `OutsideItemReferences`, `WildcardFastChecks` and `RuleSetFirstGate`.
  */
 final class DateLikePaths
 {

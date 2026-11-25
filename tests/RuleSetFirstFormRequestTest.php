@@ -2,6 +2,7 @@
 
 use Illuminate\Contracts\Validation\DataAwareRule;
 use Illuminate\Contracts\Validation\Factory;
+use Illuminate\Contracts\Validation\ParameterizedRule;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Http\Request;
@@ -124,19 +125,45 @@ it('takes the full path for a rule that a pass in RuleSet does not cover', funct
 })->with(array_keys(ruleSetFirstFullPathRules()));
 
 /**
- * A bare name in a wildcard rule means the top-level field in a form
- * request, as in Laravel. RuleSet reads it as a field of the item.
- *
  * @return array<string, array{array<string, mixed>, array<string, mixed>}>
  */
 function ruleSetFirstBareReferenceCases(): array
 {
-    return [
+    $cases = [
         'required_without' => [['addresses.*.postcode' => 'required_without:birthdate|string'], ['addresses' => [['birthdate' => '1990-01-01']]]],
         'required_without in each()' => [['addresses' => FluentRule::array()->each(['postcode' => FluentRule::string()->requiredWithout('birthdate')])], ['addresses' => [['birthdate' => '1990-01-01']]]],
         'required_without_all' => [['addresses.*.postcode' => 'required_without_all:birthdate,age|string'], ['addresses' => [['birthdate' => '1990-01-01', 'age' => 30]]]],
         'same' => [['items.*.code' => 'same:code'], ['items' => [['code' => 'x']]]],
+        'same as a tuple' => [['items.*.code' => [['same', 'code']]], ['items' => [['code' => 'x']]]],
+        'same as a tuple with an integer field' => [['items.*.code' => [['same', 0]]], ['items' => [['code' => 'x', 0 => 'x']]]],
+        'same as a tuple with a boolean field' => [['items.*.code' => [['same', true]]], ['items' => [['code' => 'x', 1 => 'x']]]],
+        'same as a tuple with a null field' => [['items.*.code' => [['same', null]]], ['items' => [['code' => 'x', '' => 'x']]]],
+        'same as a tuple with a stringable field' => [['items.*.code' => [['same', new class implements Stringable {
+            public function __toString(): string
+            {
+                return 'code';
+            }
+        }]]], ['items' => [['code' => 'x']]]],
+        'before in a date rule object' => [['items.*.end' => [Rule::date()->before('start')]], ['items' => [['start' => '2030-01-01', 'end' => '2025-01-01']]]],
     ];
+
+    // Laravel 12 may not have this interface.
+    if (interface_exists(ParameterizedRule::class)) {
+        $cases['same as a parameterized rule'] = [['items.*.code' => [new class implements ParameterizedRule {
+            /** @return list<string> */
+            public function toArray(): array
+            {
+                return ['same', 'code'];
+            }
+
+            public function __toString(): string
+            {
+                return 'same:code';
+            }
+        }]], ['items' => [['code' => 'x']]]];
+    }
+
+    return $cases;
 }
 
 it('reads a bare name in a wildcard rule as the top-level field, as Laravel does', function (string $case): void {
@@ -147,6 +174,58 @@ it('reads a bare name in a wildcard rule as the top-level field, as Laravel does
         ->not->toBeEmpty()
         ->toBe(validator($data, RuleSet::from($rules)->toArray())->errors()->toArray());
 })->with(array_keys(ruleSetFirstBareReferenceCases()));
+
+it('runs a rule callback as often as Laravel does', function (): void {
+    $rules = static function (): array {
+        $calls = 0;
+
+        return ['items.*.code' => [Rule::excludeIf(static function () use (&$calls): bool {
+            return ++$calls > 1;
+        }), 'string']];
+    };
+    $data = ['items' => [['code' => 'x']]];
+
+    expect(ruleSetFirstValidator(plainRuleSetFirstRequest($rules(), $data))->validated())
+        ->toBe(validator($data, $rules())->validated());
+});
+
+it('leaves a custom rule object that Laravel reads as a string to Laravel', function (): void {
+    $rules = static fn (): array => ['items.*.code' => [new class implements Stringable {
+        private int $calls = 0;
+
+        public function __toString(): string
+        {
+            return ++$this->calls === 1 ? 'same:code' : 'string';
+        }
+    }]];
+    $data = ['items' => [['code' => 'x']]];
+
+    expect(ruleSetFirstValidator(plainRuleSetFirstRequest($rules(), $data))->errors()->toArray())
+        ->not->toBeEmpty()
+        ->toBe(validator($data, $rules())->errors()->toArray());
+});
+
+it('leaves a custom parameterized rule to Laravel', function (): void {
+    $rules = static fn (): array => ['items.*.code' => [new class implements ParameterizedRule {
+        private int $calls = 0;
+
+        /** @return list<string> */
+        public function toArray(): array
+        {
+            return ++$this->calls === 1 ? ['same', 'code'] : ['string'];
+        }
+
+        public function __toString(): string
+        {
+            return 'same:code';
+        }
+    }]];
+    $data = ['items' => [['code' => 'x']]];
+
+    expect(ruleSetFirstValidator(plainRuleSetFirstRequest($rules(), $data))->errors()->toArray())
+        ->not->toBeEmpty()
+        ->toBe(validator($data, $rules())->errors()->toArray());
+})->skip(! interface_exists(ParameterizedRule::class), 'Laravel 12 may not have this interface.');
 
 it('takes the path in RuleSet first for a wildcard reference and a literal date', function (): void {
     $rules = ['items.*.end' => ['date', 'after:items.*.start', 'before:2030-01-01', 'after:today'], 'items.*.start' => 'date|required_with:items.*.end'];

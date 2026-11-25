@@ -3,9 +3,21 @@
 namespace SanderMuller\FluentValidation\Internal;
 
 use Illuminate\Contracts\Validation\DataAwareRule;
+use Illuminate\Contracts\Validation\ParameterizedRule;
 use Illuminate\Contracts\Validation\ValidatorAwareRule;
+use Illuminate\Validation\Rules\ArrayRule;
+use Illuminate\Validation\Rules\Date;
+use Illuminate\Validation\Rules\ExcludeIf;
+use Illuminate\Validation\Rules\ExcludeUnless;
 use Illuminate\Validation\Rules\Exists;
+use Illuminate\Validation\Rules\Numeric;
+use Illuminate\Validation\Rules\ProhibitedIf;
+use Illuminate\Validation\Rules\ProhibitedUnless;
+use Illuminate\Validation\Rules\RequiredIf;
+use Illuminate\Validation\Rules\RequiredUnless;
+use Illuminate\Validation\Rules\StringRule;
 use Illuminate\Validation\Rules\Unique;
+use Stringable;
 
 /**
  * Decides whether a pass in RuleSet's own engine is a pass in Laravel's
@@ -17,9 +29,9 @@ use Illuminate\Validation\Rules\Unique;
  *   RuleSet's per-item validator.
  * - A database rule would run its query twice when the request fails: once
  *   in RuleSet and once on the full path.
- * - A bare name in a wildcard rule, such as `same:code`, means the top-level
- *   field in a form request, as in Laravel. RuleSet reads it as a field of
- *   the item.
+ * - A field name without `*` in a wildcard rule, such as `same:code`, means
+ *   the top-level field in Laravel. When the data has no such top-level
+ *   field, RuleSet reads the name as a field of the item.
  *
  * @internal Implementation detail of `HasFluentRules`.
  */
@@ -30,6 +42,13 @@ final class RuleSetFirstGate
 
     /** Rules that read a parameter as a date when it parses as one, else as a field. */
     private const DATE_RULES = ['after' => true, 'after_or_equal' => true, 'before' => true, 'before_or_equal' => true, 'date_equals' => true];
+
+    /** Laravel rule objects that run a callback to build their string. None of them names a field. */
+    private const CALLBACK_RULES = [
+        ExcludeIf::class => true, ExcludeUnless::class => true,
+        ProhibitedIf::class => true, ProhibitedUnless::class => true,
+        RequiredIf::class => true, RequiredUnless::class => true,
+    ];
 
     /**
      * @param  array<array-key, mixed>  $compiledRules
@@ -89,17 +108,73 @@ final class RuleSetFirstGate
 
     private static function namesTopLevelField(mixed $rule, FieldLocalRules $fieldLocalRules): bool
     {
-        foreach (self::parts($rule) as $part) {
-            $isDateRule = isset(self::DATE_RULES[self::name($part)]);
+        foreach (self::parts($rule) as $object) {
+            $parts = self::asLaravelReads($object);
 
-            foreach ($fieldLocalRules->references($part) as $field) {
-                if (! str_contains($field, '*') && (! $isDateRule || ! DateLikePaths::parses($field))) {
-                    return true;
+            if ($parts === null) {
+                return true;
+            }
+
+            foreach ($parts as $part) {
+                $isDateRule = isset(self::DATE_RULES[self::name($part)]);
+
+                foreach ($fieldLocalRules->references([$part]) as $field) {
+                    if (! str_contains($field, '*') && (! $isDateRule || ! DateLikePaths::parses($field))) {
+                        return true;
+                    }
                 }
             }
         }
 
         return false;
+    }
+
+    /**
+     * The rules in one part as Laravel's rule parser reads them, so a field
+     * name inside a tuple or a Laravel rule object is found too. Null when
+     * only user code can tell: a custom rule object that Laravel reads as a
+     * string or a tuple, or a tuple with an object parameter.
+     *
+     * @return list<mixed>|null
+     */
+    private static function asLaravelReads(mixed $part): ?array
+    {
+        if (is_array($part)) {
+            return self::tupleAsLaravelReads($part);
+        }
+
+        if (! $part instanceof Stringable || isset(self::CALLBACK_RULES[$part::class])) {
+            return [$part];
+        }
+
+        if (! str_starts_with($part::class, 'Illuminate\\Validation\\Rules\\')) {
+            return null;
+        }
+
+        if ($part instanceof ParameterizedRule) {
+            return self::tupleAsLaravelReads($part->toArray());
+        }
+
+        if ($part instanceof ArrayRule || $part instanceof Date || $part instanceof Numeric || $part instanceof StringRule) {
+            return explode('|', (string) $part);
+        }
+
+        return [(string) $part];
+    }
+
+    /**
+     * @param  array<mixed>  $tuple
+     * @return list<mixed>|null
+     */
+    private static function tupleAsLaravelReads(array $tuple): ?array
+    {
+        foreach ($tuple as $value) {
+            if (is_object($value)) {
+                return null;
+            }
+        }
+
+        return [array_map(static fn (mixed $value): mixed => is_scalar($value) || $value === null ? (string) $value : $value, $tuple)];
     }
 
     /**
