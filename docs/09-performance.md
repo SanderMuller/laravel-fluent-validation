@@ -80,6 +80,8 @@ The form request uses only the full path when:
 - an exclude rule comes after a rule other than `bail`, `nullable` or `sometimes`
 - a rule reads the data or the validator (`DataAwareRule`, `ValidatorAwareRule`), or is `exists` or `unique`
 - a rule key is a top-level `*` or holds an escaped dot
+- a wildcard rule names a field without `*`, such as `same:code`, which Laravel reads as the top-level field. A literal date, such as `after:today`, does not count.
+- a wildcard rule holds a custom rule object that Laravel reads as a string or a tuple
 
 Code that reads or changes the rules of the validator after a pass gets the rules of the full path.
 
