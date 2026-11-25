@@ -130,6 +130,15 @@ it('names a referenced field without a rule like native Laravel in RuleSet', fun
         ->toBe(['items.0.end_at' => ['The items.0.end_at field must be a date after items.0.start at.']]);
 });
 
+it('names a referenced field that neither the item nor the rules hold like native Laravel in RuleSet', function (): void {
+    $data = ['items' => [['other' => 'x']]];
+    $rules = ['items.*.note' => 'required_unless:items.*.type,b'];
+
+    expect(RuleSet::from($rules)->check($data)->errors()->toArray())
+        ->toBe(validator($data, $rules)->errors()->toArray())
+        ->toBe(['items.0.note' => ['The items.0.note field is required unless items.0.type is in b.']]);
+});
+
 it('prefers a literal data key with a dot over a nested key like native Laravel', function (): void {
     $data = ['items' => ['a' => ['b' => ['name' => 'ok']], 'a.b' => ['name' => 12]]];
 

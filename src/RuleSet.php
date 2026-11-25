@@ -793,9 +793,9 @@ final class RuleSet implements Arrayable, IteratorAggregate
             // Only the last pass can exclude a field, see WildcardGroupPasses.
             $excluded = [];
 
-            foreach ($passes as [$itemRules, $itemMessages, $itemAttributes, $isScalar]) {
+            foreach ($passes as [$itemRules, $itemMessages, $itemAttributes, $isScalar, $references]) {
                 $excluded = [];
-                $allErrors += $this->validateItems($items, $itemRules, $itemMessages, $itemAttributes, $parent, $isScalar, $excluded);
+                $allErrors += $this->validateItems($items, $itemRules, $itemMessages, $itemAttributes, $parent, $isScalar, $excluded, $references);
             }
 
             $excludedFields[$parent] = $excluded;
@@ -816,14 +816,15 @@ final class RuleSet implements Arrayable, IteratorAggregate
      * @param  array<string, string>  $itemMessages
      * @param  array<string, string>  $itemAttributes
      * @param  array<int|string, ExcludedItem>  $excludedFields  {@see ItemGroupValidator::validate()}
+     * @param  list<string>  $references  the item fields that a wildcard reference names
      * @return array<string, list<string>>
      */
-    private function validateItems(array $items, array $itemRules, array $itemMessages, array $itemAttributes, string $parent, bool $isScalar, array &$excludedFields = []): array
+    private function validateItems(array $items, array $itemRules, array $itemMessages, array $itemAttributes, string $parent, bool $isScalar, array &$excludedFields = [], array $references = []): array
     {
         // With stopOnFirstFailure a group stops at an error on its first rule key.
         $stopAt = $this->stopOnFirstFailure ? (string) array_key_first($itemRules) : null;
 
-        return (new ItemGroupValidator($this->ruleCompiler, $this->errorCollector, $stopAt))
+        return (new ItemGroupValidator($this->ruleCompiler, $this->errorCollector, $stopAt, $references))
             ->validate($items, $itemRules, $itemMessages, $itemAttributes, $parent, $isScalar, $excludedFields);
     }
 

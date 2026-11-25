@@ -41,10 +41,24 @@ final class WildcardReferenceRewriter
      */
     private ?array $dependentRules = null;
 
+    /** @var array<string, true> the item-relative fields that a rewrite produced */
+    private array $rewrittenFields = [];
+
     /**
      * @param  string  $replacement  takes the place of the prefix: `_v.` for a scalar each, whose item data is `['_v' => $item]`
      */
     public function __construct(private readonly string $prefix, private readonly string $replacement = '') {}
+
+    /**
+     * The item-relative fields that a rewrite produced, such as `type` for
+     * `items.*.type`.
+     *
+     * @return list<string>
+     */
+    public function rewrittenFields(): array
+    {
+        return array_keys($this->rewrittenFields);
+    }
 
     public function rewrite(mixed $rule): mixed
     {
@@ -132,9 +146,14 @@ final class WildcardReferenceRewriter
         $lead = $quoted && preg_match('/\A[ \t]*"/', $value, $match) === 1 ? $match[0] : '';
         $field = substr($value, strlen($lead));
 
-        return str_starts_with($field, $this->prefix)
-            ? $lead . $this->replacement . substr($field, strlen($this->prefix))
-            : $value;
+        if (! str_starts_with($field, $this->prefix)) {
+            return $value;
+        }
+
+        $relative = $this->replacement . substr($field, strlen($this->prefix));
+        $this->rewrittenFields[$lead === '' ? $relative : rtrim($relative, " \t\"")] = true;
+
+        return $lead . $relative;
     }
 
     /**

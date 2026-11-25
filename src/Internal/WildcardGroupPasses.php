@@ -26,7 +26,7 @@ final class WildcardGroupPasses
      * @param  array<string, string>  $attributes
      * @param  array<string, mixed>  $data
      * @param  Closure(array<string, mixed>): array<string, mixed>  $compile  `RuleSet::compile()`
-     * @return list<array{0: array<string, mixed>, 1: array<string, string>, 2: array<string, string>, 3: bool}>|null
+     * @return list<array{0: array<string, mixed>, 1: array<string, string>, 2: array<string, string>, 3: bool, 4: list<string>}>|null
      */
     public static function for(array $groupRules, string $parent, array $messages, array $attributes, array $data, bool $stopOnFirstFailure, Closure $compile): ?array
     {
@@ -89,7 +89,7 @@ final class WildcardGroupPasses
      * @param  array<string, string>  $messages
      * @param  array<string, string>  $attributes
      * @param  Closure(array<string, mixed>): array<string, mixed>  $compile
-     * @return array{0: array<string, mixed>, 1: array<string, string>, 2: array<string, string>, 3: bool}
+     * @return array{0: array<string, mixed>, 1: array<string, string>, 2: array<string, string>, 3: bool, 4: list<string>}
      */
     private static function groupPass(array $groupRules, string $parent, array $messages, array $attributes, Closure $compile): array
     {
@@ -106,9 +106,9 @@ final class WildcardGroupPasses
         $itemMessages = ItemAttributeNames::relativeToItem($messages, $parent, $isScalar) + $messages + $itemMessages;
         $itemAttributes = ItemAttributeNames::relativeToItem($attributes, $parent, $isScalar) + $attributes + $itemAttributes;
 
-        $rawItemRules = $isScalar ? self::rewriteRulesForPerItem($metadataRules, $parent, '_v.') : self::rewriteRulesForPerItem($groupRules, $parent);
+        [$rawItemRules, $references] = $isScalar ? self::rewriteRulesForPerItem($metadataRules, $parent, '_v.') : self::rewriteRulesForPerItem($groupRules, $parent);
 
-        return [$compile($rawItemRules), $itemMessages, $itemAttributes, $isScalar];
+        return [$compile($rawItemRules), $itemMessages, $itemAttributes, $isScalar, $references];
     }
 
     /**
@@ -117,8 +117,10 @@ final class WildcardGroupPasses
      *   ['exclude_unless', 'items.*.type', 'chapter'] → ['exclude_unless', 'type', 'chapter']
      *   'gte:items.*.start_time' → 'gte:start_time'
      *
+     * Also returns the item-relative fields that the rewrite produced.
+     *
      * @param  array<string, mixed>  $groupRules
-     * @return array<string, mixed>
+     * @return array{0: array<string, mixed>, 1: list<string>}
      */
     private static function rewriteRulesForPerItem(array $groupRules, string $parent, string $itemPrefix = ''): array
     {
@@ -138,7 +140,7 @@ final class WildcardGroupPasses
             $rewritten[$field] = $rewriter->rewrite($rule);
         }
 
-        return $rewritten;
+        return [$rewritten, $rewriter->rewrittenFields()];
     }
 
     /** @param  array<string, mixed>  $compiledRules */

@@ -26,6 +26,8 @@ final readonly class ItemGroupValidator
         private ItemRuleCompiler $compiler,
         private ItemErrorCollector $errors,
         private ?string $stopAt = null,
+        /** @var list<string> the item fields that a wildcard reference names */
+        private array $references = [],
     ) {}
 
     /**
@@ -62,7 +64,7 @@ final readonly class ItemGroupValidator
         }
 
         $nestedParents = $this->nestedConditionParents($conditionalFields);
-        $itemValidator = new ItemValidator($this->compiler, $this->errors, $this->stopAt);
+        $itemValidator = new ItemValidator($this->compiler, $this->errors, $this->stopAt, $this->references);
 
         if ($nestedParents === []) {
             return $itemValidator->validate($items, $itemRules, $itemMessages, $itemAttributes, $parent, $isScalar, $conditionalFields, $excludedFields);
@@ -76,7 +78,7 @@ final readonly class ItemGroupValidator
             return $this->validateSplit($split, $items, $itemMessages, $itemAttributes, $parent, $nestedParents, $itemValidator, $excludedFields);
         }
 
-        $names = new ItemAttributeNames($isScalar, array_map(strval(...), array_keys($itemRules)), $parent, $itemMessages, $itemAttributes);
+        $names = new ItemAttributeNames($isScalar, array_map(strval(...), array_keys($itemRules)), $parent, $itemMessages, $itemAttributes, $this->references);
         /** @var array<string, list<string>> $errors */
         $errors = [];
 
@@ -131,7 +133,7 @@ final readonly class ItemGroupValidator
     private function validateSplit(NestedExcludeSplit $split, array $items, array $itemMessages, array $itemAttributes, string $parent, array $nestedParents, ItemValidator $itemValidator, array &$excludedFields): array
     {
         $reducedErrors = $itemValidator->validate($items, $split->reducerRules, $itemMessages, $itemAttributes, $parent, false, $split->reducerConditionals, $excludedFields);
-        $names = new ItemAttributeNames(false, array_map(strval(...), array_keys($split->nestedRules)), $parent, $itemMessages, $itemAttributes);
+        $names = new ItemAttributeNames(false, array_map(strval(...), array_keys($split->nestedRules)), $parent, $itemMessages, $itemAttributes, $this->references);
         /** @var array<int|string, array<string, list<string>>> $nestedErrors */
         $nestedErrors = [];
         $validator = null;

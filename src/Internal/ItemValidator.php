@@ -28,6 +28,8 @@ final readonly class ItemValidator
         private ItemRuleCompiler $compiler,
         private ItemErrorCollector $errors,
         private ?string $stopAt = null,
+        /** @var list<string> the item fields that a wildcard reference names */
+        private array $references = [],
     ) {}
 
     /**
@@ -66,7 +68,7 @@ final readonly class ItemValidator
             $batchVerifier = $this->compiler->buildBatchVerifier($plan->slowRules, $items, $isScalar);
         }
 
-        $names = new ItemAttributeNames($isScalar, array_map(strval(...), array_keys($itemRules)), $parent, $itemMessages, $itemAttributes);
+        $names = new ItemAttributeNames($isScalar, array_map(strval(...), array_keys($itemRules)), $parent, $itemMessages, $itemAttributes, $this->references);
 
         foreach ($items as $index => $item) {
             /** @var array<string, mixed> $itemData */

@@ -40,6 +40,7 @@ final class ItemAttributeNames
      * @param  list<string>  $ruleKeys  the item's rule keys, such as `rows.*.start`
      * @param  array<string, string>  $messages  the item validator's messages
      * @param  array<string, string>  $attributes  the item validator's attribute names
+     * @param  list<string>  $references  the item fields that a wildcard reference names, such as `type` for `items.*.type`
      */
     public function __construct(
         private readonly bool $isScalar,
@@ -47,6 +48,7 @@ final class ItemAttributeNames
         private readonly string $parent,
         array $messages,
         array $attributes,
+        private readonly array $references = [],
     ) {
         $patterns = array_map(static fn (string $key): string => str_replace('\\*', '[^.]*', preg_quote($key, '/')), $ruleKeys);
 
@@ -149,6 +151,12 @@ final class ItemAttributeNames
 
         foreach (array_keys($validator->getRules()) as $key) {
             $implicitAttributes[$key] ??= [$key];
+        }
+
+        // Laravel names a field that a wildcard reference names by its full
+        // path, also when the item has no such key and no rule for it.
+        foreach ($this->references as $field) {
+            $implicitAttributes[$field] ??= [$field];
         }
 
         $this->addPaths($implicitAttributes, $itemData, '');
