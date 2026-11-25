@@ -31,13 +31,12 @@ final class PrevalidatedValidator extends OptimizedValidator
      * factory makes another kind of validator.
      *
      * @param  array<array-key, mixed>  $data
-     * @param  array<array-key, mixed>  $validated  RuleSet's validated data
-     * @param  array<array-key, mixed>  $compiledRules  the rules before the wildcard expansion
+     * @param  array<array-key, mixed>  $validated  RuleSet's validated data, in Laravel's key order
      * @param  array<array-key, mixed>  $messages
      * @param  array<array-key, mixed>  $attributes
      * @param  Closure(self): void  $fullPath
      */
-    public static function make(ValidationFactory $factory, array $data, array $validated, array $compiledRules, array $messages, array $attributes, Closure $fullPath): ?self
+    public static function make(ValidationFactory $factory, array $data, array $validated, array $messages, array $attributes, Closure $fullPath): ?self
     {
         $base = $factory->make([], [], $messages, $attributes);
 
@@ -47,7 +46,7 @@ final class PrevalidatedValidator extends OptimizedValidator
 
         $validator = new self($base->getTranslator(), $data, [], $messages, $attributes);
         ValidatorStateCopier::copy($base, $validator);
-        $validator->prevalidated = RuleOrderedData::of($validated, $compiledRules, $validator->excludeUnvalidatedArrayKeys);
+        $validator->prevalidated = $validated;
         $validator->fullPath = $fullPath;
 
         return $validator;

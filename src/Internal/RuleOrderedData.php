@@ -11,20 +11,30 @@ namespace SanderMuller\FluentValidation\Internal;
  * A pattern holds the position of a rule key, the rest of its segments,
  * and whether Laravel skips the array it ends at.
  *
- * @internal Implementation detail of `PrevalidatedValidator`.
+ * @internal Implementation detail of `RuleSet`.
  *
  * @phpstan-type Pattern array{0: int, 1: list<string>, 2: bool}
  */
 final class RuleOrderedData
 {
     /**
+     * A rule key with an escaped dot has segments this class cannot split,
+     * so the data then keeps the order of the input.
+     *
      * @param  array<array-key, mixed>  $validated  RuleSet's validated data
      * @param  array<array-key, mixed>  $compiledRules  the rules before the wildcard expansion, in rule order
+     * @param  bool  $dropsUnknownFields  whether RuleSet leaves out the keys no rule validates, whatever the factory does
      * @return array<array-key, mixed>
      */
-    public static function of(array $validated, array $compiledRules, bool $excludeUnvalidatedArrayKeys): array
+    public static function of(array $validated, array $compiledRules, bool $dropsUnknownFields): array
     {
-        $parents = $excludeUnvalidatedArrayKeys ? self::parentKeys(array_keys($compiledRules)) : [];
+        foreach (array_keys($compiledRules) as $key) {
+            if (str_contains((string) $key, '\\')) {
+                return $validated;
+            }
+        }
+
+        $parents = $dropsUnknownFields || NativeValidatedData::factoryExcludesUnvalidatedKeys() ? self::parentKeys(array_keys($compiledRules)) : [];
         $patterns = [];
         // Laravel keeps the keys without a wildcard in their place, before the attributes a wildcard adds.
         $keys = array_keys($compiledRules);
@@ -65,7 +75,7 @@ final class RuleOrderedData
                 continue;
             }
 
-            $touches[] = [$segment, $segments];
+            $touches[] = [$segment, $segments, $skipsArray];
 
             if ($segment === '*') {
                 $shared[] = [$index, $segments, $skipsArray];
@@ -80,7 +90,32 @@ final class RuleOrderedData
             $touches,
             $shared === [] ? null : self::plan($shared),
             array_map(static fn (array $keyPatterns): RuleOrderPlan => self::plan(self::merged($shared, $keyPatterns)), $own),
+            $shared === [] ? self::fixedKeys($touches) : null,
         );
+    }
+
+    /**
+     * The named keys in rule order, when the rule keys of each key follow
+     * each other. The data then cannot change which key comes first.
+     *
+     * @param  list<array{0: string, 1: list<string>, 2: bool}>  $touches
+     * @return list<string>|null
+     */
+    private static function fixedKeys(array $touches): ?array
+    {
+        $keys = [];
+        $previous = null;
+
+        foreach ($touches as [$segment]) {
+            if ($segment !== $previous && isset($keys[$segment])) {
+                return null;
+            }
+
+            $keys[$segment] = true;
+            $previous = $segment;
+        }
+
+        return array_map(strval(...), array_keys($keys));
     }
 
     /**
@@ -97,9 +132,20 @@ final class RuleOrderedData
             return $node;
         }
 
+        $keys = $plan->keys ?? RuleOrderTouches::firstKeys($node, $plan);
+
+        // Laravel sets every child whole, so only the order of the keys can change.
+        if ((! $plan->star instanceof RuleOrderPlan || $plan->star->whole) && $plan->own === [] && $keys === array_keys($node)) {
+            return $node;
+        }
+
         $ordered = [];
 
-        foreach (self::firstKeys($node, $plan) as $key) {
+        foreach ($keys as $key) {
+            if (! array_key_exists($key, $node)) {
+                continue;
+            }
+
             $value = $node[$key];
             $childPlan = $plan->own[$key] ?? $plan->star;
             $ordered[$key] = is_array($value) && $childPlan instanceof RuleOrderPlan ? self::order($value, $childPlan) : $value;
@@ -107,28 +153,6 @@ final class RuleOrderedData
 
         // A key that no rule key reaches keeps its place after the others.
         return count($ordered) === count($node) ? $ordered : $ordered + $node;
-    }
-
-    /**
-     * The keys of the node in the order Laravel sets them. The touches come
-     * in rule order, so a key keeps its first place.
-     *
-     * @param  array<array-key, mixed>  $node
-     * @return list<array-key>
-     */
-    private static function firstKeys(array $node, RuleOrderPlan $plan): array
-    {
-        $first = [];
-
-        foreach ($plan->touches as [$segment, $rest]) {
-            foreach ($segment === '*' ? array_keys($node) : (array_key_exists($segment, $node) ? [$segment] : []) as $key) {
-                if (! isset($first[$key]) && ($rest === [] || self::reaches($node[$key], $rest))) {
-                    $first[$key] = true;
-                }
-            }
-        }
-
-        return array_keys($first);
     }
 
     /**
@@ -160,6 +184,10 @@ final class RuleOrderedData
      */
     private static function orderFields(array $node, array $fields): array
     {
+        if (array_keys($node) === $fields) {
+            return $node;
+        }
+
         $ordered = [];
 
         foreach ($fields as $field) {
@@ -186,30 +214,6 @@ final class RuleOrderedData
         usort($patterns, static fn (array $a, array $b): int => $a[0] <=> $b[0]);
 
         return $patterns;
-    }
-
-    /**
-     * @param  non-empty-list<string>  $segments
-     */
-    private static function reaches(mixed $value, array $segments): bool
-    {
-        if (! is_array($value)) {
-            return false;
-        }
-
-        $segment = array_shift($segments);
-
-        if ($segment !== '*') {
-            return array_key_exists($segment, $value) && ($segments === [] || self::reaches($value[$segment], $segments));
-        }
-
-        foreach ($value as $child) {
-            if ($segments === [] || self::reaches($child, $segments)) {
-                return true;
-            }
-        }
-
-        return false;
     }
 
     /**

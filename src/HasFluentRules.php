@@ -317,7 +317,6 @@ trait HasFluentRules
             $factory,
             $data,
             $result->validated(),
-            $compiled,
             $this->messages(),
             $this->attributes(),
             function (PrevalidatedValidator $validator) use ($factory, $ruleSet, $flatRules, $data): void {
