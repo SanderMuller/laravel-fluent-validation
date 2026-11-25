@@ -2,6 +2,25 @@
 
 All notable changes to `laravel-fluent-validation` will be documented in this file.
 
+## 1.48.1 - 2026-11-25
+
+<!-- verified-sha: 7561000002b32c29bea981b47f8b6648d82d14c5 -->
+### Fixed
+
+- Fixed form requests passing a wildcard rule that names a top-level field, such as `same:code` or `required_without:birthdate`, where Laravel fails it. This came in with 1.48.0.
+- Fixed the same check missing a rule written as a tuple, such as `['same', 'code']`, or as a rule object, such as `Rule::date()->before('start')`.
+- Fixed form requests reading a literal date in a `date_format` rule from an item field with the same name.
+
+### Changed
+
+- A form request now validates on the full path when a wildcard rule names a field without `*`, or holds a custom rule object that Laravel reads as a string or a tuple.
+- Corrected the docs and the Boost skills: a FluentRule object without a trait still resolves wildcard references and keeps its label in its own messages.
+- Corrected the Filament setup, the conditional modifiers that accept a closure, and the minimum version for `date(message:)` in the Boost skills.
+
+**Full Changelog**: https://github.com/SanderMuller/laravel-fluent-validation/compare/1.48.0...1.48.1
+
+<!-- benchmark-start -->
+<!-- benchmark-end -->
 ## 1.48.0 - 2026-11-25
 
 <!-- verified-sha: a619f341ba25f076913e96f688e4a7aed879930a -->
@@ -282,6 +301,7 @@ $safe->nullableInteger('rank', 0);  // 0 when the field is blank
 
 
 
+
 ```
 ### Fixed
 
@@ -335,6 +355,7 @@ $safe = $request->safe();
 
 $safe->nullableString('nickname');          // 'Johnny', or null
 $safe->nullableString('nickname', 'guest'); // 'guest' when the field is empty
+
 
 
 
@@ -880,6 +901,7 @@ Malformed wildcard rule key [items*]: a wildcard segment must be written as '.*'
 
 
 
+
 ```
 This matches the package's existing fail-fast on malformed array-rule keys.
 
@@ -951,6 +973,7 @@ The supported framework constraint narrows accordingly:
 
 ```
 illuminate/*: ^11.0||^12.0||^13.0  ->  ^12.0||^13.0
+
 
 
 
@@ -1060,6 +1083,7 @@ The file was plain markdown — zero Blade directives, zero render-time tokens �
 
 
 
+
 ```
 So the standing guidance never landed in `CLAUDE.md` / `AGENTS.md`; contributors only got it on-demand via the `fluent-validation*` skills, not as always-on context.
 
@@ -1091,6 +1115,7 @@ Conditional-required and presence modifiers never emit that literal `required` s
 FluentRule::email()->requiredIf($enabled)->nullable()
 // before: passed — requirement dropped          ❌
 // after:  fails, matching native Laravel         ✅
+
 
 
 
@@ -1172,6 +1197,7 @@ The remap built a synthetic `Validator::make([], [])`, pushed the error message 
 $caught->validator->errors()->keys();   // ['actions']                      ✅
 $caught->validator->errors()->first();  // human-readable message          ✅
 $caught->validator->failed();           // []                              ❌
+
 
 
 
@@ -1295,6 +1321,7 @@ $validated = RuleSet::from([
 
 
 
+
 ```
 Top-level keys outside the rule set are already excluded from `validated()`; this flag extends the same behavior to nested array shapes declared via `children()`, `each()`, or dotted rule keys. Maps to Laravel's `Validator::$excludeUnvalidatedArrayKeys`, but gives per-`RuleSet` control instead of relying on whatever the host factory's flag happens to be set to — useful when an application has called `Factory::includeUnvalidatedArrayKeys()` globally and a specific call site needs the strict default back.
 
@@ -1312,6 +1339,7 @@ $validated = RuleSet::from([...])->validate($request->all());
 
 // 1.27
 $validated = RuleSet::from([...])->validate($request);
+
 
 
 
