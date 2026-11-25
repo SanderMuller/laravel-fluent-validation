@@ -9,7 +9,7 @@ description: "FluentRule in Livewire components via HasFluentValidation trait. A
 
 ## Required: `HasFluentValidation` trait
 
-Every Livewire component using FluentRule MUST use the `HasFluentValidation` trait. Without it, FluentRule objects self-validate in isolation, causing issues with rule identifiers, labels, and wildcard expansion.
+Every Livewire component using FluentRule MUST use the `HasFluentValidation` trait. Without it, a label shows only in the messages of its own rule object. A rule elsewhere that names the field, such as `required_with:name`, shows the plain field name.
 
 ```php
 use Livewire\Component;
