@@ -3,8 +3,6 @@
 namespace SanderMuller\FluentValidation\Internal;
 
 use Illuminate\Support\Arr;
-use Illuminate\Support\Facades\Date;
-use Throwable;
 
 /**
  * Finds wildcard groups whose rules name a field that the per-item validator
@@ -22,6 +20,15 @@ final class OutsideItemReferences
 {
     /** Rules that Laravel first reads as a date, then as a field. */
     private const DATE_RULES = ['After' => true, 'AfterOrEqual' => true, 'Before' => true, 'BeforeOrEqual' => true, 'DateEquals' => true];
+
+    /**
+     * The result of {@see resolvedPathParsesAsDate()} per field, for the
+     * call of {@see existWithPrefix()} that runs: two rules often name the
+     * same field.
+     *
+     * @var array<string, bool>
+     */
+    private static array $resolvedDates = [];
 
     /**
      * @param  array<string, mixed>  $groupRules  the group's rules before the per-item rewrite
@@ -52,6 +59,7 @@ final class OutsideItemReferences
     private static function existWithPrefix(array $groupRules, ?string $prefix, array $data): bool
     {
         $candidates = [];
+        self::$resolvedDates = [];
 
         foreach (self::ruleParts($groupRules) as [$name, $parameters]) {
             if ($name === 'InArray') {
@@ -116,10 +124,10 @@ final class OutsideItemReferences
 
         // The per-item rewrite strips the prefix of a dependent rule's field.
         if ($prefix !== null && str_starts_with($field, $prefix)) {
-            return $isDateRule && $name !== 'DateEquals' && (self::parsesAsDate(substr($field, strlen($prefix))) || self::resolvedPathParsesAsDate($field, $data));
+            return $isDateRule && $name !== 'DateEquals' && (DateLikePaths::parses(substr($field, strlen($prefix))) || (self::$resolvedDates[$field] ??= self::resolvedPathParsesAsDate($field, $data)));
         }
 
-        if ($isDateRule && self::parsesAsDate($field)) {
+        if ($isDateRule && DateLikePaths::parses($field)) {
             return false;
         }
 
@@ -138,8 +146,7 @@ final class OutsideItemReferences
         $suffix = substr($field, $star + 1);
 
         foreach (self::resolvedPrefixes(explode('.', substr($field, 0, $star + 1)), $data) as $path) {
-            // strtotime() is a cheap first filter: Date::parse() reads the same formats.
-            if (DateLikePaths::parses($path . $suffix) && self::parsesAsDate($path . $suffix)) {
+            if (DateLikePaths::parses($path . $suffix)) {
                 return true;
             }
         }
@@ -186,15 +193,5 @@ final class OutsideItemReferences
         }
 
         return array_key_exists($segment, $node) ? [$segment => $node[$segment]] : [];
-    }
-
-    /** Mirrors Laravel's getDateTime(). */
-    private static function parsesAsDate(string $value): bool
-    {
-        try {
-            return (bool) @Date::parse($value);
-        } catch (Throwable) {
-            return false;
-        }
     }
 }

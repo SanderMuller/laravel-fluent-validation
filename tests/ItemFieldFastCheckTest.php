@@ -77,6 +77,10 @@ function itemFieldCaseList(): iterable
         ['apr' => ['utc' => ['from' => '2020-01-01', 'to' => '2021-01-01']]],
         ['apr.*.from' => 'date', 'apr.*.to' => 'date|after:apr.*.from'],
     ];
+    yield 'a date field whose full path Carbon reads as a date' => [
+        ['x' => ['just now' => ['from' => '2020-01-01', 'to' => '2021-01-01']]],
+        ['x.*.from' => 'date', 'x.*.to' => 'date|after:x.*.from'],
+    ];
     yield 'a size comparison without a numeric rule elsewhere' => [
         ['other' => '12', 'top' => '5', 'items' => $items],
         ['top' => 'string|gte:other', 'other' => 'string', 'items.*.min' => 'numeric', 'items.*.max' => 'numeric|gte:items.*.min'],

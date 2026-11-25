@@ -236,6 +236,10 @@ function resolvedDateCases(): array
             ['x' => ['now' => ['from' => '2020-01-01', 'to' => '2021-01-01']]],
             ['x.*.from' => 'date', 'x.*.to' => 'date|after:x.*.from'],
         ],
+        'the item key just now, which Carbon reads as now' => [
+            ['x' => ['just now' => ['from' => '2020-01-01', 'to' => '2021-01-01']]],
+            ['x.*.from' => 'date', 'x.*.to' => 'date|after:x.*.from'],
+        ],
         'the item key today' => [
             ['x' => ['today' => ['from' => '2099-01-10', 'to' => '2099-01-05']]],
             ['x.*.from' => 'date', 'x.*.to' => 'date|after:x.*.from'],
