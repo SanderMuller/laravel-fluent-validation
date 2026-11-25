@@ -115,4 +115,4 @@ $validated = $request->validate([
 ]);
 ```
 
-In these direct-call contexts FluentRule objects self-validate in isolation: labels don't reach the outer validator and the [five optimizations](09-performance.md) don't engage. Reach for the trait or `RuleSet::validate()` for production code.
+In these direct-call contexts FluentRule objects self-validate: a label shows only in the messages of its own rule, and the [five optimizations](09-performance.md) don't engage. Reach for the trait or `RuleSet::validate()` for production code.

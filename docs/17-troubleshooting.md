@@ -1,10 +1,7 @@
 # Troubleshooting
 
 **Labels not working ("The name field" instead of "The Full Name field")**
-Add `use HasFluentRules`. The trait extracts labels from rule objects and passes them to the validator. Without it, labels are only used inside the rule's self-validation.
-
-**Cross-field wildcard references don't work (`requiredUnless('items.*.type', ...)`)**
-These require `HasFluentRules` or `FluentValidator` to resolve wildcard paths. Standalone FluentRule objects self-validate in isolation.
+Add `use HasFluentRules`. The trait extracts labels from rule objects and passes them to the validator, so every message uses them. Without it, a label shows only in the messages of its own rule object, not in a rule elsewhere that names the field, such as `required_with:name`.
 
 **Child form request loses or corrupts parent rules**
 `array_merge_recursive` flattens FluentRule objects into arrays. See [Extending parent rules](07-extending-rules.md) for the supported merge patterns (`put()`, `except()`, `modify()`, `modifyEach()`, `modifyChildren()`, spread and clone).

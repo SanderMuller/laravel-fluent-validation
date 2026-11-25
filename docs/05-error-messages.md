@@ -41,7 +41,7 @@ Labels also work inside `each()`, so child fields get clean names:
 You can also set a label after construction with `->label('Name')`.
 
 > [!CAUTION]
-> Labels only reach the validator through one of the four pathways below. With bare `$request->validate()` or `Validator::make()`, FluentRule objects self-validate in isolation and the label is dropped, so you'll see Laravel's default `:attribute` (the snake-cased field name) in error messages instead.
+> Labels reach every message only through one of the four pathways below. With bare `$request->validate()` or `Validator::make()`, a FluentRule object uses its label in its own messages only. A rule elsewhere that names the field, such as `required_with:name`, shows Laravel's default `:attribute` (the snake-cased field name) instead.
 >
 > | Context           | Use                                                |
 > |-------------------|----------------------------------------------------|
