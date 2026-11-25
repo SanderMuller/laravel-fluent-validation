@@ -2,6 +2,19 @@
 
 All notable changes to `laravel-fluent-validation` will be documented in this file.
 
+## 1.48.3 - 2026-11-25
+
+<!-- verified-sha: 1de09a265fbf728dda1800827eefe47192beade9 -->
+### Fixed
+
+- Fixed `RuleSet` skipping the items of a parent that failed `max`, `size` or `list`. It now validates them, as Laravel does, so the error bags match.
+- Fixed the error order for a rule key that ends in `*`. `RuleSet` now lists the items that hold a non-empty array after the other items, as Laravel does. With `stopOnFirstFailure`, this can change which error comes first.
+- Fixed the key order of the data that `RuleSet::check()` and `validate()` return. The top-level keys now follow Laravel's order, and so do the lists where the order can change the result. The fields inside one item still keep the input order.
+
+**Full Changelog**: https://github.com/SanderMuller/laravel-fluent-validation/compare/1.48.2...1.48.3
+
+<!-- benchmark-start -->
+<!-- benchmark-end -->
 ## 1.48.2 - 2026-11-25
 
 <!-- verified-sha: 1dde7593909b9133cd14c4b9c65604ea9e4e6ac7 -->
@@ -315,6 +328,7 @@ $safe->nullableInteger('rank', 0);  // 0 when the field is blank
 
 
 
+
 ```
 ### Fixed
 
@@ -368,6 +382,7 @@ $safe = $request->safe();
 
 $safe->nullableString('nickname');          // 'Johnny', or null
 $safe->nullableString('nickname', 'guest'); // 'guest' when the field is empty
+
 
 
 
@@ -917,6 +932,7 @@ Malformed wildcard rule key [items*]: a wildcard segment must be written as '.*'
 
 
 
+
 ```
 This matches the package's existing fail-fast on malformed array-rule keys.
 
@@ -988,6 +1004,7 @@ The supported framework constraint narrows accordingly:
 
 ```
 illuminate/*: ^11.0||^12.0||^13.0  ->  ^12.0||^13.0
+
 
 
 
@@ -1101,6 +1118,7 @@ The file was plain markdown — zero Blade directives, zero render-time tokens �
 
 
 
+
 ```
 So the standing guidance never landed in `CLAUDE.md` / `AGENTS.md`; contributors only got it on-demand via the `fluent-validation*` skills, not as always-on context.
 
@@ -1132,6 +1150,7 @@ Conditional-required and presence modifiers never emit that literal `required` s
 FluentRule::email()->requiredIf($enabled)->nullable()
 // before: passed — requirement dropped          ❌
 // after:  fails, matching native Laravel         ✅
+
 
 
 
@@ -1215,6 +1234,7 @@ The remap built a synthetic `Validator::make([], [])`, pushed the error message 
 $caught->validator->errors()->keys();   // ['actions']                      ✅
 $caught->validator->errors()->first();  // human-readable message          ✅
 $caught->validator->failed();           // []                              ❌
+
 
 
 
@@ -1342,6 +1362,7 @@ $validated = RuleSet::from([
 
 
 
+
 ```
 Top-level keys outside the rule set are already excluded from `validated()`; this flag extends the same behavior to nested array shapes declared via `children()`, `each()`, or dotted rule keys. Maps to Laravel's `Validator::$excludeUnvalidatedArrayKeys`, but gives per-`RuleSet` control instead of relying on whatever the host factory's flag happens to be set to — useful when an application has called `Factory::includeUnvalidatedArrayKeys()` globally and a specific call site needs the strict default back.
 
@@ -1359,6 +1380,7 @@ $validated = RuleSet::from([...])->validate($request->all());
 
 // 1.27
 $validated = RuleSet::from([...])->validate($request);
+
 
 
 
