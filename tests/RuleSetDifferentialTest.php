@@ -8,6 +8,7 @@ use Illuminate\Validation\Rule;
 use Random\Engine\Mt19937;
 use Random\Randomizer;
 use SanderMuller\FluentValidation\FluentFormRequest;
+use SanderMuller\FluentValidation\Internal\PrevalidatedValidator;
 use SanderMuller\FluentValidation\RuleSet;
 
 // =========================================================================
@@ -188,3 +189,87 @@ it('reports the same error keys as native for random rule sets in a form request
         ));
     }
 })->with(array_map(static fn (int $chunk): int => $chunk * 50, range(0, 19)));
+
+/**
+ * A case of {@see differentialCase()} where some fields start with an
+ * exclude rule, as a tuple or as a string.
+ *
+ * @return array{0: array<string, mixed>, 1: array<string, mixed>}
+ */
+function differentialExcludeCase(int $seed): array
+{
+    [$rules, $data] = differentialCase($seed);
+    $random = new Randomizer(new Mt19937($seed + 100_000));
+
+    foreach ($rules as $key => $rule) {
+        if ($random->getInt(0, 1) === 0) {
+            continue;
+        }
+
+        $exclude = differentialPick($random, [
+            ['exclude_unless', 'items.*.type', 'a'],
+            ['exclude_if', 'items.*.flag', 'true'],
+            'exclude_unless:items.*.type,a,b',
+            'exclude_if:items.*.type,c',
+        ]);
+        $rules[$key] = [$exclude, ...(is_string($rule) ? explode('|', $rule) : (is_array($rule) ? $rule : [$rule]))];
+    }
+
+    // Laravel puts the keys without a wildcard before the attributes a wildcard adds.
+    foreach (['top' => 'nullable|string', 'items.0.n' => 'nullable'] as $key => $rule) {
+        if ($random->getInt(0, 1) === 1) {
+            $position = $random->getInt(0, count($rules));
+            $rules = array_slice($rules, 0, $position, true) + [$key => $rule] + array_slice($rules, $position, null, true);
+        }
+    }
+
+    if ($random->getInt(0, 1) === 1) {
+        $data['top'] = 'x';
+    }
+
+    return [$rules, $data];
+}
+
+it('gives the same errors and validated data as native when the form request passes in RuleSet first', function (bool $exclude): void {
+    $prevalidated = 0;
+
+    for ($seed = 0; $seed < 3000; $seed++) {
+        [$rules, $data] = $exclude ? differentialExcludeCase($seed) : differentialCase($seed);
+
+        try {
+            $nativeValidator = validator($data, $rules);
+            $native = $nativeValidator->fails() ? ['errors' => $nativeValidator->errors()->keys()] : ['validated' => $nativeValidator->validated()];
+        } catch (Throwable) {
+            continue;
+        }
+
+        DifferentialFormRequest::$testRules = $rules;
+        $instance = DifferentialFormRequest::createFrom(Request::create('/t', 'POST', $data));
+        $instance->setContainer(app());
+        $instance->setRedirector(resolve(Redirector::class));
+        $factory = resolve(Factory::class);
+        $validator = (fn () => $this->createDefaultValidator($factory))->call($instance);
+        $fluent = $validator->fails() ? ['errors' => $validator->errors()->keys()] : ['validated' => $validator->validated()];
+
+        // A pass in RuleSet must be a pass in Laravel, and a pass in Laravel
+        // must stay one. The errors of a failing request come from the full
+        // path, which the other differential tests cover.
+        $isPrevalidated = $validator::class === PrevalidatedValidator::class;
+
+        if (! $isPrevalidated && isset($native['errors'])) {
+            continue;
+        }
+
+        $prevalidated += $isPrevalidated ? 1 : 0;
+
+        expect($fluent)->toBe($native, sprintf(
+            "seed %d\nrules %s\ndata %s",
+            $seed,
+            json_encode($rules, JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR),
+            json_encode($data, JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR),
+        ));
+    }
+
+    // The RuleSet-first path must run often enough for the comparison to mean something.
+    expect($prevalidated)->toBeGreaterThan(40);
+})->with(['without exclude rules' => [false], 'with leading exclude rules' => [true]]);

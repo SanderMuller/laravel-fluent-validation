@@ -12,6 +12,8 @@ The optimized entry points are `HasFluentRules` on a form request, `HasFluentVal
 - [**Batched database validation**](#batched-database-validation): turns N `exists`/`unique` queries into a single `whereIn`
 - [**Rule-parse memoization**](#rule-parse-memoization): parses each rule string once per worker for the rules that fall through to Laravel
 
+A form request with `HasFluentRules` also [validates with RuleSet first](#form-requests-validate-with-ruleset-first).
+
 ## O(n) wildcard expansion
 
 Laravel's `explodeWildcardRules()` flattens data with `Arr::dot()` and matches regex patterns against every key. For each wildcard rule, it scans every key in the flattened array, making the expansion O(n²). The package walks the data once instead.
@@ -66,7 +68,20 @@ To handle a limit differently, for example as HTTP 413, catch `BatchLimitExceede
 
 Laravel parses a rule string such as `max:255` again on every internal check, and again for every array item. The optimized entry points cache each parse in a worker-wide static. Only string rules are cached. On a large array whose rules fall through to Laravel, this roughly halves the remaining time.
 
-All optimizations are Octane-safe. The shared validation factory is never changed. The state kept across requests is a set of caches keyed by the rules: parse results, compiled checks, and a plan per wildcard rule set. A plan also keeps the rules reduced for up to 256 values of the field its conditional rules read, such as `type`, when the value is at most 128 bytes long. Those values are the only request data kept. Each cache resets when it reaches its size cap. Rules that compare with the current time, such as `after:today`, are compiled again on each request.
+All optimizations are Octane-safe. The shared validation factory is never changed. The state kept across requests is a set of caches keyed by the rules: parse results, compiled checks, and a plan per wildcard rule set. A plan also keeps the rules reduced for up to 256 values of the field its conditional rules read, such as `type`, when the value is at most 128 bytes long. Those values, and the attribute paths that a date rule checks, such as `events.0.start_date`, are the only request data kept. Each cache resets when it reaches its size cap. Rules that compare with the current time, such as `after:today`, are compiled again on each request.
+
+## Form requests validate with RuleSet first
+
+`HasFluentRules` first validates the request with the per-item engine of `RuleSet`, which does not expand the wildcard rules. When the request passes, the form request uses that result: `validated()` gives the same keys and values as Laravel, in the same order. When it fails, the form request validates again on the full path, so the error messages do not change. A failing request takes about 10 % longer.
+
+The form request uses only the full path when:
+
+- it has a `withValidator()` or `after()` method, or is precognitive
+- an exclude rule comes after a rule other than `bail`, `nullable` or `sometimes`
+- a rule reads the data or the validator (`DataAwareRule`, `ValidatorAwareRule`), or is `exists` or `unique`
+- a rule key is a top-level `*` or holds an escaped dot
+
+Code that reads or changes the rules of the validator after a pass gets the rules of the full path.
 
 ## When this won't help
 

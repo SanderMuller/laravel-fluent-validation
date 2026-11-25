@@ -10,6 +10,8 @@ use ReflectionNamedType;
 use SanderMuller\FluentValidation\Internal\ImplicitAttributes;
 use SanderMuller\FluentValidation\Internal\OptimizedRules;
 use SanderMuller\FluentValidation\Internal\PreparesOptimizedRules;
+use SanderMuller\FluentValidation\Internal\PrevalidatedValidator;
+use SanderMuller\FluentValidation\Internal\RuleSetFirstGate;
 use SanderMuller\FluentValidation\Internal\ValidatorStateCopier;
 
 /**
@@ -218,6 +220,22 @@ trait HasFluentRules
         // before returning, eliminating a terminal ->toArray() call).
         $ruleSet = $rules instanceof RuleSet ? $rules : RuleSet::from($rules);
         $flatRules = $ruleSet->flattenRules();
+
+        return $this->prevalidatedValidator($factory, $ruleSet, $flatRules, $data)
+            ?? $this->fullPathValidator($factory, $ruleSet, $flatRules, $data);
+    }
+
+    /**
+     * The validator of the full path: it expands the wildcard rules, and
+     * removes the rules that it can decide before Laravel runs. Builds on
+     * `$into` when that validator has RuleSet's result, see
+     * {@see PrevalidatedValidator()}.
+     *
+     * @param  array<string, mixed>  $flatRules
+     * @param  array<string, mixed>  $data
+     */
+    private function fullPathValidator(ValidationFactory $factory, RuleSet $ruleSet, array $flatRules, array $data, ?PrevalidatedValidator $into = null): Validator
+    {
         $prepared = $ruleSet->prepareForImplicitAttributes($data, $flatRules);
 
         // Pre-exclude rules whose exclude_unless/exclude_if conditions
@@ -226,16 +244,21 @@ trait HasFluentRules
         $preparedRules = $this->preExcludeRules($prepared->rules, $data);
 
         $fastCheckMaps = $this->buildFastCheckMaps($prepared, $preparedRules, array_keys($flatRules));
+        $excluded = array_keys(array_diff_key($prepared->rules, $preparedRules));
 
         $messages = $this->messages() + $prepared->messages;
         $attributes = $this->attributes() + $prepared->attributes;
 
         // Only use OptimizedValidator when there are fast-checkable wildcard
         // rules or conditional rules were pre-excluded.
-        if ($fastCheckMaps[0] !== [] || $fastCheckMaps[3] !== [] || count($preparedRules) < count($prepared->rules)) {
+        if ($into instanceof PrevalidatedValidator) {
+            $validator = $into->withFullPathRules($preparedRules, $prepared->messages, $prepared->attributes)
+                ->withFastChecks(...$fastCheckMaps)
+                ->withExcludedAttributes($excluded);
+        } elseif ($fastCheckMaps[0] !== [] || $fastCheckMaps[3] !== [] || $excluded !== []) {
             $validator = $this->makeOptimizedValidator($factory, $data, $preparedRules, $messages, $attributes);
             $validator->withFastChecks(...$fastCheckMaps)
-                ->withExcludedAttributes(array_keys(array_diff_key($prepared->rules, $preparedRules)));
+                ->withExcludedAttributes($excluded);
         } else {
             /** @var Validator $validator */
             $validator = $factory->make($data, $preparedRules, $messages, $attributes);
@@ -254,6 +277,52 @@ trait HasFluentRules
                 $this->filterPrecognitiveRules($validator->getRulesWithoutPlaceholders())
             );
         }
+
+        return $validator;
+    }
+
+    /**
+     * A validator with the result of RuleSet's own engine, which validates
+     * each item without an expansion of the wildcard rules. Null when the
+     * request fails there: the full path then builds Laravel's messages. Also
+     * null when a hook of the request receives the validator, or when a pass
+     * in RuleSet is not a pass in Laravel, see {@see RuleSetFirstGate}. Code
+     * that reads or changes the rules gets the rules of the full path.
+     *
+     * @param  array<string, mixed>  $flatRules
+     * @param  array<string, mixed>  $data
+     */
+    private function prevalidatedValidator(ValidationFactory $factory, RuleSet $ruleSet, array $flatRules, array $data): ?PrevalidatedValidator
+    {
+        // Laravel's check for unknown fields is an after hook that reads rules(), not the validator.
+        if (method_exists($this, 'withValidator') || method_exists($this, 'after') || $this->isPrecognitive()) {
+            return null;
+        }
+
+        $compiled = RuleSet::compile($flatRules);
+
+        if (! RuleSetFirstGate::allows($compiled)) {
+            return null;
+        }
+
+        $result = RuleSet::from($flatRules)->check($data);
+
+        if ($result->fails()) {
+            return null;
+        }
+
+        $validator = PrevalidatedValidator::make(
+            $factory,
+            $data,
+            $result->validated(),
+            $compiled,
+            $this->messages(),
+            $this->attributes(),
+            function (PrevalidatedValidator $validator) use ($factory, $ruleSet, $flatRules, $data): void {
+                $this->fullPathValidator($factory, $ruleSet, $flatRules, $data, $validator);
+            },
+        );
+        $validator?->stopOnFirstFailure($this->stopOnFirstFailure);
 
         return $validator;
     }
