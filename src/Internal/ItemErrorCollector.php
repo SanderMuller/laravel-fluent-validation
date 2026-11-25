@@ -3,6 +3,7 @@
 namespace SanderMuller\FluentValidation\Internal;
 
 use Closure;
+use Illuminate\Support\Arr;
 use Illuminate\Validation\Validator;
 
 /**
@@ -68,8 +69,10 @@ final class ItemErrorCollector
     /**
      * Append errors from a failed per-item validator into the accumulator,
      * keyed by full dotted path (`{parent}.{index}.{field}` or `{parent}.{index}` for scalar each).
-     * Returns whether an error is on `$stopAt`, the group's first rule key:
-     * Laravel reports no later item before it.
+     * Returns whether an error is on `$stopAt`, the group's first rule key,
+     * where Laravel reports no later item before it. For a rule key that ends
+     * in `*`, Laravel lists an attribute that holds a non-empty array after
+     * the other items, so such an error does not stop the group.
      *
      * @param  array<string, list<string>>  $errors
      */
@@ -77,15 +80,26 @@ final class ItemErrorCollector
     {
         /** @var array<string, list<string>> $itemErrors */
         $itemErrors = $validator->errors()->toArray();
-        $reached = $isScalar && $stopAt !== null;
+        $reached = false;
 
         foreach ($itemErrors as $field => $fieldErrors) {
             $fullPath = $isScalar ? "{$parent}.{$index}" : "{$parent}.{$index}.{$field}";
             $errors[$fullPath] = $fieldErrors;
-            $reached = $reached || ($stopAt !== null && $this->isRule((string) $field, $stopAt));
+            $reached = $reached || ($stopAt !== null && ($isScalar || $this->isRule((string) $field, $stopAt)) && ! $this->listedLast($validator, (string) $field, $isScalar || str_ends_with($stopAt, '*')));
         }
 
         return $reached;
+    }
+
+    private function listedLast(Validator $validator, string $field, bool $endsInWildcard): bool
+    {
+        if (! $endsInWildcard) {
+            return false;
+        }
+
+        $value = Arr::get($validator->getData(), $field);
+
+        return is_array($value) && $value !== [];
     }
 
     private function isRule(string $field, string $ruleKey): bool

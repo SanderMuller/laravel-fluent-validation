@@ -4,10 +4,9 @@ namespace SanderMuller\FluentValidation\Internal;
 
 /**
  * Puts per-item errors in the order Laravel reports them. Laravel expands
- * each wildcard rule in rule order, and the attributes of one rule in data
- * order, so `items.1.x` comes before `items.0.y` when `items.*.x` comes
- * before `items.*.y`. Each group collects its errors item by item in data
- * order, so the errors of one rule key are in order already.
+ * each wildcard rule in rule order, so `items.1.x` comes before `items.0.y`
+ * when `items.*.x` comes before `items.*.y`, and the attributes of one rule
+ * key in the order of {@see WildcardExpansionOrder}.
  *
  * @internal Implementation detail of `RuleSet`.
  */
@@ -20,11 +19,12 @@ final class WildcardErrorOrder
      * @param  array<string, list<string>>  $topErrors
      * @param  array<string, list<string>>  $wildcardErrors
      * @param  list<string>  $wildcardKeys  the wildcard rule keys, in rule order
+     * @param  array<string, mixed>  $data
      * @return array<string, list<string>>
      */
-    public static function merge(array $topErrors, array $wildcardErrors, array $wildcardKeys, bool $stopOnFirstFailure): array
+    public static function merge(array $topErrors, array $wildcardErrors, array $wildcardKeys, bool $stopOnFirstFailure, array $data): array
     {
-        $wildcardErrors = self::sort($wildcardErrors, $wildcardKeys);
+        $wildcardErrors = self::sort($wildcardErrors, $wildcardKeys, $data);
 
         if ($stopOnFirstFailure) {
             $wildcardErrors = array_slice($wildcardErrors, 0, 1, true);
@@ -55,34 +55,53 @@ final class WildcardErrorOrder
     }
 
     /**
-     * A stable sort by the rule key each attribute comes from.
+     * A stable sort by the rule key each attribute comes from, and then by
+     * Laravel's expansion order within one rule key.
      *
      * @param  array<string, list<string>>  $errors
      * @param  list<string>  $wildcardKeys
+     * @param  array<string, mixed>  $data
      * @return array<string, list<string>>
      */
-    private static function sort(array $errors, array $wildcardKeys): array
+    private static function sort(array $errors, array $wildcardKeys, array $data): array
     {
         if (count($errors) < 2) {
             return $errors;
         }
 
+        $sorted = [];
+
+        foreach (self::byRule($errors, $wildcardKeys) as $rule => $ruleErrors) {
+            $attributes = array_map(strval(...), array_keys($ruleErrors));
+
+            foreach (isset($wildcardKeys[$rule]) ? WildcardExpansionOrder::ofAttributes($attributes, $wildcardKeys[$rule], $data) : $attributes as $attribute) {
+                $sorted[$attribute] = $ruleErrors[$attribute];
+            }
+        }
+
+        return $sorted;
+    }
+
+    /**
+     * The errors per rule key index, in rule order.
+     *
+     * @param  array<string, list<string>>  $errors
+     * @param  list<string>  $wildcardKeys
+     * @return array<int, array<string, list<string>>>
+     */
+    private static function byRule(array $errors, array $wildcardKeys): array
+    {
         // Numeric item keys written as `*`. Without a numeric segment in a
         // rule key, one shape means one rule key.
         $shapes = preg_replace('/\.\d+(?=\.|$)/', '.*', array_keys($errors));
         $byShape = preg_grep('/(^|\.)\d+(\.|$)/', $wildcardKeys) === [];
-
-        if ($byShape && count(array_unique($shapes)) === 1) {
-            return $errors;
-        }
-
+        // No two keys expand to one attribute (see WildcardShape), so an
+        // attribute with numeric item keys finds its rule key without a regex.
+        $byKey = $byShape ? array_flip($wildcardKeys) : [];
         $patterns = array_map(
             static fn (string $key): string => '/^' . str_replace('\*', '[^.]*', preg_quote($key, '/')) . '\z/',
             $wildcardKeys,
         );
-        // No two keys expand to one attribute (see WildcardShape), so an
-        // attribute with numeric item keys finds its rule key without a regex.
-        $byKey = $byShape ? array_flip($wildcardKeys) : [];
         /** @var array<int, array<string, list<string>>> $byRule */
         $byRule = [];
 
@@ -91,18 +110,9 @@ final class WildcardErrorOrder
             $byRule[$rule][$attribute] = $errors[$attribute];
         }
 
-        if (count($byRule) === 1) {
-            return $errors;
-        }
-
         ksort($byRule);
-        $sorted = [];
 
-        foreach ($byRule as $ruleErrors) {
-            $sorted += $ruleErrors;
-        }
-
-        return $sorted;
+        return $byRule;
     }
 
     /**

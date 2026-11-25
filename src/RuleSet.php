@@ -30,6 +30,7 @@ use SanderMuller\FluentValidation\Internal\OutsideItemReferences;
 use SanderMuller\FluentValidation\Internal\RuleMetadata;
 use SanderMuller\FluentValidation\Internal\TopLevelValidation;
 use SanderMuller\FluentValidation\Internal\WildcardErrorOrder;
+use SanderMuller\FluentValidation\Internal\WildcardExpansionOrder;
 use SanderMuller\FluentValidation\Internal\WildcardGroupPasses;
 use SanderMuller\FluentValidation\Internal\WildcardShape;
 use SanderMuller\FluentValidation\Internal\WildcardValidatedData;
@@ -674,7 +675,7 @@ final class RuleSet implements Arrayable, IteratorAggregate
             return $fallbackResult;
         }
 
-        $errors = WildcardErrorOrder::merge($topErrors, $allErrors, $wildcardKeys, $this->stopOnFirstFailure);
+        $errors = WildcardErrorOrder::merge($topErrors, $allErrors, $wildcardKeys, $this->stopOnFirstFailure, $data);
 
         if ($errors !== []) {
             TopLevelValidation::fail($errors, $topValidator);
@@ -951,7 +952,7 @@ final class RuleSet implements Arrayable, IteratorAggregate
                 continue;
             }
 
-            $paths = WildcardExpander::expand($field, $data);
+            $paths = WildcardExpansionOrder::ofPaths(WildcardExpander::expand($field, $data), $field, $data);
 
             if ($paths !== []) {
                 $implicitAttributes[$field] = $paths;

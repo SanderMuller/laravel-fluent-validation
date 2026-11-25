@@ -8,7 +8,7 @@ use SanderMuller\FluentValidation\FluentRule;
 /**
  * A rule on each item, for items that mix arrays and scalars. Laravel
  * orders the errors as `Arr::dot()` orders the keys: a non-empty array
- * after the scalars. The package reports them in item order.
+ * after the scalars.
  *
  * @internal
  */

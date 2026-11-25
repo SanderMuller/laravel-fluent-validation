@@ -1,11 +1,15 @@
 <?php declare(strict_types=1);
 
+use Illuminate\Http\Request;
+use Illuminate\Routing\Redirector;
 use Illuminate\Validation\ValidationException;
 use SanderMuller\FluentValidation\RuleSet;
+use SanderMuller\FluentValidation\Tests\Fixtures\MixedItemsFluentFormRequest;
 
 // =========================================================================
 // Laravel validates every top-level attribute first, then each wildcard rule
-// in rule order, for every item in data order. Its errors come in that order,
+// in rule order, for every item in data order. For a rule key that ends in
+// `*`, an item that holds a non-empty array comes after the other items. Its errors come in that order,
 // and stopOnFirstFailure keeps the errors of the first failing attribute.
 // =========================================================================
 
@@ -92,6 +96,46 @@ it('validates the items of a parent that fails a top-level rule, and the other g
         $stopOnFirstFailure,
     );
 })->with(['all errors' => [false], 'stop on first failure' => [true]]);
+
+/** @return array<string, array{array<string, mixed>, array<string, mixed>}> */
+function arraysLastCases(): array
+{
+    return [
+        'scalar items with an array between them' => [['items' => 'array', 'items.*' => 'numeric|integer'], ['items' => ['x', [1], 'y']]],
+        'an array item before a scalar item' => [['items' => 'array', 'items.*' => 'integer'], ['items' => [[1], 'x']]],
+        'a nested key that ends in a wildcard' => [['o.r' => 'nullable|array', 'o.r.*' => 'string'], ['o' => ['r' => [['f' => 1], 1]]]],
+        'a second wildcard at the end' => [['items.*.tags' => 'array', 'items.*.tags.*' => 'integer'], ['items' => [['tags' => [[1]]], ['tags' => ['b']]]]],
+        'an array before a scalar under a second wildcard' => [['items.*.tags.*' => 'integer'], ['items' => [['tags' => [[1], 'a']]]]],
+        'a field that holds an array in the first item' => [['items.*.x' => 'integer'], ['items' => [['x' => [1]], ['x' => 'a']]]],
+        'an item rule after a field rule' => [['items.*.x' => 'integer', 'items.*' => 'string'], ['items' => [['x' => 'a'], 5]]],
+    ];
+}
+
+it('lists the items that hold a non-empty array last for a key that ends in a wildcard, like native', function (string $case, bool $stopOnFirstFailure): void {
+    [$rules, $data] = arraysLastCases()[$case];
+
+    assertErrorOrderParity($rules, $data, $stopOnFirstFailure);
+})->with(array_keys(arraysLastCases()))->with(['all errors' => [false], 'stop on first failure' => [true]]);
+
+it('orders the item errors of a fluent form request like native', function (): void {
+    $data = ['items' => ['x', [1], 'y']];
+    $request = MixedItemsFluentFormRequest::createFrom(Request::create('/test', 'POST', $data));
+    $request->setContainer(app());
+    $request->setRedirector(resolve(Redirector::class));
+
+    $native = validator($data, RuleSet::compile(RuleSet::from(MixedItemsFluentFormRequest::fluentRules())->flattenRules()))->errors()->toArray();
+
+    $errors = [];
+
+    try {
+        $request->validateResolved();
+    } catch (ValidationException $validationException) {
+        $errors = $validationException->errors();
+    }
+
+    expect($errors)->toBe($native)
+        ->and(array_keys($native))->toBe(['items.0', 'items.2', 'items.1']);
+});
 
 it('orders errors like native when a rule key holds a numeric segment', function (bool $stopOnFirstFailure): void {
     assertErrorOrderParity(
