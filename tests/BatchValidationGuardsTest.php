@@ -1043,30 +1043,25 @@ it('parent-max remap populates Validator::failed() with the Max rule key', funct
 // Phase 4: RuleSet-path invariants
 // =========================================================================
 
-it('RuleSet validateInternal rejects flat parent max:N before any DB query fires', function (): void {
+it('RuleSet validates the items of a parent that fails max:N like native, in one batched query', function (): void {
     setupGuardsDatabase();
 
-    // Flat parent `items` with max:5, user sends 20 items. In the RuleSet
-    // path, the top validator catches `max` before per-item wildcard
-    // validation runs (and before batching).
+    // Native Laravel validates the items after a failed parent `max`, so
+    // RuleSet does too. Batching keeps that to one widget query.
     $items = [];
     for ($i = 1; $i <= 20; ++$i) {
         $items[] = ['id' => $i];
     }
 
+    $rules = [
+        'items' => FluentRule::array()->required()->max(5)->each([
+            'id' => FluentRule::integer()->required()->exists('testing.widgets', 'id'),
+        ]),
+    ];
+    $native = validator(['items' => $items], RuleSet::compile(RuleSet::from($rules)->flattenRules()))->errors()->toArray();
+
     DB::connection('testing')->enableQueryLog();
-
-    $caught = null;
-    try {
-        RuleSet::from([
-            'items' => FluentRule::array()->required()->max(5)->each([
-                'id' => FluentRule::integer()->required()->exists('testing.widgets', 'id'),
-            ]),
-        ])->validate(['items' => $items]);
-    } catch (ValidationException $validationException) {
-        $caught = $validationException;
-    }
-
+    $errors = RuleSet::from($rules)->check(['items' => $items])->errors()->toArray();
     $queryLog = DB::connection('testing')->getQueryLog();
     DB::connection('testing')->disableQueryLog();
 
@@ -1075,9 +1070,9 @@ it('RuleSet validateInternal rejects flat parent max:N before any DB query fires
         static fn (array $q): bool => str_contains($q['query'], 'widgets'),
     );
 
-    expect($widgetQueries)->toBeEmpty()
-        ->and($caught)->not->toBeNull()
-        ->and($caught->validator->errors()->keys())->toContain('items');
+    expect($errors)->toBe($native)
+        ->and(array_keys($errors))->toContain('items', 'items.3.id', 'items.19.id')
+        ->and($widgetQueries)->toHaveCount(1);
 });
 
 it('RuleSet nested second-level wildcard does NOT batch today (accidental DoS safety)', function (): void {

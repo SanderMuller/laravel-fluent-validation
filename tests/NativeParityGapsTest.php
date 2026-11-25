@@ -139,6 +139,32 @@ it('names a referenced field that neither the item nor the rules hold like nativ
         ->toBe(['items.0.note' => ['The items.0.note field is required unless items.0.type is in b.']]);
 });
 
+/** @return array<string, array{array<string, mixed>, array<string, mixed>}> */
+function structuralParentCases(): array
+{
+    return [
+        'max' => [['s' => 'array|max:1', 's.*' => 'string'], ['s' => [5, 6]]],
+        'size' => [['s' => 'array|size:3', 's.*' => 'string'], ['s' => [5]]],
+        'list' => [['s' => 'list', 's.*' => 'string'], ['s' => ['l' => 5]]],
+        'list under a parent' => [['o.r' => 'list', 'o.r.*' => 'nullable|string'], ['o' => ['r' => ['f' => 0]]]],
+        'full expansion' => [['s' => 'array|max:1', 's.*' => 'array', 's.*.*' => 'string'], ['s' => [[5], [6]]]],
+    ];
+}
+
+it('validates the items of a parent that fails a structural rule like native Laravel in RuleSet', function (string $case, bool $stop): void {
+    [$rules, $data] = structuralParentCases()[$case];
+    $ruleSet = RuleSet::from($rules);
+
+    if ($stop) {
+        $ruleSet->stopOnFirstFailure();
+    }
+
+    $native = validator($data, $rules)->stopOnFirstFailure($stop)->errors()->toArray();
+
+    expect($ruleSet->check($data)->errors()->toArray())->toBe($native)
+        ->and(count($native))->toBeGreaterThan($stop ? 0 : 1);
+})->with(array_keys(structuralParentCases()))->with([false, true]);
+
 it('prefers a literal data key with a dot over a nested key like native Laravel', function (): void {
     $data = ['items' => ['a' => ['b' => ['name' => 'ok']], 'a.b' => ['name' => 12]]];
 

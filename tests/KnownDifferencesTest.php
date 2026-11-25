@@ -6,7 +6,6 @@ use Illuminate\Validation\ValidationException;
 use SanderMuller\FluentValidation\FluentFormRequest;
 use SanderMuller\FluentValidation\RuleSet;
 use SanderMuller\FluentValidation\Tests\Fixtures\DeclaresFluentRules;
-use SanderMuller\FluentValidation\Tests\Fixtures\FailedListParentFluentFormRequest;
 use SanderMuller\FluentValidation\Tests\Fixtures\ItemFieldsFluentValidator;
 use SanderMuller\FluentValidation\Tests\Fixtures\MixedItemsFluentFormRequest;
 use SanderMuller\FluentValidation\Tests\Fixtures\RequiredIfBeforeExcludeFluentFormRequest;
@@ -81,17 +80,6 @@ it('reports another first error with stopOnFirstFailure when items mix arrays an
 
     expect(array_keys(knownDifferenceNativeErrors(MixedItemsFluentFormRequest::class, $data, stopOnFirstFailure: true)))->toBe(['items.1'])
         ->and(array_keys(RuleSet::from(MixedItemsFluentFormRequest::fluentRules())->stopOnFirstFailure()->check($data)->errors()->toArray()))->toBe(['items.0']);
-});
-
-it('skips the items of a parent that failed its list rule in RuleSet', function (): void {
-    $data = ['items' => ['b' => ['c' => 1]]];
-    $listError = ['items' => ['The items field must be a list.']];
-
-    $nativeErrors = $listError + ['items.b.a' => ['The items.b.a field is required.']];
-
-    expect(knownDifferenceNativeErrors(FailedListParentFluentFormRequest::class, $data))->toBe($nativeErrors)
-        ->and(knownDifferenceRequestErrors(FailedListParentFluentFormRequest::class, $data))->toBe($nativeErrors)
-        ->and(RuleSet::from(FailedListParentFluentFormRequest::fluentRules())->check($data)->errors()->toArray())->toBe($listError);
 });
 
 it('keeps unvalidated item keys in FluentValidator, which the factory default leaves out', function (): void {

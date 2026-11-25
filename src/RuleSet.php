@@ -650,7 +650,7 @@ final class RuleSet implements Arrayable, IteratorAggregate
         $topCompiled = self::compile($topRules);
 
         if (WildcardShape::needsFullExpansion(array_map(strval(...), array_keys($topRules)), $wildcardKeys)) {
-            return $this->validateStandard($data, $messages, $attributes, TopLevelValidation::groupsToValidate($wildcardGroups, TopLevelValidation::parentErrors($data, $topCompiled, $wildcardGroups, $messages, $attributes)));
+            return $this->validateStandard($data, $messages, $attributes, $wildcardGroups);
         }
 
         $topValidated = TopLevelValidation::fastValidated($this->ruleCompiler, $data, $topCompiled);
@@ -667,7 +667,7 @@ final class RuleSet implements Arrayable, IteratorAggregate
         $fallbackResult = null;
         $excludedFields = [];
         // Laravel also drops the rules below an attribute an exclude rule removed.
-        $groups = TopLevelValidation::groupsToValidate($wildcardGroups, $topErrors + array_fill_keys($topExcluded, []));
+        $groups = TopLevelValidation::groupsToValidate($wildcardGroups, $topExcluded);
         $allErrors = $this->validateWildcardGroups($groups, $data, $messages, $attributes, $fallbackResult, $uncoveredGroups, $excludedFields, $wildcardKeys, $topExcluded);
 
         if ($fallbackResult !== null) {

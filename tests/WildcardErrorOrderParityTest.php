@@ -85,16 +85,13 @@ it('orders items by their position in the data, like native', function (bool $st
     );
 })->with(['all errors' => [false], 'stop on first failure' => [true]]);
 
-it('skips the items of a parent that fails a top-level rule, and validates the other groups', function (): void {
-    $result = RuleSet::from([
-        'items' => 'array|max:1',
-        'items.*.x' => 'integer',
-        'other' => 'array',
-        'other.*.x' => 'integer',
-    ])->check(['items' => [['x' => 'a'], ['x' => 'b']], 'other' => [['x' => 'c']]]);
-
-    expect($result->errors()->keys())->toBe(['items', 'other.0.x']);
-});
+it('validates the items of a parent that fails a top-level rule, and the other groups, like native', function (bool $stopOnFirstFailure): void {
+    assertErrorOrderParity(
+        ['items' => 'array|max:1', 'items.*.x' => 'integer', 'other' => 'array', 'other.*.x' => 'integer'],
+        ['items' => [['x' => 'a'], ['x' => 'b']], 'other' => [['x' => 'c']]],
+        $stopOnFirstFailure,
+    );
+})->with(['all errors' => [false], 'stop on first failure' => [true]]);
 
 it('orders errors like native when a rule key holds a numeric segment', function (bool $stopOnFirstFailure): void {
     assertErrorOrderParity(
@@ -129,12 +126,13 @@ it('stops validating items at the first failure of the first wildcard rule, like
         ->and($calls)->toBe(1);
 });
 
-it('validates a fallback group after a top-level failure like native, and skips a failed parent', function (): void {
-    $rules = ['items' => 'array|max:1', 'items.*' => 'integer', 'other.*.x' => 'required_with:flag', 'title' => 'required', 'flag' => 'nullable'];
-    $data = ['flag' => 1, 'items' => ['a', 'b'], 'other' => [[]]];
-
-    expect(RuleSet::from($rules)->check($data)->errors()->keys())->toBe(['items', 'title', 'other.0.x']);
-});
+it('validates a fallback group and the items of a failed parent after a top-level failure like native', function (bool $stopOnFirstFailure): void {
+    assertErrorOrderParity(
+        ['items' => 'array|max:1', 'items.*' => 'integer', 'other.*.x' => 'required_with:flag', 'title' => 'required', 'flag' => 'nullable'],
+        ['flag' => 1, 'items' => ['a', 'b'], 'other' => [[]]],
+        $stopOnFirstFailure,
+    );
+})->with(['all errors' => [false], 'stop on first failure' => [true]]);
 
 it('keeps the failed top-level rules when wildcard errors also exist', function (): void {
     $result = RuleSet::from(['title' => 'required', 'items.*.x' => 'integer'])->check(['items' => [['x' => 'a']]]);

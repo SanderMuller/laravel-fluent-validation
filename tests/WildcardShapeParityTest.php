@@ -89,13 +89,6 @@ foreach ($shapeCases as $name => [$rules, $data]) {
     });
 }
 
-it('skips the items of a failed parent for a rule shape that needs full expansion', function (): void {
-    $result = RuleSet::from(['items' => 'array|max:1', 'items.*' => 'array', 'items.*.x' => 'integer'])
-        ->check(['items' => [['x' => 'a'], ['x' => 'b']]]);
-
-    expect($result->errors()->keys())->toBe(['items']);
-});
-
 it('runs a custom parent rule once for a rule shape that needs full expansion', function (): void {
     $calls = 0;
     $rule = static function (string $attribute, mixed $value, Closure $fail) use (&$calls): void {
@@ -108,17 +101,6 @@ it('runs a custom parent rule once for a rule shape that needs full expansion', 
     expect($result->passes())->toBeTrue()
         ->and($calls)->toBe(1);
 });
-
-it('reads a parent rule like Laravel when it skips the items of a failed parent', function (mixed $parentRule): void {
-    $result = RuleSet::from(['items' => $parentRule, 'items.*' => 'array', 'items.*.x' => 'integer'])
-        ->check(['items' => [['x' => 'a'], ['x' => 'b'], ['x' => 'c']]]);
-
-    expect($result->errors()->keys())->toBe(['items']);
-})->with([
-    'conditional rule' => [fn (): mixed => Rule::when(true, ['array', 'max:2'])],
-    'space before the rule name' => ['array| max:2'],
-    'capitalised rule name' => ['array|Max:2'],
-]);
 
 it('evaluates a conditional parent rule with a closure once for a rule shape that needs full expansion', function (): void {
     $calls = 0;
