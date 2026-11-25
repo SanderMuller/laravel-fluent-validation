@@ -2,6 +2,7 @@
 
 namespace SanderMuller\FluentValidation\Internal;
 
+use DateTime;
 use Illuminate\Contracts\Validation\DataAwareRule;
 use Illuminate\Contracts\Validation\ParameterizedRule;
 use Illuminate\Contracts\Validation\ValidatorAwareRule;
@@ -60,7 +61,7 @@ final class RuleSetFirstGate
         foreach ($compiledRules as $key => $rule) {
             $key = (string) $key;
 
-            if (! self::allowsKey($key) || ! self::allowsRule($rule) || (str_contains($key, '*') && self::namesTopLevelField($rule, $fieldLocalRules))) {
+            if (! self::allowsKey($key) || ! self::allowsRule($rule) || (str_contains($key, '*') && self::namesTopLevelField($rule, $fieldLocalRules, $compiledRules))) {
                 return false;
             }
         }
@@ -106,8 +107,13 @@ final class RuleSetFirstGate
         return true;
     }
 
-    private static function namesTopLevelField(mixed $rule, FieldLocalRules $fieldLocalRules): bool
+    /**
+     * @param  array<array-key, mixed>  $compiledRules
+     */
+    private static function namesTopLevelField(mixed $rule, FieldLocalRules $fieldLocalRules, array $compiledRules): bool
     {
+        $reads = [];
+
         foreach (self::parts($rule) as $object) {
             $parts = self::asLaravelReads($object);
 
@@ -115,18 +121,69 @@ final class RuleSetFirstGate
                 return true;
             }
 
-            foreach ($parts as $part) {
-                $isDateRule = isset(self::DATE_RULES[self::name($part)]);
+            array_push($reads, ...$parts);
+        }
 
-                foreach ($fieldLocalRules->references([$part]) as $field) {
-                    if (! str_contains($field, '*') && (! $isDateRule || ! DateLikePaths::parses($field))) {
-                        return true;
-                    }
+        $format = self::dateFormat($reads);
+
+        foreach ($reads as $part) {
+            $isDateRule = isset(self::DATE_RULES[self::name($part)]);
+
+            foreach ($fieldLocalRules->references([$part]) as $field) {
+                if (! str_contains($field, '*') && (! $isDateRule || ! self::isLiteralDate($field, $format, $compiledRules))) {
+                    return true;
                 }
             }
         }
 
         return false;
+    }
+
+    /**
+     * Whether Laravel and RuleSet both read a date rule's parameter as the
+     * same literal date. With a `date_format` rule, Laravel parses it in the
+     * `date_format` of a field with the same name: a top-level field in
+     * Laravel, a field of the item in RuleSet.
+     *
+     * @param  array<array-key, mixed>  $compiledRules
+     */
+    private static function isLiteralDate(string $value, ?string $format, array $compiledRules): bool
+    {
+        if ($format === null) {
+            return DateLikePaths::parses($value);
+        }
+
+        foreach (array_keys($compiledRules) as $key) {
+            $key = (string) $key;
+
+            if ($key === $value || str_ends_with($key, '.*.' . $value)) {
+                return false;
+            }
+        }
+
+        return DateTime::createFromFormat('!' . $format, $value) !== false || DateLikePaths::parses($value);
+    }
+
+    /**
+     * The first `date_format` parameter, as Laravel's `getDateFormat()` reads it.
+     *
+     * @param  list<mixed>  $reads
+     */
+    private static function dateFormat(array $reads): ?string
+    {
+        foreach ($reads as $part) {
+            if (self::name($part) !== 'date_format') {
+                continue;
+            }
+
+            if (is_string($part)) {
+                return str_getcsv(explode(':', $part, 2)[1] ?? '', escape: '\\')[0];
+            }
+
+            return is_array($part) && is_string($part[1] ?? null) ? $part[1] : null;
+        }
+
+        return null;
     }
 
     /**

@@ -144,6 +144,7 @@ function ruleSetFirstBareReferenceCases(): array
                 return 'code';
             }
         }]]], ['items' => [['code' => 'x']]]],
+        'after a literal date that names a field with a date format' => [['items.*.end' => 'date_format:Y|after:2020', 'items.*.2020' => 'date_format:Hi'], ['items' => [['end' => '2000']]]],
         'before in a date rule object' => [['items.*.end' => [Rule::date()->before('start')]], ['items' => [['start' => '2030-01-01', 'end' => '2025-01-01']]]],
     ];
 
@@ -231,6 +232,13 @@ it('takes the path in RuleSet first for a wildcard reference and a literal date'
     $rules = ['items.*.end' => ['date', 'after:items.*.start', 'before:2030-01-01', 'after:today'], 'items.*.start' => 'date|required_with:items.*.end'];
 
     expect(ruleSetFirstValidator(plainRuleSetFirstRequest($rules, ['items' => [['start' => '2029-01-01', 'end' => '2029-06-01']]]))::class)
+        ->toBe(PrevalidatedValidator::class);
+});
+
+it('takes the path in RuleSet first for a literal date in the date format of the field', function (): void {
+    $rules = ['items.*.end' => 'date_format:d/m/Y|before:31/12/2030'];
+
+    expect(ruleSetFirstValidator(plainRuleSetFirstRequest($rules, ['items' => [['end' => '01/01/2030']]]))::class)
         ->toBe(PrevalidatedValidator::class);
 });
 
