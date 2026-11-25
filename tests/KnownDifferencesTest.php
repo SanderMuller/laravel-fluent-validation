@@ -69,3 +69,11 @@ it('keeps unvalidated item keys in FluentValidator, which the factory default le
     expect($native->validated())->toBe(['items' => [['a' => 1]]])
         ->and($validator->validated())->toBe(['items' => [['a' => 1, 'junk' => 2]]]);
 });
+
+it('keeps the field order of the input inside an item in RuleSet, where Laravel uses rule order', function (): void {
+    $rules = ['items.*.b' => 'string', 'items.*.a' => 'string'];
+    $data = ['items' => [['a' => 'x', 'b' => 'y']]];
+
+    expect(validator($data, $rules)->validated())->toBe(['items' => [['b' => 'y', 'a' => 'x']]])
+        ->and(RuleSet::from($rules)->check($data)->validated())->toBe(['items' => [['a' => 'x', 'b' => 'y']]]);
+});
