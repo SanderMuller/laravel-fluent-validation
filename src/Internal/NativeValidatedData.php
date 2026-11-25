@@ -127,7 +127,7 @@ final class NativeValidatedData
      * Does the validation factory leave out unvalidated array keys? That is
      * Laravel's default.
      */
-    public static function factoryExcludesUnvalidatedKeys(): bool
+    private static function factoryExcludesUnvalidatedKeys(): bool
     {
         $factory = Validator::getFacadeRoot();
 

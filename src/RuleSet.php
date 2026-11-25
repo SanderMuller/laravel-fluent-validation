@@ -28,7 +28,6 @@ use SanderMuller\FluentValidation\Internal\ItemRuleCompiler;
 use SanderMuller\FluentValidation\Internal\NativeValidatedData;
 use SanderMuller\FluentValidation\Internal\OutsideItemReferences;
 use SanderMuller\FluentValidation\Internal\RuleMetadata;
-use SanderMuller\FluentValidation\Internal\RuleOrderedData;
 use SanderMuller\FluentValidation\Internal\TopLevelValidation;
 use SanderMuller\FluentValidation\Internal\WildcardErrorOrder;
 use SanderMuller\FluentValidation\Internal\WildcardExpansionOrder;
@@ -593,7 +592,7 @@ final class RuleSet implements Arrayable, IteratorAggregate
      * @param  array<string, mixed>  $data
      * @param  array<string, string>  $messages
      * @param  array<string, string>  $attributes
-     * @return array<array-key, mixed>
+     * @return array<string, mixed>
      *
      * @throws ValidationException
      */
@@ -604,15 +603,13 @@ final class RuleSet implements Arrayable, IteratorAggregate
         // -> BatchDatabaseChecker::buildVerifier), but the catch is reachable —
         // Phase 2 tests prove it via RuleSet::validate() + hard-cap breach.
         try {
-            $validated = $this->validateInternal($data, $messages, $attributes);
+            return $this->validateInternal($data, $messages, $attributes);
         } catch (BatchLimitExceededException $batchLimitExceededException) { // @phpstan-ignore catch.neverThrown
             throw BatchLimitRemap::toValidationException(
                 $batchLimitExceededException,
                 $batchLimitExceededException->attribute ?? array_key_first($this->fields) ?? 'items',
             );
         }
-
-        return RuleOrderedData::of($validated, self::compile($this->flatten()), $this->dropUnknownFields);
     }
 
     /**
