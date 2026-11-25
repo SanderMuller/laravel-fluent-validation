@@ -13,13 +13,13 @@ The `HasFluentRules` trait (and `FluentFormRequest`) applies six optimizations a
 | **RuleSet first** | Validates the request with RuleSet's per-item engine; a pass uses that result, a failure validates again on the full path for Laravel's messages | Up to about 90x for simple rules |
 | **O(n) wildcard expansion** | `WildcardExpander` replaces Laravel's O(n²) approach | ~20% for large arrays |
 | **Per-attribute fast-checks** | Pure PHP closures skip Laravel for valid items (rules listed below) | Skips Laravel for valid items when RuleSet first does not apply |
-| **Partial fast-check** | Fast-checkable fields use PHP, non-eligible fields go through Laravel | 4x with custom Rule objects |
+| **Partial fast-check** | Fast-checkable fields use PHP, non-eligible fields go through Laravel | About 3.5x with custom Rule objects when RuleSet first does not apply |
 | **Batched DB validation** | `exists`/`unique` rules batched into single `whereIn` query | N queries → 1 query |
 | **Rule-parse memoization** | Caches Laravel's rule-string parsing worker-wide; residual slow-path rules parse once instead of per probe and per item | ~2x on the slow-path residual |
 
 Fast-checked rules: `required`, `prohibited`, `filled`, `string`, `numeric`, `integer`, `boolean`, `date`, `email`, `url`, `ip`, `uuid`, `ulid`, `alpha`, `alpha_dash`, `alpha_num`, `accepted`, `declined`, `min`, `max`, `between`, `digits`, `digits_between`, `in`, `not_in`, `regex`, `not_regex`, `date_format`, and `after`, `after_or_equal`, `before`, `before_or_equal`, `date_equals` with a literal date, `required_with`, `required_without`, `required_with_all`, `required_without_all`.
 
-The presence-conditional family (`required_with*` / `required_without*`) is fast-checkable in two ways: (1) the per-item closure handles simple dependent field names directly; (2) when a dependent field uses a dotted path (`required_without:profile.birthdate`), `RuleSet::reduceRulesForItem` pre-evaluates the conditional against the item data and rewrites the rule to plain `required` (or drops it when inactive) before the closure compiles. The rewrite is skipped when the user has supplied a custom message for the original rule name so `{field}.required_without` overrides continue to fire. ~7x speedup measured on 500-item wildcard forms with nested dependent paths (`tests/SlowPathBenchTest.php`).
+The presence-conditional family (`required_with*` / `required_without*`) is fast-checkable in two ways: (1) the per-item closure handles simple dependent field names directly; (2) when a dependent field uses a dotted path (`required_without:profile.birthdate`), the conditional is evaluated against the item data and rewritten to plain `required` (or dropped when inactive) before the closure compiles. The rewrite is skipped when a custom message exists for the original rule name, so `{field}.required_without` overrides still fire.
 
 ### Batched database validation (N+1 prevention)
 
@@ -49,12 +49,13 @@ class ImportRequest extends FormRequest
 
 ### Benchmarks
 
-| Scenario | Native Laravel | With HasFluentRules |
-|---|---|---|
-| 500 items, simple rules (string, numeric, in) | ~200ms | **~2ms** |
-| 500 items, mixed rules (string + date) | ~200ms | **~20ms** |
-| 100 items, 47 conditional fields (exclude_unless) | ~3,200ms | **~83ms** |
-| 200 items, exists rule (DB validation) | ~11ms (200 queries) | **~6ms (1 query)** |
+| Scenario | With HasFluentRules |
+|---|---|
+| 500 items, simple rules | about 89x faster than native |
+| 1000 orders × 5 nested line items | about 77x |
+| 100 items, 47 conditional fields | about 42x |
+| 100 items, field-ref dates; 50 items, custom Rule objects | about 19x |
+| 200 items, exists rule | 200 queries → 1 query |
 
 ### RuleSet::validate() (inline validation)
 
@@ -80,7 +81,7 @@ class JsonImportValidator extends FluentValidator
 }
 ```
 
-Resolves translator, presence verifier, calls `prepare()`, sets implicit attributes. For manual control, use `RuleSet::prepare($data)` which returns a `PreparedRules` DTO.
+Resolves translator, presence verifier, calls `prepare()`, sets implicit attributes. For manual control, use `RuleSet::from($rules)->prepare($data)`, which returns a `PreparedRules` DTO.
 
 ## RuleSet API
 

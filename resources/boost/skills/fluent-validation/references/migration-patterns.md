@@ -2,13 +2,13 @@
 
 When converting existing validation rules to FluentRule, use the native method — do NOT use `->rule()` escape hatch unless the rule is app-specific or third-party.
 
-> Paired with the docs' [Migrating existing validation with Rector](https://github.com/SanderMuller/laravel-fluent-validation/blob/main/docs/12-migration.md#migrating-existing-validation-with-rector) section. Start with the Rector run there; reach for this doc when you hit a file Rector left alone, or when you want the decision matrix for picking the right factory (`string()` vs `field()` vs `integer()` etc).
+> Paired with the docs' [Migrating existing validation with Rector](https://github.com/SanderMuller/laravel-fluent-validation/blob/main/docs/15-migration.md#migrating-existing-validation-with-rector) section. Start with the Rector run there; reach for this doc when you hit a file Rector left alone, or when you want the decision matrix for picking the right factory (`string()` vs `field()` vs `integer()` etc).
 
 ---
 
 ## Automating the bulk migration with Rector
 
-The companion package [`sandermuller/laravel-fluent-validation-rector`](https://github.com/sandermuller/laravel-fluent-validation-rector) provides Rector rules that handle the common patterns automatically. In real-world testing (Laravel app with ~120 FormRequests and 3469 tests), the rules converted 448 files with 0 regressions.
+The companion package [`sandermuller/laravel-fluent-validation-rector`](https://github.com/sandermuller/laravel-fluent-validation-rector) provides Rector rules that handle the common patterns automatically.
 
 ```bash
 composer require --dev sandermuller/laravel-fluent-validation-rector
@@ -272,7 +272,7 @@ public function rules(): RuleSet
 - `mergeEachRules($rules)` / `mergeChildRules($rules)` — later-wins merge primitive (what `modifyEach` / `modifyChildren` wrap).
 - Base constraints (`nullable`, `max:20`, `required`, etc.) on the ArrayRule/FieldRule survive every call.
 - `addEachRule` / `mergeEachRules` / `modifyEach` throw `CannotExtendListShapedEach` when invoked on a rule whose `each()` was set to a single `ValidationRule` (list form, e.g. `each(FluentRule::string())`). Convert to keyed form first: `each(['key' => FluentRule::…])`.
-- Reading the stored shape: prefer the narrow getters `ArrayRule::getEachKeyedRules(): ?array<string, ValidationRule>` + `ArrayRule::getEachListRule(): ?ValidationRule`. The legacy union-returning `getEachRules()` is `@deprecated` since 1.24.0 — its list-form branch is scheduled for removal in 1.25.0.
+- Reading the stored shape: prefer the narrow getters `ArrayRule::getEachKeyedRules(): ?array<string, ValidationRule>` + `ArrayRule::getEachListRule(): ?ValidationRule`. `getEachRules()` is an alias of `getEachKeyedRules()` and returns `null` for the list form.
 
 ### Password rules trait (Fortify/Breeze)
 

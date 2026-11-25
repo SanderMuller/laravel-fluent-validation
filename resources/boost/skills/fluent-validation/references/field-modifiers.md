@@ -10,7 +10,7 @@ All rule types share these modifiers.
 - `messageFor($rule, $msg)` — escape hatch. First-class, not deprecated. Required for variadic methods (`requiredWith`, `presentIf`, `excludeIf`, `acceptedIf`), `->rule(object)` custom rules, Macroable methods, and targeting non-last sub-rules on composite methods like `NumericRule::digits` (adds `integer` + `digits:N`).
 - `fieldMessage($msg)` — fallback error message for ANY rule failure on this field. Rule-specific messages take priority.
 
-**`FluentRule::date()` / `dateTime()` do not accept `message:`** — the error-lookup key is resolved at build time (`'date'` vs `'date_format:Y-m-d'`) and cannot be seeded deterministically. Attach via a specific method: `FluentRule::date()->before('2026-12-31', message: 'Too late.')`.
+`FluentRule::date(message: ...)` and `dateTime(message: ...)` bind to `date`. After `->format(...)`, the message moves to `date_format`. An explicit `messageFor('date_format', ...)` wins.
 
 ## Presence
 
@@ -41,7 +41,7 @@ All variadic `$values` parameters accept `string|int|bool`.
 - `excludeUnless($field, ...$values)` — also accepts `Closure|bool`
 - `excludeWith($field)`, `excludeWithout($field)`
 
-**Caveat:** `exclude` rules only affect `validated()` output when placed at the outer validator level. To exclude a field, place `exclude` alongside the fluent rule: `'field' => ['exclude', FluentRule::string()]`
+`exclude()` removes the field from `validated()`, the same as a string `exclude` rule.
 
 ### Closure/bool examples for conditional modifiers
 

@@ -11,7 +11,6 @@ Rewrite FormRequest `messages(): array` overrides into colocated `message:` name
 
 - User asks to migrate `messages(): array`, "kill messages arrays", "inline messages"
 - User mentions: migrate messages, messages array, inline message, remove messages(), pull messages into rules
-- After Phase 3 of laravel-fluent-validation 1.19+ inline-message rollout lands in their app
 
 ## Step 1: Verify installation
 
@@ -19,7 +18,7 @@ Rewrite FormRequest `messages(): array` overrides into colocated `message:` name
 rg "sandermuller/laravel-fluent-validation" composer.json
 ```
 
-Required: `sandermuller/laravel-fluent-validation ^1.19` or newer (inline `message:` param). If older, tell the user to upgrade first — earlier versions lack the `message:` named arg.
+Required: `sandermuller/laravel-fluent-validation ^1.20` or newer (inline `message:` param). If older, tell the user to upgrade first — earlier versions lack the `message:` named arg.
 
 ## Step 2: Find migration targets
 
@@ -48,11 +47,11 @@ Each has a specific reason. Include the reason in the migration report so the us
 1. **Multi-rule-per-factory**: one `FluentRule::email()` chain with three `messages()` keys `'email.required'`, `'email.string'`, `'email.email'`. The factory emits multiple validator rules internally; `message:` carries one binding. The `email` key can port via `FluentRule::email(message: '…')`; `required` ports if the chain has `->required()`; `string` has no method to attach to (it's a byproduct of `FluentRule::email()` setting `$constraints = ['string']`). **Keep `string` in `messages()` array.**
 2. **Variadic-trailing methods**: `'field.required_with'` + chain has `->requiredWith('email', 'phone')`. PHP forbids params after variadic. **Rewrite to `->requiredWith('email', 'phone')->message('msg')` (shorter; `->message()` binds to `$lastConstraint` which `addRule` set to `'required_with'`). Not technically inline `message:`, but removes the `messages()` entry.**
 3. **Composite method, non-last sub-rule**: `'field.integer'` + chain has `->digits(5)`. `->digits()` adds `integer` then `digits:N`; `message:` binds to the last. **Rewrite as `->digits(5)->messageFor('integer', 'msg')`.**
-4. **DateRule build-time key**: `'field.date_format'` + chain is `FluentRule::date()->format('Y-m-d')`. DateRule's key varies between `'date'` and `'date_format:...'` at build. **Rewrite to `FluentRule::date()->format('Y-m-d')->messageFor('date_format', 'msg')`.**
+4. **DateRule with `format()`**: `'field.date_format'` + chain is `FluentRule::date()->format('Y-m-d')`. **Rewrite to `FluentRule::date(message: 'msg')->format('Y-m-d')`**: the message moves to `date_format` when `format()` is called.
 5. **Dynamic key**: `"{$field}.required" => 'msg'`, `match` expression, interpolated variable. Static analysis can't resolve. **Leave entirely.**
 6. **Wildcard key on nested `each()`/`children()`**: `'items.*.name.required'`. Walk the outer chain's `->each(...)` closure / array to find the matching inner FluentRule. Rewrite there. Flag complex cases (deeply-nested / multi-level wildcards) for manual review.
 7. **Chain interrupted by `->when(…, fn ($r) => $r->required())`**: target rule lives inside the closure. **Rewrite inside the closure: `->when($cond, fn ($r) => $r->required(message: 'msg'))`.**
-8. **`->rule('x:args')` escape-hatch string**: `'field.x' => 'msg'` + `->rule('x:args')`. No named method. **Rewrite to `->rule('x:args', message: 'msg')` (rule() accepts message: since Phase 3a).**
+8. **`->rule('x:args')` escape-hatch string**: `'field.x' => 'msg'` + `->rule('x:args')`. No named method. **Rewrite to `->rule('x:args', message: 'msg')`.**
 9. **Translated-value wrapper**: `'field.required' => __('messages.required')`. Value is still an expr, inline works: `->required(message: __('messages.required'))`. Port normally.
 10. **Helper-method extraction**: `'field.required' => 'msg'` where the corresponding rule in `rules()` is `'email' => $this->emailRules()`. Cross-method resolution needed. **Flag for manual review, tip: "inline the chain or move message into helper return."**
 11. **Macroable method in chain**: chain includes a method defined via `Macroable::macro(...)` at runtime. Not statically resolvable. **Leave with `messageFor` / `message`.**

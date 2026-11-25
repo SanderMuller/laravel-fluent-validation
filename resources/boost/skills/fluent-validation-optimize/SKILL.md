@@ -45,7 +45,7 @@ Read each file. Look for these specific patterns:
 - `messages()` entries with `field.rule` keys → suggest inline `message:` (or `->message()` / `->messageFor()` for variadic / non-last sub-rule cases)
 - `Rule::excludeIf` / `Rule::when` with closures → note caveats
 
-**Present the summary to the user before making any changes.** Start with the simplest files to build confidence. Save complex custom Validators for last.
+**Present the summary to the user before making any changes.**
 
 Format the summary as:
 
@@ -109,19 +109,6 @@ class ImportRequest extends FluentFormRequest
 }
 ```
 
-For even better performance, also convert wildcards to `each()`:
-
-```php
-// Before
-'items' => 'required|array',
-'items.*.name' => 'required|string|max:255',
-
-// After
-'items' => FluentRule::array()->required()->each([
-    'name' => FluentRule::string()->required()->max(255),
-]),
-```
-
 ### 4b: Extend FluentValidator for custom Validators
 
 Replace `extends Validator` with `extends FluentValidator`:
@@ -174,9 +161,7 @@ Then convert one field at a time:
 | `['required', Rule::unique('t')->ignore($id)]` | `FluentRule::string()->required()->unique('t', 'col', fn($r) => $r->ignore($id))` |
 | `['present']` (no type) | `FluentRule::field()->present()` |
 
-**IMPORTANT: Do NOT use `->rule('string_rule')` when a native method exists. Check this list FIRST.**
-
-**All available constraint methods (do not escape-hatch these):**
+Use these native methods instead of `->rule('string_rule')`:
 
 | String rule | Native method |
 |---|---|
@@ -361,18 +346,10 @@ When a file has many flat keys sharing a common prefix, group them into a nested
 2. Check error messages (labels change `:attribute` text)
 3. Verify `validated()` output structure if using `HasFluentRules`
 
-## Recommended file order
-
-1. Simple FormRequests with few rules and no cross-field references
-2. FormRequests with wildcards (add `HasFluentRules`)
-3. FormRequests with `attributes()`/`messages()` (replace with labels)
-4. Complex custom Validator subclasses (extend `FluentValidator`)
-
 ## Risk flags
 
 Flag these to the user before applying changes:
 
 - **Cross-field wildcard references** (`requiredUnless('items.*.type', ...)`) MUST use `HasFluentRules` or `FluentValidator`. They don't work through standalone FluentRule self-validation. Flag any file that has these.
-- **`exclude` rules** only affect `validated()` output when placed at the outer validator level. When converting, keep `['exclude', FluentRule::string()]` not `FluentRule::string()->exclude()`.
 - **`anyOf()`** requires Laravel 13+. Use `class_exists(\Illuminate\Validation\Rules\AnyOf::class)` to check. Skip on older versions.
 - **Gradual adoption is fine.** Convert one field at a time. Fluent rules mix with string rules in the same array.

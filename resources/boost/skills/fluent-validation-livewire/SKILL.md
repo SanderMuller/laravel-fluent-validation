@@ -97,7 +97,18 @@ Livewire::test(EditUser::class)
 
 ## Filament components (trait collision)
 
-`HasFluentValidation` conflicts with Filament's `InteractsWithSchemas` because both define `validate()`. For Filament components, FluentRule works without the trait — use `RuleSet::compileToArrays()`:
+`HasFluentValidation` conflicts with Filament's `InteractsWithForms` (v3/v4) and `InteractsWithSchemas` (v5): both define `validate()`, `validateOnly()`, `getRules()` and `getValidationAttributes()`. Use `HasFluentValidationForFilament` with an `insteadof` block for all four:
+
+```php
+use HasFluentValidationForFilament, InteractsWithForms {
+    HasFluentValidationForFilament::validate insteadof InteractsWithForms;
+    HasFluentValidationForFilament::validateOnly insteadof InteractsWithForms;
+    HasFluentValidationForFilament::getRules insteadof InteractsWithForms;
+    HasFluentValidationForFilament::getValidationAttributes insteadof InteractsWithForms;
+}
+```
+
+Without a trait, FluentRule still works through `RuleSet::compileToArrays()`:
 
 ```php
 // Filament component — no trait needed
@@ -117,22 +128,13 @@ $this->validate(RuleSet::compileToArrays($rules), $messages, $attributes);
 
 Self-validation mode works correctly for Filament: rule identifiers are forwarded, error messages work, `assertHasErrors` works.
 
-Alternatively, if you need the full trait benefits, use PHP's `insteadof` resolution:
-
-```php
-use HasFluentValidation, InteractsWithForms {
-    HasFluentValidation::validate insteadof InteractsWithForms;
-    HasFluentValidation::validateOnly insteadof InteractsWithForms;
-}
-```
-
 ## Common mistakes
 
 | Mistake | Fix |
 |---------|-----|
 | Missing `HasFluentValidation` trait | Add `use HasFluentValidation` to the component |
-| Trait collision with Filament | Don't use the trait — use `RuleSet::compileToArrays()` instead |
-| `assertHasErrors` can't find rule identifiers | Works automatically since 0.4.2 (self-validation forwards identifiers) |
+| Trait collision with Filament | Use `HasFluentValidationForFilament` with the `insteadof` block above |
+| `assertHasErrors` can't find rule identifiers | Works automatically (self-validation forwards identifiers) |
 | Wrapping FluentRule in arrays `[FluentRule::string()]` | Don't wrap — put FluentRule directly as the value |
 | `each()` not expanding in Livewire | Make sure you're using the `HasFluentValidation` trait — it overrides `getRules()` to expand `each()` |
 | PHPStan errors on `$this->validate()` | The trait overrides `validate()` with correct types |
