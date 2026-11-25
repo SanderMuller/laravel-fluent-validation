@@ -36,9 +36,10 @@ trait PreparesOptimizedRules
      *
      * @param  array<string, mixed>  $rules
      * @param  array<string, mixed>  $data
+     * @param  array<string, list<string>|false>  $referenced  the attributes whose rules a dependent rule reads, see {@see ReferencedAttributes}
      * @return array<string, mixed>
      */
-    private function preExcludeRules(array $rules, array $data): array
+    private function preExcludeRules(array $rules, array $data, array $referenced): array
     {
         // The expanded attributes of one pattern come in a row with the same rules: extract their conditions once.
         $previousRuleSet = null;
@@ -61,6 +62,11 @@ trait PreparesOptimizedRules
                 $excluded[$attribute] = true;
             }
         }
+
+        // Laravel removes the rules of an excluded attribute after its loop,
+        // so a dependent rule still reads them, such as the `boolean` that
+        // `required_if` reads. Those attributes stay with Laravel.
+        $excluded = array_diff_key($excluded, $referenced);
 
         if ($excluded === []) {
             return $rules;
@@ -118,11 +124,11 @@ trait PreparesOptimizedRules
      *
      * @param  array<string, mixed>  $preparedRules  Rules after pre-exclusion
      * @param  list<array-key>  $ruleKeys  the keys of the rule set before wildcard expansion
+     * @param  array<string, list<string>|false>  $dependents  the referenced attributes with their dependents, see {@see ReferencedAttributes}
      * @return array{0: array<string, Closure(mixed): bool>, 1: array<string, string>, 2: array<string, true>, 3: array<string, array{0: Closure(mixed, array<string, mixed>): bool, 1: list<string>, 2: list<string>}>, 4: array<string, list<string>|false>} value checks, attribute patterns, referenced attributes, item checks, dependents of the referenced attributes
      */
-    private function buildFastCheckMaps(PreparedRules $prepared, array $preparedRules, array $ruleKeys): array
+    private function buildFastCheckMaps(PreparedRules $prepared, array $preparedRules, array $ruleKeys, array $dependents): array
     {
-        $dependents = ReferencedAttributes::withDependents($prepared->rules, $prepared->implicitAttributes);
         $patterns = $prepared->implicitAttributes + $this->flatAttributePatterns($ruleKeys, $preparedRules);
         $patternRules = [];
         foreach ($patterns as $pattern => $expandedPaths) {

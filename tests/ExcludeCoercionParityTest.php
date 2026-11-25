@@ -243,3 +243,27 @@ it('ConditionalValueMatcher coerces null and bool like Laravel', function (): vo
     // numeric-string loose match
     expect(ConditionalValueMatcher::matches('n', ['1'], ['n' => 1], []))->toBeTrue();
 });
+
+// Laravel removes the rules of an excluded attribute after its loop, so a
+// dependent rule still reads its `boolean` rule: `true` then loosely matches
+// a non-empty array.
+/** @return array<string, array{array<string, mixed>, array<string, mixed>}> */
+function excludedBooleanDependentCases(): array
+{
+    return [
+        'declined_if, dependent after' => [['items.*.type' => 'declined_if:items.*.flag,true', 'items.*.flag' => ['exclude_unless:items.*.type,a', 'boolean']], ['items' => [['type' => '1', 'flag' => ['x']]]]],
+        'declined_if, dependent before' => [['items.*.flag' => ['exclude_unless:items.*.type,a', 'boolean'], 'items.*.type' => 'declined_if:items.*.flag,true'], ['items' => [['type' => '1', 'flag' => ['x']]]]],
+        'accepted_if' => [['items.*.type' => 'accepted_if:items.*.flag,true', 'items.*.flag' => ['exclude_unless:items.*.type,a', 'boolean']], ['items' => [['type' => '0', 'flag' => ['x']]]]],
+        'required_if' => [['items.*.type' => 'required_if:items.*.flag,true', 'items.*.flag' => ['exclude_unless:items.*.type,a', 'boolean']], ['items' => [['flag' => ['x']]]]],
+        'flat declined_if' => [['type' => 'declined_if:flag,true', 'flag' => ['exclude_unless:type,a', 'boolean']], ['type' => '1', 'flag' => ['x']]],
+    ];
+}
+
+it('FluentValidator keeps the boolean rule of an excluded dependent like native', function (string $case): void {
+    [$rules, $data] = excludedBooleanDependentCases()[$case];
+    $native = validator($data, $rules);
+    $validator = new class ($data, $rules) extends FluentValidator {};
+
+    expect($native->errors()->toArray())->not->toBeEmpty()
+        ->and($validator->errors()->toArray())->toBe($native->errors()->toArray());
+})->with(array_keys(excludedBooleanDependentCases()));

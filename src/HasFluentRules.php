@@ -11,6 +11,7 @@ use SanderMuller\FluentValidation\Internal\ImplicitAttributes;
 use SanderMuller\FluentValidation\Internal\OptimizedRules;
 use SanderMuller\FluentValidation\Internal\PreparesOptimizedRules;
 use SanderMuller\FluentValidation\Internal\PrevalidatedValidator;
+use SanderMuller\FluentValidation\Internal\ReferencedAttributes;
 use SanderMuller\FluentValidation\Internal\RuleSetFirstGate;
 use SanderMuller\FluentValidation\Internal\ValidatorStateCopier;
 
@@ -241,9 +242,10 @@ trait HasFluentRules
         // Pre-exclude rules whose exclude_unless/exclude_if conditions
         // don't match the actual data. This happens BEFORE the validator
         // constructor, so excluded rules are never parsed.
-        $preparedRules = $this->preExcludeRules($prepared->rules, $data);
+        $dependents = ReferencedAttributes::withDependents($prepared->rules, $prepared->implicitAttributes);
+        $preparedRules = $this->preExcludeRules($prepared->rules, $data, $dependents);
 
-        $fastCheckMaps = $this->buildFastCheckMaps($prepared, $preparedRules, array_keys($flatRules));
+        $fastCheckMaps = $this->buildFastCheckMaps($prepared, $preparedRules, array_keys($flatRules), $dependents);
         $excluded = array_keys(array_diff_key($prepared->rules, $preparedRules));
 
         $messages = $this->messages() + $prepared->messages;

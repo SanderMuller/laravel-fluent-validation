@@ -7,6 +7,7 @@ use Illuminate\Validation\DatabasePresenceVerifier;
 use SanderMuller\FluentValidation\Internal\ImplicitAttributes;
 use SanderMuller\FluentValidation\Internal\OptimizedRules;
 use SanderMuller\FluentValidation\Internal\PreparesOptimizedRules;
+use SanderMuller\FluentValidation\Internal\ReferencedAttributes;
 
 /**
  * Base class for custom Validators that use FluentRules.
@@ -51,9 +52,10 @@ abstract class FluentValidator extends OptimizedValidator
 
         // Remaining conditionals (required_if/_unless) are pre-evaluated later
         // by OptimizedValidator::passes(); this only drops the exclude_* ones.
-        $preparedRules = $this->preExcludeRules($prepared->rules, $data);
+        $dependents = ReferencedAttributes::withDependents($prepared->rules, $prepared->implicitAttributes);
+        $preparedRules = $this->preExcludeRules($prepared->rules, $data, $dependents);
 
-        $fastCheckMaps = $this->buildFastCheckMaps($prepared, $preparedRules, array_keys($flatRules));
+        $fastCheckMaps = $this->buildFastCheckMaps($prepared, $preparedRules, array_keys($flatRules), $dependents);
 
         parent::__construct(
             resolve(Translator::class),

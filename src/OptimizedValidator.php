@@ -254,7 +254,9 @@ class OptimizedValidator extends MemoizingValidator
 
             if ($verdict === ConditionalVerdict::Exclude) {
                 // Laravel runs the rules before an exclude rule, so it keeps those.
-                if (! ExcludeConditionExtractor::followsOtherRule($rules)) {
+                // A dependent rule reads the rules of a referenced attribute until
+                // Laravel removes them after its loop.
+                if (! isset($this->referencedAttributes[$attribute]) && ! ExcludeConditionExtractor::followsOtherRule($rules)) {
                     $excluded[$attribute] = true;
                 }
 
