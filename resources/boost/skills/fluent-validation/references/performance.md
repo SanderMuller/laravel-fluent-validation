@@ -6,12 +6,13 @@ Laravel's wildcard validation (`items.*.name`) has O(n²) performance for large 
 
 ## Optimization (automatic via HasFluentRules)
 
-The `HasFluentRules` trait (and `FluentFormRequest`) applies five optimizations automatically:
+The `HasFluentRules` trait (and `FluentFormRequest`) applies six optimizations automatically:
 
 | Optimization | What it does | Speedup |
 |---|---|---|
+| **RuleSet first** | Validates the request with RuleSet's per-item engine; a pass uses that result, a failure validates again on the full path for Laravel's messages | Up to about 90x for simple rules |
 | **O(n) wildcard expansion** | `WildcardExpander` replaces Laravel's O(n²) approach | ~20% for large arrays |
-| **Per-attribute fast-checks** | Pure PHP closures skip Laravel for valid items (rules listed below) | Up to 37x for simple rules |
+| **Per-attribute fast-checks** | Pure PHP closures skip Laravel for valid items (rules listed below) | Skips Laravel for valid items when RuleSet first does not apply |
 | **Partial fast-check** | Fast-checkable fields use PHP, non-eligible fields go through Laravel | 4x with custom Rule objects |
 | **Batched DB validation** | `exists`/`unique` rules batched into single `whereIn` query | N queries → 1 query |
 | **Rule-parse memoization** | Caches Laravel's rule-string parsing worker-wide; residual slow-path rules parse once instead of per probe and per item | ~2x on the slow-path residual |
