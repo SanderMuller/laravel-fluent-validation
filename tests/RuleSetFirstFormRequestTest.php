@@ -14,6 +14,7 @@ use SanderMuller\FluentValidation\FluentRule;
 use SanderMuller\FluentValidation\Internal\PrevalidatedValidator;
 use SanderMuller\FluentValidation\Internal\RuleSetFirstGate;
 use SanderMuller\FluentValidation\OptimizedValidator;
+use SanderMuller\FluentValidation\RuleSet;
 
 /**
  * @param  array<array-key, mixed>  $data
@@ -121,6 +122,38 @@ it('takes the full path for a rule that a pass in RuleSet does not cover', funct
 
     expect($validator::class)->not->toBe(PrevalidatedValidator::class);
 })->with(array_keys(ruleSetFirstFullPathRules()));
+
+/**
+ * A bare name in a wildcard rule means the top-level field in a form
+ * request, as in Laravel. RuleSet reads it as a field of the item.
+ *
+ * @return array<string, array{array<string, mixed>, array<string, mixed>}>
+ */
+function ruleSetFirstBareReferenceCases(): array
+{
+    return [
+        'required_without' => [['addresses.*.postcode' => 'required_without:birthdate|string'], ['addresses' => [['birthdate' => '1990-01-01']]]],
+        'required_without in each()' => [['addresses' => FluentRule::array()->each(['postcode' => FluentRule::string()->requiredWithout('birthdate')])], ['addresses' => [['birthdate' => '1990-01-01']]]],
+        'required_without_all' => [['addresses.*.postcode' => 'required_without_all:birthdate,age|string'], ['addresses' => [['birthdate' => '1990-01-01', 'age' => 30]]]],
+        'same' => [['items.*.code' => 'same:code'], ['items' => [['code' => 'x']]]],
+    ];
+}
+
+it('reads a bare name in a wildcard rule as the top-level field, as Laravel does', function (string $case): void {
+    [$rules, $data] = ruleSetFirstBareReferenceCases()[$case];
+    $validator = ruleSetFirstValidator(plainRuleSetFirstRequest($rules, $data));
+
+    expect($validator->errors()->toArray())
+        ->not->toBeEmpty()
+        ->toBe(validator($data, RuleSet::from($rules)->toArray())->errors()->toArray());
+})->with(array_keys(ruleSetFirstBareReferenceCases()));
+
+it('takes the path in RuleSet first for a wildcard reference and a literal date', function (): void {
+    $rules = ['items.*.end' => ['date', 'after:items.*.start', 'before:2030-01-01', 'after:today'], 'items.*.start' => 'date|required_with:items.*.end'];
+
+    expect(ruleSetFirstValidator(plainRuleSetFirstRequest($rules, ['items' => [['start' => '2029-01-01', 'end' => '2029-06-01']]]))::class)
+        ->toBe(PrevalidatedValidator::class);
+});
 
 it('leaves a database rule object to the full path', function (mixed $rule): void {
     expect(RuleSetFirstGate::allows(['items.*.name' => ['string', $rule]]))->toBeFalse()

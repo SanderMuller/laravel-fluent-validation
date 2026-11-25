@@ -17,6 +17,9 @@ use Illuminate\Validation\Rules\Unique;
  *   RuleSet's per-item validator.
  * - A database rule would run its query twice when the request fails: once
  *   in RuleSet and once on the full path.
+ * - A bare name in a wildcard rule, such as `same:code`, means the top-level
+ *   field in a form request, as in Laravel. RuleSet reads it as a field of
+ *   the item.
  *
  * @internal Implementation detail of `HasFluentRules`.
  */
@@ -25,13 +28,20 @@ final class RuleSetFirstGate
     /** Rules that add no error before an exclude rule. */
     private const NO_ERROR = ['bail' => true, 'nullable' => true, 'sometimes' => true];
 
+    /** Rules that read a parameter as a date when it parses as one, else as a field. */
+    private const DATE_RULES = ['after' => true, 'after_or_equal' => true, 'before' => true, 'before_or_equal' => true, 'date_equals' => true];
+
     /**
      * @param  array<array-key, mixed>  $compiledRules
      */
     public static function allows(array $compiledRules): bool
     {
+        $fieldLocalRules = new FieldLocalRules();
+
         foreach ($compiledRules as $key => $rule) {
-            if (! self::allowsKey((string) $key) || ! self::allowsRule($rule)) {
+            $key = (string) $key;
+
+            if (! self::allowsKey($key) || ! self::allowsRule($rule) || (str_contains($key, '*') && self::namesTopLevelField($rule, $fieldLocalRules))) {
                 return false;
             }
         }
@@ -75,6 +85,21 @@ final class RuleSetFirstGate
         }
 
         return true;
+    }
+
+    private static function namesTopLevelField(mixed $rule, FieldLocalRules $fieldLocalRules): bool
+    {
+        foreach (self::parts($rule) as $part) {
+            $isDateRule = isset(self::DATE_RULES[self::name($part)]);
+
+            foreach ($fieldLocalRules->references($part) as $field) {
+                if (! str_contains($field, '*') && (! $isDateRule || ! DateLikePaths::parses($field))) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
     }
 
     /**
