@@ -333,3 +333,46 @@ it('Filament: validate() includes form-schema rules alongside FluentRules', func
         ->toHaveKey('slug', 'URL Slug')
         ->toHaveKey('title', 'Title');
 });
+
+/**
+ * A Filament v4/v5 component with only `InteractsWithSchemas`, which has
+ * `getCachedSchemas()` but no `getCachedForms()`.
+ */
+class TestableFilamentSchemasComponent extends FakeFilamentBase
+{
+    use HasFluentValidationForFilament;
+
+    /**
+     * @param  array<string, mixed>  $fluentRules
+     * @param  list<FakeFilamentForm>  $schemas
+     */
+    public function __construct(
+        private array $fluentRules = [],
+        private array $schemas = [],
+    ) {}
+
+    /** @return array<string, mixed> */
+    public function rules(): array
+    {
+        return $this->fluentRules;
+    }
+
+    /** @return list<FakeFilamentForm> */
+    public function getCachedSchemas(): array
+    {
+        return $this->schemas;
+    }
+}
+
+it('Filament: merges the rules and attributes of a schema-only component', function (): void {
+    $component = new TestableFilamentSchemasComponent(
+        fluentRules: ['slug' => FluentRule::string('URL Slug')->required()],
+        schemas: [new FakeFilamentForm(
+            validationRules: ['title' => ['required']],
+            validationAttributes: ['title' => 'Article Title'],
+        )],
+    );
+
+    expect($component->getRules())->toHaveKeys(['slug', 'title'])
+        ->and($component->getValidationAttributes())->toHaveKey('slug', 'URL Slug')->toHaveKey('title', 'Article Title');
+});

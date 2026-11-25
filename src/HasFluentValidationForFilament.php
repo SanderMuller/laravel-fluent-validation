@@ -2,6 +2,7 @@
 
 namespace SanderMuller\FluentValidation;
 
+use Closure;
 use Illuminate\Validation\ValidationException;
 
 /**
@@ -38,18 +39,7 @@ trait HasFluentValidationForFilament
      */
     public function getRules(): array
     {
-        $rules = $this->fluentGetRules();
-
-        // Merge Filament form-schema rules (same as InteractsWithForms::getRules)
-        if (method_exists($this, 'getCachedForms')) {
-            foreach ($this->getCachedForms() as $form) {
-                if (method_exists($form, 'getValidationRules')) {
-                    $rules = [...$rules, ...$form->getValidationRules()];
-                }
-            }
-        }
-
-        return $rules;
+        return [...$this->fluentGetRules(), ...$this->filamentSchemaValues(static fn (object $schema): mixed => method_exists($schema, 'getValidationRules') ? $schema->getValidationRules() : [])];
     }
 
     /**
@@ -59,18 +49,41 @@ trait HasFluentValidationForFilament
      */
     public function getValidationAttributes(): array
     {
-        $attributes = $this->fluentGetValidationAttributes();
+        return [...$this->fluentGetValidationAttributes(), ...array_filter($this->filamentSchemaValues(static fn (object $schema): mixed => method_exists($schema, 'getValidationAttributes') ? $schema->getValidationAttributes() : []), is_string(...))];
+    }
 
-        // Merge Filament form-schema attributes (same as InteractsWithForms::getValidationAttributes)
-        if (method_exists($this, 'getCachedForms')) {
-            foreach ($this->getCachedForms() as $form) {
-                if (method_exists($form, 'getValidationAttributes')) {
-                    $attributes = [...$attributes, ...$form->getValidationAttributes()];
+    /**
+     * Merges what `$read` returns for each Filament schema, as Filament's
+     * own `getRules()` and `getValidationAttributes()` do. Filament v4 and v5
+     * keep the schemas in `getCachedSchemas()`, and only `InteractsWithForms`
+     * still has `getCachedForms()`. Filament v3 has `getCachedForms()` only.
+     *
+     * @param  Closure(object): mixed  $read
+     * @return array<string, mixed>
+     */
+    private function filamentSchemaValues(Closure $read): array
+    {
+        $schemas = [];
+
+        if (method_exists($this, 'getCachedSchemas')) {
+            $schemas = $this->getCachedSchemas();
+        } elseif (method_exists($this, 'getCachedForms')) {
+            $schemas = $this->getCachedForms();
+        }
+
+        $values = [];
+
+        foreach (is_iterable($schemas) ? $schemas : [] as $schema) {
+            $schemaValues = is_object($schema) ? $read($schema) : [];
+
+            foreach (is_array($schemaValues) ? $schemaValues : [] as $key => $value) {
+                if (is_string($key)) {
+                    $values[$key] = $value;
                 }
             }
         }
 
-        return $attributes;
+        return $values;
     }
 
     /**
