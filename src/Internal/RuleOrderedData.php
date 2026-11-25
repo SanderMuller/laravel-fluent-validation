@@ -24,9 +24,22 @@ final class RuleOrderedData
      */
     public static function of(array $validated, array $compiledRules, bool $excludeUnvalidatedArrayKeys): array
     {
+        $changed = false;
+
+        return self::order($validated, self::plan(self::patterns($compiledRules, $excludeUnvalidatedArrayKeys)), $changed);
+    }
+
+    /**
+     * The rule keys in the order Laravel sets them: the keys without a
+     * wildcard keep their place, before the attributes a wildcard adds.
+     *
+     * @param  array<array-key, mixed>  $compiledRules
+     * @return list<Pattern>
+     */
+    public static function patterns(array $compiledRules, bool $excludeUnvalidatedArrayKeys): array
+    {
         $parents = $excludeUnvalidatedArrayKeys ? self::parentKeys(array_keys($compiledRules)) : [];
         $patterns = [];
-        // Laravel keeps the keys without a wildcard in their place, before the attributes a wildcard adds.
         $keys = array_keys($compiledRules);
         $keys = [...array_filter($keys, static fn (int|string $key): bool => ! str_contains((string) $key, '*')), ...array_filter($keys, static fn (int|string $key): bool => str_contains((string) $key, '*'))];
 
@@ -36,7 +49,7 @@ final class RuleOrderedData
             $patterns[] = [$index, explode('.', $key), isset($parents[$key]) && self::holdsArrayRule($compiledRules[$key])];
         }
 
-        return self::order($validated, self::plan($patterns));
+        return $patterns;
     }
 
     /**
@@ -65,7 +78,7 @@ final class RuleOrderedData
                 continue;
             }
 
-            $touches[] = [$segment, $segments];
+            $touches[] = [$segment, $segments, $skipsArray];
 
             if ($segment === '*') {
                 $shared[] = [$index, $segments, $skipsArray];
@@ -80,29 +93,69 @@ final class RuleOrderedData
             $touches,
             $shared === [] ? null : self::plan($shared),
             array_map(static fn (array $keyPatterns): RuleOrderPlan => self::plan(self::merged($shared, $keyPatterns)), $own),
+            $shared === [] ? self::fixedKeys($touches) : null,
         );
     }
 
     /**
+     * The named keys in rule order, when the rule keys of each key follow
+     * each other. The data then cannot change which key comes first.
+     *
+     * @param  list<array{0: string, 1: list<string>, 2: bool}>  $touches
+     * @return list<string>|null
+     */
+    private static function fixedKeys(array $touches): ?array
+    {
+        $keys = [];
+        $previous = null;
+
+        foreach ($touches as [$segment]) {
+            if ($segment !== $previous && isset($keys[$segment])) {
+                return null;
+            }
+
+            $keys[$segment] = true;
+            $previous = $segment;
+        }
+
+        return array_map(strval(...), array_keys($keys));
+    }
+
+    /**
+     * Gives the node itself when no key moves, so an array in order is not
+     * copied.
+     *
      * @param  array<array-key, mixed>  $node
+     * @param  bool  $changed  set to true when a key at this level or below moved
      * @return array<array-key, mixed>
      */
-    private static function order(array $node, RuleOrderPlan $plan): array
+    private static function order(array $node, RuleOrderPlan $plan, bool &$changed): array
     {
         if ($plan->fields !== null) {
-            return self::orderFields($node, $plan->fields);
+            return self::orderFields($node, $plan->fields, $changed);
         }
 
         if ($plan->whole) {
             return $node;
         }
 
+        $keys = $plan->keys ?? RuleOrderTouches::firstKeys($node, $plan);
+
+        if (self::inOrder($node, $keys)) {
+            return self::orderChildren($node, $plan, $changed);
+        }
+
+        $changed = true;
         $ordered = [];
 
-        foreach (self::firstKeys($node, $plan) as $key) {
+        foreach ($keys as $key) {
+            if (! array_key_exists($key, $node)) {
+                continue;
+            }
+
             $value = $node[$key];
             $childPlan = $plan->own[$key] ?? $plan->star;
-            $ordered[$key] = is_array($value) && $childPlan instanceof RuleOrderPlan ? self::order($value, $childPlan) : $value;
+            $ordered[$key] = is_array($value) && $childPlan instanceof RuleOrderPlan ? self::order($value, $childPlan, $changed) : $value;
         }
 
         // A key that no rule key reaches keeps its place after the others.
@@ -110,25 +163,66 @@ final class RuleOrderedData
     }
 
     /**
-     * The keys of the node in the order Laravel sets them. The touches come
-     * in rule order, so a key keeps its first place.
+     * Orders the children of a node whose own keys are in order.
      *
      * @param  array<array-key, mixed>  $node
-     * @return list<array-key>
+     * @return array<array-key, mixed>
      */
-    private static function firstKeys(array $node, RuleOrderPlan $plan): array
+    private static function orderChildren(array $node, RuleOrderPlan $plan, bool &$changed): array
     {
-        $first = [];
+        if ((! $plan->star instanceof RuleOrderPlan || $plan->star->whole) && $plan->own === []) {
+            return $node;
+        }
 
-        foreach ($plan->touches as [$segment, $rest]) {
-            foreach ($segment === '*' ? array_keys($node) : (array_key_exists($segment, $node) ? [$segment] : []) as $key) {
-                if (! isset($first[$key]) && ($rest === [] || self::reaches($node[$key], $rest))) {
-                    $first[$key] = true;
-                }
+        foreach ($node as $key => $value) {
+            $childPlan = $plan->own[$key] ?? $plan->star;
+
+            if (! is_array($value) || ! $childPlan instanceof RuleOrderPlan || $childPlan->whole || ($childPlan->fields !== null && array_keys($value) === $childPlan->fields)) {
+                continue;
+            }
+
+            $childChanged = false;
+            $child = self::order($value, $childPlan, $childChanged);
+
+            if ($childChanged) {
+                $node[$key] = $child;
+                $changed = true;
             }
         }
 
-        return array_keys($first);
+        return $node;
+    }
+
+    /**
+     * Do the keys of the node come in the given order, with no other key?
+     *
+     * @param  array<array-key, mixed>  $node
+     * @param  list<array-key>  $keys
+     */
+    private static function inOrder(array $node, array $keys): bool
+    {
+        $nodeKeys = array_keys($node);
+
+        if ($nodeKeys === $keys) {
+            return true;
+        }
+
+        $position = 0;
+        $count = count($keys);
+
+        foreach ($nodeKeys as $key) {
+            while ($position < $count && (string) $keys[$position] !== (string) $key) {
+                $position++;
+            }
+
+            if ($position === $count) {
+                return false;
+            }
+
+            $position++;
+        }
+
+        return true;
     }
 
     /**
@@ -158,8 +252,14 @@ final class RuleOrderedData
      * @param  list<string>  $fields
      * @return array<array-key, mixed>
      */
-    private static function orderFields(array $node, array $fields): array
+    private static function orderFields(array $node, array $fields, bool &$changed): array
     {
+        if (self::inOrder($node, $fields)) {
+            return $node;
+        }
+
+        $changed = true;
+
         $ordered = [];
 
         foreach ($fields as $field) {
@@ -186,30 +286,6 @@ final class RuleOrderedData
         usort($patterns, static fn (array $a, array $b): int => $a[0] <=> $b[0]);
 
         return $patterns;
-    }
-
-    /**
-     * @param  non-empty-list<string>  $segments
-     */
-    private static function reaches(mixed $value, array $segments): bool
-    {
-        if (! is_array($value)) {
-            return false;
-        }
-
-        $segment = array_shift($segments);
-
-        if ($segment !== '*') {
-            return array_key_exists($segment, $value) && ($segments === [] || self::reaches($value[$segment], $segments));
-        }
-
-        foreach ($value as $child) {
-            if ($segments === [] || self::reaches($child, $segments)) {
-                return true;
-            }
-        }
-
-        return false;
     }
 
     /**
