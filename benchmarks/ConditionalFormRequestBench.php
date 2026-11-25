@@ -53,7 +53,7 @@ final class ConditionalFormRequestBench
     }
 
     #[DataProvider('size')]
-    #[ExpectedFor('items-100', instructions: '18.44M', cycles: '20.39M', memory: '301.0KiB')]
+    #[ExpectedFor('items-100', instructions: '19.57M', cycles: '21.75M', memory: '301.0KiB')]
     public function benchValidate(int $count): void
     {
         (clone $this->request)->validateResolved();
