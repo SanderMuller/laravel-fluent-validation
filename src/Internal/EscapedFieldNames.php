@@ -44,4 +44,19 @@ final class EscapedFieldNames
 
         return $rules;
     }
+
+    /**
+     * The data keys of a rule key: the parts between the dots that are not
+     * escaped, with each `\.` decoded to a dot.
+     *
+     * @return list<string>
+     */
+    public static function segments(string $ruleKey): array
+    {
+        if (! str_contains($ruleKey, '\\')) {
+            return explode('.', $ruleKey);
+        }
+
+        return array_map(static fn (string $segment): string => str_replace("\0", '.', $segment), explode('.', str_replace('\\.', "\0", $ruleKey)));
+    }
 }

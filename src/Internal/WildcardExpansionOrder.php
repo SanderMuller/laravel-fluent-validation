@@ -29,7 +29,7 @@ final class WildcardExpansionOrder
         }
 
         // The walk gives the values in the order of the paths.
-        $values = self::walk(explode('.', $ruleKey), $data, false);
+        $values = self::walk(EscapedFieldNames::segments($ruleKey), $data, false);
 
         return count($values) === count($paths) ? self::arraysLast($paths, $values) : self::ofAttributes($paths, $ruleKey, $data);
     }

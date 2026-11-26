@@ -3,6 +3,7 @@
 namespace SanderMuller\FluentValidation;
 
 use SanderMuller\FluentValidation\Internal\AsteriskPlaceholder;
+use SanderMuller\FluentValidation\Internal\EscapedFieldNames;
 
 class WildcardExpander
 {
@@ -20,6 +21,10 @@ class WildcardExpander
     {
         if (! str_contains($pattern, '*')) {
             return [$pattern];
+        }
+
+        if (str_contains($pattern, '\\')) {
+            return self::resolve(EscapedFieldNames::segments($pattern), $data, [], escapesNames: true);
         }
 
         $segments = explode('.', $pattern);
@@ -69,9 +74,10 @@ class WildcardExpander
      * @param  list<string>  $segments
      * @param  list<string>  $path
      * @param  bool  $afterWildcard  Whether we've passed through a * segment
+     * @param  bool  $escapesNames  Whether the segments hold data keys that the path must escape
      * @return list<string>
      */
-    private static function resolve(array $segments, mixed $current, array $path, bool $afterWildcard = false): array
+    private static function resolve(array $segments, mixed $current, array $path, bool $afterWildcard = false, bool $escapesNames = false): array
     {
         if (count($path) > 50) {
             return [];
@@ -93,7 +99,7 @@ class WildcardExpander
 
             foreach (array_keys($current) as $key) {
                 // Escaped as in a rule key, so a key such as `2.5` or `c*d` stays one key.
-                array_push($paths, ...self::resolve($remaining, $current[$key], [...$path, is_int($key) ? (string) $key : self::escapeKey($key)], true));
+                array_push($paths, ...self::resolve($remaining, $current[$key], [...$path, is_int($key) ? (string) $key : self::escapeKey($key)], true, $escapesNames));
             }
 
             return $paths;
@@ -109,10 +115,12 @@ class WildcardExpander
                 return [];
             }
 
-            return [implode('.', [...$path, $segment, ...$remaining])];
+            $rest = [$segment, ...$remaining];
+
+            return [implode('.', [...$path, ...($escapesNames ? array_map(self::escapeKey(...), $rest) : $rest)])];
         }
 
-        return self::resolve($remaining, $current[$segment], [...$path, $segment], $afterWildcard);
+        return self::resolve($remaining, $current[$segment], [...$path, $escapesNames ? self::escapeKey($segment) : $segment], $afterWildcard, $escapesNames);
     }
 
     /**
