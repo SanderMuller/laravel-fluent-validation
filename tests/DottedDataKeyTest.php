@@ -44,6 +44,21 @@ function dottedDataKeyCases(): array
         'escaped dot in a list name, invalid field' => [['it\\.ems.*.a' => 'required|string'], ['it.ems' => [['a' => 1], []]]],
         'escaped dot in a list name, valid field' => [['it\\.ems.*.a' => 'required|string'], ['it.ems' => [['a' => 'x', 'b' => 1]]]],
         'escaped dot in a nested list name' => [['o.it\\.ems.*' => 'integer'], ['o' => ['it.ems' => ['x', 1]]]],
+        'escaped dot in a list name with a rule on the list' => [['it\\.ems' => 'array|max:1', 'it\\.ems.*' => 'integer'], ['it.ems' => ['x', 2]]],
+        'escaped dot in a list name, same' => [['it\\.ems.*.a' => 'same:it\\.ems.*.b'], ['it.ems' => [['a' => 1, 'b' => 2], ['a' => 3, 'b' => 3]]]],
+        'escaped dot in a list name, required_with' => [['it\\.ems.*.a' => 'required_with:it\\.ems.*.b'], ['it.ems' => [['b' => 2], ['a' => 3]]]],
+        'escaped dot in a list name, required_if' => [['it\\.ems.*.a' => 'required_if:it\\.ems.*.b,yes'], ['it.ems' => [['b' => 'yes'], ['b' => 'no']]]],
+        'escaped dot in a list name, exclude_if' => [['it\\.ems.*.a' => 'exclude_if:it\\.ems.*.b,yes|integer', 'it\\.ems.*.b' => 'string'], ['it.ems' => [['a' => 'x', 'b' => 'yes'], ['a' => 'x', 'b' => 'no']]]],
+        'escaped dot in a list name, exclude_if, valid' => [['it\\.ems.*.a' => 'exclude_if:it\\.ems.*.b,yes|integer', 'it\\.ems.*.b' => 'string'], ['it.ems' => [['a' => 'x', 'b' => 'yes'], ['a' => 1, 'b' => 'no']]]],
+        'escaped dot in a list name, distinct' => [['it\\.ems.*' => 'distinct'], ['it.ems' => ['a', 'a', 'b']]],
+        'escaped dot in a list name, second wildcard' => [['it\\.ems.*.tags.*' => 'integer'], ['it.ems' => [['tags' => ['x', 1]]]]],
+        'escaped dot in a list name, second wildcard, valid' => [['it\\.ems.*.tags.*' => 'integer'], ['it.ems' => [['tags' => [2, 1]], ['tags' => []]]]],
+        'escaped dot in a list name, required field missing' => [['it\\.ems.*.a' => 'required'], ['it.ems' => [[], ['a' => 1]]]],
+        'escaped dots in a list name and a field' => [['a\\.b.*.c\\.d' => 'integer'], ['a.b' => [['c.d' => 'x'], ['c.d' => 1]]]],
+        'escaped dots in a list name and a field, valid' => [['a\\.b.*.c\\.d' => 'integer', 'z' => 'nullable'], ['z' => 1, 'a.b' => [['c.d' => 2, 'e' => 1]]]],
+        'escaped dot in a nested list name, required field' => [['o.it\\.ems.*.a' => 'required|integer'], ['o' => ['it.ems' => [['a' => 1], ['a' => 'x'], []]]]],
+        'escaped dot in a list name next to a plain list' => [['items.*' => 'integer', 'it\\.ems.*' => 'integer'], ['items' => [1, 'x'], 'it.ems' => ['y', 2]]],
+        'escaped dot in a list name, gt' => [['it\\.ems.*.a' => 'gt:it\\.ems.*.b'], ['it.ems' => [['a' => 1, 'b' => 2], ['a' => 3, 'b' => 1]]]],
     ];
 }
 
@@ -94,7 +109,7 @@ it('validates data keys that contain a dot as native does', function (string $ca
     foreach (array_keys(dottedDataKeyCases()) as $case) {
         foreach (['prepare', 'FluentValidator', 'check', 'check with full expansion'] as $entryPoint) {
             // distinct needs the implicit attributes, which Validator::make() does not receive (see docs/11-ruleset.md).
-            if ($case !== 'distinct across keys' || $entryPoint !== 'prepare') {
+            if (! str_contains($case, 'distinct') || $entryPoint !== 'prepare') {
                 yield "{$case} / {$entryPoint}" => [$case, $entryPoint];
             }
         }
