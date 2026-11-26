@@ -8,8 +8,7 @@ use SanderMuller\FluentValidation\FluentRule;
 /**
  * `requiredIf()` and `excludeUnless()` on the same field, with values where
  * both fire. FluentRule writes `required_if` first, so Laravel reports the
- * required error before it excludes the field. The package evaluates the
- * exclude rule first and reports nothing.
+ * required error before it excludes the field.
  *
  * @internal
  */
