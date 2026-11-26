@@ -39,6 +39,11 @@ function dottedDataKeyCases(): array
         'dependent rule under a key with an asterisk' => [['items' => 'array', 'items.*.id' => 'same:items.*.copy'], ['items' => ['c*d' => ['id' => 1, 'copy' => 2]]]],
         'key with a dot and an asterisk' => [['items' => 'array', 'items.*.name' => 'required'], ['items' => ['a.b*c' => ['name' => '']]]],
         'distinct across keys' => [['groups' => 'array', 'groups.*.options' => 'array', 'groups.*.options.*' => 'distinct'], ['groups' => [7 => ['options' => ['2.5' => 'a', '3' => 'a', '4' => 'b']]]]],
+        'escaped dot in a list name, invalid item' => [['it\\.ems.*' => 'string'], ['it.ems' => ['a', 1]]],
+        'escaped dot in a list name, valid items' => [['it\\.ems.*' => 'string'], ['it.ems' => ['a', 'b']]],
+        'escaped dot in a list name, invalid field' => [['it\\.ems.*.a' => 'required|string'], ['it.ems' => [['a' => 1], []]]],
+        'escaped dot in a list name, valid field' => [['it\\.ems.*.a' => 'required|string'], ['it.ems' => [['a' => 'x', 'b' => 1]]]],
+        'escaped dot in a nested list name' => [['o.it\\.ems.*' => 'integer'], ['o' => ['it.ems' => ['x', 1]]]],
     ];
 }
 

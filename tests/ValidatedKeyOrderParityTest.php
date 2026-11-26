@@ -28,6 +28,9 @@ function validatedKeyOrderCases(): array
         'an array that nothing below sets' => [['r' => 'array', 'r.*.l.*.a' => 'nullable', 'flag' => 'nullable'], ['flag' => 1, 'r' => [[true]]]],
         'an explicit item key under a wildcard' => [['o.r' => 'nullable|array', 'o.r.*' => 'nullable', 'o.r.1.a' => 'required', 'flag' => 'nullable'], ['flag' => 1, 'o' => ['r' => [['f' => 1, 'a' => 0], ['b' => 7, 'a' => -1], [0]]]]],
         'an array whose rules below are excluded' => [['r' => 'list', 'r.*.a' => 'exclude_if:flag,1|nullable', 'flag' => 'nullable'], ['flag' => 1, 'r' => [[true, 1], true]]],
+        'a top-level key with an escaped dot' => [['b' => 'string', 'a\\.x' => 'string'], ['a.x' => 'v', 'b' => 'y']],
+        'mixed items next to a key with an escaped dot' => [['items.*' => 'nullable', 'c\\.d' => 'nullable'], ['c.d' => 1, 'items' => [[1], 'x']]],
+        'mixed items in a list with an escaped dot' => [['it\\.ems.*' => 'nullable', 'z' => 'nullable'], ['z' => 1, 'it.ems' => [[1], 'x']]],
     ];
 }
 

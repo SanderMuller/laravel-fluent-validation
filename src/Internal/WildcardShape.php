@@ -51,6 +51,12 @@ final class WildcardShape
             if (str_starts_with(substr($key, (int) strpos($key, '.*') + 2), '.*')) {
                 return true;
             }
+
+            // The per-item validator reads the items with `data_get()`, which
+            // splits an escaped dot such as `it\.ems.*`.
+            if (str_contains(substr($key, 0, (int) strpos($key, '.*')), '\\')) {
+                return true;
+            }
         }
 
         return self::hasIntegerKey($topKeys, $wildcardKeys) || self::overlap($wildcardKeys) || self::expandsTo($topKeys, $wildcardKeys);
