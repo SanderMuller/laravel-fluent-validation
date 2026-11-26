@@ -7,7 +7,6 @@ use SanderMuller\FluentValidation\FluentFormRequest;
 use SanderMuller\FluentValidation\RuleSet;
 use SanderMuller\FluentValidation\Tests\Fixtures\DeclaresFluentRules;
 use SanderMuller\FluentValidation\Tests\Fixtures\ItemFieldsFluentValidator;
-use SanderMuller\FluentValidation\Tests\Fixtures\RequiredIfBeforeExcludeFluentFormRequest;
 
 // =========================================================================
 // Known differences from Laravel. Each test pins the package's current
@@ -48,18 +47,6 @@ function knownDifferenceNativeErrors(string $class, array $data, bool $stopOnFir
 
     return $validator->errors()->toArray();
 }
-
-it('skips a required_if error when the exclude rule after it fires', function (): void {
-    $data = ['items' => [['type' => 'link']]];
-    $rules = RequiredIfBeforeExcludeFluentFormRequest::fluentRules();
-
-    expect(knownDifferenceNativeErrors(RequiredIfBeforeExcludeFluentFormRequest::class, $data))
-        ->toBe(['items.0.email' => ['The items.0.email field is required when items.0.type is link.']])
-        ->and(RuleSet::from($rules)->check($data)->errors()->toArray())
-        ->toBeEmpty()
-        ->and(knownDifferenceRequestErrors(RequiredIfBeforeExcludeFluentFormRequest::class, $data))
-        ->toBeEmpty();
-});
 
 it('keeps unvalidated item keys in FluentValidator, which the factory default leaves out', function (): void {
     $data = ['items' => [['a' => 1, 'junk' => 2]]];

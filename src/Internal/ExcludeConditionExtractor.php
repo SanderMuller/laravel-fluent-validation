@@ -26,15 +26,28 @@ final class ExcludeConditionExtractor
     private const ACTIONS = ['exclude_unless', 'exclude_if'];
 
     /**
-     * Rules that may come before an exclude rule without a change to the
-     * pre-evaluation: `bail`, `nullable` and `sometimes` add no error, and
-     * FluentRule writes `requiredIf()` and its kin before `excludeUnless()`.
+     * Rules that fail only when their field holds one of their values, as
+     * Laravel reads the values of an exclude rule.
+     *
+     * @var list<string>
      */
-    private const ALLOWED_BEFORE_EXCLUDE = [
-        'bail' => true, 'nullable' => true, 'sometimes' => true,
-        'required_if' => true, 'required_unless' => true, 'required_with' => true, 'required_with_all' => true,
-        'required_without' => true, 'required_without_all' => true, 'prohibited_if' => true, 'prohibited_unless' => true,
-    ];
+    private const CONDITIONAL_RULES = ['required_if', 'prohibited_if'];
+
+    /**
+     * Rules that may come before an exclude rule without a change to the
+     * pre-evaluation, as they add no error.
+     */
+    private const ALLOWED_BEFORE_EXCLUDE = ['bail' => true, 'nullable' => true, 'sometimes' => true];
+
+    /** The most results {@see self::$leading} keeps. */
+    private const CACHE_MAX = 256;
+
+    /**
+     * {@see leading()} per string rule: RuleSet asks again on each validation.
+     *
+     * @var array<string, list<array{action: string, field: string, values: list<string>}>|null>
+     */
+    private static array $leading = [];
 
     /**
      * @return list<array{action: string, field: string, values: list<string>}>
@@ -44,7 +57,7 @@ final class ExcludeConditionExtractor
         $conditions = [];
 
         foreach (self::segments($ruleValue) as $segment) {
-            $condition = self::parseSegment($segment);
+            $condition = self::parseSegment($segment, self::ACTIONS);
             if ($condition !== null) {
                 $conditions[] = $condition;
             }
@@ -61,26 +74,7 @@ final class ExcludeConditionExtractor
      */
     public static function extractLeading(mixed $ruleValue): array
     {
-        $conditions = [];
-        $other = false;
-
-        foreach (self::segments($ruleValue) as $segment) {
-            $condition = self::parseSegment($segment);
-
-            if ($condition === null) {
-                $other = $other || ! isset(self::ALLOWED_BEFORE_EXCLUDE[self::ruleName($segment)]);
-
-                continue;
-            }
-
-            if ($other) {
-                return [];
-            }
-
-            $conditions[] = $condition;
-        }
-
-        return $conditions;
+        return self::leading($ruleValue) ?? [];
     }
 
     /**
@@ -89,23 +83,100 @@ final class ExcludeConditionExtractor
      */
     public static function followsOtherRule(mixed $ruleValue): bool
     {
+        return self::leading($ruleValue) === null;
+    }
+
+    /**
+     * The exclude conditions, or null when a rule before an exclude rule can
+     * fail on an attribute that the exclusion removes.
+     *
+     * @return list<array{action: string, field: string, values: list<string>}>|null
+     */
+    private static function leading(mixed $ruleValue): ?array
+    {
+        if (! is_string($ruleValue)) {
+            return self::scan($ruleValue);
+        }
+
+        if (array_key_exists($ruleValue, self::$leading)) {
+            return self::$leading[$ruleValue];
+        }
+
+        if (count(self::$leading) >= self::CACHE_MAX) {
+            self::$leading = [];
+        }
+
+        return self::$leading[$ruleValue] = self::scan($ruleValue);
+    }
+
+    /**
+     * @return list<array{action: string, field: string, values: list<string>}>|null
+     */
+    private static function scan(mixed $ruleValue): ?array
+    {
+        $conditions = [];
+        $conditionalRules = [];
+        $pending = [];
         $other = false;
 
         foreach (self::segments($ruleValue) as $segment) {
-            $name = self::ruleName($segment);
+            $condition = self::parseSegment($segment, self::ACTIONS);
 
-            if ($name === 'exclude_if' || $name === 'exclude_unless') {
+            if ($condition !== null) {
                 if ($other) {
-                    return true;
+                    return null;
                 }
+
+                $conditions[] = $condition;
+                array_push($conditionalRules, ...$pending);
+                $pending = [];
 
                 continue;
             }
 
-            $other = $other || ! isset(self::ALLOWED_BEFORE_EXCLUDE[$name]);
+            if (isset(self::ALLOWED_BEFORE_EXCLUDE[self::ruleName($segment)])) {
+                continue;
+            }
+
+            $conditionalRule = self::parseSegment($segment, self::CONDITIONAL_RULES);
+
+            if ($conditionalRule === null) {
+                $other = true;
+            } else {
+                $pending[] = $conditionalRule;
+            }
         }
 
-        return false;
+        foreach ($conditionalRules as $conditionalRule) {
+            foreach ($conditions as $condition) {
+                if (! self::excludesOnlyWhenPasses($condition, $conditionalRule)) {
+                    return null;
+                }
+            }
+        }
+
+        return $conditions;
+    }
+
+    /**
+     * Can the exclusion fire only when the conditional rule passes? Both
+     * read one field, so the values decide: `required_if:type,a` fails only
+     * for `a`, which `exclude_unless:type,a,b` keeps.
+     *
+     * @param  array{action: string, field: string, values: list<string>}  $condition
+     * @param  array{action: string, field: string, values: list<string>}  $conditionalRule
+     */
+    private static function excludesOnlyWhenPasses(array $condition, array $conditionalRule): bool
+    {
+        if ($condition['field'] !== $conditionalRule['field']) {
+            return false;
+        }
+
+        $shared = array_intersect($conditionalRule['values'], $condition['values']);
+
+        return $condition['action'] === 'exclude_unless'
+            ? count($shared) === count($conditionalRule['values'])
+            : $shared === [];
     }
 
     private static function ruleName(mixed $segment): string
@@ -160,16 +231,17 @@ final class ExcludeConditionExtractor
     }
 
     /**
+     * @param  list<string>  $actions
      * @return array{action: string, field: string, values: list<string>}|null
      */
-    private static function parseSegment(mixed $segment): ?array
+    private static function parseSegment(mixed $segment, array $actions): ?array
     {
         if (is_array($segment)) {
-            return self::parseTuple($segment);
+            return self::parseTuple($segment, $actions);
         }
 
         if (is_string($segment)) {
-            return self::parseString($segment);
+            return self::parseString($segment, $actions);
         }
 
         return null;
@@ -177,9 +249,10 @@ final class ExcludeConditionExtractor
 
     /**
      * @param  array<int|string, mixed>  $segment
+     * @param  list<string>  $actions
      * @return array{action: string, field: string, values: list<string>}|null
      */
-    private static function parseTuple(array $segment): ?array
+    private static function parseTuple(array $segment, array $actions): ?array
     {
         if (count($segment) < 3) {
             return null;
@@ -188,7 +261,7 @@ final class ExcludeConditionExtractor
         $action = $segment[0] ?? null;
         $field = $segment[1] ?? null;
 
-        if (! is_string($action) || ! in_array($action, self::ACTIONS, true) || ! is_string($field)) {
+        if (! is_string($action) || ! in_array($action, $actions, true) || ! is_string($field)) {
             return null;
         }
 
@@ -203,11 +276,12 @@ final class ExcludeConditionExtractor
     }
 
     /**
+     * @param  list<string>  $actions
      * @return array{action: string, field: string, values: list<string>}|null
      */
-    private static function parseString(string $segment): ?array
+    private static function parseString(string $segment, array $actions): ?array
     {
-        foreach (self::ACTIONS as $action) {
+        foreach ($actions as $action) {
             $prefix = $action . ':';
 
             if (! str_starts_with($segment, $prefix)) {

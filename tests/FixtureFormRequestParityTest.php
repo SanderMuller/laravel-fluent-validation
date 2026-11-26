@@ -19,6 +19,7 @@ use SanderMuller\FluentValidation\Tests\Fixtures\FieldExcludeAfterRuleFluentForm
 use SanderMuller\FluentValidation\Tests\Fixtures\ItemExcludeAfterRuleFluentFormRequest;
 use SanderMuller\FluentValidation\Tests\Fixtures\ItemFieldReferenceFluentFormRequest;
 use SanderMuller\FluentValidation\Tests\Fixtures\NestedWildcardExcludeFluentFormRequest;
+use SanderMuller\FluentValidation\Tests\Fixtures\RequiredIfBeforeExcludeFluentFormRequest;
 
 // =========================================================================
 // Each fixture pins a wildcard rule shape that once gave other errors or
@@ -109,6 +110,9 @@ function fixtureCases(): array
         'field exclude after a rule, the rule fails' => [FieldExcludeAfterRuleFluentFormRequest::class, ['lines' => [['qty' => 5, 'skip' => 1], ['qty' => 'x', 'skip' => 0]]], ['errors' => ['lines.0.qty' => ['The lines.0.qty field must be a string.']]]],
         'field exclude after a rule, the rule passes' => [FieldExcludeAfterRuleFluentFormRequest::class, ['lines' => [['qty' => '5', 'skip' => 1], ['qty' => 'x', 'skip' => 0]]], ['validated' => ['lines' => [1 => ['qty' => 'x']]]]],
         'item exclude after a rule, the rule passes' => [ItemExcludeAfterRuleFluentFormRequest::class, ['items' => [['status' => 'drop'], ['status' => 'keep']]], ['validated' => ['items' => [1 => ['status' => 'keep']]]]],
+        'required_if before an exclude rule that fires, required fails' => [RequiredIfBeforeExcludeFluentFormRequest::class, ['items' => [['type' => 'link']]], ['errors' => ['items.0.email' => ['The items.0.email field is required when items.0.type is link.']]]],
+        'required_if before an exclude rule that fires, required passes' => [RequiredIfBeforeExcludeFluentFormRequest::class, ['items' => [['type' => 'note', 'email' => 'e']]], ['validated' => ['items' => [['type' => 'note']]]]],
+        'required_if before an exclude rule that does not fire' => [RequiredIfBeforeExcludeFluentFormRequest::class, ['items' => [['type' => 'share', 'email' => 'e']]], ['validated' => ['items' => [['type' => 'share', 'email' => 'e']]]]],
         'excluded item next to a failing top-level rule' => [ExcludedItemWithTopErrorFluentFormRequest::class, ['flag' => 1, 'note' => 'x', 'items' => [['x' => 1], ['name' => 'n']]], ['errors' => ['note' => ['The note field must be at least 3 characters.']]]],
     ];
 }
@@ -123,6 +127,37 @@ foreach (fixtureCases() as $name => [$class, $data, $expected]) {
             ->and(fixtureFluentValidatorOutcome($rules, $data))->toBe($expected);
     });
 }
+
+/**
+ * A conditional rule before an exclude rule, with data where both can fire.
+ *
+ * @return array<string, array{array<string, string>, array<string, mixed>}>
+ */
+function conditionalRuleBeforeExcludeCases(): array
+{
+    $rule = static fn (string $rules): array => ['items.*.type' => 'string', 'items.*.email' => $rules];
+    $items = ['items' => [['type' => 'link'], ['type' => 'share'], ['type' => 'note', 'email' => 'e'], ['type' => 'share', 'email' => 'e']]];
+
+    return [
+        'required_if with the values of exclude_unless' => [$rule('nullable|required_if:items.*.type,share|exclude_unless:items.*.type,share'), $items],
+        'required_if with more values than exclude_unless' => [$rule('nullable|required_if:items.*.type,share,link|exclude_unless:items.*.type,share'), $items],
+        'required_if with values that exclude_if does not hold' => [$rule('required_if:items.*.type,share|exclude_if:items.*.type,link,note'), $items],
+        'required_if with a value that exclude_if holds' => [$rule('required_if:items.*.type,link|exclude_if:items.*.type,link'), $items],
+        'required_if on another field' => [$rule('required_if:items.*.other,x|exclude_unless:items.*.type,share') + ['items.*.other' => 'nullable'], ['items' => [['type' => 'link', 'other' => 'x']]]],
+        'prohibited_if with the values of exclude_unless' => [$rule('prohibited_if:items.*.type,link|exclude_unless:items.*.type,share,link'), $items],
+        'prohibited_if with a value outside exclude_unless' => [$rule('prohibited_if:items.*.type,note|exclude_unless:items.*.type,share'), $items],
+        'required_unless before exclude_unless' => [$rule('required_unless:items.*.type,share|exclude_unless:items.*.type,share'), $items],
+        'required_if at the top level' => [['type' => 'string', 'email' => 'nullable|required_if:type,link|exclude_unless:type,share'], ['type' => 'link']],
+    ];
+}
+
+it('gives the same result as Laravel for a conditional rule before an exclude rule', function (string $case): void {
+    [$rules, $data] = conditionalRuleBeforeExcludeCases()[$case];
+    $native = fixtureNativeOutcome($rules, $data);
+
+    expect(fixtureRuleSetOutcome($rules, $data))->toBe($native)
+        ->and(fixtureFluentValidatorOutcome($rules, $data))->toBe($native);
+})->with(array_keys(conditionalRuleBeforeExcludeCases()));
 
 it('keeps the rules of one dispatch value out of the next request with the same rules', function (): void {
     $requests = [

@@ -151,6 +151,8 @@ class JsonImportValidator extends FluentValidator
 
 Cross-field wildcard references such as `requiredUnless('*.type', ...)` work.
 
+`validated()` keeps the array keys that no rule validates, as a Laravel validator does when you build it with `new`. `Validator::make()` leaves them out. To leave them out here too, set `$this->excludeUnvalidatedArrayKeys = true;` after `parent::__construct()`.
+
 If the rules live in a method that is not named `rules()`, mark it with `#[SanderMuller\FluentValidation\FluentRules]` so the [migration Rector rules](https://github.com/sandermuller/laravel-fluent-validation-rector#opting-in-fluentrules-attribute) find it. The attribute does nothing at runtime.
 
 ## Compile pipeline

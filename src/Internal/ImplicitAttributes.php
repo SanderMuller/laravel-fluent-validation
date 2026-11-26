@@ -23,12 +23,15 @@ final class ImplicitAttributes
         // The validator writes the same placeholder for a dot in a data key.
         $placeholder = (string) array_key_first($validator->parseData(['.' => null]));
 
+        $encoded = [];
+
+        // Laravel encodes the rule keys, so the patterns too.
         foreach ($implicitAttributes as $pattern => $attributes) {
-            if (str_contains(implode("\n", $attributes), '\\.')) {
-                $implicitAttributes[$pattern] = str_replace('\\.', $placeholder, $attributes);
-            }
+            $encoded[str_replace('\\.', $placeholder, $pattern)] = str_contains(implode("\n", $attributes), '\\.')
+                ? str_replace('\\.', $placeholder, $attributes)
+                : $attributes;
         }
 
-        (new ReflectionProperty(Validator::class, 'implicitAttributes'))->setValue($validator, $implicitAttributes);
+        (new ReflectionProperty(Validator::class, 'implicitAttributes'))->setValue($validator, $encoded);
     }
 }
