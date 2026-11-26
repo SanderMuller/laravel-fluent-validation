@@ -39,6 +39,16 @@ final class ExcludeConditionExtractor
      */
     private const ALLOWED_BEFORE_EXCLUDE = ['bail' => true, 'nullable' => true, 'sometimes' => true];
 
+    /** The most results {@see self::$leading} keeps. */
+    private const CACHE_MAX = 256;
+
+    /**
+     * {@see leading()} per string rule: RuleSet asks again on each validation.
+     *
+     * @var array<string, list<array{action: string, field: string, values: list<string>}>|null>
+     */
+    private static array $leading = [];
+
     /**
      * @return list<array{action: string, field: string, values: list<string>}>
      */
@@ -83,6 +93,26 @@ final class ExcludeConditionExtractor
      * @return list<array{action: string, field: string, values: list<string>}>|null
      */
     private static function leading(mixed $ruleValue): ?array
+    {
+        if (! is_string($ruleValue)) {
+            return self::scan($ruleValue);
+        }
+
+        if (array_key_exists($ruleValue, self::$leading)) {
+            return self::$leading[$ruleValue];
+        }
+
+        if (count(self::$leading) >= self::CACHE_MAX) {
+            self::$leading = [];
+        }
+
+        return self::$leading[$ruleValue] = self::scan($ruleValue);
+    }
+
+    /**
+     * @return list<array{action: string, field: string, values: list<string>}>|null
+     */
+    private static function scan(mixed $ruleValue): ?array
     {
         $conditions = [];
         $conditionalRules = [];
